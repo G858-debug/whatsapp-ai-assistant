@@ -2,8 +2,7 @@ from flask import Flask, request, jsonify
 import os
 import requests
 import json
-from anthropic import Anthropic
-from openai import OpenAI
+import openai
 from datetime import datetime
 import tempfile
 
@@ -20,20 +19,20 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 anthropic_client = None
 if ANTHROPIC_API_KEY:
     try:
-        anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+        import anthropic
+        anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         print("✅ Anthropic client initialized successfully")
     except Exception as e:
         print(f"❌ Failed to initialize Anthropic client: {e}")
+        anthropic_client = None
 
-# Initialize OpenAI client
-openai_client = None
+# Initialize OpenAI
 if OPENAI_API_KEY:
     try:
-        from openai import OpenAI
-        openai_client = OpenAI(api_key=OPENAI_API_KEY)
-        print("✅ OpenAI client initialized successfully")
+        openai.api_key = OPENAI_API_KEY
+        print("✅ OpenAI configured successfully")
     except Exception as e:
-        print(f"❌ Failed to initialize OpenAI client: {e}")
+        print(f"❌ Failed to configure OpenAI: {e}")
 
 # Simple in-memory storage for client context (we'll upgrade this later)
 client_contexts = {}
@@ -220,16 +219,16 @@ def process_voice_message(audio_id):
             temp_file.write(audio_response.content)
             temp_file_path = temp_file.name
         
-        # Transcribe with OpenAI Whisper
-        if openai_client:
+        # Transcribe with OpenAI Whisper (old API format)
+        if OPENAI_API_KEY:
             with open(temp_file_path, 'rb') as audio_file:
-                transcript = openai_client.audio.transcriptions.create(
+                transcript = openai.Audio.transcribe(
                     model="whisper-1",
                     file=audio_file,
-                    language="en"  # You can change this or let it auto-detect
+                    language="en"
                 )
         else:
-            return "OpenAI client not available"
+            return "OpenAI not configured"
         
         # Clean up temp file
         os.unlink(temp_file_path)
