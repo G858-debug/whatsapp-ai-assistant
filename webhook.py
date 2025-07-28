@@ -3,7 +3,7 @@ import os
 import requests
 import json
 from anthropic import Anthropic
-import openai
+from openai import OpenAI
 from datetime import datetime
 import tempfile
 
@@ -16,9 +16,24 @@ PHONE_NUMBER_ID = os.environ.get('PHONE_NUMBER_ID')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 
-# Initialize AI clients
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
-openai.api_key = OPENAI_API_KEY
+# Initialize AI clients safely
+anthropic_client = None
+if ANTHROPIC_API_KEY:
+    try:
+        anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+        print("✅ Anthropic client initialized successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize Anthropic client: {e}")
+
+# Initialize OpenAI client
+openai_client = None
+if OPENAI_API_KEY:
+    try:
+        from openai import OpenAI
+        openai_client = OpenAI(api_key=OPENAI_API_KEY)
+        print("✅ OpenAI client initialized successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize OpenAI client: {e}")
 
 # Simple in-memory storage for client context (we'll upgrade this later)
 client_contexts = {}
@@ -206,12 +221,15 @@ def process_voice_message(audio_id):
             temp_file_path = temp_file.name
         
         # Transcribe with OpenAI Whisper
-        with open(temp_file_path, 'rb') as audio_file:
-            transcript = openai.Audio.transcribe(
-                model="whisper-1",
-                file=audio_file,
-                language="en"  # You can change this or let it auto-detect
-            )
+        if openai_client:
+            with open(temp_file_path, 'rb') as audio_file:
+                transcript = openai_client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="en"  # You can change this or let it auto-detect
+                )
+        else:
+            return "OpenAI client not available"
         
         # Clean up temp file
         os.unlink(temp_file_path)
