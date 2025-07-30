@@ -40,7 +40,22 @@ def handle_message():
     """Handle incoming WhatsApp messages"""
     try:
         data = request.get_json()
-        print("Received webhook data:", json.dumps(data, indent=2))
+        print("=== FULL WEBHOOK DATA ===")
+        print(json.dumps(data, indent=2))
+        print("=== END WEBHOOK DATA ===")
+        
+        # Debug: Check what's in the value object
+        if data.get('entry') and data['entry'][0].get('changes'):
+            value = data['entry'][0]['changes'][0].get('value', {})
+            print(f"=== VALUE OBJECT KEYS: {list(value.keys())} ===")
+            
+            if 'messages' in value:
+                print(f"=== FOUND MESSAGES: {value['messages']} ===")
+            else:
+                print("=== NO MESSAGES KEY FOUND ===")
+                
+            if 'statuses' in value:
+                print(f"=== FOUND STATUSES: {value['statuses']} ===")
         
         # Check if this is a message
         if (data.get('entry') and 
@@ -120,7 +135,7 @@ Recent conversation:
 
 Respond to the latest message:"""
 
-        # Call Claude API directly
+        # Call Claude API directly with simpler format
         claude_url = "https://api.anthropic.com/v1/messages"
         
         headers = {
@@ -129,20 +144,26 @@ Respond to the latest message:"""
             "anthropic-version": "2023-06-01"
         }
         
+        # Simpler prompt for testing
+        simple_prompt = f"You are a helpful assistant for personal trainers. The client said: '{message_text}'. Give a brief, helpful response about personal training business."
+        
         data = {
-            "model": "claude-3-sonnet-20240229",
-            "max_tokens": 300,
-            "system": system_prompt.format(conversation_history=conversation_history),
+            "model": "claude-3-haiku-20240307",  # Using faster, cheaper model for testing
+            "max_tokens": 200,
             "messages": [
-                {"role": "user", "content": message_text}
+                {"role": "user", "content": simple_prompt}
             ]
         }
         
+        print(f"Calling Claude API with data: {json.dumps(data, indent=2)}")
         response = requests.post(claude_url, headers=headers, json=data)
+        print(f"Claude API response status: {response.status_code}")
+        print(f"Claude API response: {response.text}")
         
         if response.status_code == 200:
             result = response.json()
             ai_response = result['content'][0]['text']
+            print(f"AI Response: {ai_response}")
             
             # Add AI response to context
             client_contexts[phone_number]['messages'].append({
@@ -158,7 +179,21 @@ Respond to the latest message:"""
         
     except Exception as e:
         print(f"Error with Claude API: {str(e)}")
-        return "I'm here to help with your personal training business! Try asking about scheduling, invoicing, or client management."
+        
+        # Smart fallback responses based on keywords
+        message_lower = message_text.lower()
+        
+        if any(word in message_lower for word in ['schedule', 'booking', 'appointment', 'session']):
+            return "I can help with scheduling! For now, I recommend using a simple calendar system. Would you like tips on managing client appointments?"
+        
+        elif any(word in message_lower for word in ['invoice', 'payment', 'bill', 'money']):
+            return "For invoicing, I suggest creating a simple template with: Client name, services provided, amount due, and payment terms. Would you like help with payment follow-up strategies?"
+        
+        elif any(word in message_lower for word in ['client', 'customer']):
+            return "Great question about client management! As a personal trainer, clear communication and consistent follow-up are key. What specific client situation are you dealing with?"
+        
+        else:
+            return "Hi! I'm your AI assistant for personal training business. I can help with scheduling, invoicing, client management, and more. What would you like assistance with?"
 
 def send_whatsapp_message(phone_number, message_text):
     """Send message back to WhatsApp"""
