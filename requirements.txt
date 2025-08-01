@@ -7,3 +7,5 @@ google-auth-httplib2==0.1.1
 google-api-python-client==2.108.0
 python-dateutil==2.8.2
 pytz==2023.3
+supabase==1.0.4
+psycopg2-binary==2.9.7
