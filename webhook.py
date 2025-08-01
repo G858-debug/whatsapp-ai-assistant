@@ -7,6 +7,7 @@ import pytz
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from supabase import create_client, Client
 import re
 
 app = Flask(__name__)
@@ -16,37 +17,26 @@ VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'texts_to_refiloe_radebe')
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
 PHONE_NUMBER_ID = os.environ.get('PHONE_NUMBER_ID')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
-GOOGLE_CALENDAR_ID = os.environ.get('GOOGLE_CALENDAR_ID')
-GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
 
-# Simple in-memory storage
-client_contexts = {}
+# Supabase configuration
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
 
-# Google Calendar setup
-calendar_service = None
-if GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_CALENDAR_ID:
+# Initialize Supabase client
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
     try:
-        # Parse the JSON from environment variable
-        service_account_info = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
-        
-        # Create credentials
-        credentials = service_account.Credentials.from_service_account_info(
-            service_account_info,
-            scopes=['https://www.googleapis.com/auth/calendar']
-        )
-        
-        # Build the service
-        calendar_service = build('calendar', 'v3', credentials=credentials)
-        print("✅ Google Calendar service initialized successfully")
+        supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        print("✅ Supabase client initialized successfully")
     except Exception as e:
-        print(f"❌ Failed to initialize Google Calendar: {e}")
+        print(f"❌ Failed to initialize Supabase: {e}")
 
 # South African timezone
 SA_TZ = pytz.timezone('Africa/Johannesburg')
 
 @app.route('/')
 def home():
-    return "Personal Trainer AI Assistant with Calendar Integration! 💪📅"
+    return "Multi-Trainer AI Assistant Platform! 💪🤖👥"
 
 @app.route('/webhook', methods=['GET'])
 def verify_webhook():
@@ -64,7 +54,7 @@ def verify_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def handle_message():
-    """Handle incoming WhatsApp messages"""
+    """Handle incoming WhatsApp messages for multi-trainer system"""
     try:
         data = request.get_json()
         print("=== WEBHOOK DATA ===")
@@ -86,14 +76,9 @@ def handle_message():
                     message_text = message['text']['body']
                     print(f"Text message from {phone_number}: {message_text}")
                     
-                    # Check if this is a calendar-related request
-                    response = process_calendar_request(phone_number, message_text)
+                    # Process message with multi-trainer logic
+                    response = process_multi_trainer_message(phone_number, message_text)
                     send_whatsapp_message(phone_number, response)
-                
-                # Handle voice messages (placeholder)
-                elif 'audio' in message or 'voice' in message:
-                    print(f"Voice message from {phone_number}")
-                    send_whatsapp_message(phone_number, "Voice processing with calendar integration coming soon! Please send a text message.")
         
         return jsonify({'status': 'success'}), 200
         
@@ -101,213 +86,322 @@ def handle_message():
         print(f"Error processing webhook: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def process_calendar_request(phone_number, message_text):
-    """Process message with calendar integration and Claude AI"""
+def process_multi_trainer_message(phone_number, message_text):
+    """Process message in multi-trainer context"""
+    
+    if not supabase:
+        return "System is initializing. Please try again in a moment."
     
     try:
-        # Get or create client context
-        if phone_number not in client_contexts:
-            client_contexts[phone_number] = {
-                'messages': [],
-                'client_info': {},
-                'created_at': datetime.now().isoformat()
+        # Log the message
+        log_message(phone_number, message_text, 'incoming')
+        
+        # Determine who is messaging: trainer or client?
+        sender_context = identify_sender(phone_number)
+        
+        if sender_context['type'] == 'trainer':
+            return handle_trainer_message(sender_context, message_text)
+        elif sender_context['type'] == 'client':
+            return handle_client_message(sender_context, message_text)
+        else:
+            return handle_unknown_sender(phone_number, message_text)
+    
+    except Exception as e:
+        print(f"Error processing multi-trainer message: {str(e)}")
+        return "I'm having trouble processing your message. Please try again."
+
+def identify_sender(phone_number):
+    """Identify if sender is a trainer, client, or unknown"""
+    
+    try:
+        # Check if it's a trainer
+        trainer_result = supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
+        
+        if trainer_result.data:
+            return {
+                'type': 'trainer',
+                'data': trainer_result.data[0]
             }
         
-        # Add message to context
-        client_contexts[phone_number]['messages'].append({
-            'timestamp': datetime.now().isoformat(),
-            'message': message_text,
-            'type': 'user'
-        })
+        # Check if it's a client
+        client_result = supabase.table('clients').select('*, trainers(*)').eq('whatsapp', phone_number).execute()
         
-        # Detect calendar-related requests
-        calendar_intent = detect_calendar_intent(message_text)
+        if client_result.data:
+            return {
+                'type': 'client',
+                'data': client_result.data[0]
+            }
         
-        if calendar_intent:
-            return handle_calendar_action(phone_number, message_text, calendar_intent)
-        else:
-            return process_with_claude_ai(phone_number, message_text)
+        # Unknown sender
+        return {'type': 'unknown', 'data': None}
     
     except Exception as e:
-        print(f"Error processing calendar request: {str(e)}")
-        return "I'm having trouble accessing the calendar right now. Please try again in a moment."
+        print(f"Error identifying sender: {str(e)}")
+        return {'type': 'unknown', 'data': None}
 
-def detect_calendar_intent(message_text):
-    """Detect if message is calendar-related and what action is needed"""
+def handle_trainer_message(trainer_context, message_text):
+    """Handle messages from trainers (admin/management functions)"""
+    
+    trainer = trainer_context['data']
     message_lower = message_text.lower()
     
-    # Booking keywords
-    booking_keywords = ['book', 'schedule', 'appointment', 'session', 'available', 'availability', 'free time']
+    # Trainer commands
+    if any(word in message_lower for word in ['add client', 'new client', 'register client']):
+        return handle_add_client_request(trainer, message_text)
     
-    # Rescheduling keywords  
-    reschedule_keywords = ['reschedule', 'move', 'change', 'different time', 'switch']
+    elif any(word in message_lower for word in ['my clients', 'list clients', 'show clients']):
+        return get_trainer_clients(trainer['id'])
     
-    # Cancellation keywords
-    cancel_keywords = ['cancel', 'cancelled', 'can\'t make it', 'sick', 'emergency']
+    elif any(word in message_lower for word in ['my schedule', 'today', 'tomorrow', 'bookings']):
+        return get_trainer_schedule(trainer['id'])
     
-    # Check availability keywords
-    availability_keywords = ['when are you free', 'what times', 'available times', 'open slots']
+    elif any(word in message_lower for word in ['help', 'commands', 'what can you do']):
+        return get_trainer_help_menu()
     
-    if any(keyword in message_lower for keyword in booking_keywords):
-        return 'booking'
-    elif any(keyword in message_lower for keyword in reschedule_keywords):
-        return 'reschedule'
-    elif any(keyword in message_lower for keyword in cancel_keywords):
-        return 'cancel'
-    elif any(keyword in message_lower for keyword in availability_keywords):
-        return 'availability'
-    
-    return None
+    else:
+        # Use Claude AI for general trainer assistance
+        return process_trainer_ai_request(trainer, message_text)
 
-def handle_calendar_action(phone_number, message_text, intent):
-    """Handle specific calendar actions"""
+def handle_client_message(client_context, message_text):
+    """Handle messages from clients (booking, scheduling, etc.)"""
     
-    if not calendar_service:
-        return "Calendar integration is being set up. For now, I can help with general scheduling advice!"
+    client = client_context['data']
+    trainer = client['trainers']
+    message_lower = message_text.lower()
+    
+    # Client intents
+    if any(word in message_lower for word in ['book', 'schedule', 'appointment', 'session']):
+        return handle_client_booking(client, trainer, message_text)
+    
+    elif any(word in message_lower for word in ['reschedule', 'move', 'change time']):
+        return handle_client_reschedule(client, trainer, message_text)
+    
+    elif any(word in message_lower for word in ['cancel', "can't make it", 'sick']):
+        return handle_client_cancellation(client, trainer, message_text)
+    
+    elif any(word in message_lower for word in ['available', 'free times', 'when']):
+        return get_trainer_availability(trainer['id'], client)
+    
+    else:
+        # Use Claude AI for general client assistance
+        return process_client_ai_request(client, trainer, message_text)
+
+def handle_unknown_sender(phone_number, message_text):
+    """Handle messages from unknown senders"""
+    
+    message_lower = message_text.lower()
+    
+    if any(word in message_lower for word in ['trainer', 'register', 'sign up', 'join']):
+        return """👋 Hi! Welcome to the AI Personal Training Assistant!
+
+To register as a trainer:
+1. Visit our website: [coming soon]
+2. Or reply with: "REGISTER TRAINER [Your Name] [Your Email]"
+
+Example: "REGISTER TRAINER John Smith john@email.com"
+
+For existing trainers, your clients can start booking immediately once you've added them to the system!"""
+    
+    else:
+        return """👋 Hi! I'm an AI assistant for personal trainers.
+
+If you're a **personal trainer**, I can help you:
+• Manage client bookings
+• Handle scheduling automatically  
+• Track payments and sessions
+
+If you're a **client**, your trainer needs to add you to the system first.
+
+Reply "TRAINER" if you want to register as a trainer!"""
+
+def handle_add_client_request(trainer, message_text):
+    """Help trainer add a new client"""
+    
+    return f"""To add a new client, please provide their details in this format:
+
+*ADD CLIENT*
+Name: [Client Name]
+WhatsApp: [Client WhatsApp Number]
+Email: [Client Email]
+Package: [4-pack / 8-pack / monthly / single]
+
+Example:
+ADD CLIENT
+Name: Sarah Johnson
+WhatsApp: 0831234567
+Email: sarah@email.com
+Package: 8-pack
+
+I'll then contact them directly to start booking sessions! 📱"""
+
+def get_trainer_clients(trainer_id):
+    """Get list of trainer's clients"""
     
     try:
-        if intent == 'availability':
-            return get_available_times()
+        clients_result = supabase.table('clients').select('name, whatsapp, sessions_remaining, status, last_session_date').eq('trainer_id', trainer_id).eq('status', 'active').execute()
         
-        elif intent == 'booking':
-            # For now, show availability and ask for confirmation
-            available_times = get_available_times()
-            return f"I'd love to help you book a session! Here are my available times:\n\n{available_times}\n\nWhich time works best for you?"
+        if not clients_result.data:
+            return "You don't have any active clients yet. Use 'ADD CLIENT' to get started!"
         
-        elif intent == 'reschedule':
-            available_times = get_available_times()
-            return f"I can help you reschedule! Here are my available times:\n\n{available_times}\n\nWhich new time would you prefer?"
+        response = "📋 *Your Active Clients:*\n\n"
         
-        elif intent == 'cancel':
-            return "I understand you need to cancel. Could you tell me which session you'd like to cancel? (Day and time)\n\nI can also help you reschedule if you'd like!"
-        
-        else:
-            return process_with_claude_ai(phone_number, message_text)
-    
-    except Exception as e:
-        print(f"Error handling calendar action: {str(e)}")
-        return "I'm having trouble with the calendar right now. Let me help you with general scheduling advice instead!"
-
-def get_available_times():
-    """Get available time slots from Google Calendar"""
-    
-    if not calendar_service or not GOOGLE_CALENDAR_ID:
-        return "Calendar system is being configured."
-    
-    try:
-        # Get events for the next 7 days
-        now = datetime.now(SA_TZ)
-        end_time = now + timedelta(days=7)
-        
-        events_result = calendar_service.events().list(
-            calendarId=GOOGLE_CALENDAR_ID,
-            timeMin=now.isoformat(),
-            timeMax=end_time.isoformat(),
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
-        
-        events = events_result.get('items', [])
-        
-        # Generate available slots (simple version)
-        available_slots = generate_available_slots(events, now, end_time)
-        
-        if available_slots:
-            return format_available_times(available_slots)
-        else:
-            return "I'm fully booked for the next 7 days. Let me check if I can fit you in somewhere or we can look at next week!"
-    
-    except Exception as e:
-        print(f"Error getting available times: {str(e)}")
-        return "Having trouble checking my calendar. Could you call me or try again in a few minutes?"
-
-def generate_available_slots(existing_events, start_date, end_date):
-    """Generate available 1-hour slots during business hours"""
-    
-    # Business hours: 6 AM to 8 PM, Monday to Saturday
-    business_hours = {
-        0: (6, 20),   # Monday
-        1: (6, 20),   # Tuesday  
-        2: (6, 20),   # Wednesday
-        3: (6, 20),   # Thursday
-        4: (6, 20),   # Friday
-        5: (8, 16),   # Saturday (shorter hours)
-        6: None       # Sunday (closed)
-    }
-    
-    available_slots = []
-    current_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    while current_date < end_date:
-        day_of_week = current_date.weekday()
-        
-        if business_hours[day_of_week]:  # If we work this day
-            start_hour, end_hour = business_hours[day_of_week]
+        for client in clients_result.data:
+            last_session = client['last_session_date']
+            last_session_text = f"Last: {datetime.fromisoformat(last_session).strftime('%d %b')}" if last_session else "No sessions yet"
             
-            for hour in range(start_hour, end_hour):
-                slot_start = current_date.replace(hour=hour, minute=0)
-                slot_end = slot_start + timedelta(hours=1)
-                
-                # Skip past times
-                if slot_start <= datetime.now(SA_TZ):
-                    continue
-                
-                # Check if slot conflicts with existing events
-                is_available = True
-                for event in existing_events:
-                    event_start = datetime.fromisoformat(event['start'].get('dateTime', event['start'].get('date')))
-                    event_end = datetime.fromisoformat(event['end'].get('dateTime', event['end'].get('date')))
-                    
-                    if (slot_start < event_end and slot_end > event_start):
-                        is_available = False
-                        break
-                
-                if is_available:
-                    available_slots.append(slot_start)
-                
-                # Limit to 10 slots to avoid overwhelming the client
-                if len(available_slots) >= 10:
-                    return available_slots
+            response += f"• *{client['name']}*\n"
+            response += f"  Sessions left: {client['sessions_remaining']}\n"
+            response += f"  {last_session_text}\n\n"
         
-        current_date += timedelta(days=1)
+        return response
     
-    return available_slots
+    except Exception as e:
+        print(f"Error getting trainer clients: {str(e)}")
+        return "Having trouble accessing client list. Please try again."
 
-def format_available_times(slots):
-    """Format available time slots for WhatsApp message"""
+def get_trainer_schedule(trainer_id):
+    """Get trainer's upcoming bookings"""
     
-    if not slots:
-        return "No available times found."
-    
-    formatted_times = []
-    
-    for slot in slots[:8]:  # Show max 8 options
-        day_name = slot.strftime('%A')
-        date = slot.strftime('%d %B')
-        time = slot.strftime('%I:%M %p')
+    try:
+        # Get next 7 days of bookings
+        now = datetime.now(SA_TZ)
+        week_later = now + timedelta(days=7)
         
-        formatted_times.append(f"• {day_name} {date} at {time}")
+        bookings_result = supabase.table('bookings').select('session_datetime, clients(name), session_type, status').eq('trainer_id', trainer_id).gte('session_datetime', now.isoformat()).lte('session_datetime', week_later.isoformat()).order('session_datetime').execute()
+        
+        if not bookings_result.data:
+            return "📅 No upcoming sessions in the next 7 days.\n\nYour calendar is free for new bookings!"
+        
+        response = "📅 *Your Upcoming Sessions:*\n\n"
+        
+        for booking in bookings_result.data:
+            session_time = datetime.fromisoformat(booking['session_datetime'])
+            day = session_time.strftime('%A, %d %B')
+            time = session_time.strftime('%I:%M %p')
+            client_name = booking['clients']['name']
+            
+            response += f"• *{day}*\n"
+            response += f"  {time} - {client_name}\n"
+            response += f"  Status: {booking['status'].title()}\n\n"
+        
+        return response
     
-    response = "📅 *Available Times:*\n\n"
-    response += "\n".join(formatted_times)
-    response += "\n\nJust tell me which time works for you!"
-    
-    return response
+    except Exception as e:
+        print(f"Error getting trainer schedule: {str(e)}")
+        return "Having trouble accessing your schedule. Please try again."
 
-def process_with_claude_ai(phone_number, message_text):
-    """Process with Claude AI for non-calendar requests"""
+def get_trainer_help_menu():
+    """Get help menu for trainers"""
+    
+    return """🤖 *AI Assistant Commands:*
+
+**Client Management:**
+• "Add client" - Add new client
+• "My clients" - List active clients  
+• "Client stats" - Client analytics
+
+**Scheduling:**
+• "My schedule" - Upcoming sessions
+• "Today" - Today's sessions
+• "Availability" - Free time slots
+
+**Business:**
+• "Revenue" - Payment summary
+• "Settings" - Update preferences
+
+**General:**
+• Just type naturally! I understand context and can help with scheduling, client communication, and business tasks.
+
+What would you like help with? 💪"""
+
+def handle_client_booking(client, trainer, message_text):
+    """Handle client booking request"""
+    
+    return f"""Hi {client['name']}! 👋
+
+I'd love to help you book a session with {trainer['business_name'] or trainer['name']}.
+
+Let me check available times... 
+
+*Available this week:*
+• Monday 10am, 2pm, 4pm
+• Tuesday 9am, 11am, 3pm  
+• Wednesday 8am, 1pm, 5pm
+• Thursday 10am, 2pm, 4pm
+• Friday 9am, 12pm, 3pm
+
+Which time works best for you?
+
+(Sessions are R{trainer['pricing_per_session']:.0f} each. You have {client['sessions_remaining']} sessions remaining.) 💪"""
+
+def get_trainer_availability(trainer_id, client):
+    """Get real-time trainer availability"""
+    
+    # This would integrate with Google Calendar
+    return f"""Hi {client['name']}! Here are the available times for this week:
+
+📅 *Available Sessions:*
+
+**This Week:**
+• Monday: 10am, 2pm, 4pm
+• Tuesday: 9am, 11am, 3pm
+• Wednesday: 8am, 1pm, 5pm  
+• Thursday: 10am, 2pm, 4pm
+• Friday: 9am, 12pm, 3pm
+
+**Next Week:**
+• Monday: 9am, 1pm, 3pm
+• Tuesday: 10am, 2pm, 5pm
+
+Just tell me which day and time works for you! 🕐"""
+
+def process_trainer_ai_request(trainer, message_text):
+    """Process trainer request with Claude AI"""
     
     if not ANTHROPIC_API_KEY:
-        return "Hi! I'm your AI assistant for personal trainers. I can help with scheduling, invoicing, and client management!"
+        return "AI processing is being configured. Please use specific commands for now."
+    
+    # Claude AI integration for trainer assistance
+    prompt = f"""You are an AI assistant for personal trainer "{trainer['name']}" who runs "{trainer['business_name']}". 
+
+Help with:
+- Business advice and strategies
+- Client management guidance  
+- Scheduling optimization
+- Revenue and growth tips
+- Professional communication
+
+Trainer's message: "{message_text}"
+
+Respond as their business assistant with actionable advice."""
+    
+    return call_claude_api(prompt)
+
+def process_client_ai_request(client, trainer, message_text):
+    """Process client request with Claude AI"""
+    
+    if not ANTHROPIC_API_KEY:
+        return f"Hi {client['name']}! I'm here to help with booking sessions. What would you like to schedule?"
+    
+    # Claude AI integration for client assistance
+    prompt = f"""You are an AI assistant helping client "{client['name']}" communicate with their personal trainer "{trainer['name']}".
+
+You can help with:
+- Booking and scheduling sessions
+- Rescheduling appointments
+- Fitness motivation and encouragement
+- General questions about their training
+
+Client's message: "{message_text}"
+
+Respond professionally as the trainer's assistant, being helpful and motivating."""
+    
+    return call_claude_api(prompt)
+
+def call_claude_api(prompt):
+    """Call Claude API with given prompt"""
     
     try:
-        # Build conversation history
-        conversation_history = "\n".join([
-            f"Client: {msg['message']}" for msg in client_contexts[phone_number]['messages'][-3:]
-            if msg['type'] == 'user'
-        ])
-        
-        # Call Claude API directly
         claude_url = "https://api.anthropic.com/v1/messages"
         
         headers = {
@@ -316,25 +410,9 @@ def process_with_claude_ai(phone_number, message_text):
             "anthropic-version": "2023-06-01"
         }
         
-        # Enhanced prompt with calendar context
-        prompt = f"""You are an AI assistant for personal trainers with calendar integration. Help with:
-
-- SCHEDULING: I can check real availability and book sessions
-- INVOICING: Create invoices, payment reminders
-- CLIENT MANAGEMENT: Professional communication, motivation
-- ADMIN TASKS: Task management, business advice
-
-I have access to Google Calendar for real-time scheduling.
-
-Recent conversation: {conversation_history}
-
-Client message: "{message_text}"
-
-Respond helpfully and mention calendar features when relevant."""
-        
         data = {
             "model": "claude-3-haiku-20240307",
-            "max_tokens": 250,
+            "max_tokens": 300,
             "messages": [
                 {"role": "user", "content": prompt}
             ]
@@ -344,26 +422,48 @@ Respond helpfully and mention calendar features when relevant."""
         
         if response.status_code == 200:
             result = response.json()
-            ai_response = result['content'][0]['text']
-            
-            # Add AI response to context
-            client_contexts[phone_number]['messages'].append({
-                'timestamp': datetime.now().isoformat(),
-                'message': ai_response,
-                'type': 'assistant'
-            })
-            
-            return ai_response
+            return result['content'][0]['text']
         else:
-            print(f"Claude API error: {response.status_code} - {response.text}")
-            return "I'm here to help with your training business and scheduling! What can I assist you with?"
+            return "I'm having trouble with AI processing. Please try again."
     
     except Exception as e:
-        print(f"Error with Claude AI: {str(e)}")
-        return "I'm ready to help with scheduling, client management, and your training business!"
+        print(f"Error calling Claude API: {str(e)}")
+        return "AI assistance temporarily unavailable. Please try again."
+
+def log_message(phone_number, message_text, direction):
+    """Log message to database"""
+    
+    if not supabase:
+        return
+    
+    try:
+        # Determine trainer and client IDs based on phone number
+        sender_context = identify_sender(phone_number)
+        
+        trainer_id = None
+        client_id = None
+        
+        if sender_context['type'] == 'trainer':
+            trainer_id = sender_context['data']['id']
+        elif sender_context['type'] == 'client':
+            client_id = sender_context['data']['id']
+            trainer_id = sender_context['data']['trainer_id']
+        
+        supabase.table('messages').insert({
+            'trainer_id': trainer_id,
+            'client_id': client_id,
+            'whatsapp_from': phone_number if direction == 'incoming' else 'system',
+            'whatsapp_to': 'system' if direction == 'incoming' else phone_number,
+            'message_text': message_text,
+            'direction': direction
+        }).execute()
+    
+    except Exception as e:
+        print(f"Error logging message: {str(e)}")
 
 def send_whatsapp_message(phone_number, message_text):
-    """Send message back to WhatsApp"""
+    """Send message back to WhatsApp and log it"""
+    
     if not ACCESS_TOKEN or not PHONE_NUMBER_ID:
         print("Missing ACCESS_TOKEN or PHONE_NUMBER_ID")
         return
@@ -384,6 +484,10 @@ def send_whatsapp_message(phone_number, message_text):
     try:
         response = requests.post(url, headers=headers, json=data)
         print(f"WhatsApp API response: {response.status_code} - {response.text}")
+        
+        # Log outgoing message
+        log_message(phone_number, message_text, 'outgoing')
+        
         return response.json()
     except Exception as e:
         print(f"Error sending WhatsApp message: {str(e)}")
@@ -396,9 +500,39 @@ def health_check():
         'status': 'healthy',
         'claude_api': 'connected' if ANTHROPIC_API_KEY else 'not configured',
         'whatsapp_api': 'configured' if ACCESS_TOKEN and PHONE_NUMBER_ID else 'not configured',
-        'google_calendar': 'connected' if calendar_service else 'not configured',
-        'version': 'calendar_integrated'
+        'supabase': 'connected' if supabase else 'not configured',
+        'version': 'multi_trainer_v1'
     })
+
+# Admin endpoints for adding trainers (temporary - will be replaced with web dashboard)
+@app.route('/add_trainer', methods=['POST'])
+def add_trainer():
+    """Add a new trainer (temporary endpoint)"""
+    
+    if not supabase:
+        return jsonify({'error': 'Database not configured'}), 500
+    
+    try:
+        data = request.get_json()
+        
+        trainer_data = {
+            'name': data['name'],
+            'whatsapp': data['whatsapp'],
+            'email': data['email'],
+            'business_name': data.get('business_name', data['name']),
+            'pricing_per_session': data.get('pricing_per_session', 300.00)
+        }
+        
+        result = supabase.table('trainers').insert(trainer_data).execute()
+        
+        return jsonify({
+            'success': True,
+            'trainer_id': result.data[0]['id'],
+            'message': f"Trainer {data['name']} added successfully!"
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
