@@ -759,7 +759,7 @@ def call_claude_api_simple(prompt):
         }
         
         data = {
-            "model": "claude-3-haiku-20240307",
+            "model": "claude-3-sonnet-20240229",
             "max_tokens": 150,  # Shorter responses
             "messages": [
                 {"role": "user", "content": prompt}
