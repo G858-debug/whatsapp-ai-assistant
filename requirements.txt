@@ -1,12 +1,34 @@
-Flask==2.3.3
+# Flask web framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# WhatsApp API & HTTP requests
 requests==2.31.0
-gunicorn==21.2.0
-google-auth==2.23.4
-google-auth-oauthlib==1.0.0
-google-auth-httplib2==0.1.1
-google-api-python-client==2.108.0
-python-dateutil==2.8.2
-pytz==2023.3
-supabase==1.0.4
-psycopg2-binary==2.9.7
+
+# Anthropic Claude API
+anthropic==0.18.1
+
+# Supabase client
+supabase==2.3.4
+postgrest==0.13.0
+gotrue==2.1.0
+realtime==1.0.2
+storage3==0.6.1
+
+# Scheduling
 APScheduler==3.10.4
+
+# Timezone handling
+pytz==2024.1
+
+# Environment variables (optional, for development)
+python-dotenv==1.0.0
+
+# Security
+cryptography==41.0.7
+
+# JSON handling
+jsonschema==4.20.0
+
+# Logging enhancements
+python-json-logger==2.0.7
