@@ -198,7 +198,7 @@ def extract_client_details_naturally(text):
     
     details = {}
     
-    # Phone number patterns
+    # Phone number patterns (improved)
     phone_patterns = [
         r'(\+27|27|0)[\s\-]?(\d{2})[\s\-]?(\d{3})[\s\-]?(\d{4})',
         r'(\d{3})[\s\-]?(\d{3})[\s\-]?(\d{4})',
@@ -212,7 +212,7 @@ def extract_client_details_naturally(text):
             phone = re.sub(r'[^\d]', '', phone_match.group())
             if phone.startswith('0'):
                 phone = '27' + phone[1:]
-            elif not phone.startswith('27'):
+            elif not phone.startswith('27') and len(phone) == 10:
                 phone = '27' + phone
             details['phone'] = phone
             break
@@ -222,49 +222,83 @@ def extract_client_details_naturally(text):
     if email_match:
         details['email'] = email_match.group()
     
-    # Package patterns
+    # Enhanced package patterns
+    text_lower = text.lower()
     package_patterns = {
-        r'\b(single|one)\b': 'single',
-        r'\b(4[\-\s]?pack|four)\b': '4-pack',
-        r'\b(8[\-\s]?pack|eight)\b': '8-pack',
-        r'\b(monthly|month)\b': 'monthly'
+        r'\b(single|one|1)\b': 'single',
+        r'\b(4[\-\s]?pack|four|4)\b': '4-pack',
+        r'\b(8[\-\s]?pack|eight|8)\b': '8-pack',
+        r'\b(monthly|month)\b': 'monthly',
+        r'\b(twice\s+a?\s*week|2\s*times?\s+a?\s*week|2x\s*week)\b': '8-pack',  # New pattern
+        r'\b(once\s+a?\s*week|1\s*time?\s+a?\s*week|weekly)\b': '4-pack',
+        r'\b(three\s+times?\s+a?\s*week|3x\s*week)\b': '12-pack'
     }
     
     for pattern, package in package_patterns.items():
-        if re.search(pattern, text, re.IGNORECASE):
+        if re.search(pattern, text_lower):
             details['package'] = package
             break
     
-    # Simple name extraction
-    # Look for capitalized words that could be names
-    words = text.split()
-    potential_names = []
+    # If no package specified, default to single
+    if 'package' not in details:
+        details['package'] = 'single'
     
-    for i, word in enumerate(words):
-        if word[0].isupper() and word.isalpha() and len(word) > 2:
-            # Check if next word is also capitalized (likely surname)
-            if i + 1 < len(words) and words[i + 1][0].isupper() and words[i + 1].isalpha():
-                full_name = f"{word} {words[i + 1]}"
-                # Avoid common words
-                if not any(common in full_name.lower() for common in ['add', 'client', 'new', 'email', 'phone', 'pack']):
-                    details['name'] = full_name
+    # Enhanced name extraction
+    lines = text.strip().split('\n')
+    
+    # Try to find name on first line or as first capitalized words
+    for line in lines:
+        line = line.strip()
+        
+        # Skip lines that look like phone numbers or emails
+        if re.search(r'\d{3,}|@', line):
+            continue
+            
+        # Look for capitalized names (First Last format)
+        name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', line)
+        if name_match:
+            potential_name = name_match.group(1)
+            # Avoid common words
+            if not any(word in potential_name.lower() for word in ['email', 'phone', 'client', 'add', 'new', 'week', 'pack']):
+                details['name'] = potential_name
+                break
+    
+    # If still no name found, try the first non-empty line
+    if 'name' not in details:
+        for line in lines:
+            line = line.strip()
+            if line and not re.search(r'\d{3,}|@|week|pack|times?', line.lower()):
+                # Clean up the line and use as name if it looks like a name
+                if len(line.split()) >= 2 and all(word[0].isupper() for word in line.split() if word.isalpha()):
+                    details['name'] = line
                     break
     
+    print(f"Extracted details: {details}")  # Debug logging
     return details
 
 def complete_client_addition(trainer, client_details):
     """Add client to database with extracted details"""
     
     try:
+        print(f"Attempting to add client with details: {client_details}")
+        
+        # Validate required fields
+        if not client_details.get('name'):
+            return f"I couldn't find a name in your message. Could you try again with format:\n\nName\nPhone number\nEmail\nPackage type"
+        
+        if not client_details.get('phone'):
+            return f"I couldn't find a phone number. Could you try again with format:\n\nName\nPhone number\nEmail\nPackage type"
+        
         # Set defaults
         package = client_details.get('package', 'single')
         sessions_map = {
             'single': 1,
             '4-pack': 4,
             '8-pack': 8,
+            '12-pack': 12,
             'monthly': 8
         }
-        sessions = sessions_map.get(package, 1)
+        sessions = sessions_map.get(package, 8)  # Default to 8 for "twice a week"
         
         # Prepare client record
         client_record = {
@@ -277,8 +311,12 @@ def complete_client_addition(trainer, client_details):
             'status': 'active'
         }
         
+        print(f"Inserting client record: {client_record}")
+        
         # Add to database
         result = supabase.table('clients').insert(client_record).execute()
+        
+        print(f"Database result: {result}")
         
         if result.data:
             # Trigger onboarding
@@ -298,11 +336,12 @@ def complete_client_addition(trainer, client_details):
 All set, {trainer['name']}! 😊"""
         
         else:
-            return f"Hmm, I had trouble adding {client_details['name']}. Could you try again?"
+            return f"Database didn't return data. Something went wrong adding {client_details['name']}."
     
     except Exception as e:
         print(f"Error completing client addition: {str(e)}")
-        return "I ran into a small issue. Could you give me the client details again?"
+        print(f"Client details were: {client_details}")
+        return f"I ran into an issue: {str(e)}. Could you try again?"
 
 def send_client_onboarding_refiloe(client_whatsapp, client_name, trainer, sessions):
     """Refiloe's personalized client onboarding"""
@@ -759,7 +798,7 @@ def call_claude_api_simple(prompt):
         }
         
         data = {
-            "model": "claude-3-sonnet-20240229",
+            "model": "claude-3-haiku-20240307",
             "max_tokens": 150,  # Shorter responses
             "messages": [
                 {"role": "user", "content": prompt}
