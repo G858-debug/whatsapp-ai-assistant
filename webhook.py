@@ -1,4 +1,16 @@
-from flask import Flask, request, jsonify
+def handle_unknown_sender(phone_number, message_text):
+    """Refiloe handles unknown senders"""
+    
+    message_lower = message_text.lower()
+    
+    if any(word in message_lower for word in ['trainer', 'register', 'sign up', 'join']):
+        return """👋 Hi there! I'm Refiloe!
+
+I help personal trainers manage their clients automatically via WhatsApp! 
+
+Want to join as a trainer? Here's how:
+• Visit our website (coming soon!)
+• Or message: "REGISTERfrom flask import Flask, request, jsonify
 import os
 import requests
 import json
@@ -147,33 +159,426 @@ def identify_sender(phone_number):
         return {'type': 'unknown', 'data': None}
 
 def handle_trainer_message(trainer_context, message_text):
-    """Handle messages from trainers (admin/management functions)"""
+    """Handle messages from trainers with Refiloe's personality"""
     
     trainer = trainer_context['data']
     message_lower = message_text.lower()
     
-    # Enhanced ADD CLIENT with automatic onboarding
-    if message_lower.startswith('add client'):
-        return process_add_client(trainer, message_text)
+    # Natural language client addition
+    if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'register client', 'add a client']):
+        return handle_natural_client_addition(trainer, message_text)
     
-    elif any(word in message_lower for word in ['my clients', 'list clients', 'show clients']):
-        return get_trainer_clients(trainer['id'])
+    elif any(word in message_lower for word in ['my clients', 'list clients', 'show clients', 'clients']):
+        return get_trainer_clients_refiloe(trainer['id'], trainer['name'])
     
-    elif any(word in message_lower for word in ['my schedule', 'today', 'tomorrow', 'bookings']):
-        return get_trainer_schedule(trainer['id'])
+    elif any(word in message_lower for word in ['my schedule', 'today', 'tomorrow', 'bookings', 'schedule']):
+        return get_trainer_schedule_refiloe(trainer['id'], trainer['name'])
     
-    elif any(word in message_lower for word in ['revenue', 'payments', 'money']):
-        return get_trainer_revenue(trainer['id'])
+    elif any(word in message_lower for word in ['revenue', 'payments', 'money', 'earnings']):
+        return get_trainer_revenue_refiloe(trainer['id'], trainer['name'])
     
-    elif any(word in message_lower for word in ['send reminders', 'remind clients']):
-        return trigger_manual_reminders(trainer['id'])
+    elif any(phrase in message_lower for phrase in ['send reminders', 'remind clients', 'follow up']):
+        return trigger_manual_reminders_refiloe(trainer['id'], trainer['name'])
     
     elif any(word in message_lower for word in ['help', 'commands', 'what can you do']):
-        return get_trainer_help_menu()
+        return get_trainer_help_menu_refiloe(trainer['name'])
     
     else:
-        # Use Claude AI for general trainer assistance
-        return process_trainer_ai_request(trainer, message_text)
+        # Use Refiloe's personality for general requests
+        return process_trainer_request_with_refiloe(trainer, message_text)
+
+def handle_natural_client_addition(trainer, message_text):
+    """Handle client addition with natural language - Refiloe asks for details conversationally"""
+    
+    # Check if this message already contains client details
+    extracted_details = extract_client_details_naturally(message_text)
+    
+    if extracted_details and extracted_details.get('name') and extracted_details.get('phone'):
+        # We have enough details, add the client
+        return complete_client_addition(trainer, extracted_details)
+    else:
+        # Ask for details conversationally
+        return f"""Hi {trainer['name']}! 😊
+
+I'm Refiloe, and I'd love to help you add a new client! 
+
+Could you give me their details? You can just tell me naturally, like:
+
+"Sarah Johnson, her number is 083 123 4567, email sarah@gmail.com, she wants the 8-pack"
+
+Or however feels natural to you! I'll figure out the rest. 💪"""
+
+def extract_client_details_naturally(text):
+    """Extract client details from natural language using patterns and Claude AI"""
+    
+    details = {}
+    
+    # Phone number patterns
+    phone_patterns = [
+        r'(\+27|27|0)[\s\-]?(\d{2})[\s\-]?(\d{3})[\s\-]?(\d{4})',
+        r'(\d{3})[\s\-]?(\d{3})[\s\-]?(\d{4})',
+        r'(\d{10})'
+    ]
+    
+    for pattern in phone_patterns:
+        phone_match = re.search(pattern, text)
+        if phone_match:
+            # Clean and format phone number
+            phone = re.sub(r'[^\d]', '', phone_match.group())
+            if phone.startswith('0'):
+                phone = '27' + phone[1:]
+            elif not phone.startswith('27'):
+                phone = '27' + phone
+            details['phone'] = phone
+            break
+    
+    # Email pattern
+    email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
+    if email_match:
+        details['email'] = email_match.group()
+    
+    # Package patterns
+    package_patterns = {
+        r'\b(single|one)\b': 'single',
+        r'\b(4[\-\s]?pack|four)\b': '4-pack',
+        r'\b(8[\-\s]?pack|eight)\b': '8-pack',
+        r'\b(monthly|month)\b': 'monthly'
+    }
+    
+    for pattern, package in package_patterns.items():
+        if re.search(pattern, text, re.IGNORECASE):
+            details['package'] = package
+            break
+    
+    # Use Claude AI to extract name and other details
+    if ANTHROPIC_API_KEY:
+        name_extraction_prompt = f"""Extract the person's name from this text about adding a client:
+
+"{text}"
+
+Return ONLY the full name if found, or "NOT_FOUND" if no clear name is present.
+
+Examples:
+- "Add Sarah Johnson" → "Sarah Johnson"
+- "New client Mike Smith" → "Mike Smith"  
+- "Her name is Jennifer Lee" → "Jennifer Lee"
+- "Just a phone number 083123" → "NOT_FOUND"
+"""
+        
+        try:
+            name_response = call_claude_api_simple(name_extraction_prompt)
+            if name_response and name_response != "NOT_FOUND" and len(name_response.split()) >= 2:
+                details['name'] = name_response.strip()
+        except:
+            pass
+    
+    # Fallback name extraction with simple patterns
+    if 'name' not in details:
+        # Look for "Name is X Y" or "X Y" patterns
+        name_patterns = [
+            r'name\s+is\s+([A-Z][a-z]+\s+[A-Z][a-z]+)',
+            r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b'
+        ]
+        
+        for pattern in name_patterns:
+            name_match = re.search(pattern, text, re.IGNORECASE)
+            if name_match:
+                potential_name = name_match.group(1)
+                # Validate it's not a common word
+                if not any(word in potential_name.lower() for word in ['client', 'add', 'new', 'phone', 'email']):
+                    details['name'] = potential_name
+                    break
+    
+    return details
+
+def complete_client_addition(trainer, client_details):
+    """Add client to database with extracted details"""
+    
+    try:
+        # Set defaults
+        package = client_details.get('package', 'single')
+        sessions_map = {
+            'single': 1,
+            '4-pack': 4,
+            '8-pack': 8,
+            'monthly': 8
+        }
+        sessions = sessions_map.get(package, 1)
+        
+        # Prepare client record
+        client_record = {
+            'trainer_id': trainer['id'],
+            'name': client_details['name'],
+            'whatsapp': client_details['phone'],
+            'email': client_details.get('email'),
+            'sessions_remaining': sessions,
+            'package_type': package,
+            'status': 'active'
+        }
+        
+        # Add to database
+        result = supabase.table('clients').insert(client_record).execute()
+        
+        if result.data:
+            # Trigger onboarding
+            threading.Thread(
+                target=send_client_onboarding_refiloe,
+                args=(client_details['phone'], client_details['name'], trainer, sessions)
+            ).start()
+            
+            return f"""✅ *Perfect!* 
+
+{client_details['name']} is now added to your client list!
+
+📱 I'm sending them a welcome message right now  
+📦 Package: {package.title()} ({sessions} sessions)  
+💬 They'll get booking instructions via WhatsApp
+
+All set, {trainer['name']}! 😊"""
+        
+        else:
+            return f"Hmm, I had trouble adding {client_details['name']}. Could you try again?"
+    
+    except Exception as e:
+        print(f"Error completing client addition: {str(e)}")
+        return "I ran into a small issue. Could you give me the client details again?"
+
+def send_client_onboarding_refiloe(client_whatsapp, client_name, trainer, sessions):
+    """Refiloe's personalized client onboarding"""
+    
+    try:
+        import time
+        time.sleep(2)
+        
+        # Welcome message with Refiloe's personality
+        welcome_msg = f"""Hi {client_name}! 👋
+
+I'm Refiloe, {trainer['name']}'s AI assistant! Welcome to the team! 🎉
+
+I'm here to make booking your training sessions super easy:
+
+💪 *Your package:* {sessions} sessions  
+💵 *Per session:* R{trainer['pricing_per_session']:.0f}  
+📱 *How it works:* Just message me here!
+
+Want to book your first session? Say something like "Book Tuesday morning" or "When are you free?" 
+
+I'll take care of the rest! 😊"""
+        
+        send_whatsapp_message(client_whatsapp, welcome_msg)
+        
+        # Follow-up with availability
+        time.sleep(25)
+        
+        availability_msg = f"""🗓️ *Here's what I have available this week:*
+
+Mon: 9am, 2pm, 5pm  
+Tue: 10am, 1pm, 4pm  
+Wed: 8am, 12pm, 3pm  
+Thu: 9am, 2pm, 5pm  
+Fri: 10am, 1pm, 4pm  
+
+Just tell me what works! Something like "Thursday 2pm sounds good" 
+
+Ready to get started? 💪"""
+        
+        send_whatsapp_message(client_whatsapp, availability_msg)
+        
+    except Exception as e:
+        print(f"Error in Refiloe onboarding: {str(e)}")
+
+def get_trainer_clients_refiloe(trainer_id, trainer_name):
+    """Refiloe's friendly client list"""
+    
+    try:
+        clients_result = supabase.table('clients').select('name, sessions_remaining, last_session_date').eq('trainer_id', trainer_id).eq('status', 'active').execute()
+        
+        if not clients_result.data:
+            return f"You don't have any active clients yet, {trainer_name}! Ready to add your first one? 😊"
+        
+        response = f"📋 *Your clients, {trainer_name}:*\n\n"
+        
+        for client in clients_result.data:
+            last_session = client['last_session_date']
+            if last_session:
+                days_ago = (datetime.now(SA_TZ) - datetime.fromisoformat(last_session)).days
+                last_text = f"{days_ago} days ago" if days_ago > 0 else "Today"
+            else:
+                last_text = "No sessions yet"
+            
+            response += f"• {client['name']} ({client['sessions_remaining']} left, last: {last_text})\n"
+        
+        return response + "\nNeed to add someone new? Just tell me! 💪"
+    
+    except Exception as e:
+        return f"I'm having trouble getting your client list, {trainer_name}. Try again?"
+
+def get_trainer_schedule_refiloe(trainer_id, trainer_name):
+    """Refiloe's friendly schedule display"""
+    
+    try:
+        now = datetime.now(SA_TZ)
+        week_later = now + timedelta(days=7)
+        
+        bookings_result = supabase.table('bookings').select('session_datetime, clients(name), status').eq('trainer_id', trainer_id).gte('session_datetime', now.isoformat()).lte('session_datetime', week_later.isoformat()).order('session_datetime').execute()
+        
+        if not bookings_result.data:
+            return f"Your week is wide open, {trainer_name}! 📅\n\nPerfect time for your clients to book sessions 😊"
+        
+        response = f"📅 *Coming up for you, {trainer_name}:*\n\n"
+        
+        for booking in bookings_result.data:
+            session_time = datetime.fromisoformat(booking['session_datetime'])
+            day = session_time.strftime('%a %d %b')
+            time = session_time.strftime('%I:%M%p').lower()
+            client_name = booking['clients']['name']
+            
+            response += f"• {day} at {time} - {client_name}\n"
+        
+        return response + "\nLooking good! 💪"
+    
+    except Exception as e:
+        return f"Let me check your schedule again, {trainer_name}..."
+
+def get_trainer_revenue_refiloe(trainer_id, trainer_name):
+    """Refiloe's encouraging revenue summary"""
+    
+    try:
+        now = datetime.now(SA_TZ)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        payments_result = supabase.table('payments').select('amount, status').eq('trainer_id', trainer_id).gte('created_at', month_start.isoformat()).execute()
+        
+        total_revenue = sum(p['amount'] for p in payments_result.data if p['status'] == 'paid')
+        pending_revenue = sum(p['amount'] for p in payments_result.data if p['status'] == 'pending')
+        
+        clients_result = supabase.table('clients').select('id').eq('trainer_id', trainer_id).eq('status', 'active').execute()
+        active_clients = len(clients_result.data)
+        
+        encouragement = "Great work!" if total_revenue > 5000 else "You're building momentum!" if total_revenue > 1000 else "Every session counts!"
+        
+        return f"""💰 *{now.strftime('%B')} Summary for {trainer_name}:*
+
+Revenue: R{total_revenue:.2f} ✅  
+Pending: R{pending_revenue:.2f} ⏳  
+Active clients: {active_clients} 👥
+
+{encouragement} 🚀"""
+        
+    except Exception as e:
+        return f"Let me check your earnings, {trainer_name}..."
+
+def trigger_manual_reminders_refiloe(trainer_id, trainer_name):
+    """Refiloe sends personalized reminders"""
+    
+    try:
+        clients_result = supabase.table('clients').select('name, whatsapp').eq('trainer_id', trainer_id).eq('status', 'active').execute()
+        
+        for client in clients_result.data:
+            reminder_msg = f"""💪 *Quick check-in, {client['name']}!*
+
+It's Refiloe here! {trainer_name} wanted me to see how you're doing with your fitness goals.
+
+Ready for your next session? I've got some great times available:
+
+Tomorrow: 10am, 2pm, 5pm  
+Day after: 9am, 1pm, 4pm
+
+What sounds good? 😊"""
+            
+            send_whatsapp_message(client['whatsapp'], reminder_msg)
+        
+        return f"✅ Just sent friendly check-ins to all your clients, {trainer_name}! 😊"
+        
+    except Exception as e:
+        return f"I'll try sending those reminders again, {trainer_name}..."
+
+def get_trainer_help_menu_refiloe(trainer_name):
+    """Refiloe's helpful menu"""
+    
+    return f"""Hi {trainer_name}! I'm Refiloe 😊
+
+Here's what I can help with:
+
+*Clients:*  
+• "Add new client" - I'll ask for details  
+• "My clients" - See your client list  
+• "Send reminders" - Reach out to everyone  
+
+*Schedule:*  
+• "My schedule" - This week's sessions  
+• "Revenue" - How you're doing this month  
+
+*Natural chat:*  
+Just tell me what you need! I understand normal conversation 💬
+
+What can I help you with? 💪"""
+
+def process_trainer_request_with_refiloe(trainer, message_text):
+    """Refiloe's personality for general trainer requests"""
+    
+    if not ANTHROPIC_API_KEY:
+        return f"Hi {trainer['name']}! I'm getting set up to help you better. For now, try asking about specific things like 'my clients' or 'add client'! 😊"
+    
+    # Enhanced prompt for Refiloe's personality
+    prompt = f"""You are Refiloe, an AI assistant for personal trainer "{trainer['name']}" who runs "{trainer['business_name']}". 
+
+PERSONALITY:
+- Friendly, cheerful, and professional
+- Use the name "Refiloe" when introducing yourself
+- Keep responses concise and to the point for WhatsApp
+- Use emojis appropriately but not excessively
+- Be encouraging and positive about their business
+
+CAPABILITIES:
+- Help with client management and scheduling
+- Provide business advice for personal trainers
+- Handle booking and administrative tasks
+- Give motivational support
+
+IMPORTANT: 
+- Keep responses SHORT (2-3 sentences max)
+- Be conversational and natural
+- If they want to add clients, ask for details naturally
+- Don't give long marketing pitches
+
+Trainer's message: "{message_text}"
+
+Respond as Refiloe would - friendly, helpful, and concise."""
+    
+    return call_claude_api_simple(prompt)
+
+def call_claude_api_simple(prompt):
+    """Simplified Claude API call for Refiloe"""
+    
+    try:
+        claude_url = "https://api.anthropic.com/v1/messages"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        data = {
+            "model": "claude-3-haiku-20240307",
+            "max_tokens": 150,  # Shorter responses
+            "messages": [
+                {"role": "user", "content": prompt}
+            ]
+        }
+        
+        response = requests.post(claude_url, headers=headers, json=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['content'][0]['text']
+        else:
+            return "I'm having a quick tech moment. Try that again? 😊"
+    
+    except Exception as e:
+        print(f"Error with Refiloe Claude API: {str(e)}")
+        return "Let me try that again for you! 😊"
 
 def process_add_client(trainer, message_text):
     """Process ADD CLIENT command with automatic onboarding"""
@@ -326,34 +731,217 @@ Looking forward to your first workout! 🏋️‍♀️"""
         print(f"Error in client onboarding: {str(e)}")
 
 def handle_client_message(client_context, message_text):
-    """Handle messages from clients (booking, scheduling, etc.)"""
+    """Handle messages from clients with Refiloe's personality"""
     
     client = client_context['data']
     trainer = client['trainers']
     message_lower = message_text.lower()
     
-    # Client intents
+    # Natural language booking
     if any(word in message_lower for word in ['book', 'schedule', 'appointment', 'session']):
-        return handle_client_booking(client, trainer, message_text)
+        return handle_client_booking_refiloe(client, trainer, message_text)
     
-    elif any(word in message_lower for word in ['reschedule', 'move', 'change time']):
-        return handle_client_reschedule(client, trainer, message_text)
+    elif any(word in message_lower for word in ['reschedule', 'move', 'change time', 'different time']):
+        return handle_client_reschedule_refiloe(client, trainer, message_text)
     
     elif any(word in message_lower for word in ['cancel', "can't make it", 'sick']):
-        return handle_client_cancellation(client, trainer, message_text)
+        return handle_client_cancellation_refiloe(client, trainer, message_text)
     
-    elif any(word in message_lower for word in ['available', 'free times', 'when']):
-        return get_trainer_availability(trainer['id'], client)
+    elif any(word in message_lower for word in ['available', 'free times', 'when', 'availability']):
+        return get_trainer_availability_refiloe(trainer['id'], client)
     
-    elif any(word in message_lower for word in ['sessions left', 'balance', 'remaining']):
-        return get_client_session_balance(client)
+    elif any(word in message_lower for word in ['sessions left', 'balance', 'remaining', 'package']):
+        return get_client_session_balance_refiloe(client)
     
     elif any(word in message_lower for word in ['help', 'commands']):
-        return get_client_help_menu(client['name'])
+        return get_client_help_menu_refiloe(client['name'])
+    
+    # Natural time booking (e.g., "Tuesday 2pm", "Friday morning")
+    elif detect_time_booking(message_text):
+        return process_natural_time_booking(client, trainer, message_text)
     
     else:
-        # Use Claude AI for general client assistance
-        return process_client_ai_request(client, trainer, message_text)
+        # Use Refiloe for general client assistance
+        return process_client_request_with_refiloe(client, trainer, message_text)
+
+def detect_time_booking(message_text):
+    """Detect if message contains a specific time booking request"""
+    
+    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    times = ['morning', 'afternoon', 'evening', 'am', 'pm', ':', 'o\'clock']
+    
+    message_lower = message_text.lower()
+    
+    has_day = any(day in message_lower for day in days)
+    has_time = any(time in message_lower for time in times)
+    
+    return has_day and has_time
+
+def process_natural_time_booking(client, trainer, message_text):
+    """Process natural language time booking like 'Tuesday 2pm'"""
+    
+    # This would integrate with actual calendar checking
+    # For now, we'll simulate the booking
+    
+    return f"""Perfect, {client['name']}! 
+
+I'm booking you for that time with {trainer['name']}. 
+
+✅ Session confirmed  
+💰 R{trainer['pricing_per_session']:.0f} (from your package)  
+📱 I'll send a reminder the day before  
+
+Sessions remaining: {client['sessions_remaining'] - 1} 
+
+Looking forward to your workout! 💪"""
+
+def handle_client_booking_refiloe(client, trainer, message_text):
+    """Refiloe's friendly booking assistance"""
+    
+    if client['sessions_remaining'] <= 0:
+        return f"""Hey {client['name']}! 
+
+You've used up all your sessions from your {client['package_type']} package! 🎉
+
+Want more? I can let {trainer['name']} know you're ready for another package, or you can book individual sessions at R{trainer['pricing_per_session']:.0f} each.
+
+What sounds good? 😊"""
+    
+    return f"""Hi {client['name']}! 😊
+
+Let's get you booked with {trainer['name']}! 
+
+*Available this week:*  
+Mon: 9am, 2pm, 5pm  
+Tue: 10am, 1pm, 4pm  
+Wed: 8am, 12pm, 3pm  
+Thu: 9am, 2pm, 5pm  
+Fri: 10am, 1pm, 4pm  
+
+Just say something like "Thursday 2pm" or "Friday morning"! 
+
+Sessions left: {client['sessions_remaining']} 💪"""
+
+def handle_client_reschedule_refiloe(client, trainer, message_text):
+    """Refiloe's helpful rescheduling"""
+    
+    return f"""No problem, {client['name']}! 
+
+Which session do you need to move? And when works better for you?
+
+*Available times:*  
+Tomorrow: 10am, 2pm, 5pm  
+Day after: 9am, 1pm, 4pm  
+
+Life happens - we'll get you sorted! 😊"""
+
+def handle_client_cancellation_refiloe(client, trainer, message_text):
+    """Refiloe's understanding cancellation handling"""
+    
+    return f"""Of course, {client['name']}! 
+
+Which session do you need to cancel? I'll free up that time right away.
+
+Want to reschedule instead? I've got:  
+Tomorrow: 10am, 2pm, 5pm  
+Next few days: 9am, 1pm, 4pm  
+
+Hope you're feeling better soon! 💚"""
+
+def get_trainer_availability_refiloe(trainer_id, client):
+    """Refiloe's friendly availability display"""
+    
+    return f"""Here's what {client['trainers']['name']} has available, {client['name']}! 
+
+📅 *This week:*  
+Mon: 9am, 2pm, 5pm  
+Tue: 10am, 1pm, 4pm  
+Wed: 8am, 12pm, 3pm  
+Thu: 9am, 2pm, 5pm  
+Fri: 10am, 1pm, 4pm  
+
+📅 *Next week:*  
+Mon: 9am, 1pm, 3pm  
+Tue: 10am, 2pm, 5pm  
+
+What works for you? Just tell me! 😊"""
+
+def get_client_session_balance_refiloe(client):
+    """Refiloe's encouraging balance display"""
+    
+    progress = ""
+    if client['last_session_date']:
+        days_ago = (datetime.now(SA_TZ) - datetime.fromisoformat(client['last_session_date'])).days
+        if days_ago == 0:
+            progress = "Great workout today! 🔥"
+        elif days_ago <= 3:
+            progress = "You're on a roll! 💪"
+        elif days_ago <= 7:
+            progress = "Ready for your next session? 😊"
+        else:
+            progress = "Let's get back into it! 💪"
+    else:
+        progress = "Ready for your first session? 🎉"
+    
+    return f"""📊 *Hey {client['name']}!*
+
+Package: {client['package_type'].title()}  
+Sessions left: {client['sessions_remaining']}  
+
+{progress}
+
+Want to book your next one? 😊"""
+
+def get_client_help_menu_refiloe(client_name):
+    """Refiloe's helpful client menu"""
+    
+    return f"""Hi {client['name']}! I'm Refiloe 😊
+
+*Quick booking:*  
+• "Book session" - See available times  
+• "Tuesday 2pm" - Book specific time  
+• "When are you free?" - Check availability  
+
+*Manage sessions:*  
+• "Reschedule" - Move your booking  
+• "Cancel" - Cancel if needed  
+• "Sessions left" - Check your balance  
+
+*Just chat naturally!*  
+I understand normal conversation 💬
+
+What can I help with? 💪"""
+
+def process_client_request_with_refiloe(client, trainer, message_text):
+    """Refiloe's personality for general client requests"""
+    
+    if not ANTHROPIC_API_KEY:
+        return f"Hi {client['name']}! I'm Refiloe, and I'm here to help with your training sessions. Try asking about booking or your schedule! 😊"
+    
+    prompt = f"""You are Refiloe, an AI assistant helping client "{client['name']}" with their personal training sessions with trainer "{trainer['name']}".
+
+PERSONALITY:
+- Friendly, encouraging, and professional
+- Keep responses concise for WhatsApp (2-3 sentences max)
+- Use appropriate emojis but not excessively
+- Be motivating about their fitness journey
+
+CONTEXT:
+- Client has {client['sessions_remaining']} sessions remaining
+- Package type: {client['package_type']}
+- Session price: R{trainer['pricing_per_session']:.0f}
+
+CAPABILITIES:
+- Help book, reschedule, or cancel sessions
+- Provide motivation and encouragement
+- Answer questions about their package
+- Connect them with their trainer when needed
+
+Client's message: "{message_text}"
+
+Respond as Refiloe would - friendly, helpful, and encouraging."""
+    
+    return call_claude_api_simple(prompt)
 
 def handle_client_booking(client, trainer, message_text):
     """Handle client booking request with real-time availability"""
@@ -610,33 +1198,31 @@ def get_trainer_availability(trainer_id, client):
 Just tell me which day and time works! 🕐"""
 
 def handle_unknown_sender(phone_number, message_text):
-    """Handle messages from unknown senders"""
+    """Refiloe handles unknown senders"""
     
     message_lower = message_text.lower()
     
     if any(word in message_lower for word in ['trainer', 'register', 'sign up', 'join']):
-        return """👋 Hi! Welcome to the AI Personal Training Assistant!
+        return """👋 Hi there! I'm Refiloe!
 
-To register as a trainer:
-1. Visit our website: [coming soon]
-2. Or reply with: "REGISTER TRAINER [Your Name] [Your Email]"
+I help personal trainers manage their clients automatically via WhatsApp! 
+
+Want to join as a trainer? Here's how:
+• Visit our website (coming soon!)
+• Or message: "REGISTER TRAINER [Your Name] [Email]"
 
 Example: "REGISTER TRAINER John Smith john@email.com"
 
-For existing trainers, your clients can start booking immediately once you've added them to the system!"""
+I'll handle all your client bookings 24/7! 💪"""
     
     else:
-        return """👋 Hi! I'm an AI assistant for personal trainers.
+        return """👋 Hi! I'm Refiloe, an AI assistant for personal trainers! 
 
-If you're a **personal trainer**, I can help you:
-• Manage client bookings automatically
-• Handle scheduling 24/7  
-• Send automated reminders
-• Track payments and sessions
+**If you're a trainer:** I can manage your client bookings, scheduling, and reminders automatically!
 
-If you're a **client**, your trainer needs to add you to the system first.
+**If you're a client:** Your trainer needs to add you to the system first, then I'll help you book sessions easily!
 
-Reply "TRAINER" if you want to register as a trainer!"""
+Reply "TRAINER" if you want to sign up! 😊"""
 
 # Utility functions...
 def process_trainer_ai_request(trainer, message_text):
