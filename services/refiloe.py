@@ -193,40 +193,40 @@ Go ahead! 💪"""
             return "Let me try that again. What would you like help with?"
 
     def handle_dashboard_request(self, trainer: Dict, greeting: str = "") -> str:
-    """Handle trainer's request to view dashboard"""
-    try:
-        # Import dashboard service
-        from routes.dashboard import dashboard_service
-        
-        if not dashboard_service:
-            return f"{greeting}Dashboard is being set up. Try again in a moment! 😊"
-        
-        # Generate dashboard link
-        result = dashboard_service.generate_dashboard_link(trainer['id'])
-        
-        if result['success']:
-            return f"""{greeting}📊 Here's your personal dashboard link:
-
-{result['url']}
-
-✨ This link will work for 24 hours
-📱 Opens perfectly on your phone
-🔒 Secure and private to you
-
-Your dashboard shows:
-• Today's schedule
-• Weekly calendar
-• Client list & balances
-• Revenue tracking
-• Quick settings
-
-Just tap the link to view! 💪"""
-        else:
-            return f"{greeting}I had trouble generating your dashboard link. Let me try again in a moment!"
+        """Handle trainer's request to view dashboard"""
+        try:
+            # Import dashboard service
+            from routes.dashboard import dashboard_service
             
-    except Exception as e:
-        log_error(f"Error handling dashboard request: {str(e)}")
-        return f"{greeting}Let me fix that dashboard link for you. Try again in a moment!"
+            if not dashboard_service:
+                return f"{greeting}Dashboard is being set up. Try again in a moment! 😊"
+            
+            # Generate dashboard link
+            result = dashboard_service.generate_dashboard_link(trainer['id'])
+            
+            if result['success']:
+                return f"""{greeting}📊 Here's your personal dashboard link:
+    
+    {result['url']}
+    
+    ✨ This link will work for 24 hours
+    📱 Opens perfectly on your phone
+    🔒 Secure and private to you
+    
+    Your dashboard shows:
+    • Today's schedule
+    • Weekly calendar
+    • Client list & balances
+    • Revenue tracking
+    • Quick settings
+    
+    Just tap the link to view! 💪"""
+            else:
+                return f"{greeting}I had trouble generating your dashboard link. Let me try again in a moment!"
+                
+        except Exception as e:
+            log_error(f"Error handling dashboard request: {str(e)}")
+            return f"{greeting}Let me fix that dashboard link for you. Try again in a moment!"
     
     def looks_like_client_details(self, message_text: str) -> bool:
         """Check if message looks like it contains client details"""
