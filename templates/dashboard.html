@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ trainer.name }} - Dashboard | Refiloe</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js for interactivity -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Custom styles for mobile-first design */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .active-tab {
+            border-bottom: 3px solid #667eea;
+        }
+        
+        @media (max-width: 640px) {
+            .calendar-grid {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div x-data="dashboardApp()" class="min-h-screen pb-20">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-40">
+            <div class="px-4 py-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">Hi {{ trainer.name }}! 👋</h1>
+                        <p class="text-sm text-gray-500">{{ current_date }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500">Powered by</p>
+                        <p class="text-sm font-semibold text-purple-600">Refiloe AI</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="px-4 py-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="stats-card text-white p-4 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs opacity-90">This Week</p>
+                            <p class="text-2xl font-bold">{{ stats.weekly_sessions }}</p>
+                            <p class="text-xs opacity-75">sessions</p>
+                        </div>
+                        <i class="fas fa-calendar-check text-2xl opacity-50"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-green-500 to-teal-600 text-white p-4 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs opacity-90">Revenue</p>
+                            <p class="text-2xl font-bold">R{{ stats.monthly_revenue }}</p>
+                            <p class="text-xs opacity-75">this month</p>
+                        </div>
+                        <i class="fas fa-coins text-2xl opacity-50"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-blue-500 to-cyan-600 text-white p-4 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs opacity-90">Active</p>
+                            <p class="text-2xl font-bold">{{ stats.active_clients }}</p>
+                            <p class="text-xs opacity-75">clients</p>
+                        </div>
+                        <i class="fas fa-users text-2xl opacity-50"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs opacity-90">Today</p>
+                            <p class="text-2xl font-bold">{{ stats.today_sessions }}</p>
+                            <p class="text-xs opacity-75">sessions</p>
+                        </div>
+                        <i class="fas fa-fire text-2xl opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="px-4 py-2 bg-white sticky top-14 z-30 shadow-sm">
+            <div class="flex space-x-6 overflow-x-auto">
+                <button @click="activeTab = 'today'" 
+                        :class="activeTab === 'today' ? 'active-tab' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Today
+                </button>
+                <button @click="activeTab = 'week'" 
+                        :class="activeTab === 'week' ? 'active-tab' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    This Week
+                </button>
+                <button @click="activeTab = 'clients'" 
+                        :class="activeTab === 'clients' ? 'active-tab' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Clients
+                </button>
+                <button @click="activeTab = 'revenue'" 
+                        :class="activeTab === 'revenue' ? 'active-tab' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Revenue
+                </button>
+                <button @click="activeTab = 'settings'" 
+                        :class="activeTab === 'settings' ? 'active-tab' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Settings
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="px-4 py-4">
+            
+            <!-- Today Tab -->
+            <div x-show="activeTab === 'today'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Today's Schedule</h2>
+                
+                {% if today_sessions %}
+                    <div class="space-y-3">
+                        {% for session in today_sessions %}
+                        <div class="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-semibold">{{ session.client_name }}</p>
+                                    <p class="text-sm text-gray-600">
+                                        <i class="far fa-clock mr-1"></i>
+                                        {{ session.time }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {{ session.duration }} minutes • R{{ session.price }}
+                                    </p>
+                                </div>
+                                <span class="px-2 py-1 text-xs rounded-full 
+                                    {% if session.status == 'confirmed' %}
+                                        bg-green-100 text-green-800
+                                    {% else %}
+                                        bg-yellow-100 text-yellow-800
+                                    {% endif %}">
+                                    {{ session.status }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="bg-gray-100 rounded-lg p-8 text-center">
+                        <i class="fas fa-coffee text-4xl text-gray-400 mb-3"></i>
+                        <p class="text-gray-600">No sessions scheduled for today</p>
+                        <p class="text-sm text-gray-500 mt-1">Enjoy your free time! 🎉</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Week Tab -->
+            <div x-show="activeTab === 'week'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">This Week</h2>
+                
+                <div class="bg-white rounded-lg p-3">
+                    <!-- Week Calendar Grid -->
+                    <div class="calendar-grid mb-2">
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Mon</div>
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Tue</div>
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Wed</div>
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Thu</div>
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Fri</div>
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Sat</div>
+                        <div class="text-center font-semibold text-xs text-gray-600 py-2">Sun</div>
+                        
+                        {% for day in week_days %}
+                        <div class="text-center p-2 rounded 
+                            {% if day.is_today %}bg-purple-100{% endif %}
+                            {% if day.has_sessions %}border border-purple-300{% endif %}">
+                            <p class="text-sm font-medium">{{ day.date }}</p>
+                            {% if day.session_count > 0 %}
+                                <p class="text-xs text-purple-600 font-semibold">{{ day.session_count }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Week Sessions List -->
+                    <div class="mt-4 space-y-2">
+                        {% for session in week_sessions %}
+                        <div class="border-l-2 border-gray-200 pl-3 py-2">
+                            <p class="text-sm font-medium">{{ session.day }} - {{ session.client_name }}</p>
+                            <p class="text-xs text-gray-600">{{ session.time }} • {{ session.duration }}min</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clients Tab -->
+            <div x-show="activeTab === 'clients'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Your Clients ({{ clients|length }})</h2>
+                
+                <div class="space-y-3">
+                    {% for client in clients %}
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="font-semibold">{{ client.name }}</p>
+                                <p class="text-sm text-gray-600">
+                                    <i class="fas fa-box mr-1"></i>
+                                    {{ client.package_type }} • {{ client.sessions_remaining }} sessions left
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Last session: {{ client.last_session_display }}
+                                </p>
+                            </div>
+                            <button class="text-purple-600 text-sm" 
+                                    onclick="sendWhatsApp('{{ client.whatsapp }}')">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
+                        </div>
+                        
+                        {% if client.sessions_remaining <= 2 %}
+                        <div class="mt-2 p-2 bg-yellow-50 rounded text-xs text-yellow-800">
+                            ⚠️ Package almost finished
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Revenue Tab -->
+            <div x-show="activeTab === 'revenue'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Revenue Overview</h2>
+                
+                <div class="bg-white rounded-lg p-4">
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm text-gray-600">This Month</span>
+                                <span class="text-sm font-bold">R{{ revenue.this_month }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" 
+                                     style="width: {{ revenue.month_progress }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm text-gray-600">Last Month</span>
+                                <span class="text-sm">R{{ revenue.last_month }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-3 border-t">
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600">Outstanding</span>
+                                <span class="text-sm font-bold text-orange-600">R{{ revenue.outstanding }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Payments -->
+                <h3 class="text-md font-semibold mt-4 mb-2">Recent Payments</h3>
+                <div class="space-y-2">
+                    {% for payment in recent_payments %}
+                    <div class="bg-white rounded p-3 flex justify-between items-center">
+                        <div>
+                            <p class="text-sm font-medium">{{ payment.client_name }}</p>
+                            <p class="text-xs text-gray-500">{{ payment.date }}</p>
+                        </div>
+                        <span class="font-semibold text-green-600">R{{ payment.amount }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div x-show="activeTab === 'settings'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Settings</h2>
+                
+                <div class="space-y-4">
+                    <!-- Availability -->
+                    <div class="bg-white rounded-lg p-4">
+                        <h3 class="font-medium mb-3">Your Availability</h3>
+                        <div class="space-y-2 text-sm">
+                            {% for day, slots in availability.items() %}
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">{{ day|capitalize }}</span>
+                                <span class="text-gray-900">
+                                    {% if slots %}
+                                        {{ slots|join(', ') }}
+                                    {% else %}
+                                        Closed
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button onclick="updateAvailability()" 
+                                class="mt-3 w-full bg-purple-100 text-purple-700 py-2 rounded text-sm font-medium">
+                            Update via WhatsApp
+                        </button>
+                    </div>
+                    
+                    <!-- Session Settings -->
+                    <div class="bg-white rounded-lg p-4">
+                        <h3 class="font-medium mb-3">Session Settings</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Default Duration</span>
+                                <span class="text-gray-900">{{ settings.session_duration }} minutes</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Price per Session</span>
+                                <span class="text-gray-900">R{{ settings.price_per_session }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="bg-white rounded-lg p-4">
+                        <h3 class="font-medium mb-3">Quick Actions</h3>
+                        <div class="space-y-2">
+                            <button onclick="sendReminders()" 
+                                    class="w-full bg-blue-500 text-white py-2 rounded text-sm font-medium">
+                                Send Client Reminders
+                            </button>
+                            <button onclick="exportData()" 
+                                    class="w-full bg-gray-200 text-gray-700 py-2 rounded text-sm font-medium">
+                                Export This Month's Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation (Mobile) -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t md:hidden">
+            <div class="grid grid-cols-4 py-2">
+                <button @click="activeTab = 'today'" class="flex flex-col items-center py-2">
+                    <i class="fas fa-calendar-day text-xl" 
+                       :class="activeTab === 'today' ? 'text-purple-600' : 'text-gray-400'"></i>
+                    <span class="text-xs mt-1" 
+                          :class="activeTab === 'today' ? 'text-purple-600' : 'text-gray-400'">Today</span>
+                </button>
+                <button @click="activeTab = 'week'" class="flex flex-col items-center py-2">
+                    <i class="fas fa-calendar-week text-xl" 
+                       :class="activeTab === 'week' ? 'text-purple-600' : 'text-gray-400'"></i>
+                    <span class="text-xs mt-1" 
+                          :class="activeTab === 'week' ? 'text-purple-600' : 'text-gray-400'">Week</span>
+                </button>
+                <button @click="activeTab = 'clients'" class="flex flex-col items-center py-2">
+                    <i class="fas fa-users text-xl" 
+                       :class="activeTab === 'clients' ? 'text-purple-600' : 'text-gray-400'"></i>
+                    <span class="text-xs mt-1" 
+                          :class="activeTab === 'clients' ? 'text-purple-600' : 'text-gray-400'">Clients</span>
+                </button>
+                <button @click="activeTab = 'revenue'" class="flex flex-col items-center py-2">
+                    <i class="fas fa-chart-line text-xl" 
+                       :class="activeTab === 'revenue' ? 'text-purple-600' : 'text-gray-400'"></i>
+                    <span class="text-xs mt-1" 
+                          :class="activeTab === 'revenue' ? 'text-purple-600' : 'text-gray-400'">Revenue</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Alpine.js app for interactivity
+        function dashboardApp() {
+            return {
+                activeTab: 'today',
+                init() {
+                    // Check if there's a hash in URL for specific tab
+                    if (window.location.hash) {
+                        const tab = window.location.hash.substring(1);
+                        if (['today', 'week', 'clients', 'revenue', 'settings'].includes(tab)) {
+                            this.activeTab = tab;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Helper functions
+        function sendWhatsApp(number) {
+            window.open(`https://wa.me/${number}`, '_blank');
+        }
+        
+        function updateAvailability() {
+            window.open(`https://wa.me/YOUR_BOT_NUMBER?text=Update my availability`, '_blank');
+        }
+        
+        function sendReminders() {
+            if (confirm('Send reminders to all clients with low sessions?')) {
+                window.open(`https://wa.me/YOUR_BOT_NUMBER?text=Send reminders to my clients`, '_blank');
+            }
+        }
+        
+        function exportData() {
+            // This will trigger download from the Flask backend
+            window.location.href = `/export/${window.location.pathname.split('/').pop()}`;
+        }
+    </script>
+</body>
+</html>
