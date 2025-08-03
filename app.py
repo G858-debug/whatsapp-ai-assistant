@@ -230,6 +230,65 @@ def cleanup():
 
 atexit.register(cleanup)
 
+# Add this route to your app.py file (before the if __name__ == '__main__': line)
+
+@app.route('/diagnose')
+def diagnose():
+    """Diagnostic endpoint to check what's working"""
+    diagnostics = {
+        'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat(),
+        'services': {},
+        'environment': {},
+        'errors': []
+    }
+    
+    # Check environment variables
+    env_vars = ['VERIFY_TOKEN', 'ACCESS_TOKEN', 'PHONE_NUMBER_ID', 
+                'ANTHROPIC_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY']
+    
+    for var in env_vars:
+        value = os.environ.get(var)
+        if value:
+            if 'KEY' in var or 'TOKEN' in var:
+                diagnostics['environment'][var] = 'SET (hidden)'
+            else:
+                diagnostics['environment'][var] = value[:20] + '...' if len(value) > 20 else value
+        else:
+            diagnostics['environment'][var] = 'MISSING'
+            diagnostics['errors'].append(f"Missing environment variable: {var}")
+    
+    # Check services
+    diagnostics['services']['supabase'] = 'initialized' if supabase else 'not initialized'
+    diagnostics['services']['whatsapp'] = 'initialized' if whatsapp_service else 'not initialized'
+    diagnostics['services']['refiloe'] = 'initialized' if refiloe else 'not initialized'
+    diagnostics['services']['scheduler'] = 'initialized' if scheduler else 'not initialized'
+    
+    # Test Supabase connection
+    if supabase:
+        try:
+            result = supabase.table('trainers').select('id').limit(1).execute()
+            diagnostics['services']['supabase_connection'] = 'working'
+        except Exception as e:
+            diagnostics['services']['supabase_connection'] = f'error: {str(e)[:100]}'
+            diagnostics['errors'].append(f"Supabase connection error: {str(e)[:100]}")
+    
+    # Check recent errors
+    if logger:
+        diagnostics['recent_errors_count'] = logger.get_error_count_today()
+        recent_errors = logger.get_recent_errors(limit=5)
+        if recent_errors:
+            diagnostics['last_errors'] = recent_errors
+    
+    # Overall status
+    if diagnostics['errors']:
+        diagnostics['status'] = 'issues_found'
+    elif all(s != 'not initialized' for s in diagnostics['services'].values()):
+        diagnostics['status'] = 'healthy'
+    else:
+        diagnostics['status'] = 'partially_working'
+    
+    return jsonify(diagnostics)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)  # Set debug=False in production
