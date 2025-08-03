@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 import os
 from datetime import datetime
 import pytz
@@ -11,6 +11,9 @@ from services.whatsapp import WhatsAppService
 from services.refiloe import RefiloeAssistant
 from services.scheduler import SchedulerService
 from models import init_supabase
+
+# Import dashboard
+from routes.dashboard import dashboard_bp, DashboardService
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -27,6 +30,13 @@ try:
     refiloe = RefiloeAssistant(config, supabase, whatsapp_service, logger)
     scheduler = SchedulerService(config, supabase, whatsapp_service, logger)
     
+    # Initialize dashboard service
+    import routes.dashboard as dashboard_module
+    dashboard_module.dashboard_service = DashboardService(config, supabase)
+    
+    # Register dashboard blueprint
+    app.register_blueprint(dashboard_bp)
+    
     log_info("All services initialized successfully")
 except Exception as e:
     log_error(f"Failed to initialize services: {str(e)}")
@@ -35,10 +45,67 @@ except Exception as e:
     refiloe = None
     scheduler = None
 
+# Error template (create templates/error.html)
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('error.html', 
+                         message="Page not found"), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    log_error(f"Server error: {str(e)}")
+    return render_template('error.html', 
+                         message="Internal server error"), 500
+
 # Routes
 @app.route('/')
 def home():
-    return "Hi! I'm Refiloe, your AI assistant for personal trainers! 💪😊"
+    return """
+    <html>
+        <head>
+            <title>Refiloe AI - Personal Trainer Assistant</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                .container {
+                    text-align: center;
+                    padding: 20px;
+                }
+                h1 {
+                    font-size: 2.5em;
+                    margin-bottom: 10px;
+                }
+                p {
+                    font-size: 1.2em;
+                    opacity: 0.9;
+                }
+                .status {
+                    margin-top: 20px;
+                    padding: 10px 20px;
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 20px;
+                    display: inline-block;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>👋 Hi! I'm Refiloe</h1>
+                <p>Your AI assistant for personal trainers</p>
+                <div class="status">✅ System Online</div>
+            </div>
+        </body>
+    </html>
+    """
 
 @app.route('/webhook', methods=['GET'])
 def verify_webhook():
@@ -120,9 +187,10 @@ def health_check():
                 'database': 'connected' if supabase else 'disconnected',
                 'whatsapp': whatsapp_service.check_health() if whatsapp_service else 'not initialized',
                 'scheduler': scheduler.check_health() if scheduler else 'not initialized',
+                'dashboard': 'enabled' if dashboard_module.dashboard_service else 'disabled',
                 'ai_model': config.AI_MODEL if hasattr(config, 'AI_MODEL') else 'not configured',
             },
-            'version': '2.0.1',
+            'version': '2.1.0',
             'errors_today': logger.get_error_count_today() if logger else 0
         }
         return jsonify(health_status)
@@ -137,7 +205,6 @@ def health_check():
 @app.route('/logs/errors')
 def view_errors():
     """View recent errors (protected endpoint)"""
-    # In production, add authentication here
     try:
         if logger:
             errors = logger.get_recent_errors(limit=50)
@@ -160,7 +227,6 @@ def view_errors():
 @app.route('/logs/download')
 def download_logs():
     """Download error logs"""
-    # In production, add authentication here
     try:
         if logger:
             log_file = logger.get_log_file_path()
@@ -210,16 +276,6 @@ def trigger_reminders(trainer_id):
         log_error(f"Error triggering reminders: {str(e)}")
         return jsonify({'error': 'Failed to send reminders'}), 500
 
-# Error handlers
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({'error': 'Endpoint not found'}), 404
-
-@app.errorhandler(500)
-def server_error(e):
-    log_error(f"Server error: {str(e)}")
-    return jsonify({'error': 'Internal server error'}), 500
-
 # Cleanup on shutdown
 import atexit
 def cleanup():
@@ -230,65 +286,6 @@ def cleanup():
 
 atexit.register(cleanup)
 
-# Add this route to your app.py file (before the if __name__ == '__main__': line)
-
-@app.route('/diagnose')
-def diagnose():
-    """Diagnostic endpoint to check what's working"""
-    diagnostics = {
-        'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat(),
-        'services': {},
-        'environment': {},
-        'errors': []
-    }
-    
-    # Check environment variables
-    env_vars = ['VERIFY_TOKEN', 'ACCESS_TOKEN', 'PHONE_NUMBER_ID', 
-                'ANTHROPIC_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY']
-    
-    for var in env_vars:
-        value = os.environ.get(var)
-        if value:
-            if 'KEY' in var or 'TOKEN' in var:
-                diagnostics['environment'][var] = 'SET (hidden)'
-            else:
-                diagnostics['environment'][var] = value[:20] + '...' if len(value) > 20 else value
-        else:
-            diagnostics['environment'][var] = 'MISSING'
-            diagnostics['errors'].append(f"Missing environment variable: {var}")
-    
-    # Check services
-    diagnostics['services']['supabase'] = 'initialized' if supabase else 'not initialized'
-    diagnostics['services']['whatsapp'] = 'initialized' if whatsapp_service else 'not initialized'
-    diagnostics['services']['refiloe'] = 'initialized' if refiloe else 'not initialized'
-    diagnostics['services']['scheduler'] = 'initialized' if scheduler else 'not initialized'
-    
-    # Test Supabase connection
-    if supabase:
-        try:
-            result = supabase.table('trainers').select('id').limit(1).execute()
-            diagnostics['services']['supabase_connection'] = 'working'
-        except Exception as e:
-            diagnostics['services']['supabase_connection'] = f'error: {str(e)[:100]}'
-            diagnostics['errors'].append(f"Supabase connection error: {str(e)[:100]}")
-    
-    # Check recent errors
-    if logger:
-        diagnostics['recent_errors_count'] = logger.get_error_count_today()
-        recent_errors = logger.get_recent_errors(limit=5)
-        if recent_errors:
-            diagnostics['last_errors'] = recent_errors
-    
-    # Overall status
-    if diagnostics['errors']:
-        diagnostics['status'] = 'issues_found'
-    elif all(s != 'not initialized' for s in diagnostics['services'].values()):
-        diagnostics['status'] = 'healthy'
-    else:
-        diagnostics['status'] = 'partially_working'
-    
-    return jsonify(diagnostics)
-
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)  # Set debug=False in production
+    app.run(host='0.0.0.0', port=port, debug=False)
