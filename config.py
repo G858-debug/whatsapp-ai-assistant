@@ -46,12 +46,16 @@ class Config:
     # Rate Limiting
     MESSAGE_RATE_LIMIT = 60  # Max messages per minute per user
     API_RATE_LIMIT = 100  # Max API calls per minute
-    
+
     # Feature Flags
     ENABLE_PAYMENT_TRACKING = True
     ENABLE_WORKOUT_PROGRAMS = False  # Coming soon
-    ENABLE_WEB_DASHBOARD = False  # Coming soon
+    ENABLE_WEB_DASHBOARD = True  # Changed to True since we're adding it now!
     ENABLE_MULTI_LANGUAGE = False  # Coming soon
+    
+    # Dashboard Settings
+    DASHBOARD_BASE_URL = 'https://web-production-26de5.up.railway.app'
+    DASHBOARD_TOKEN_EXPIRY_HOURS = 24  # How long dashboard links remain valid
     
     @classmethod
     def validate(cls):
