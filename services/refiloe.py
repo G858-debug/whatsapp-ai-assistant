@@ -647,6 +647,51 @@ I'll handle all your client bookings 24/7! 💪"""
 **If you're a client:** Your trainer needs to add you to the system first, then I'll help you book sessions easily!
 
 Reply "TRAINER" if you want to sign up! 😊"""
+
+
+
+def handle_dashboard_request(self, trainer: Dict, greeting: str = "") -> str:
+    """Handle trainer's request to view dashboard"""
+    try:
+        # Import dashboard service
+        from routes.dashboard import dashboard_service
+        
+        if not dashboard_service:
+            return f"{greeting}Dashboard is being set up. Try again in a moment! 😊"
+        
+        # Generate dashboard link
+        result = dashboard_service.generate_dashboard_link(trainer['id'])
+        
+        if result['success']:
+            return f"""{greeting}📊 Here's your personal dashboard link:
+
+{result['url']}
+
+✨ This link will work for 24 hours
+📱 Opens perfectly on your phone
+🔒 Secure and private to you
+
+Your dashboard shows:
+• Today's schedule
+• Weekly calendar
+• Client list & balances
+• Revenue tracking
+• Quick settings
+
+Just tap the link to view! 💪"""
+        else:
+            return f"{greeting}I had trouble generating your dashboard link. Let me try again in a moment!"
+            
+    except Exception as e:
+        log_error(f"Error handling dashboard request: {str(e)}")
+        return f"{greeting}Let me fix that dashboard link for you. Try again in a moment!"
+
+# Update the handle_trainer_message method to include dashboard handling
+# Add this condition after the other checks:
+
+# Dashboard request
+elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
+    return self.handle_dashboard_request(trainer, greeting)
     
     # Keep all the other methods from the previous version (handle_client_message, parse_availability, etc.)
     # They remain unchanged...
