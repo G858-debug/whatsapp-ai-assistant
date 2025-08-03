@@ -411,7 +411,7 @@ I'm Refiloe, {trainer['name']}'s AI assistant! Welcome to the team! 🎉
 
 I'm here to make booking your training sessions super easy:
 
-💪 Your package: {sessions} sessions  
+💪 Your package: {sessions} sessions a month 
 💵 Per session: R{trainer.get('pricing_per_session', 300):.0f}  
 📱 How it works: Just message me here!
 
@@ -636,7 +636,7 @@ Just tell me what you need! 💪"""
             return f"""{intro}I help personal trainers manage their clients automatically via WhatsApp! 
 
 Want to join as a trainer? Contact us at:
-📧 Email: support@refiloe.co.za
+📧 Email: refiloe@refiloeradebe.co.za
 📱 WhatsApp: [Admin number]
 
 I'll handle all your client bookings 24/7! 💪"""
