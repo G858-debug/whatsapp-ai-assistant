@@ -144,6 +144,10 @@ Just give me the details! 💪"""
 📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
 
 Go ahead! 💪"""
+
+            # Dashboard request
+            elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
+                return self.handle_dashboard_request(trainer, greeting)
             
             # Update availability
             elif any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours']):
@@ -685,13 +689,3 @@ Just tap the link to view! 💪"""
     except Exception as e:
         log_error(f"Error handling dashboard request: {str(e)}")
         return f"{greeting}Let me fix that dashboard link for you. Try again in a moment!"
-
-# Update the handle_trainer_message method to include dashboard handling
-# Add this condition after the other checks:
-
-# Dashboard request
-elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
-    return self.handle_dashboard_request(trainer, greeting)
-    
-    # Keep all the other methods from the previous version (handle_client_message, parse_availability, etc.)
-    # They remain unchanged...
