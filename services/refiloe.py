@@ -2,7 +2,9 @@ import re
 import requests
 from datetime import datetime, timedelta
 import pytz
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
+import random
+import json
 
 from models.trainer import TrainerModel
 from models.client import ClientModel
@@ -23,6 +25,24 @@ class RefiloeAssistant:
         self.trainer_model = TrainerModel(supabase_client, config)
         self.client_model = ClientModel(supabase_client, config)
         self.booking_model = BookingModel(supabase_client, config)
+        
+        # Track conversation history for better context
+        self.conversation_history = {}
+    
+    def has_previous_interaction(self, phone_number: str) -> bool:
+        """Check if we've interacted with this user before"""
+        try:
+            # Check message history in database
+            result = self.db.table('messages').select('id').eq(
+                'whatsapp_from', phone_number
+            ).limit(2).execute()
+            
+            # If more than 1 message, they've interacted before
+            return len(result.data) > 1
+            
+        except Exception as e:
+            log_error(f"Error checking interaction history: {str(e)}")
+            return False
     
     def process_message(self, phone_number: str, message_text: str) -> str:
         """Main message processing logic"""
@@ -30,15 +50,19 @@ class RefiloeAssistant:
             # Log incoming message
             self.whatsapp.log_message(phone_number, message_text, 'incoming')
             
+            # Track if this is first interaction
+            is_first_interaction = not self.has_previous_interaction(phone_number)
+            
             # Identify sender
             sender_context = self.identify_sender(phone_number)
+            sender_context['first_interaction'] = is_first_interaction
             
             if sender_context['type'] == 'trainer':
                 return self.handle_trainer_message(sender_context, message_text)
             elif sender_context['type'] == 'client':
                 return self.handle_client_message(sender_context, message_text)
             else:
-                return self.handle_unknown_sender(phone_number, message_text)
+                return self.handle_unknown_sender(phone_number, message_text, is_first_interaction)
                 
         except Exception as e:
             log_error(f"Error in Refiloe processing: {str(e)}", exc_info=True)
@@ -67,221 +91,731 @@ class RefiloeAssistant:
         """Handle messages from trainers"""
         trainer = trainer_context['data']
         message_lower = message_text.lower()
+        is_first = trainer_context.get('first_interaction', False)
+        
+        # Greeting for first interaction only
+        greeting = f"Hi {trainer['name']}! I'm Refiloe, your AI assistant. " if is_first else ""
         
         # Natural language client addition
-        if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client']):
-            return self.handle_natural_client_addition(trainer, message_text)
+        if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client']):
+            return f"""{greeting}Let's add your new client! I'll need:
+
+📝 Client's full name
+📱 WhatsApp number (e.g., 0821234567)
+📧 Email address
+📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
+
+You can tell me naturally, like:
+"Sarah Johnson, 0821234567, sarah@email.com, she'll train Mondays, Wednesdays and Fridays"
+
+Go ahead! 💪"""
+        
+        # Update availability
+        elif any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours']):
+            return self.handle_availability_update(trainer, message_text, greeting)
+        
+        # Update booking preferences
+        elif any(phrase in message_lower for phrase in ['booking preference', 'prefer early', 'prefer late', 'slot preference']):
+            return self.handle_preference_update(trainer, message_text, greeting)
+        
+        # Session duration update
+        elif any(phrase in message_lower for phrase in ['session length', 'session duration', 'minutes long', 'hour long']):
+            return self.handle_session_duration_update(trainer, message_text, greeting)
         
         # View clients
         elif any(word in message_lower for word in ['my clients', 'list clients', 'show clients']):
-            return self.get_trainer_clients_display(trainer)
+            return greeting + self.get_trainer_clients_display(trainer)
         
         # Schedule
         elif any(word in message_lower for word in ['schedule', 'bookings', 'today', 'tomorrow']):
-            return self.get_trainer_schedule_display(trainer)
+            return greeting + self.get_trainer_schedule_display(trainer)
         
         # Revenue
         elif any(word in message_lower for word in ['revenue', 'payments', 'money', 'earnings']):
-            return self.get_trainer_revenue_display(trainer)
+            return greeting + self.get_trainer_revenue_display(trainer)
         
         # Help
         elif any(word in message_lower for word in ['help', 'commands', 'what can you do']):
-            return self.get_trainer_help_menu(trainer['name'])
+            return self.get_trainer_help_menu(trainer['name'], is_first)
         
         # General AI response
         else:
-            return self.process_with_ai(trainer, message_text, 'trainer')
+            return self.process_with_ai(trainer, message_text, 'trainer', greeting=greeting)
+    
+    def handle_availability_update(self, trainer: Dict, message_text: str, greeting: str) -> str:
+        """Handle trainer availability updates"""
+        try:
+            # Parse availability from natural language
+            availability = self.parse_availability(message_text)
+            
+            if not availability:
+                return f"""{greeting}I'd love to update your availability! 
+
+Please tell me your available hours for each day. For example:
+
+"Monday to Thursday: 9am-12pm and 2pm-6pm
+Friday: 10am-3pm
+Saturday: 8am-12pm
+Sunday: Closed"
+
+Or just tell me naturally! 😊"""
+            
+            # Store availability in trainer settings
+            trainer_settings = {
+                'availability': availability,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            # Update in database (you'll need to add a trainer_settings field or table)
+            result = self.trainer_model.update_trainer(
+                trainer['id'], 
+                {'settings': json.dumps(trainer_settings)}
+            )
+            
+            if result['success']:
+                # Format availability for display
+                schedule_text = self.format_availability_display(availability)
+                return f"""{greeting}Perfect! I've updated your availability:
+
+{schedule_text}
+
+Your clients can now only book during these times. Need to change anything?"""
+            else:
+                return f"{greeting}I had trouble updating your availability. Could you try again?"
+                
+        except Exception as e:
+            log_error(f"Error updating availability: {str(e)}")
+            return f"{greeting}Let me try that again. What are your available hours?"
+    
+    def handle_preference_update(self, trainer: Dict, message_text: str, greeting: str) -> str:
+        """Handle booking preference updates"""
+        try:
+            # Parse preferences
+            preferences = self.parse_booking_preferences(message_text)
+            
+            if not preferences:
+                return f"""{greeting}I can set your booking preferences!
+
+Tell me how you'd like slots filled. For example:
+
+"Monday to Thursday, book the earliest slots first
+Friday and Saturday, prefer midday slots first"
+
+Or: "Always book morning slots first" 
+
+What works best for you? 😊"""
+            
+            # Store preferences
+            trainer_settings = trainer.get('settings', {})
+            if isinstance(trainer_settings, str):
+                trainer_settings = json.loads(trainer_settings)
+            
+            trainer_settings['booking_preferences'] = preferences
+            trainer_settings['updated_at'] = datetime.now(self.sa_tz).isoformat()
+            
+            result = self.trainer_model.update_trainer(
+                trainer['id'],
+                {'settings': json.dumps(trainer_settings)}
+            )
+            
+            if result['success']:
+                return f"""{greeting}Got it! Your booking preferences are set:
+
+{self.format_preferences_display(preferences)}
+
+I'll automatically assign slots based on these preferences! 👍"""
+            
+        except Exception as e:
+            log_error(f"Error updating preferences: {str(e)}")
+            return f"{greeting}Let me try that again. How would you like me to book your slots?"
+    
+    def handle_session_duration_update(self, trainer: Dict, message_text: str, greeting: str) -> str:
+        """Handle session duration updates"""
+        try:
+            # Parse duration
+            duration = self.parse_session_duration(message_text)
+            
+            if not duration:
+                return f"""{greeting}What's your typical session duration?
+
+Examples:
+• "45 minutes"
+• "90 minutes"
+• "2 hours"
+
+Default is 60 minutes. What works for you?"""
+            
+            # Update trainer settings
+            result = self.trainer_model.update_trainer(
+                trainer['id'],
+                {'default_session_duration': duration}
+            )
+            
+            if result['success']:
+                hours = duration // 60
+                minutes = duration % 60
+                duration_text = f"{hours} hour{'s' if hours > 1 else ''}" if hours > 0 else ""
+                if minutes > 0:
+                    duration_text += f" {minutes} minutes" if hours > 0 else f"{minutes} minutes"
+                
+                return f"""{greeting}Perfect! Your default session duration is now {duration_text}.
+
+All new bookings will use this duration. 💪"""
+            
+        except Exception as e:
+            log_error(f"Error updating session duration: {str(e)}")
+            return f"{greeting}Let me try that again. How long are your typical sessions?"
     
     def handle_client_message(self, client_context: Dict, message_text: str) -> str:
         """Handle messages from clients"""
         client = client_context['data']
         trainer = client['trainers']
         message_lower = message_text.lower()
+        is_first = client_context.get('first_interaction', False)
+        
+        # Greeting for first interaction only
+        greeting = f"Hi {client['name']}! I'm Refiloe, {trainer['name']}'s AI assistant. " if is_first else ""
+        
+        # Booking request with general availability (e.g., "Saturday mornings")
+        if self.detect_general_availability(message_text):
+            return self.handle_general_availability_booking(client, trainer, message_text, greeting)
+        
+        # Specific time booking (e.g., "Tuesday 2pm")
+        elif self.detect_time_booking(message_text):
+            return self.process_specific_time_booking(client, trainer, message_text, greeting)
         
         # Booking request
-        if any(word in message_lower for word in ['book', 'schedule', 'appointment']):
-            return self.handle_client_booking(client, trainer, message_text)
+        elif any(word in message_lower for word in ['book', 'schedule', 'appointment']):
+            return self.handle_client_booking(client, trainer, message_text, greeting)
         
-        # Natural time booking (e.g., "Tuesday 2pm")
-        elif self.detect_time_booking(message_text):
-            return self.process_natural_time_booking(client, trainer, message_text)
+        # Confirmation of suggested time
+        elif any(word in message_lower for word in ['yes', 'confirm', 'that works', 'perfect', 'great']):
+            return self.confirm_pending_booking(client, trainer, greeting)
         
         # Cancellation
         elif any(word in message_lower for word in ['cancel', "can't make it", 'sick']):
-            return self.handle_client_cancellation(client, trainer, message_text)
+            return self.handle_client_cancellation(client, trainer, message_text, greeting)
         
         # Reschedule
         elif any(word in message_lower for word in ['reschedule', 'move', 'change time']):
-            return self.handle_client_reschedule(client, trainer, message_text)
+            return self.handle_client_reschedule(client, trainer, message_text, greeting)
         
         # Check availability
         elif any(word in message_lower for word in ['available', 'free times', 'when']):
-            return self.get_trainer_availability_display(trainer, client)
+            return self.get_trainer_availability_display(trainer, client, greeting)
         
         # Session balance
         elif any(word in message_lower for word in ['sessions left', 'balance', 'remaining']):
-            return self.get_client_session_balance(client)
+            return greeting + self.get_client_session_balance(client)
         
         # Help
         elif any(word in message_lower for word in ['help', 'commands']):
-            return self.get_client_help_menu(client['name'])
+            return self.get_client_help_menu(client['name'], is_first)
         
         # General AI response
         else:
-            return self.process_with_ai(client, message_text, 'client', trainer)
+            return self.process_with_ai(client, message_text, 'client', trainer, greeting)
     
-    def handle_natural_client_addition(self, trainer: Dict, message_text: str) -> str:
-        """Handle natural language client addition"""
-        
-        # Extract client details
-        details = self.extract_client_details_naturally(message_text)
-        
-        if details and details.get('name') and details.get('phone'):
-            # We have enough details, add the client
-            result = self.client_model.add_client(trainer['id'], details)
-            
-            if result['success']:
-                # Send onboarding message
-                self.send_client_onboarding(
-                    details['phone'], 
-                    details['name'], 
-                    trainer, 
-                    result['sessions']
-                )
-                
-                return f"""✅ Perfect! 
-
-{details['name']} is now added to your client list!
-
-📱 I'm sending them a welcome message right now  
-📦 Package: {details.get('package', 'single').title()} ({result['sessions']} sessions)  
-💬 They'll get booking instructions via WhatsApp
-
-All set, {trainer['name']}! 😊"""
-            else:
-                return f"I ran into an issue: {result['error']}. Could you try again?"
-        
-        else:
-            # Ask for details
-            return f"""Hi {trainer['name']}! 😊
-
-I'd love to help you add a new client! 
-
-Could you give me their details? You can just tell me naturally, like:
-
-"Sarah Johnson, her number is 083 123 4567, email sarah@gmail.com, she wants twice a week"
-
-Or however feels natural to you! I'll figure out the rest. 💪"""
-    
-    def extract_client_details_naturally(self, text: str) -> Dict:
-        """Extract client details from natural language"""
-        details = {}
-        
-        # Phone extraction
-        phone_patterns = [
-            r'(\+27|27|0)[\s\-]?(\d{2})[\s\-]?(\d{3})[\s\-]?(\d{4})',
-            r'(\d{3})[\s\-]?(\d{3})[\s\-]?(\d{4})',
-            r'(\d{10})'
-        ]
-        
-        for pattern in phone_patterns:
-            phone_match = re.search(pattern, text)
-            if phone_match:
-                phone = re.sub(r'[^\d]', '', phone_match.group())
-                if phone.startswith('0'):
-                    phone = '27' + phone[1:]
-                elif not phone.startswith('27') and len(phone) == 10:
-                    phone = '27' + phone
-                details['phone'] = phone
-                break
-        
-        # Email extraction
-        email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
-        if email_match:
-            details['email'] = email_match.group()
-        
-        # Package extraction
-        text_lower = text.lower()
-        package_patterns = {
-            r'\b(single|one|1)\b': 'single',
-            r'\b(4[\-\s]?pack|four|4)\b': '4-pack',
-            r'\b(8[\-\s]?pack|eight|8)\b': '8-pack',
-            r'\b(12[\-\s]?pack|twelve|12)\b': '12-pack',
-            r'\b(monthly|month)\b': 'monthly',
-            r'\b(twice\s+a?\s*week|2\s*times?\s+a?\s*week|2x\s*week)\b': '8-pack',
-            r'\b(once\s+a?\s*week|1\s*time?\s+a?\s*week|weekly)\b': '4-pack',
-            r'\b(three\s+times?\s+a?\s*week|3x\s*week)\b': '12-pack'
-        }
-        
-        for pattern, package in package_patterns.items():
-            if re.search(pattern, text_lower):
-                details['package'] = package
-                break
-        
-        # Name extraction (improved)
-        # Remove phone, email, and package info from text
-        clean_text = text
-        if details.get('phone'):
-            clean_text = re.sub(r'[\d\s\-\+()]+', ' ', clean_text)
-        if details.get('email'):
-            clean_text = clean_text.replace(details['email'], '')
-        
-        # Look for capitalized names
-        name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', clean_text)
-        if name_match:
-            potential_name = name_match.group(1)
-            # Avoid common words
-            if not any(word in potential_name.lower() for word in 
-                      ['email', 'phone', 'client', 'add', 'new', 'week', 'pack']):
-                details['name'] = potential_name
-        
-        log_info(f"Extracted client details: {details}")
-        return details
-    
-    def detect_time_booking(self, message_text: str) -> bool:
-        """Detect if message contains a time booking request"""
-        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 
-                'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'tomorrow', 'today']
-        times = ['morning', 'afternoon', 'evening', 'am', 'pm', ':', 'oclock', 'o\'clock']
-        
+    def detect_general_availability(self, message_text: str) -> bool:
+        """Detect general availability like 'Saturday mornings' or 'weekday evenings'"""
         message_lower = message_text.lower()
         
-        has_day = any(day in message_lower for day in days)
-        has_time = any(time in message_lower for time in times) or re.search(r'\d{1,2}(?::\d{2})?', message_text)
+        # Time periods
+        periods = ['morning', 'afternoon', 'evening', 'lunch']
         
-        return has_day and has_time
+        # Days
+        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+                'weekday', 'weekend']
+        
+        # Check for combination of day + period
+        has_day = any(day in message_lower for day in days)
+        has_period = any(period in message_lower for period in periods)
+        
+        # Also check for patterns like "I'm free on..."
+        availability_phrases = ['free on', 'available on', 'can do', 'works for me']
+        has_availability_phrase = any(phrase in message_lower for phrase in availability_phrases)
+        
+        return (has_day and has_period) or (has_availability_phrase and (has_day or has_period))
     
-    def process_natural_time_booking(self, client: Dict, trainer: Dict, message_text: str) -> str:
-        """Process natural language time booking"""
+    def handle_general_availability_booking(self, client: Dict, trainer: Dict, 
+                                           message_text: str, greeting: str) -> str:
+        """Handle general availability like 'Saturday mornings'"""
         try:
-            # Parse the time from message
+            # Parse the general availability
+            day_period = self.parse_general_availability(message_text)
+            
+            if not day_period:
+                return f"{greeting}I couldn't understand that time. Could you be more specific? For example: 'Saturday mornings' or 'Tuesday afternoons' 😊"
+            
+            # Get trainer's availability for that day/period
+            trainer_slots = self.get_trainer_slots_for_period(
+                trainer['id'], 
+                day_period['day'], 
+                day_period['period']
+            )
+            
+            if not trainer_slots:
+                alternatives = self.suggest_alternative_periods(trainer['id'], day_period)
+                return f"""{greeting}Unfortunately {trainer['name']} isn't available {day_period['display']}.
+
+{alternatives}
+
+What works better for you?"""
+            
+            # Pick a random available slot
+            selected_slot = random.choice(trainer_slots)
+            
+            # Store as pending booking
+            self.store_pending_booking(client['id'], trainer['id'], selected_slot)
+            
+            return f"""{greeting}Great! {trainer['name']} is available {day_period['display']}!
+
+How about {selected_slot['display']}?
+
+Reply "YES" to confirm this time, or suggest another time if this doesn't work! 😊"""
+            
+        except Exception as e:
+            log_error(f"Error handling general availability: {str(e)}")
+            return f"{greeting}Let me check {trainer['name']}'s availability. What times generally work for you?"
+    
+    def store_pending_booking(self, client_id: str, trainer_id: str, slot: Dict):
+        """Store a pending booking for confirmation"""
+        try:
+            # Store in conversation history (or could use a pending_bookings table)
+            key = f"pending_{client_id}"
+            self.conversation_history[key] = {
+                'trainer_id': trainer_id,
+                'client_id': client_id,
+                'slot': slot,
+                'created_at': datetime.now(self.sa_tz),
+                'expires_at': datetime.now(self.sa_tz) + timedelta(minutes=30)
+            }
+            log_info(f"Stored pending booking for client {client_id}")
+            
+        except Exception as e:
+            log_error(f"Error storing pending booking: {str(e)}")
+    
+    def confirm_pending_booking(self, client: Dict, trainer: Dict, greeting: str) -> str:
+        """Confirm a pending booking"""
+        try:
+            key = f"pending_{client['id']}"
+            
+            if key not in self.conversation_history:
+                return f"{greeting}I don't have a pending booking to confirm. Would you like to book a new session?"
+            
+            pending = self.conversation_history[key]
+            
+            # Check if expired
+            if datetime.now(self.sa_tz) > pending['expires_at']:
+                del self.conversation_history[key]
+                return f"{greeting}That booking offer has expired. Let me show you current availability..."
+            
+            # Create the actual booking
+            slot = pending['slot']
+            result = self.booking_model.create_booking(
+                trainer_id=trainer['id'],
+                client_id=client['id'],
+                session_datetime=slot['datetime'],
+                price=trainer.get('pricing_per_session', 300),
+                duration_minutes=trainer.get('default_session_duration', 60)
+            )
+            
+            if result['success']:
+                # Clear pending booking
+                del self.conversation_history[key]
+                
+                return f"""✅ Perfect! Your session is confirmed:
+
+📅 {slot['display']}
+👨‍🏫 With {trainer['name']}
+💰 R{trainer.get('pricing_per_session', 300):.0f}
+📍 {trainer.get('location', 'Location to be confirmed')}
+
+I'll send you a reminder the day before!
+
+Sessions remaining: {client['sessions_remaining'] - 1}
+
+See you then! 💪"""
+            else:
+                return f"{greeting}Oops! That slot just got taken. Let me show you other available times..."
+                
+        except Exception as e:
+            log_error(f"Error confirming booking: {str(e)}")
+            return f"{greeting}I had trouble confirming that booking. Let's try again!"
+    
+    def parse_general_availability(self, message_text: str) -> Optional[Dict]:
+        """Parse general availability from message"""
+        try:
+            message_lower = message_text.lower()
+            
+            # Day mappings
+            day_map = {
+                'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+                'friday': 4, 'saturday': 5, 'sunday': 6,
+                'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3,
+                'fri': 4, 'sat': 5, 'sun': 6
+            }
+            
+            # Period mappings
+            period_map = {
+                'morning': {'start': 6, 'end': 12, 'name': 'morning'},
+                'afternoon': {'start': 12, 'end': 17, 'name': 'afternoon'},
+                'evening': {'start': 17, 'end': 21, 'name': 'evening'},
+                'lunch': {'start': 12, 'end': 14, 'name': 'lunchtime'}
+            }
+            
+            # Find day
+            found_day = None
+            found_day_name = None
+            for day_name, day_num in day_map.items():
+                if day_name in message_lower:
+                    found_day = day_num
+                    found_day_name = day_name.capitalize()
+                    break
+            
+            # Find period
+            found_period = None
+            for period_name, period_info in period_map.items():
+                if period_name in message_lower:
+                    found_period = period_info
+                    break
+            
+            if found_day is not None and found_period:
+                return {
+                    'day': found_day,
+                    'day_name': found_day_name,
+                    'period': found_period,
+                    'display': f"{found_day_name} {found_period['name']}s"
+                }
+            
+            return None
+            
+        except Exception as e:
+            log_error(f"Error parsing general availability: {str(e)}")
+            return None
+    
+    def get_trainer_slots_for_period(self, trainer_id: str, day: int, period: Dict) -> List[Dict]:
+        """Get available trainer slots for a specific day and period"""
+        try:
+            # Calculate the date for the next occurrence of this day
+            today = datetime.now(self.sa_tz).date()
+            days_ahead = (day - today.weekday()) % 7
+            if days_ahead == 0:  # Same day of week
+                days_ahead = 7  # Next week
+            target_date = today + timedelta(days=days_ahead)
+            
+            # Get trainer's availability settings
+            trainer = self.trainer_model.get_by_id(trainer_id)
+            settings = trainer.get('settings', {})
+            if isinstance(settings, str):
+                settings = json.loads(settings)
+            
+            availability = settings.get('availability', self.config.get_booking_slots())
+            
+            # Get slots for this day
+            day_name = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][day]
+            day_slots = availability.get(day_name, [])
+            
+            # Filter slots within the period
+            available_slots = []
+            for slot_time in day_slots:
+                hour = int(slot_time.split(':')[0])
+                if period['start'] <= hour < period['end']:
+                    # Create datetime for this slot
+                    slot_datetime = datetime.combine(
+                        target_date,
+                        datetime.strptime(slot_time, '%H:%M').time()
+                    )
+                    slot_datetime = self.sa_tz.localize(slot_datetime)
+                    
+                    # Check if slot is actually available
+                    if self.booking_model.is_slot_available(trainer_id, slot_datetime):
+                        available_slots.append({
+                            'datetime': slot_datetime,
+                            'display': slot_datetime.strftime('%A %d %B at %I:%M%p')
+                        })
+            
+            return available_slots
+            
+        except Exception as e:
+            log_error(f"Error getting trainer slots for period: {str(e)}")
+            return []
+    
+    def parse_availability(self, message_text: str) -> Optional[Dict]:
+        """Parse availability schedule from natural language"""
+        try:
+            availability = {}
+            lines = message_text.lower().split('\n')
+            
+            day_patterns = {
+                'monday': ['monday', 'mon'],
+                'tuesday': ['tuesday', 'tue'],
+                'wednesday': ['wednesday', 'wed'],
+                'thursday': ['thursday', 'thu'],
+                'friday': ['friday', 'fri'],
+                'saturday': ['saturday', 'sat'],
+                'sunday': ['sunday', 'sun']
+            }
+            
+            for line in lines:
+                # Look for day ranges (e.g., "monday to friday")
+                range_match = re.search(r'(\w+)\s+to\s+(\w+)', line)
+                if range_match:
+                    start_day = range_match.group(1)
+                    end_day = range_match.group(2)
+                    
+                    # Extract times from the line
+                    times = self.extract_time_slots(line)
+                    
+                    # Apply to day range
+                    if times:
+                        applying = False
+                        for day_name, patterns in day_patterns.items():
+                            if any(p in start_day for p in patterns):
+                                applying = True
+                            if applying:
+                                availability[day_name] = times
+                            if any(p in end_day for p in patterns):
+                                break
+                else:
+                    # Look for individual days
+                    for day_name, patterns in day_patterns.items():
+                        if any(pattern in line for pattern in patterns):
+                            times = self.extract_time_slots(line)
+                            if times:
+                                availability[day_name] = times
+                            elif 'closed' in line or 'off' in line:
+                                availability[day_name] = []
+            
+            return availability if availability else None
+            
+        except Exception as e:
+            log_error(f"Error parsing availability: {str(e)}")
+            return None
+    
+    def extract_time_slots(self, text: str) -> List[str]:
+        """Extract time slots from text"""
+        slots = []
+        
+        # Look for time ranges (e.g., "9am-12pm")
+        range_pattern = r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*[-to]+\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?'
+        matches = re.finditer(range_pattern, text.lower())
+        
+        for match in matches:
+            start_hour = int(match.group(1))
+            start_min = int(match.group(2) or 0)
+            start_ampm = match.group(3)
+            end_hour = int(match.group(4))
+            end_min = int(match.group(5) or 0)
+            end_ampm = match.group(6)
+            
+            # Convert to 24-hour format
+            if start_ampm == 'pm' and start_hour < 12:
+                start_hour += 12
+            if end_ampm == 'pm' and end_hour < 12:
+                end_hour += 12
+            
+            # Generate hourly slots
+            current_hour = start_hour
+            while current_hour < end_hour:
+                slots.append(f"{current_hour:02d}:00")
+                current_hour += 1
+        
+        # Also look for individual times
+        time_pattern = r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)'
+        if not slots:
+            matches = re.finditer(time_pattern, text.lower())
+            for match in matches:
+                hour = int(match.group(1))
+                minute = int(match.group(2) or 0)
+                ampm = match.group(3)
+                
+                if ampm == 'pm' and hour < 12:
+                    hour += 12
+                
+                slots.append(f"{hour:02d}:{minute:02d}")
+        
+        return sorted(list(set(slots)))
+    
+    def parse_booking_preferences(self, message_text: str) -> Optional[Dict]:
+        """Parse booking preferences from natural language"""
+        try:
+            preferences = {}
+            message_lower = message_text.lower()
+            
+            # Time preference patterns
+            time_preferences = {
+                'early': 'earliest',
+                'morning': 'earliest',
+                'late': 'latest',
+                'evening': 'latest',
+                'afternoon': 'middle',
+                'midday': 'middle',
+                'noon': 'middle'
+            }
+            
+            # Day patterns
+            day_groups = {
+                'weekdays': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                'weekends': ['saturday', 'sunday'],
+                'monday': ['monday'],
+                'tuesday': ['tuesday'],
+                'wednesday': ['wednesday'],
+                'thursday': ['thursday'],
+                'friday': ['friday'],
+                'saturday': ['saturday'],
+                'sunday': ['sunday']
+            }
+            
+            # Parse preferences
+            lines = message_lower.split(',')
+            for line in lines:
+                # Find day references
+                found_days = []
+                for group_name, days in day_groups.items():
+                    if group_name in line:
+                        found_days.extend(days)
+                
+                # Also check for "monday to thursday" patterns
+                range_match = re.search(r'(\w+)\s+to\s+(\w+)', line)
+                if range_match:
+                    start = range_match.group(1)
+                    end = range_match.group(2)
+                    # Add logic to expand day range
+                    day_order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                    try:
+                        start_idx = day_order.index(start)
+                        end_idx = day_order.index(end)
+                        found_days = day_order[start_idx:end_idx+1]
+                    except ValueError:
+                        pass
+                
+                # Find time preference
+                found_preference = 'earliest'  # default
+                for keyword, pref in time_preferences.items():
+                    if keyword in line:
+                        found_preference = pref
+                        break
+                
+                # Apply preference to found days
+                for day in found_days:
+                    preferences[day] = found_preference
+            
+            return preferences if preferences else None
+            
+        except Exception as e:
+            log_error(f"Error parsing booking preferences: {str(e)}")
+            return None
+    
+    def parse_session_duration(self, message_text: str) -> Optional[int]:
+        """Parse session duration from natural language"""
+        try:
+            message_lower = message_text.lower()
+            
+            # Look for patterns like "45 minutes", "1 hour", "90 mins"
+            patterns = [
+                (r'(\d+)\s*hour', lambda x: int(x) * 60),
+                (r'(\d+)\s*hr', lambda x: int(x) * 60),
+                (r'(\d+)\s*minute', lambda x: int(x)),
+                (r'(\d+)\s*min', lambda x: int(x)),
+                (r'(\d+\.5)\s*hour', lambda x: int(float(x) * 60)),
+                (r'hour\s+and\s+(\d+)', lambda x: 60 + int(x)),
+                (r'(\d+)\s+and\s+a\s+half\s+hour', lambda x: int(x) * 60 + 30)
+            ]
+            
+            for pattern, converter in patterns:
+                match = re.search(pattern, message_lower)
+                if match:
+                    return converter(match.group(1))
+            
+            return None
+            
+        except Exception as e:
+            log_error(f"Error parsing session duration: {str(e)}")
+            return None
+    
+    def format_availability_display(self, availability: Dict) -> str:
+        """Format availability for display"""
+        lines = []
+        day_order = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        
+        for day in day_order:
+            if day in availability:
+                slots = availability[day]
+                if slots:
+                    # Format time slots nicely
+                    formatted_slots = []
+                    for slot in slots:
+                        hour = int(slot.split(':')[0])
+                        am_pm = 'am' if hour < 12 else 'pm'
+                        display_hour = hour if hour <= 12 else hour - 12
+                        if display_hour == 0:
+                            display_hour = 12
+                        formatted_slots.append(f"{display_hour}{am_pm}")
+                    
+                    lines.append(f"📅 {day.capitalize()}: {', '.join(formatted_slots)}")
+                else:
+                    lines.append(f"📅 {day.capitalize()}: Closed")
+        
+        return '\n'.join(lines)
+    
+    def format_preferences_display(self, preferences: Dict) -> str:
+        """Format booking preferences for display"""
+        lines = []
+        
+        # Group days by preference
+        pref_groups = {}
+        for day, pref in preferences.items():
+            if pref not in pref_groups:
+                pref_groups[pref] = []
+            pref_groups[pref].append(day.capitalize())
+        
+        for pref, days in pref_groups.items():
+            if pref == 'earliest':
+                lines.append(f"⏰ {', '.join(days)}: Book earliest slots first")
+            elif pref == 'latest':
+                lines.append(f"🌙 {', '.join(days)}: Book latest slots first")
+            elif pref == 'middle':
+                lines.append(f"☀️ {', '.join(days)}: Book midday slots first")
+        
+        return '\n'.join(lines)
+    
+    def process_specific_time_booking(self, client: Dict, trainer: Dict, message_text: str, greeting: str) -> str:
+        """Process specific time booking like 'Tuesday 2pm'"""
+        try:
+            # Parse the specific time
             booking_time = self.parse_booking_time(message_text)
             
             if not booking_time:
-                return "I couldn't understand that time. Could you try again? For example: 'Tuesday 2pm' or 'Tomorrow morning' 😊"
+                return f"{greeting}I couldn't understand that time. Could you try again? For example: 'Tuesday 2pm' or 'Tomorrow morning' 😊"
             
             # Check if client has sessions
             if client['sessions_remaining'] <= 0:
                 return self.handle_no_sessions_left(client, trainer)
+            
+            # Get trainer's session duration
+            duration = trainer.get('default_session_duration', 60)
             
             # Attempt to create booking
             result = self.booking_model.create_booking(
                 trainer_id=trainer['id'],
                 client_id=client['id'],
                 session_datetime=booking_time,
-                price=trainer['pricing_per_session']
+                price=trainer['pricing_per_session'],
+                duration_minutes=duration
             )
             
             if result['success']:
-                return f"""Perfect, {client['name']}! 
+                return f"""{greeting}✅ Perfect! Your session is confirmed:
 
-✅ Session confirmed for {booking_time.strftime('%A %d %B at %I:%M%p')}
-💰 R{trainer['pricing_per_session']:.0f} (from your package)  
-📱 I'll send a reminder the day before  
+📅 {booking_time.strftime('%A %d %B at %I:%M%p')}
+⏱️ Duration: {duration} minutes
+💰 R{trainer['pricing_per_session']:.0f} (from your package)
+📱 I'll send a reminder the day before
 
-Sessions remaining: {client['sessions_remaining'] - 1} 
+Sessions remaining: {client['sessions_remaining'] - 1}
 
-Looking forward to your workout! 💪"""
+See you then! 💪"""
             else:
                 # Slot not available
                 alternatives_text = ""
@@ -289,15 +823,30 @@ Looking forward to your workout! 💪"""
                     alt_list = [alt['display'] for alt in result['alternatives'][:3]]
                     alternatives_text = f"\n\nHow about:\n• " + "\n• ".join(alt_list)
                 
-                return f"""Sorry {client['name']}, that time slot is already taken! 🙈
+                return f"""{greeting}Sorry, that time slot is already taken! 🙈
 
 {alternatives_text}
 
 Which works better for you?"""
                 
         except Exception as e:
-            log_error(f"Error in natural time booking: {str(e)}")
-            return "I had trouble booking that time. Could you try again? 😊"
+            log_error(f"Error in specific time booking: {str(e)}")
+            return f"{greeting}I had trouble booking that time. Could you try again? 😊"
+    
+    def detect_time_booking(self, message_text: str) -> bool:
+        """Detect if message contains a specific time booking request"""
+        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 
+                'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'tomorrow', 'today']
+        
+        message_lower = message_text.lower()
+        
+        # Check for day
+        has_day = any(day in message_lower for day in days)
+        
+        # Check for specific time (not just period)
+        has_specific_time = bool(re.search(r'\d{1,2}(?::\d{2})?\s*(?:am|pm)', message_lower))
+        
+        return has_day and has_specific_time
     
     def parse_booking_time(self, message_text: str) -> Optional[datetime]:
         """Parse natural language time into datetime"""
@@ -323,8 +872,8 @@ Which works better for you?"""
                 for day_name, day_num in days.items():
                     if day_name in message_lower:
                         days_ahead = (day_num - now.weekday()) % 7
-                        if days_ahead == 0:  # Same day of week
-                            days_ahead = 7  # Next week
+                        if days_ahead == 0:
+                            days_ahead = 7
                         target_date = now.date() + timedelta(days=days_ahead)
                         break
             
@@ -338,19 +887,10 @@ Which works better for you?"""
                 minute = int(time_match.group(2) or 0)
                 am_pm = time_match.group(3)
                 
-                # Handle AM/PM
                 if am_pm == 'pm' and hour < 12:
                     hour += 12
                 elif am_pm == 'am' and hour == 12:
                     hour = 0
-                
-                # Handle "morning", "afternoon", "evening"
-            elif 'morning' in message_lower:
-                hour, minute = 9, 0
-            elif 'afternoon' in message_lower:
-                hour, minute = 14, 0
-            elif 'evening' in message_lower:
-                hour, minute = 17, 0
             else:
                 return None
             
@@ -371,336 +911,67 @@ Which works better for you?"""
             log_error(f"Error parsing booking time: {str(e)}")
             return None
     
-    def handle_no_sessions_left(self, client: Dict, trainer: Dict) -> str:
-        """Handle when client has no sessions left"""
-        return f"""Hey {client['name']}! 
-
-You've used up all your sessions from your {client['package_type']} package! 🎉
-
-Want to continue? Here are your options:
-• Another {client['package_type']} package
-• Try a different package
-• Book individual sessions at R{trainer['pricing_per_session']:.0f} each
-
-Should I let {trainer['name']} know you're ready for more? 😊"""
-    
-    def send_client_onboarding(self, client_phone: str, client_name: str, 
-                              trainer: Dict, sessions: int):
-        """Send onboarding message to new client"""
-        try:
-            import time
-            import threading
-            
-            def send_delayed():
-                time.sleep(2)
-                
-                welcome_msg = f"""Hi {client_name}! 👋
-
-I'm Refiloe, {trainer['name']}'s AI assistant! Welcome to the team! 🎉
-
-I'm here to make booking your training sessions super easy:
-
-💪 Your package: {sessions} sessions  
-💵 Per session: R{trainer['pricing_per_session']:.0f}  
-📱 How it works: Just message me here!
-
-Want to book your first session? Say something like "Book Tuesday morning" or "When are you free?" 
-
-I'll take care of the rest! 😊"""
-                
-                self.whatsapp.send_message(client_phone, welcome_msg)
-                
-                # Follow-up with availability
-                time.sleep(25)
-                
-                availability_msg = f"""🗓️ Here's what I have available this week:
-
-Mon: 9am, 2pm, 5pm  
-Tue: 10am, 1pm, 4pm  
-Wed: 8am, 12pm, 3pm  
-Thu: 9am, 2pm, 5pm  
-Fri: 10am, 1pm, 4pm  
-
-Just tell me what works! Something like "Thursday 2pm sounds good" 
-
-Ready to get started? 💪"""
-                
-                self.whatsapp.send_message(client_phone, availability_msg)
-            
-            # Send in background thread
-            threading.Thread(target=send_delayed).start()
-            
-        except Exception as e:
-            log_error(f"Error in client onboarding: {str(e)}")
-    
-    def get_trainer_clients_display(self, trainer: Dict) -> str:
-        """Display trainer's client list"""
-        try:
-            clients = self.client_model.get_trainer_clients(trainer['id'])
-            
-            if not clients:
-                return f"You don't have any active clients yet, {trainer['name']}! Ready to add your first one? 😊"
-            
-            response = f"📋 Your clients, {trainer['name']}:\n\n"
-            
-            for client in clients:
-                last_session = client.get('last_session_date')
-                if last_session:
-                    last_date = datetime.fromisoformat(last_session)
-                    days_ago = (datetime.now(self.sa_tz) - last_date).days
-                    last_text = f"{days_ago} days ago" if days_ago > 0 else "Today"
-                else:
-                    last_text = "No sessions yet"
-                
-                response += f"• {client['name']} ({client['sessions_remaining']} left, last: {last_text})\n"
-            
-            return response + "\nNeed to add someone new? Just tell me! 💪"
-            
-        except Exception as e:
-            log_error(f"Error getting trainer clients: {str(e)}")
-            return f"I'm having trouble getting your client list, {trainer['name']}. Try again?"
-    
-    def get_trainer_schedule_display(self, trainer: Dict) -> str:
-        """Display trainer's schedule"""
-        try:
-            now = datetime.now(self.sa_tz)
-            week_later = now + timedelta(days=7)
-            
-            bookings = self.booking_model.get_trainer_schedule(
-                trainer['id'], now, week_later
-            )
-            
-            if not bookings:
-                return f"Your week is wide open, {trainer['name']}! 📅\n\nPerfect time for your clients to book sessions 😊"
-            
-            response = f"📅 Coming up for you, {trainer['name']}:\n\n"
-            
-            for booking in bookings:
-                session_time = datetime.fromisoformat(booking['session_datetime'])
-                day = session_time.strftime('%a %d %b')
-                time = session_time.strftime('%I:%M%p').lower()
-                client_name = booking['clients']['name']
-                
-                response += f"• {day} at {time} - {client_name}\n"
-            
-            return response + "\nLooking good! 💪"
-            
-        except Exception as e:
-            log_error(f"Error getting trainer schedule: {str(e)}")
-            return f"Let me check your schedule again, {trainer['name']}..."
-    
-    def get_trainer_revenue_display(self, trainer: Dict) -> str:
-        """Display trainer's revenue summary"""
-        try:
-            # For now, calculate based on bookings
-            # TODO: Implement proper payment tracking
-            
-            now = datetime.now(self.sa_tz)
-            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            
-            # Get this month's bookings
-            bookings = self.booking_model.get_trainer_schedule(
-                trainer['id'], month_start, now
-            )
-            
-            completed_revenue = sum(b['price'] for b in bookings if b['status'] == 'completed')
-            scheduled_revenue = sum(b['price'] for b in bookings if b['status'] == 'scheduled')
-            
-            # Get active clients
-            clients = self.client_model.get_trainer_clients(trainer['id'])
-            active_clients = len(clients)
-            
-            encouragement = "Great work!" if completed_revenue > 5000 else "You're building momentum!"
-            
-            return f"""💰 {now.strftime('%B')} Summary for {trainer['name']}:
-
-Completed: R{completed_revenue:.2f} ✅  
-Scheduled: R{scheduled_revenue:.2f} 📅  
-Active clients: {active_clients} 👥
-
-{encouragement} 🚀"""
-            
-        except Exception as e:
-            log_error(f"Error getting revenue: {str(e)}")
-            return f"Let me check your earnings, {trainer['name']}..."
-    
-    def process_with_ai(self, user: Dict, message_text: str, user_type: str, 
-                       trainer: Optional[Dict] = None) -> str:
-        """Process message with Claude AI"""
-        try:
-            if not self.config.ANTHROPIC_API_KEY:
-                return self.get_fallback_response(user_type, user.get('name', 'there'))
-            
-            # Build context
-            if user_type == 'trainer':
-                context = f"""You are Refiloe, an AI assistant for personal trainer "{user['name']}" who runs "{user.get('business_name', user['name'] + ' Fitness')}".
-                
-Keep responses under 3 sentences and WhatsApp-friendly."""
-            else:
-                context = f"""You are Refiloe, an AI assistant helping client "{user['name']}" with their training sessions with trainer "{trainer['name']}".
-                
-Client has {user['sessions_remaining']} sessions remaining."""
-            
-            # Call Claude API
-            response = self.call_claude_api(context, message_text)
-            return response
-            
-        except Exception as e:
-            log_error(f"Error with AI processing: {str(e)}")
-            return self.get_fallback_response(user_type, user.get('name', 'there'))
-    
-    def call_claude_api(self, context: str, message: str) -> str:
-        """Call Claude API with Sonnet 4"""
-        try:
-            url = "https://api.anthropic.com/v1/messages"
-            
-            headers = {
-                "Content-Type": "application/json",
-                "x-api-key": self.config.ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01"
-            }
-            
-            data = {
-                "model": self.config.AI_MODEL,  # Now using Sonnet 4
-                "max_tokens": 150,
-                "messages": [
-                    {"role": "user", "content": f"{context}\n\nUser message: {message}"}
-                ]
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result['content'][0]['text']
-            else:
-                log_error(f"Claude API error: {response.status_code} - {response.text}")
-                return "I'm having a quick tech moment. Try that again? 😊"
-                
-        except Exception as e:
-            log_error(f"Error calling Claude API: {str(e)}")
-            return "Let me try that again for you! 😊"
-    
-    def get_fallback_response(self, user_type: str, name: str) -> str:
-        """Fallback response when AI is not available"""
-        if user_type == 'trainer':
-            return f"Hi {name}! I'm getting set up to help you better. For now, try 'my clients', 'schedule', or 'add client'! 😊"
-        else:
-            return f"Hi {name}! I'm here to help with your training sessions. Try 'book session' or 'when are you free'! 😊"
-    
-    def get_trainer_help_menu(self, trainer_name: str) -> str:
-        """Get help menu for trainers"""
-        return f"""Hi {trainer_name}! I'm Refiloe 😊
-
-Here's what I can help with:
-
-*Clients:*  
-• "Add new client" - I'll ask for details  
-• "My clients" - See your client list  
-• "Send reminders" - Reach out to everyone  
-
-*Schedule:*  
-• "My schedule" - This week's sessions  
-• "Revenue" - How you're doing this month  
-
-*Natural chat:*  
-Just tell me what you need! I understand normal conversation 💬
-
-What can I help you with? 💪"""
-    
-    def get_client_help_menu(self, client_name: str) -> str:
-        """Get help menu for clients"""
-        return f"""Hi {client_name}! I'm Refiloe 😊
-
-*Quick booking:*  
-• "Book session" - See available times  
-• "Tuesday 2pm" - Book specific time  
-• "When are you free?" - Check availability  
-
-*Manage sessions:*  
-• "Reschedule" - Move your booking  
-• "Cancel" - Cancel if needed  
-• "Sessions left" - Check your balance  
-
-*Just chat naturally!*  
-I understand normal conversation 💬
-
-What can I help with? 💪"""
-    
-    def handle_unknown_sender(self, phone_number: str, message_text: str) -> str:
+    def handle_unknown_sender(self, phone_number: str, message_text: str, is_first: bool) -> str:
         """Handle messages from unknown senders"""
         message_lower = message_text.lower()
         
+        if is_first:
+            intro = "👋 Hi! I'm Refiloe, an AI assistant for personal trainers!\n\n"
+        else:
+            intro = ""
+        
         if any(word in message_lower for word in ['trainer', 'register', 'sign up', 'join']):
-            return """👋 Hi there! I'm Refiloe!
+            return f"""{intro}I help personal trainers manage their clients automatically via WhatsApp! 
 
-I help personal trainers manage their clients automatically via WhatsApp! 
-
-Want to join as a trainer? Here's how:
-• Visit our website (coming soon!)
-• Or message: "REGISTER TRAINER [Your Name] [Email]"
-
-Example: "REGISTER TRAINER John Smith john@email.com"
+Want to join as a trainer? Contact us at:
+📧 Email: support@refiloe.co.za
+📱 WhatsApp: [Admin number]
 
 I'll handle all your client bookings 24/7! 💪"""
         
         else:
-            return """👋 Hi! I'm Refiloe, an AI assistant for personal trainers! 
-
-**If you're a trainer:** I can manage your client bookings, scheduling, and reminders automatically!
+            return f"""{intro}**If you're a trainer:** I can manage your client bookings, scheduling, and reminders automatically!
 
 **If you're a client:** Your trainer needs to add you to the system first, then I'll help you book sessions easily!
 
 Reply "TRAINER" if you want to sign up! 😊"""
     
-    def add_trainer(self, data: Dict) -> Dict:
-        """Add a new trainer (admin function)"""
-        try:
-            trainer_data = {
-                'name': data['name'],
-                'whatsapp': data['whatsapp'],
-                'email': data['email'],
-                'business_name': data.get('business_name', data['name'] + ' Fitness'),
-                'pricing_per_session': data.get('pricing_per_session', self.config.DEFAULT_SESSION_PRICE)
-            }
-            
-            result = self.trainer_model.create_trainer(trainer_data)
-            
-            if result['success']:
-                # Send welcome message
-                welcome_msg = f"""Welcome to Refiloe, {data['name']}! 🎉
+    def get_trainer_help_menu(self, trainer_name: str, is_first: bool) -> str:
+        """Get help menu for trainers"""
+        greeting = f"Hi {trainer_name}! I'm Refiloe 😊\n\n" if is_first else ""
+        
+        return f"""{greeting}Here's what I can help with:
 
-I'm your AI assistant and I'm here to help manage your fitness business!
+*Clients:*
+• "Add new client" - I'll guide you through it
+• "My clients" - See your client list
+• "Send reminders" - Reach out to everyone
 
-Here's what I can do:
-• Manage client bookings 24/7
-• Send automatic reminders
-• Track your revenue
-• Handle rescheduling & cancellations
+*Schedule & Settings:*
+• "My schedule" - This week's sessions
+• "My availability" - Set your working hours
+• "Session duration" - Set default session length
+• "Booking preferences" - Set how slots are filled
 
-To get started, just add your first client by saying:
-"Add new client [Name] [Phone] [Email] [Package]"
+*Business:*
+• "Revenue" - How you're doing this month
 
-Example: "Add new client Sarah 0821234567 sarah@email.com 8-pack"
+Just tell me what you need! 💪"""
+    
+    def get_client_help_menu(self, client_name: str, is_first: bool) -> str:
+        """Get help menu for clients"""
+        greeting = f"Hi {client_name}! I'm Refiloe 😊\n\n" if is_first else ""
+        
+        return f"""{greeting}*Quick booking:*
+• "Book session" - See available times
+• "Tuesday 2pm" - Book specific time
+• "Saturday mornings" - I'll suggest times
 
-I'm here whenever you need me! 💪"""
-                
-                self.whatsapp.send_message(data['whatsapp'], welcome_msg)
-                
-                return {
-                    'success': True,
-                    'trainer_id': result['trainer_id'],
-                    'message': f"Trainer {data['name']} added successfully!"
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': result.get('error', 'Failed to add trainer')
-                }
-                
-        except Exception as e:
-            log_error(f"Error adding trainer: {str(e)}")
-            return {
-                'success': False,
-                'error': 'Failed to add trainer'
-            }
+*Manage sessions:*
+• "Reschedule" - Move your booking
+• "Cancel" - Cancel if needed
+• "Sessions left" - Check your balance
+
+Just chat naturally! I understand normal conversation 💬
+
+What can I help with? 💪"""
