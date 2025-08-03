@@ -361,7 +361,7 @@ Friday: 10am-3pm
 Saturday: 8am-12pm
 Sunday: Closed"
 
-Or just tell me naturally! 😊"""
+You can just tell me naturally! 😊"""
             
             # Store availability in trainer settings
             trainer_settings = trainer.get('settings', {})
