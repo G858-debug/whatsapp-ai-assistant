@@ -49,13 +49,24 @@ class Config:
 
     # Feature Flags
     ENABLE_PAYMENT_TRACKING = True
-    ENABLE_WORKOUT_PROGRAMS = False  # Coming soon
+    ENABLE_WORKOUT_PROGRAMS = True  
     ENABLE_WEB_DASHBOARD = True  # Changed to True since we're adding it now!
     ENABLE_MULTI_LANGUAGE = False  # Coming soon
     
     # Dashboard Settings
     DASHBOARD_BASE_URL = 'https://web-production-26de5.up.railway.app'
     DASHBOARD_TOKEN_EXPIRY_HOURS = 24  # How long dashboard links remain valid
+
+    # Workout Settings
+    GIPHY_API_KEY = os.environ.get('GIPHY_API_KEY')
+    ENABLE_WORKOUT_PROGRAMS = True  # Change from False to True
+    
+    # Exercise categories
+    MUSCLE_GROUPS = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'full body']
+    
+    # Default workout settings
+    DEFAULT_REST_SECONDS = 90
+    DEFAULT_WORKOUT_DURATION = 60  # minutes
     
     @classmethod
     def validate(cls):
