@@ -109,18 +109,18 @@ class RefiloeAssistant:
             # Check if message contains client details (phone number pattern)
             has_phone = bool(re.search(r'(?:\+27|27|0)?\d{9,10}', message_text))
             has_email = bool(re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', message_text))
-
+            
             # Natural language client addition request (without details)
-            elif any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'help me add']):
+            if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'help me add']):
                 return f"""{greeting}Let's add your new client! I'll need:
-
-📝 Client's full name
-📱 WhatsApp number (e.g., 0821234567)
-📧 Email address
-📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
-
-Go ahead! 💪"""
-
+            
+            📝 Client's full name
+            📱 WhatsApp number (e.g., 0821234567)
+            📧 Email address
+            📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
+            
+            Go ahead! 💪"""
+            
             # Dashboard request
             elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
                 return self.handle_dashboard_request(trainer, greeting)
