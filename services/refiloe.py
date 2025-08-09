@@ -597,24 +597,69 @@ Active clients: {active_clients} 👥
             return f"Let me check your earnings, {trainer['name']}..."
     
     def process_with_ai(self, user: Dict, message_text: str, user_type: str, 
-                       trainer: Optional[Dict] = None, greeting: str = ""):
+                           trainer: Optional[Dict] = None, greeting: str = ""):
         """Process message with Claude AI"""
         try:
             if not self.config.ANTHROPIC_API_KEY:
                 return self.get_fallback_response(user_type, user.get('name', 'there'))
             
-            # Build context
+            # Build context based on user type
             if user_type == 'trainer':
-                context = f"""You are Refiloe, an AI assistant for personal trainer "{user['name']}" who runs "{user.get('business_name', user['name'] + ' Fitness')}".
+                context = f"""You are Refiloe, an AI assistant that works FOR personal trainer "{user['name']}" who runs "{user.get('business_name', user['name'] + ' Fitness')}".
                 
-Keep responses under 3 sentences and WhatsApp-friendly. Don't introduce yourself again."""
-            else:
+    CRITICAL CONTEXT:
+    - You are {user['name']}'s personal assistant, helping them manage their fitness business
+    - {user['name']} OWNS all client relationships and has full authority over all communications
+    - When {user['name']} asks what you sent to a client, ALWAYS share the complete details
+    - All workout plans, client messages, and training schedules belong to {user['name']}
+    - NEVER cite privacy or confidentiality when {user['name']} asks about their own clients
+    - {user['name']} has complete visibility and control over everything you do for their business
+    - You should readily provide any information about client communications, workouts, or bookings when asked
+    
+    Current capabilities you can mention if relevant:
+    - Managing client bookings and schedules
+    - Creating and sending workout programs to clients
+    - Tracking client sessions and payments
+    - Providing business insights and revenue tracking
+    - Generating a web dashboard for business overview
+    
+    Keep responses under 3 sentences and WhatsApp-friendly. Be helpful and proactive in supporting {user['name']}'s business."""
+            
+            else:  # client context
                 context = f"""You are Refiloe, an AI assistant helping client "{user['name']}" with their training sessions with trainer "{trainer['name'] if trainer else 'their trainer'}".
                 
-Client has {user.get('sessions_remaining', 0)} sessions remaining. Keep responses under 3 sentences."""
+    CONTEXT:
+    - You work on behalf of trainer {trainer['name'] if trainer else 'the trainer'} to help manage {user['name']}'s fitness journey
+    - {user['name']} has {user.get('sessions_remaining', 0)} sessions remaining
+    - You can help {user['name']} with booking sessions, viewing their workout plans, and tracking progress
+    - All communications and workout plans are managed by and belong to their trainer {trainer['name'] if trainer else ''}
+    
+    Keep responses under 3 sentences and WhatsApp-friendly. Be encouraging and supportive."""
             
-            # Call Claude API
-            response = self.call_claude_api(context, message_text)
+            # Add conversation history if needed for better context
+            recent_context = ""
+            if hasattr(self, 'get_recent_messages'):
+                recent_messages = self.get_recent_messages(user['id'], limit=3)
+                if recent_messages:
+                    recent_context = "\n\nRecent conversation:\n"
+                    for msg in recent_messages:
+                        recent_context += f"{'Trainer' if user_type == 'trainer' else 'Client'}: {msg['content']}\n"
+                        recent_context += f"Refiloe: {msg['response']}\n"
+            
+            # Combine context with recent history
+            full_context = context + recent_context
+            
+            # Add specific instruction for the current query if it's about viewing sent content
+            message_lower = message_text.lower()
+            if user_type == 'trainer' and any(phrase in message_lower for phrase in 
+                ['what did you send', 'show me what you sent', 'what workout', 'share what you sent', 
+                 'what did you tell', 'what was sent', 'show the workout', 'display the workout']):
+                full_context += f"""\n\nIMPORTANT: The trainer is asking to see what was sent to their client. 
+                You MUST share the complete details of any workouts, messages, or information sent to their clients. 
+                This is the trainer's business information and they have full rights to see it."""
+            
+            # Call Claude API with enhanced context
+            response = self.call_claude_api(full_context, message_text)
             return greeting + response
             
         except Exception as e:
