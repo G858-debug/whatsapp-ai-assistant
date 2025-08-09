@@ -32,15 +32,21 @@ class WorkoutService:
     def parse_workout_text(self, text: str) -> List[Dict]:
         """Parse natural language workout into structured format"""
         exercises = []
+        
+        # First, split by newlines to get lines
         lines = text.strip().split('\n')
         
         for line in lines:
             line = line.strip()
             if not line:
                 continue
+            
+            # Skip lines that are just headers or instructions
+            if any(word in line.lower() for word in ['workout', 'program', 'day', 'week']) and len(line.split()) <= 3:
+                continue
                 
-            # Skip warm-up and stretch lines (we'll handle these separately)
-            if any(word in line.lower() for word in ['warm up', 'warm-up', 'cooldown', 'cool down', 'stretch']):
+            # Handle warm-up and cooldown lines
+            if any(word in line.lower() for word in ['warm up', 'warm-up', 'warmup', 'cooldown', 'cool down', 'cool-down', 'stretch']):
                 exercises.append({
                     'name': line,
                     'type': 'warmup' if 'warm' in line.lower() else 'cooldown',
@@ -48,12 +54,156 @@ class WorkoutService:
                 })
                 continue
             
-            # Extract exercise details
-            exercise = self.parse_exercise_line(line)
-            if exercise:
-                exercises.append(exercise)
+            # Check if the line contains multiple exercises separated by commas or semicolons
+            # Split by common separators: comma, semicolon, or 'and'
+            potential_exercises = []
+            
+            # First try splitting by commas
+            if ',' in line:
+                potential_exercises = line.split(',')
+            # Then try semicolons
+            elif ';' in line:
+                potential_exercises = line.split(';')
+            # Try splitting by ' and ' (but not 'band' or 'hand')
+            elif ' and ' in line.lower():
+                # Make sure 'and' is not part of an exercise name
+                parts = re.split(r'\s+and\s+', line, flags=re.IGNORECASE)
+                # Check if the split makes sense (each part should have numbers)
+                if all(any(char.isdigit() for char in part) for part in parts):
+                    potential_exercises = parts
+                else:
+                    potential_exercises = [line]
+            else:
+                potential_exercises = [line]
+            
+            # Parse each potential exercise
+            for exercise_text in potential_exercises:
+                exercise_text = exercise_text.strip()
+                if not exercise_text:
+                    continue
+                
+                # Remove leading numbers like "1." or "1)" if present
+                exercise_text = re.sub(r'^\d+[\.\)]\s*', '', exercise_text)
+                
+                # Extract exercise details
+                exercise = self.parse_exercise_line(exercise_text)
+                if exercise:
+                    exercises.append(exercise)
         
         return exercises
+    
+    def parse_exercise_line(self, line: str) -> Dict:
+        """Parse a single exercise line into structured format"""
+        
+        # Common exercise patterns to match:
+        # "Squats 3x12" or "Squats 3 x 12"
+        # "Squats - 3 sets x 12 reps"
+        # "Squats: 3 sets of 12"
+        # "Squats 3 sets 12 reps"
+        # "3x12 Squats" or "3 x 12 Squats"
+        
+        exercise = {}
+        line = line.strip()
+        
+        # Pattern 1: Exercise name followed by sets/reps (most common)
+        # Matches: "Squats 3x12", "Lunges 3 x 10", "Push-ups 3 sets x 12 reps"
+        pattern1 = r'^([A-Za-z\s\-]+?)[\s\-:]+(\d+)\s*[xX×]\s*(\d+)'
+        match1 = re.match(pattern1, line)
+        
+        if match1:
+            exercise['name'] = match1.group(1).strip().title()
+            exercise['sets'] = int(match1.group(2))
+            exercise['reps'] = match1.group(3)
+            
+            # Check for "each leg", "each arm", "per side" etc.
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 2: Sets/reps followed by exercise name
+        # Matches: "3x12 Squats", "3 x 10 Lunges"
+        pattern2 = r'^(\d+)\s*[xX×]\s*(\d+)\s+([A-Za-z\s\-]+)'
+        match2 = re.match(pattern2, line)
+        
+        if match2:
+            exercise['sets'] = int(match2.group(1))
+            exercise['reps'] = match2.group(2)
+            exercise['name'] = match2.group(3).strip().title()
+            
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 3: "sets of" format
+        # Matches: "Squats 3 sets of 12", "Lunges - 2 sets of 10"
+        pattern3 = r'^([A-Za-z\s\-]+?)[\s\-:]+(\d+)\s*sets?\s*of\s*(\d+)'
+        match3 = re.match(pattern3, line, re.IGNORECASE)
+        
+        if match3:
+            exercise['name'] = match3.group(1).strip().title()
+            exercise['sets'] = int(match3.group(2))
+            exercise['reps'] = match3.group(3)
+            
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 4: Simple format with just numbers
+        # Matches: "Squats 3 12" or "Squats 3 sets 12 reps"
+        pattern4 = r'^([A-Za-z\s\-]+?)\s+(\d+)\s*(?:sets?)?\s+(\d+)\s*(?:reps?)?'
+        match4 = re.match(pattern4, line, re.IGNORECASE)
+        
+        if match4:
+            exercise['name'] = match4.group(1).strip().title()
+            exercise['sets'] = int(match4.group(2))
+            exercise['reps'] = match4.group(3)
+            
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 5: Exercise with time duration
+        # Matches: "Plank 3x30 seconds", "Wall sit 2 x 45 sec"
+        pattern5 = r'^([A-Za-z\s\-]+?)[\s\-:]+(\d+)\s*[xX×]\s*(\d+)\s*(seconds?|secs?|minutes?|mins?)'
+        match5 = re.match(pattern5, line, re.IGNORECASE)
+        
+        if match5:
+            exercise['name'] = match5.group(1).strip().title()
+            exercise['sets'] = int(match5.group(2))
+            time_unit = 'seconds' if 'sec' in match5.group(4).lower() else 'minutes'
+            exercise['reps'] = f"{match5.group(3)} {time_unit}"
+            return exercise
+        
+        # Pattern 6: Just exercise name with basic numbers somewhere
+        # Last resort - try to find any numbers in the line
+        if re.search(r'\d+', line):
+            # Try to extract exercise name and any numbers
+            name_match = re.match(r'^([A-Za-z\s\-]+)', line)
+            numbers = re.findall(r'\d+', line)
+            
+            if name_match and len(numbers) >= 2:
+                exercise['name'] = name_match.group(1).strip().title()
+                exercise['sets'] = int(numbers[0])
+                exercise['reps'] = numbers[1]
+                
+                if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                    exercise['reps'] += ' each side'
+                
+                return exercise
+        
+        # If no pattern matches but we have what looks like an exercise name, 
+        # return it with default sets/reps
+        if re.match(r'^[A-Za-z\s\-]+$', line):
+            exercise['name'] = line.strip().title()
+            exercise['sets'] = 3  # Default
+            exercise['reps'] = '12'  # Default
+            return exercise
+        
+        return None
     
     def parse_exercise_line(self, line: str) -> Optional[Dict]:
         """Parse a single exercise line"""
