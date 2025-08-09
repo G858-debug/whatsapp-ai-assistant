@@ -20,6 +20,8 @@
             --sage: #AAB396;
             --beige-light: #FFF8E8;
             --beige: #F7EED3;
+            --bright-purple: #9333ea;
+            --whatsapp-green: #25D366;
         }
         
         .calendar-grid {
@@ -28,60 +30,69 @@
             gap: 2px;
         }
         
-        /* Original stats cards with clickable cursor */
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .stats-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        .stats-card-green {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .stats-card-green:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        .stats-card-blue {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .stats-card-blue:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Beige gradient for Active Clients card */
-        .stats-card-beige {
+        /* Week Sessions card - Beige gradient */
+        .stats-card-week {
             background: linear-gradient(135deg, var(--beige) 0%, var(--beige-light) 100%);
             color: #374151;
             cursor: pointer;
             transition: all 0.3s ease;
         }
         
-        .stats-card-beige:hover {
+        .stats-card-week:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
         }
         
-        .stats-card-orange {
+        /* Revenue card - Purple gradient */
+        .stats-card-revenue {
+            background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .stats-card-revenue:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Active Clients card - Sage/geometric pattern background */
+        .stats-card-clients {
+            background-color: #8B9A7B;
+            background-image: 
+                linear-gradient(45deg, transparent 48%, rgba(255,248,232,0.1) 49%, rgba(255,248,232,0.1) 51%, transparent 52%),
+                linear-gradient(-45deg, transparent 48%, rgba(255,248,232,0.1) 49%, rgba(255,248,232,0.1) 51%, transparent 52%),
+                linear-gradient(90deg, transparent 48%, rgba(255,248,232,0.15) 49%, rgba(255,248,232,0.15) 51%, transparent 52%),
+                linear-gradient(0deg, transparent 48%, rgba(255,248,232,0.15) 49%, rgba(255,248,232,0.15) 51%, transparent 52%);
+            background-size: 40px 40px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .stats-card-clients::before {
+            content: '';
+            position: absolute;
+            top: 20%;
+            right: 15%;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,248,232,0.2);
+        }
+        
+        .stats-card-clients:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Today card - Keep orange gradient */
+        .stats-card-today {
             background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
             cursor: pointer;
             transition: all 0.3s ease;
         }
         
-        .stats-card-orange:hover {
+        .stats-card-today:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
         }
@@ -120,8 +131,8 @@
         <!-- Stats Cards (Clickable) -->
         <div class="px-4 py-4">
             <div class="grid grid-cols-2 gap-3">
-                <!-- This Week - Clicks to Week tab -->
-                <div @click="activeTab = 'week'" class="stats-card text-white p-4 rounded-lg">
+                <!-- This Week - Beige gradient -->
+                <div @click="activeTab = 'week'" class="stats-card-week p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs opacity-90">This Week</p>
@@ -132,8 +143,8 @@
                     </div>
                 </div>
                 
-                <!-- Revenue - Clicks to Revenue tab -->
-                <div @click="activeTab = 'revenue'" class="stats-card-green text-white p-4 rounded-lg">
+                <!-- Revenue - Purple gradient -->
+                <div @click="activeTab = 'revenue'" class="stats-card-revenue text-white p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs opacity-90">Revenue</p>
@@ -144,8 +155,8 @@
                     </div>
                 </div>
                 
-                <!-- Active Clients - Clicks to Clients tab (Beige gradient) -->
-                <div @click="activeTab = 'clients'" class="stats-card-beige p-4 rounded-lg">
+                <!-- Active Clients - Sage with geometric pattern -->
+                <div @click="activeTab = 'clients'" class="stats-card-clients text-white p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs opacity-90">Active</p>
@@ -156,8 +167,8 @@
                     </div>
                 </div>
                 
-                <!-- Today - Clicks to Today tab -->
-                <div @click="activeTab = 'today'" class="stats-card-orange text-white p-4 rounded-lg">
+                <!-- Today - Orange gradient -->
+                <div @click="activeTab = 'today'" class="stats-card-today text-white p-4 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs opacity-90">Today</p>
@@ -301,9 +312,9 @@
                                     Last session: {{ client.last_session_display }}
                                 </p>
                             </div>
-                            <button class="text-purple-600 text-sm" 
+                            <button class="text-sm" style="color: var(--whatsapp-green)"
                                     onclick="sendWhatsApp('{{ client.whatsapp }}')">
-                                <i class="fab fa-whatsapp"></i>
+                                <i class="fab fa-whatsapp text-xl"></i>
                             </button>
                         </div>
                         
@@ -388,7 +399,7 @@
                             {% endfor %}
                         </div>
                         <button onclick="updateAvailability()" 
-                                class="mt-3 w-full bg-green-100 text-green-700 py-2 rounded text-sm font-medium">
+                                class="mt-3 w-full bg-purple-100 text-purple-700 py-2 rounded text-sm font-medium">
                             Update via WhatsApp
                         </button>
                     </div>
@@ -431,34 +442,34 @@
             <div class="grid grid-cols-4 py-2">
                 <button @click="activeTab = 'today'" class="flex flex-col items-center py-2">
                     <i class="fas fa-calendar-day text-xl" 
-                       :style="activeTab === 'today' ? 'color: var(--brown)' : ''"
+                       :style="activeTab === 'today' ? 'color: var(--bright-purple)' : ''"
                        :class="activeTab !== 'today' ? 'text-gray-400' : ''"></i>
                     <span class="text-xs mt-1" 
-                          :style="activeTab === 'today' ? 'color: var(--brown)' : ''"
+                          :style="activeTab === 'today' ? 'color: var(--bright-purple)' : ''"
                           :class="activeTab !== 'today' ? 'text-gray-400' : ''">Today</span>
                 </button>
                 <button @click="activeTab = 'week'" class="flex flex-col items-center py-2">
                     <i class="fas fa-calendar-week text-xl" 
-                       :style="activeTab === 'week' ? 'color: var(--brown)' : ''"
+                       :style="activeTab === 'week' ? 'color: var(--bright-purple)' : ''"
                        :class="activeTab !== 'week' ? 'text-gray-400' : ''"></i>
                     <span class="text-xs mt-1" 
-                          :style="activeTab === 'week' ? 'color: var(--brown)' : ''"
+                          :style="activeTab === 'week' ? 'color: var(--bright-purple)' : ''"
                           :class="activeTab !== 'week' ? 'text-gray-400' : ''">Week</span>
                 </button>
                 <button @click="activeTab = 'clients'" class="flex flex-col items-center py-2">
                     <i class="fas fa-users text-xl" 
-                       :style="activeTab === 'clients' ? 'color: var(--brown)' : ''"
+                       :style="activeTab === 'clients' ? 'color: var(--bright-purple)' : ''"
                        :class="activeTab !== 'clients' ? 'text-gray-400' : ''"></i>
                     <span class="text-xs mt-1" 
-                          :style="activeTab === 'clients' ? 'color: var(--brown)' : ''"
+                          :style="activeTab === 'clients' ? 'color: var(--bright-purple)' : ''"
                           :class="activeTab !== 'clients' ? 'text-gray-400' : ''">Clients</span>
                 </button>
                 <button @click="activeTab = 'revenue'" class="flex flex-col items-center py-2">
                     <i class="fas fa-chart-line text-xl" 
-                       :style="activeTab === 'revenue' ? 'color: var(--sage)' : ''"
+                       :style="activeTab === 'revenue' ? 'color: var(--bright-purple)' : ''"
                        :class="activeTab !== 'revenue' ? 'text-gray-400' : ''"></i>
                     <span class="text-xs mt-1" 
-                          :style="activeTab === 'revenue' ? 'color: var(--brown)' : ''"
+                          :style="activeTab === 'revenue' ? 'color: var(--bright-purple)' : ''"
                           :class="activeTab !== 'revenue' ? 'text-gray-400' : ''">Revenue</span>
                 </button>
             </div>
