@@ -5,6 +5,7 @@ import pytz
 from typing import Dict, Optional, Tuple, List
 import random
 import json
+from services.workout import WorkoutService
 
 from models.trainer import TrainerModel
 from models.client import ClientModel
@@ -20,6 +21,7 @@ class RefiloeAssistant:
         self.whatsapp = whatsapp_service
         self.logger = logger
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+        self.workout_service = WorkoutService(config, supabase_client)
         
         # Initialize models
         self.trainer_model = TrainerModel(supabase_client, config)
@@ -183,6 +185,10 @@ Go ahead! 💪"""
                     return f"Hi {trainer['name']}! I'm Refiloe, your AI assistant. How can I help you today? 💪"
                 else:
                     return f"Hey {trainer['name']}! What can I do for you today? 😊"
+
+            # Workout requests
+            elif any(phrase in message_lower for phrase in ['workout', 'program', 'exercise', 'routine', 'training']):
+                return self.handle_workout_request(trainer, message_text, greeting)
             
             # General AI response
             else:
@@ -687,6 +693,164 @@ I'll handle all your client bookings 24/7! 💪"""
 **If you're a client:** Your trainer needs to add you to the system first, then I'll help you book sessions easily!
 
 Reply "TRAINER" if you want to sign up! 😊"""
+
+
+    def handle_workout_request(self, trainer: Dict, message_text: str, greeting: str = "") -> str:
+        """Handle workout creation and sending"""
+        try:
+            message_lower = message_text.lower()
+            
+            # Check if trainer wants to create a workout
+            if any(phrase in message_lower for phrase in ['create workout', 'make workout', 'build workout', 'generate workout']):
+                return self.handle_workout_generation(trainer, message_text, greeting)
+            
+            # Check if there's a client name mentioned
+            client_match = re.search(r'(?:for|to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', message_text)
+            if not client_match and 'send' not in message_lower:
+                # No client specified, parse the workout
+                exercises = self.workout_service.parse_workout_text(message_text)
+                
+                if exercises:
+                    # Show preview
+                    preview = f"{greeting}I've parsed this workout:\n\n"
+                    for i, ex in enumerate(exercises, 1):
+                        if ex.get('type') in ['warmup', 'cooldown']:
+                            preview += f"• {ex['details']}\n"
+                        else:
+                            preview += f"{i}. {ex['name']}"
+                            if ex.get('sets') and ex.get('reps'):
+                                preview += f" - {ex['sets']} sets × {ex['reps']}"
+                            preview += "\n"
+                    
+                    preview += "\nWho should I send this to? Just say 'Send to [Client Name]'"
+                    return preview
+            
+            # Extract client name if mentioned
+            if client_match:
+                client_name = client_match.group(1)
+                
+                # Find client
+                clients = self.client_model.get_trainer_clients(trainer['id'])
+                matching_client = None
+                
+                for client in clients:
+                    if client_name.lower() in client['name'].lower():
+                        matching_client = client
+                        break
+                
+                if matching_client:
+                    # Parse workout
+                    exercises = self.workout_service.parse_workout_text(message_text)
+                    
+                    if exercises:
+                        # Get client gender (default to 'male' if not set)
+                        client_gender = matching_client.get('gender', 'male')
+                        
+                        # Format workout
+                        workout_message = self.workout_service.format_workout_for_whatsapp(
+                            exercises, 
+                            matching_client['name'],
+                            client_gender
+                        )
+                        
+                        # Send to client
+                        self.whatsapp.send_message(matching_client['whatsapp'], workout_message)
+                        
+                        # Save to history
+                        self.workout_service.save_workout_to_history(
+                            matching_client['id'],
+                            trainer['id'],
+                            'Custom Workout',
+                            exercises
+                        )
+                        
+                        return f"{greeting}✅ Workout sent to {matching_client['name']}! \n\nThey'll receive:\n• Exercise demonstrations\n• Clear sets & reps\n• Proper form tips\n\nThey can reply with questions! 💪"
+                    else:
+                        return f"{greeting}I couldn't parse the workout. Try formatting like:\n\nSquats - 3 sets x 12 reps\nLeg Press - 3 x 10\nLunges - 3 sets of 12"
+                else:
+                    return f"{greeting}I couldn't find a client named '{client_name}'. Your clients are:\n\n" + \
+                           '\n'.join([f"• {c['name']}" for c in clients])
+            
+            return f"{greeting}I can help you create and send workouts! Try:\n\n• 'Create leg workout for Sarah'\n• Type a workout and say who to send it to\n• 'Generate upper body workout'"
+            
+        except Exception as e:
+            log_error(f"Error handling workout request: {str(e)}")
+            return f"{greeting}I had trouble with that workout. Try again?"
+    
+    def handle_workout_generation(self, trainer: Dict, message_text: str, greeting: str = "") -> str:
+        """Handle AI workout generation requests"""
+        try:
+            message_lower = message_text.lower()
+            
+            # Extract workout type
+            workout_types = {
+                'leg': 'legs', 'legs': 'legs', 'lower': 'legs',
+                'chest': 'chest', 'push': 'chest',
+                'back': 'back', 'pull': 'back',
+                'upper': 'upper', 'upper body': 'upper',
+                'full': 'full', 'full body': 'full',
+                'core': 'core', 'abs': 'core'
+            }
+            
+            workout_type = 'full'  # default
+            for key, value in workout_types.items():
+                if key in message_lower:
+                    workout_type = value
+                    break
+            
+            # Extract client name
+            client_match = re.search(r'for\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', message_text)
+            
+            if client_match:
+                client_name = client_match.group(1)
+                
+                # Find client
+                clients = self.client_model.get_trainer_clients(trainer['id'])
+                matching_client = None
+                
+                for client in clients:
+                    if client_name.lower() in client['name'].lower():
+                        matching_client = client
+                        break
+                
+                if matching_client:
+                    # Get client preferences
+                    preferences = self.workout_service.get_client_preferences(
+                        matching_client['id'], 
+                        workout_type
+                    )
+                    
+                    # Generate workout
+                    exercises = self.workout_service.generate_ai_workout(
+                        matching_client,
+                        workout_type,
+                        preferences
+                    )
+                    
+                    # Format preview
+                    preview = f"{greeting}I've generated a {workout_type} workout for {matching_client['name']}:\n\n"
+                    
+                    for i, ex in enumerate(exercises, 1):
+                        preview += f"{i}. {ex['name']} - {ex['sets']} sets × {ex['reps']}\n"
+                    
+                    preview += f"\n✅ Send this workout\n✏️ Edit first\n❌ Cancel\n\nWhat would you like to do?"
+                    
+                    # Store pending workout in conversation
+                    self.conversation_history[f"pending_workout_{trainer['id']}"] = {
+                        'client': matching_client,
+                        'exercises': exercises,
+                        'type': workout_type
+                    }
+                    
+                    return preview
+                else:
+                    return f"{greeting}I couldn't find {client_name}. Please specify which client."
+            else:
+                return f"{greeting}Which client is this {workout_type} workout for?\n\nExample: 'Create leg workout for Sarah'"
+                
+        except Exception as e:
+            log_error(f"Error generating workout: {str(e)}")
+            return f"{greeting}I had trouble generating that workout. Try: 'Create leg workout for [client name]'"
 
 
 
