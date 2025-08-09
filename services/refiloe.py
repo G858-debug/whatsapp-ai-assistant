@@ -106,94 +106,107 @@ class RefiloeAssistant:
             # Greeting for first interaction only
             greeting = f"Hi {trainer['name']}! I'm Refiloe, your AI assistant. " if is_first else ""
             
-            # Check if message contains client details (phone number pattern)
-            has_phone = bool(re.search(r'(?:\+27|27|0)?\d{9,10}', message_text))
-            has_email = bool(re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', message_text))
-            
-            # Natural language client addition request (without details)
-            if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'help me add']):
-                return f"""{greeting}Let's add your new client! I'll need:
-            
-            📝 Client's full name
-            📱 WhatsApp number (e.g., 0821234567)
-            📧 Email address
-            📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
-            
-            Go ahead! 💪"""
-            
-            # Dashboard request
-            elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
-                return self.handle_dashboard_request(trainer, greeting)
-
-             # Workout requests
-            elif any(phrase in message_lower for phrase in ['workout', 'program', 'exercise', 'routine', 'training']):
-                return self.handle_workout_request(trainer, message_text, greeting)
-            
-            # If they're providing client details directly
-            if has_phone or has_email or self.looks_like_client_details(message_text):
-                # Try to extract and add the client
-                details = self.extract_client_details_naturally(message_text)
-                
-                if details and details.get('name') and details.get('phone'):
-                    # Add the client directly
-                    return self.complete_client_addition(trainer, details)
-                else:
-                    # Ask for clarification
-                    missing = []
-                    if not details.get('name'):
-                        missing.append("name")
-                    if not details.get('phone'):
-                        missing.append("phone number")
-                    
-                    return f"""I'm trying to add your client but I need their {' and '.join(missing)}.
-
-Could you provide:
-📝 Full name
-📱 WhatsApp number
-📧 Email (optional)
-📅 Training schedule (optional)
-
-Just give me the details! 💪"""
-                        
-            # Update availability
-            elif any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours']):
-                return self.handle_availability_update(trainer, message_text, greeting)
-            
-            # Update booking preferences
-            elif any(phrase in message_lower for phrase in ['booking preference', 'prefer early', 'prefer late', 'slot preference']):
-                return self.handle_preference_update(trainer, message_text, greeting)
-            
-            # Session duration update
-            elif any(phrase in message_lower for phrase in ['session length', 'session duration', 'minutes long', 'hour long']):
-                return self.handle_session_duration_update(trainer, message_text, greeting)
-            
-            # View clients
-            elif any(word in message_lower for word in ['my clients', 'list clients', 'show clients']):
-                return greeting + self.get_trainer_clients_display(trainer)
-            
-            # Schedule
-            elif any(word in message_lower for word in ['schedule', 'bookings', 'today', 'tomorrow']):
-                return greeting + self.get_trainer_schedule_display(trainer)
-            
-            # Revenue
-            elif any(word in message_lower for word in ['revenue', 'payments', 'money', 'earnings']):
-                return greeting + self.get_trainer_revenue_display(trainer)
-            
-            # Help
-            elif any(word in message_lower for word in ['help', 'commands', 'what can you do']):
-                return self.get_trainer_help_menu(trainer['name'], is_first)
-            
-            # Just greeting
-            elif any(word in message_lower for word in ['hi', 'hello', 'hey']) and len(message_text.split()) <= 3:
+            # 1. GREETINGS FIRST (before any other checks)
+            if any(word in message_lower for word in ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo']) and len(message_text.split()) <= 5:
                 if is_first:
                     return f"Hi {trainer['name']}! I'm Refiloe, your AI assistant. How can I help you today? 💪"
                 else:
-                    return f"Hey {trainer['name']}! What can I do for you today? 😊"
+                    greetings = [
+                        f"Hey {trainer['name']}! What can I do for you today? 😊",
+                        f"Hi there {trainer['name']}! How can I help? 💪",
+                        f"Hello {trainer['name']}! Ready to manage your training business? 🏃‍♂️"
+                    ]
+                    import random
+                    return random.choice(greetings)
             
-            # General AI response
-            else:
-                return self.process_with_ai(trainer, message_text, 'trainer', greeting=greeting)
-                
+            # 2. HELP/COMMANDS
+            if any(phrase in message_lower for phrase in ['help', 'commands', 'what can you do', 'how do you work']):
+                return self.get_trainer_help_menu(trainer['name'], is_first)
+            
+            # 3. DASHBOARD REQUEST
+            if any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
+                return self.handle_dashboard_request(trainer, greeting)
+            
+            # 4. WORKOUT/PROGRAM REQUESTS
+            if any(phrase in message_lower for phrase in ['workout', 'program', 'exercise', 'routine', 'training plan']):
+                return self.handle_workout_request(trainer, message_text, greeting)
+            
+            # 5. VIEW CLIENTS
+            if any(phrase in message_lower for phrase in ['my clients', 'list clients', 'show clients', 'all clients']):
+                return greeting + self.get_trainer_clients_display(trainer)
+            
+            # 6. SCHEDULE/BOOKINGS
+            if any(phrase in message_lower for phrase in ['schedule', 'bookings', 'appointments', 'today\'s sessions', 'tomorrow']):
+                return greeting + self.get_trainer_schedule_display(trainer)
+            
+            # 7. REVENUE/EARNINGS
+            if any(phrase in message_lower for phrase in ['revenue', 'payments', 'money', 'earnings', 'income']):
+                return greeting + self.get_trainer_revenue_display(trainer)
+            
+            # 8. AVAILABILITY UPDATE
+            if any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours', 'when i work']):
+                return self.handle_availability_update(trainer, message_text, greeting)
+            
+            # 9. BOOKING PREFERENCES
+            if any(phrase in message_lower for phrase in ['booking preference', 'prefer early', 'prefer late', 'slot preference']):
+                return self.handle_preference_update(trainer, message_text, greeting)
+            
+            # 10. SESSION DURATION
+            if any(phrase in message_lower for phrase in ['session length', 'session duration', 'minutes long', 'hour long']):
+                return self.handle_session_duration_update(trainer, message_text, greeting)
+            
+            # 11. EXPLICIT CLIENT ADDITION REQUEST (must mention "add" or "new" with "client")
+            if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'register client', 'sign up client']):
+                return f"""{greeting}Let's add your new client! I'll need:
+    
+    📝 Client's full name
+    📱 WhatsApp number (e.g., 0821234567)
+    📧 Email address
+    📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
+    
+    Go ahead! 💪"""
+            
+            # 12. CHECK IF PROVIDING CLIENT DETAILS (only after explicit add request or with clear indicators)
+            has_phone = bool(re.search(r'(?:\+27|27|0)?\d{9,10}', message_text))
+            has_email = bool(re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', message_text))
+            
+            # Only try to parse as client details if:
+            # - Has phone/email AND mentions client-related keywords
+            # - OR looks strongly like client details
+            client_keywords = ['client', 'trains', 'training', 'sessions', 'week', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+            has_client_context = any(word in message_lower for word in client_keywords)
+            
+            if (has_phone or has_email) and has_client_context:
+                # Check if this might be client details
+                if self.looks_like_client_details(message_text):
+                    details = self.extract_client_details_naturally(message_text)
+                    
+                    if details and details.get('name') and details.get('phone'):
+                        # Add the client directly
+                        return self.complete_client_addition(trainer, details)
+                    else:
+                        # Only ask for clarification if we're confident they're trying to add a client
+                        if 'client' in message_lower or has_phone:
+                            missing = []
+                            if not details.get('name'):
+                                missing.append("name")
+                            if not details.get('phone'):
+                                missing.append("phone number")
+                            
+                            return f"""I see you're trying to add a client, but I need their {' and '.join(missing)}.
+    
+    Could you provide:
+    📝 Full name
+    📱 WhatsApp number
+    📧 Email (optional)
+    📅 Training schedule (optional)
+    
+    Just give me the details! 💪"""
+            
+            # 13. GENERAL AI FALLBACK - for everything else
+            # This should handle confusion, general questions, and unclear requests
+            return self.process_with_ai(trainer, message_text, 'trainer', greeting=greeting)
+            
         except Exception as e:
             log_error(f"Error handling trainer message: {str(e)}", exc_info=True)
             return "Let me try that again. What would you like help with?"
