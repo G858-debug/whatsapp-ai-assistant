@@ -59,7 +59,6 @@ class Config:
 
     # Workout Settings
     GIPHY_API_KEY = os.environ.get('GIPHY_API_KEY')
-    ENABLE_WORKOUT_PROGRAMS = True  # Change from False to True
     
     # Exercise categories
     MUSCLE_GROUPS = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'full body']
