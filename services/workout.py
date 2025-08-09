@@ -322,58 +322,179 @@ class WorkoutService:
         # Title case if not in map
         return ' '.join(word.capitalize() for word in name.split())
     
-    def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
-        """Find appropriate GIF for exercise"""
-        try:
-            # First, check our database
-            if self.db:
-                result = self.db.table('exercises').select('*').ilike(
-                    'name', f'%{exercise_name}%'
-                ).limit(1).execute()
-                
-                if result.data:
-                    exercise = result.data[0]
-                    gif_field = f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male'
-                    return exercise.get(gif_field, '') or exercise.get('gif_url_male', '')
-            
-            # If not in database, search Giphy
-            if hasattr(self.config, 'GIPHY_API_KEY') and self.config.GIPHY_API_KEY:
-                return self.search_giphy(exercise_name, gender)
-            
-            # Return placeholder if no GIF found
-            return "🏋️" 
-            
-        except Exception as e:
-            log_error(f"Error finding GIF for {exercise_name}: {str(e)}")
-            return "💪"
-    
     def search_giphy(self, exercise_name: str, gender: str) -> str:
-        """Search Giphy for exercise GIF"""
-        try:
-            api_key = self.config.GIPHY_API_KEY
-            search_term = f"{exercise_name} exercise {gender}"
-            
-            url = f"https://api.giphy.com/v1/gifs/search"
-            params = {
-                'api_key': api_key,
-                'q': search_term,
-                'limit': 1,
-                'rating': 'g'
-            }
-            
-            response = requests.get(url, params=params, timeout=5)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data['data']:
-                    # Return the fixed height GIF URL
-                    return data['data'][0]['images']['fixed_height']['url']
-            
+    """Search Giphy for exercise GIF with multiple fallback strategies"""
+    try:
+        api_key = self.config.GIPHY_API_KEY
+        
+        if not api_key:
+            log_error("GIPHY_API_KEY not configured")
             return "🏋️"
+        
+        # Clean up exercise name for better search results
+        # Remove common words that might confuse search
+        exercise_clean = exercise_name.lower()
+        exercise_clean = exercise_clean.replace('-', ' ').replace('_', ' ')
+        
+        # Try multiple search strategies in order of preference
+        search_strategies = [
+            f"{exercise_clean} fitness exercise",  # Most specific
+            f"{exercise_clean} workout",           # General workout
+            f"{exercise_clean} gym",              # Gym context
+            f"{exercise_clean} demonstration",     # Demo focused
+            exercise_clean,                        # Just the exercise name
+        ]
+        
+        # Try gender-specific search first, then generic
+        if gender in ['male', 'female']:
+            # Add gender-specific searches at the beginning
+            gender_searches = [
+                f"{exercise_clean} {gender} fitness",
+                f"{exercise_clean} exercise {gender}",
+            ]
+            search_strategies = gender_searches + search_strategies
+        
+        url = "https://api.giphy.com/v1/gifs/search"
+        
+        for search_term in search_strategies:
+            try:
+                params = {
+                    'api_key': api_key,
+                    'q': search_term,
+                    'limit': 5,  # Get more results to choose from
+                    'rating': 'g',
+                    'lang': 'en'
+                }
+                
+                log_error(f"Searching Giphy with term: {search_term}")  # Debug log
+                response = requests.get(url, params=params, timeout=5)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    if data.get('data') and len(data['data']) > 0:
+                        # Try to find the best quality GIF
+                        for gif in data['data']:
+                            # Skip if title suggests it's not exercise-related
+                            title = gif.get('title', '').lower()
+                            
+                            # Skip obvious non-exercise content
+                            skip_words = ['cartoon', 'anime', 'funny', 'fail', 'meme', 'cat', 'dog']
+                            if any(word in title for word in skip_words):
+                                continue
+                            
+                            # Prefer GIFs with exercise-related titles
+                            good_words = ['exercise', 'workout', 'fitness', 'gym', 'training']
+                            is_relevant = any(word in title for word in good_words) or exercise_clean in title
+                            
+                            # Get the URL - prefer downsized for faster loading on mobile
+                            if 'images' in gif:
+                                # Try different image sizes in order of preference for WhatsApp
+                                image_options = [
+                                    ('downsized', 'url'),
+                                    ('fixed_height', 'url'),
+                                    ('original', 'url'),
+                                ]
+                                
+                                for size_key, url_key in image_options:
+                                    if size_key in gif['images'] and url_key in gif['images'][size_key]:
+                                        gif_url = gif['images'][size_key][url_key]
+                                        if gif_url:
+                                            log_error(f"Found GIF for {exercise_name}: {gif_url}")
+                                            return gif_url
+                            
+                            # If we found a relevant GIF but couldn't get URL, continue searching
+                            if is_relevant:
+                                continue
+                        
+                        # If no relevant GIFs found in filtered results, take the first one
+                        if data['data'][0].get('images', {}).get('downsized', {}).get('url'):
+                            return data['data'][0]['images']['downsized']['url']
+                
+                elif response.status_code == 401:
+                    log_error(f"Giphy API authentication failed. Check API key.")
+                    return "🏋️"
+                elif response.status_code == 429:
+                    log_error(f"Giphy API rate limit exceeded.")
+                    return "💪"
+                    
+            except requests.exceptions.RequestException as e:
+                log_error(f"Request error for search term '{search_term}': {str(e)}")
+                continue
+        
+        # If no GIF found after all attempts, return emoji
+        log_error(f"No GIF found for exercise: {exercise_name}")
+        return "🏋️"
+        
+    except Exception as e:
+        log_error(f"Giphy search error: {str(e)}")
+        return "💪"
+
+def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
+    """Find appropriate GIF for exercise"""
+    try:
+        # First, check our database for cached/curated GIFs
+        if self.db:
+            result = self.db.table('exercises').select('*').ilike(
+                'name', f'%{exercise_name}%'
+            ).limit(1).execute()
             
-        except Exception as e:
-            log_error(f"Giphy search error: {str(e)}")
-            return "💪"
+            if result.data:
+                exercise = result.data[0]
+                
+                # Check for gender-specific GIF
+                gif_field = f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male'
+                gif_url = exercise.get(gif_field, '') or exercise.get('gif_url_male', '')
+                
+                # Validate that it's a real URL, not a placeholder
+                if gif_url and gif_url.startswith('http') and 'giphy.com' in gif_url:
+                    # Test if it's a valid URL (not our fake placeholder)
+                    if not any(fake in gif_url for fake in ['demo/giphy.gif', 'placeholder', 'example']):
+                        log_error(f"Using cached GIF for {exercise_name}: {gif_url}")
+                        return gif_url
+                    else:
+                        log_error(f"Found placeholder URL in database for {exercise_name}, searching Giphy instead")
+        
+        # If not in database or invalid URL, search Giphy
+        if hasattr(self.config, 'GIPHY_API_KEY') and self.config.GIPHY_API_KEY:
+            gif_url = self.search_giphy(exercise_name, gender)
+            
+            # If we found a real GIF, optionally cache it in the database
+            if gif_url and gif_url.startswith('http'):
+                try:
+                    if self.db:
+                        # Check if exercise exists in database
+                        existing = self.db.table('exercises').select('id').ilike(
+                            'name', f'%{exercise_name}%'
+                        ).limit(1).execute()
+                        
+                        if existing.data:
+                            # Update existing record with real GIF URL
+                            gif_field = f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male'
+                            self.db.table('exercises').update({
+                                gif_field: gif_url
+                            }).eq('id', existing.data[0]['id']).execute()
+                            log_error(f"Cached GIF URL for {exercise_name}")
+                        else:
+                            # Create new record
+                            self.db.table('exercises').insert({
+                                'name': exercise_name.title(),
+                                f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male': gif_url,
+                                'created_at': datetime.now(self.sa_tz).isoformat()
+                            }).execute()
+                            log_error(f"Created new exercise record with GIF for {exercise_name}")
+                except Exception as e:
+                    log_error(f"Error caching GIF: {str(e)}")
+            
+            return gif_url
+        
+        # Return emoji as last resort
+        log_error(f"No Giphy API key configured, returning emoji for {exercise_name}")
+        return "🏋️"
+        
+    except Exception as e:
+        log_error(f"Error finding GIF for {exercise_name}: {str(e)}")
+        return "💪"
     
     def format_workout_for_whatsapp(self, exercises: List[Dict], client_name: str, 
                                    client_gender: str = 'male') -> str:
