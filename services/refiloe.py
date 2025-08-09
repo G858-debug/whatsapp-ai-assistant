@@ -1,3 +1,4 @@
+from services.workout import WorkoutService
 import re
 import requests
 from datetime import datetime, timedelta
@@ -5,7 +6,6 @@ import pytz
 from typing import Dict, Optional, Tuple, List
 import random
 import json
-from services.workout import WorkoutService
 
 from models.trainer import TrainerModel
 from models.client import ClientModel
@@ -109,6 +109,25 @@ class RefiloeAssistant:
             # Check if message contains client details (phone number pattern)
             has_phone = bool(re.search(r'(?:\+27|27|0)?\d{9,10}', message_text))
             has_email = bool(re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', message_text))
+
+            # Natural language client addition request (without details)
+            elif any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'help me add']):
+                return f"""{greeting}Let's add your new client! I'll need:
+
+📝 Client's full name
+📱 WhatsApp number (e.g., 0821234567)
+📧 Email address
+📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
+
+Go ahead! 💪"""
+
+            # Dashboard request
+            elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
+                return self.handle_dashboard_request(trainer, greeting)
+
+             # Workout requests
+            elif any(phrase in message_lower for phrase in ['workout', 'program', 'exercise', 'routine', 'training']):
+                return self.handle_workout_request(trainer, message_text, greeting)
             
             # If they're providing client details directly
             if has_phone or has_email or self.looks_like_client_details(message_text):
@@ -135,22 +154,7 @@ Could you provide:
 📅 Training schedule (optional)
 
 Just give me the details! 💪"""
-            
-            # Natural language client addition request (without details)
-            elif any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'help me add']):
-                return f"""{greeting}Let's add your new client! I'll need:
-
-📝 Client's full name
-📱 WhatsApp number (e.g., 0821234567)
-📧 Email address
-📅 How often they'll train (e.g., "twice a week" or "Mondays and Thursdays")
-
-Go ahead! 💪"""
-
-            # Dashboard request
-            elif any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
-                return self.handle_dashboard_request(trainer, greeting)
-            
+                        
             # Update availability
             elif any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours']):
                 return self.handle_availability_update(trainer, message_text, greeting)
@@ -185,10 +189,6 @@ Go ahead! 💪"""
                     return f"Hi {trainer['name']}! I'm Refiloe, your AI assistant. How can I help you today? 💪"
                 else:
                     return f"Hey {trainer['name']}! What can I do for you today? 😊"
-
-            # Workout requests
-            elif any(phrase in message_lower for phrase in ['workout', 'program', 'exercise', 'routine', 'training']):
-                return self.handle_workout_request(trainer, message_text, greeting)
             
             # General AI response
             else:
