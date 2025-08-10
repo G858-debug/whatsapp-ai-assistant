@@ -33,7 +33,16 @@ class WorkoutService:
         """Parse natural language workout into structured format"""
         exercises = []
         
-        # First, split by newlines to get lines
+        # Remove the header line if it exists (e.g., "Create workout for X:")
+        if ':' in text:
+            parts = text.split(':', 1)
+            # Check if first part is a header
+            header_keywords = ['create', 'workout', 'program', 'routine', 'for', 'send']
+            if any(keyword in parts[0].lower() for keyword in header_keywords):
+                # Use only the part after the colon
+                text = parts[1]
+        
+        # Split by newlines first
         lines = text.strip().split('\n')
         
         for line in lines:
@@ -54,19 +63,17 @@ class WorkoutService:
                 })
                 continue
             
-            # Check if the line contains multiple exercises separated by commas or semicolons
-            # Split by common separators: comma, semicolon, or 'and'
+            # Check if line contains multiple exercises separated by commas
             potential_exercises = []
             
-            # First try splitting by commas
+            # Split by commas
             if ',' in line:
                 potential_exercises = line.split(',')
-            # Then try semicolons
+            # Split by semicolons
             elif ';' in line:
                 potential_exercises = line.split(';')
-            # Try splitting by ' and ' (but not 'band' or 'hand')
+            # Split by 'and' (carefully)
             elif ' and ' in line.lower():
-                # Make sure 'and' is not part of an exercise name
                 parts = re.split(r'\s+and\s+', line, flags=re.IGNORECASE)
                 # Check if the split makes sense (each part should have numbers)
                 if all(any(char.isdigit() for char in part) for part in parts):
@@ -82,7 +89,11 @@ class WorkoutService:
                 if not exercise_text:
                     continue
                 
-                # Remove leading numbers like "1." or "1)" if present
+                # Skip if this looks like a header
+                if any(keyword in exercise_text.lower() for keyword in ['create', 'workout for', 'program for']):
+                    continue
+                
+                # Remove leading numbers like "1." or "1)"
                 exercise_text = re.sub(r'^\d+[\.\)]\s*', '', exercise_text)
                 
                 # Extract exercise details
