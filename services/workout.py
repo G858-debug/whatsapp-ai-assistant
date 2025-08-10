@@ -144,10 +144,10 @@ class WorkoutService:
         return ' '.join(word.capitalize() for word in name.split())
     
     def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
-        """Find exercise GIF/video from database ONLY - no more Giphy"""
+        """Find exercise video from database based on gender"""
         try:
             if not self.db:
-                return "💪"  # Return emoji if no database
+                return "💪"
             
             # Clean the exercise name for better matching
             exercise_clean = exercise_name.strip().lower()
@@ -172,27 +172,29 @@ class WorkoutService:
             if result.data:
                 exercise = result.data[0]
                 
-                # Get the appropriate URL based on gender
-                url = None
-                if gender == 'female' and exercise.get('gif_url_female'):
-                    url = exercise['gif_url_female']
-                elif gender == 'male' and exercise.get('gif_url_male'):
-                    url = exercise['gif_url_male']
-                elif exercise.get('gif_url_neutral'):
-                    url = exercise['gif_url_neutral']
-                # Fallback to any available URL
-                elif exercise.get('gif_url_male'):
-                    url = exercise['gif_url_male']
-                elif exercise.get('gif_url_female'):
-                    url = exercise['gif_url_female']
+                # First check if there's a neutral video (works for everyone)
+                if exercise.get('gif_url_neutral'):
+                    return exercise['gif_url_neutral']
                 
-                if url:
-                    return url
-                elif exercise.get('instructions'):
-                    # Return text instructions if no video
+                # For males, try male video first
+                if gender == 'male' and exercise.get('gif_url_male'):
+                    return exercise['gif_url_male']
+                
+                # For females or non-binary, try female video
+                if gender in ['female', 'other', 'non-binary'] and exercise.get('gif_url_female'):
+                    return exercise['gif_url_female']
+                
+                # Fallback: Use any available video
+                if exercise.get('gif_url_female'):
+                    return exercise['gif_url_female']
+                elif exercise.get('gif_url_male'):
+                    return exercise['gif_url_male']
+                
+                # If no video, return text instructions
+                if exercise.get('instructions'):
                     return f"📝 {exercise['instructions'][:100]}..."
             
-            # Exercise not in database - return instructions emoji
+            # Exercise not in database
             return "💪"
             
         except Exception as e:
