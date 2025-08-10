@@ -298,11 +298,11 @@ class RefiloeAssistant:
         """Handle messages from trainers"""
 
         try:
-        # Try enhanced AI-powered handling first
-        if self.config.ANTHROPIC_API_KEY:
-            enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
-            if enhanced_response and enhanced_response != self.handle_trainer_message(trainer_context, message_text):
-                return enhanced_response
+            # Try enhanced AI-powered handling first
+            if self.config.ANTHROPIC_API_KEY:
+                enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
+                if enhanced_response and enhanced_response != self.handle_trainer_message(trainer_context, message_text):
+                    return enhanced_response
         
         try:
             trainer = trainer_context['data']
