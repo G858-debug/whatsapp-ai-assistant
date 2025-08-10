@@ -112,35 +112,41 @@ class WorkoutService:
         # Remove sets/reps info from name
         name = re.sub(r'\d+\s*(?:sets?|x|reps?).*$', '', name, flags=re.IGNORECASE)
         
-        # Title case and clean up
+        # Clean up the name
         name = name.strip()
         
-        # Standardize common exercise names
+        # Standardize common exercise names (expanded list)
         exercise_map = {
+            'push up': 'Push-ups',
+            'push ups': 'Push-ups',
+            'pushup': 'Push-ups',
+            'pushups': 'Push-ups',
+            'push-up': 'Push-ups',
+            'push-ups': 'Push-ups',
+            'press up': 'Push-ups',
+            'press ups': 'Push-ups',
             'squats': 'Squats',
             'squat': 'Squats',
-            'bench': 'Bench Press',
-            'bench press': 'Bench Press',
-            'deadlift': 'Deadlifts',
-            'deadlifts': 'Deadlifts',
-            'pull up': 'Pull-ups',
-            'pullup': 'Pull-ups',
-            'pull ups': 'Pull-ups',
-            'push up': 'Push-ups',
-            'pushup': 'Push-ups',
-            'push ups': 'Push-ups',
-            'leg press': 'Leg Press',
-            'leg extension': 'Leg Extensions',
-            'leg curl': 'Leg Curls',
-            'calf raise': 'Calf Raises',
-            'calf raises': 'Calf Raises'
+            'bodyweight squats': 'Squats',
+            'air squats': 'Squats',
+            'lunges': 'Lunges',
+            'lunge': 'Lunges',
+            'walking lunges': 'Lunges',
+            'burpee': 'Burpees',
+            'burpees': 'Burpees',
+            'mountain climber': 'Mountain Climbers',
+            'mountain climbers': 'Mountain Climbers',
+            'climbers': 'Mountain Climbers',
+            'plank': 'Plank',
+            'planks': 'Plank',
+            'forearm plank': 'Plank',
         }
         
         name_lower = name.lower()
         if name_lower in exercise_map:
             return exercise_map[name_lower]
         
-        # Title case if not in map
+        # If not in map, title case
         return ' '.join(word.capitalize() for word in name.split())
     
     def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
