@@ -23,6 +23,9 @@ class RefiloeAssistant:
         self.logger = logger
         self.sa_tz = pytz.timezone(config.TIMEZONE)
         self.workout_service = WorkoutService(config, supabase_client)
+        # Add rate limiting for AI calls
+        self.last_ai_call_time = None
+        self.ai_call_minimum_interval = 2  # Wait at least 2 seconds between AI calls
         
         # Initialize models
         self.trainer_model = TrainerModel(supabase_client, config)
@@ -31,6 +34,7 @@ class RefiloeAssistant:
         
         # Track conversation history for better context
         self.conversation_history = {}
+        
     def has_previous_interaction(self, phone_number: str) -> bool:
         """Check if we've interacted with this user before"""
         try:
@@ -47,6 +51,23 @@ class RefiloeAssistant:
         except Exception as e:
             log_error(f"Error checking interaction history: {str(e)}")
             return False
+
+    def can_make_ai_call(self) -> bool:
+        """Check if we can make an AI call without hitting rate limits"""
+        import time
+        current_time = time.time()
+        
+        if self.last_ai_call_time is None:
+            self.last_ai_call_time = current_time
+            return True
+        
+        time_since_last_call = current_time - self.last_ai_call_time
+        
+        if time_since_last_call >= self.ai_call_minimum_interval:
+            self.last_ai_call_time = current_time
+            return True
+        
+        return False
 
     def get_conversation_context(self, trainer_id: str, limit: int = 5) -> str:
         """Get recent conversation history for context"""
@@ -77,8 +98,12 @@ class RefiloeAssistant:
     def analyze_intent_with_ai(self, trainer: Dict, message_text: str) -> Dict:
         """Use AI to analyze message intent and extract information"""
         try:
-            if not self.config.ANTHROPIC_API_KEY:
+            # Check rate limiting
+            if not self.can_make_ai_call():
+                log_info("Skipping AI call due to rate limiting")
                 return None
+                if not self.config.ANTHROPIC_API_KEY:
+                    return None
             
             # Get recent conversation for context
             conversation_history = self.get_conversation_context(trainer['id'])
