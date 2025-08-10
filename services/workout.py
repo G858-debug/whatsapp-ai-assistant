@@ -336,9 +336,16 @@ class WorkoutService:
                     special_text = ', '.join(exercise['special'])
                     ex_text += f"\n   ⚡ {special_text}"
                 
-                # Add GIF link if it's a URL
+                # Add video link if it's a URL
                 if gif.startswith('http'):
-                    ex_text += f"\n   👁️ Demo: {gif}"
+                    # Check if it's a video file
+                    if gif.endswith('.mp4'):
+                        ex_text += f"\n   🎥 Video: {gif}"
+                    else:
+                        ex_text += f"\n   👁️ Demo: {gif}"
+                elif gif.startswith('📝'):
+                    # It's text instructions
+                    ex_text += f"\n   {gif}"
                 
                 message_parts.append(ex_text)
         
