@@ -6,6 +6,7 @@ import pytz
 from typing import Dict, Optional, Tuple, List
 import random
 import json
+import anthropic
 
 from models.trainer import TrainerModel
 from models.client import ClientModel
@@ -30,7 +31,6 @@ class RefiloeAssistant:
         
         # Track conversation history for better context
         self.conversation_history = {}
-    
     def has_previous_interaction(self, phone_number: str) -> bool:
         """Check if we've interacted with this user before"""
         try:
@@ -47,7 +47,205 @@ class RefiloeAssistant:
         except Exception as e:
             log_error(f"Error checking interaction history: {str(e)}")
             return False
+
+    def get_conversation_context(self, trainer_id: str, limit: int = 5) -> str:
+        """Get recent conversation history for context"""
+        try:
+            if self.db:
+                result = self.db.table('messages')\
+                    .select('content, response, created_at')\
+                    .eq('sender_id', trainer_id)\
+                    .order('created_at', desc=True)\
+                    .limit(limit)\
+                    .execute()
+                
+                if result.data:
+                    # Format for context
+                    history = []
+                    for msg in reversed(result.data):  # Chronological order
+                        if msg.get('content'):
+                            history.append(f"Trainer: {msg['content']}")
+                        if msg.get('response'):
+                            history.append(f"Refiloe: {msg['response'][:200]}...")  # Truncate long responses
+                    
+                    return '\n'.join(history) if history else "No recent messages"
+            return "No conversation history available"
+        except Exception as e:
+            log_error(f"Error getting conversation context: {str(e)}")
+            return "No conversation history available"
     
+    def analyze_intent_with_ai(self, trainer: Dict, message_text: str) -> Dict:
+        """Use AI to analyze message intent and extract information"""
+        try:
+            if not self.config.ANTHROPIC_API_KEY:
+                return None
+            
+            # Get recent conversation for context
+            conversation_history = self.get_conversation_context(trainer['id'])
+            
+            # Get trainer's clients for context
+            clients = self.client_model.get_trainer_clients(trainer['id'])
+            client_names = [c['name'] for c in clients] if clients else []
+            
+            # Create analysis prompt
+            analysis_prompt = f"""Analyze this message from trainer {trainer['name']} and extract intent.
+    
+    Trainer's clients: {', '.join(client_names) if client_names else 'No clients yet'}
+    
+    Recent conversation:
+    {conversation_history}
+    
+    Current message: "{message_text}"
+    
+    Determine:
+    1. Does this message contain workout exercises? (look for patterns like "3x12", "sets", "reps", exercise names)
+    2. Is a client name mentioned? (check against the client list)
+    3. What is the trainer trying to do?
+    4. Is this a follow-up to the previous conversation?
+    
+    Return ONLY valid JSON:
+    {{
+        "has_workout": true/false,
+        "exercises_text": "extracted exercises if any",
+        "client_name": "client name if mentioned",
+        "intent": "send_workout|preview_workout|confirmation|greeting|help|dashboard|schedule|add_client|other",
+        "is_followup": true/false,
+        "confidence": 0.0-1.0
+    }}"""
+    
+            # Call Claude
+            client = anthropic.Anthropic(api_key=self.config.ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",  # Faster for intent analysis
+                max_tokens=200,
+                temperature=0.3,  # Lower temperature for more consistent JSON
+                messages=[
+                    {"role": "user", "content": analysis_prompt}
+                ]
+            )
+            
+            # Parse response
+            response_text = response.content[0].text.strip()
+            # Extract JSON from response (in case there's extra text)
+            import re
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            
+            return None
+            
+        except Exception as e:
+            log_error(f"Error in AI intent analysis: {str(e)}")
+            return None
+    
+    def handle_trainer_message_enhanced(self, trainer_context: Dict, message_text: str) -> str:
+        """Enhanced trainer message handler with AI intent recognition"""
+        try:
+            trainer = trainer_context['data']
+            message_lower = message_text.lower()
+            is_first = trainer_context.get('first_interaction', False)
+            greeting = f"Hi {trainer['name']}! I'm Refiloe, your AI assistant. " if is_first else ""
+            
+            # First, check for workout confirmations (these need immediate handling)
+            if any(word in message_lower for word in ['yes', 'send', 'confirm', 'ok', 'go ahead', 'send it']):
+                # Check for pending workout
+                if self.db:
+                    pending_result = self.db.table('pending_workouts')\
+                        .select('*')\
+                        .eq('trainer_id', trainer['id'])\
+                        .execute()
+                    
+                    if pending_result.data:
+                        return self.handle_workout_confirmation(trainer, message_text)
+            
+            # Try AI intent analysis for complex cases
+            ai_analysis = self.analyze_intent_with_ai(trainer, message_text)
+            
+            if ai_analysis and ai_analysis.get('confidence', 0) > 0.7:
+                # Handle based on AI-detected intent
+                
+                if ai_analysis.get('has_workout') and ai_analysis.get('exercises_text'):
+                    # Parse the exercises
+                    exercises = self.workout_service.parse_workout_text(ai_analysis['exercises_text'])
+                    
+                    if exercises:
+                        client_name = ai_analysis.get('client_name')
+                        
+                        # If client mentioned, prepare workout for them
+                        if client_name:
+                            clients = self.client_model.get_trainer_clients(trainer['id'])
+                            matching_client = None
+                            
+                            for client in clients:
+                                if client_name.lower() in client['name'].lower():
+                                    matching_client = client
+                                    break
+                            
+                            if matching_client:
+                                # Format workout
+                                workout_message = self.workout_service.format_workout_for_whatsapp(
+                                    exercises,
+                                    matching_client['name'],
+                                    matching_client.get('gender', 'male')
+                                )
+                                
+                                # Store as pending
+                                if self.db:
+                                    self.db.table('pending_workouts').upsert({
+                                        'trainer_id': trainer['id'],
+                                        'client_id': matching_client['id'],
+                                        'client_name': matching_client['name'],
+                                        'client_whatsapp': matching_client['whatsapp'],
+                                        'workout_message': workout_message,
+                                        'exercises': json.dumps(exercises),
+                                        'created_at': datetime.now(self.sa_tz).isoformat()
+                                    }, on_conflict='trainer_id').execute()
+                                
+                                return f"""{greeting}Perfect! Here's the workout for {matching_client['name']}:
+    
+    {workout_message}
+    
+    Reply 'send' to deliver this to {matching_client['name']} ✅"""
+                        
+                        # No client specified
+                        else:
+                            preview = f"{greeting}Great workout! Here's what I've prepared:\n\n"
+                            for i, ex in enumerate(exercises, 1):
+                                preview += f"{i}. {ex['name']} - {ex.get('sets', 3)} sets × {ex.get('reps', '12')}\n"
+                            
+                            clients = self.client_model.get_trainer_clients(trainer['id'])
+                            if clients:
+                                preview += f"\nWho should receive this? Just say their name.\n"
+                                preview += f"Your clients: {', '.join([c['name'] for c in clients])}"
+                            
+                            return preview
+                
+                # Handle requests to see what was sent
+                if ai_analysis.get('intent') == 'preview_workout' and ai_analysis.get('is_followup'):
+                    # Check for pending workout
+                    if self.db:
+                        pending_result = self.db.table('pending_workouts')\
+                            .select('*')\
+                            .eq('trainer_id', trainer['id'])\
+                            .execute()
+                        
+                        if pending_result.data:
+                            pending = pending_result.data[0]
+                            return f"""Here's the message I would send to {pending['client_name']}:
+    
+    {pending['workout_message']}
+    
+    Reply 'send' to deliver this workout ✅"""
+            
+            # Fall back to your existing keyword-based logic
+            # (Keep ALL your existing conditions here - greetings, help, dashboard, etc.)
+            return self.handle_trainer_message(trainer_context, message_text)
+            
+        except Exception as e:
+            log_error(f"Error in enhanced handler: {str(e)}")
+            # Fall back to original handler
+            return self.handle_trainer_message(trainer_context, message_text)
+
     def process_message(self, phone_number: str, message_text: str) -> str:
         """Main message processing logic"""
         try:
@@ -98,6 +296,14 @@ class RefiloeAssistant:
     
     def handle_trainer_message(self, trainer_context: Dict, message_text: str) -> str:
         """Handle messages from trainers"""
+
+        try:
+        # Try enhanced AI-powered handling first
+        if self.config.ANTHROPIC_API_KEY:
+            enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
+            if enhanced_response and enhanced_response != self.handle_trainer_message(trainer_context, message_text):
+                return enhanced_response
+        
         try:
             trainer = trainer_context['data']
             message_lower = message_text.lower()
