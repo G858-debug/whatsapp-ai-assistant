@@ -144,13 +144,17 @@ class WorkoutService:
         return ' '.join(word.capitalize() for word in name.split())
     
     def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
-        """Find exercise video from database based on gender"""
+        """Find exercise video from database based on gender - with fuzzy matching"""
         try:
             if not self.db:
                 return "💪"
             
-            # Clean the exercise name for better matching
+            # Clean the exercise name
             exercise_clean = exercise_name.strip().lower()
+            
+            # Remove common variations to standardize
+            exercise_clean = exercise_clean.replace('-', ' ')  # push-ups -> push ups
+            exercise_clean = exercise_clean.replace('_', ' ')  # push_ups -> push ups
             
             # Try exact match first
             result = self.db.table('exercises')\
@@ -160,11 +164,37 @@ class WorkoutService:
                 .limit(1)\
                 .execute()
             
-            # If no exact match, try partial match
+            # If no exact match, try without 's' at the end (singular/plural)
             if not result.data:
+                if exercise_clean.endswith('s'):
+                    exercise_singular = exercise_clean[:-1]  # Remove 's'
+                else:
+                    exercise_singular = exercise_clean + 's'  # Add 's'
+                
                 result = self.db.table('exercises')\
                     .select('name, gif_url_male, gif_url_female, gif_url_neutral, instructions')\
-                    .ilike('name', f'%{exercise_clean}%')\
+                    .ilike('name', f'%{exercise_singular}%')\
+                    .eq('is_active', True)\
+                    .limit(1)\
+                    .execute()
+            
+            # If still no match, try searching in alternate names
+            if not result.data:
+                # This query checks if exercise_clean appears in the alternate_names array
+                result = self.db.table('exercises')\
+                    .select('name, gif_url_male, gif_url_female, gif_url_neutral, instructions')\
+                    .contains('alternate_names', [exercise_clean])\
+                    .eq('is_active', True)\
+                    .limit(1)\
+                    .execute()
+            
+            # If still no match, try partial match
+            if not result.data:
+                # Split into words and try to match the main word
+                main_word = exercise_clean.split()[0] if exercise_clean.split() else exercise_clean
+                result = self.db.table('exercises')\
+                    .select('name, gif_url_male, gif_url_female, gif_url_neutral, instructions')\
+                    .ilike('name', f'%{main_word}%')\
                     .eq('is_active', True)\
                     .limit(1)\
                     .execute()
@@ -172,7 +202,7 @@ class WorkoutService:
             if result.data:
                 exercise = result.data[0]
                 
-                # First check if there's a neutral video (works for everyone)
+                # First check if there's a neutral video
                 if exercise.get('gif_url_neutral'):
                     return exercise['gif_url_neutral']
                 
@@ -194,7 +224,6 @@ class WorkoutService:
                 if exercise.get('instructions'):
                     return f"📝 {exercise['instructions'][:100]}..."
             
-            # Exercise not in database
             return "💪"
             
         except Exception as e:
