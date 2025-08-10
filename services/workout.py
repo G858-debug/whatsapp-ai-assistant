@@ -143,16 +143,20 @@ class WorkoutService:
         # Title case if not in map
         return ' '.join(word.capitalize() for word in name.split())
     
-    # In services/workout.py, replace the find_exercise_gif method with this:
-
     def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
         """Find exercise GIF/video from database ONLY - no more Giphy"""
         try:
+            # ADD THESE DEBUG LINES
+            print(f"DEBUG: find_exercise_gif called for '{exercise_name}' with gender '{gender}'")
+            log_info(f"Finding GIF for exercise: {exercise_name}")
+            
             if not self.db:
+                print("DEBUG: No database connection")
                 return "💪"  # Return emoji if no database
             
             # Clean the exercise name for better matching
             exercise_clean = exercise_name.strip().lower()
+            print(f"DEBUG: Searching for cleaned name: '{exercise_clean}'")
             
             # Try exact match first
             result = self.db.table('exercises')\
@@ -162,6 +166,8 @@ class WorkoutService:
                 .limit(1)\
                 .execute()
             
+            print(f"DEBUG: Exact match result: {result.data if result.data else 'No data'}")
+            
             # If no exact match, try partial match
             if not result.data:
                 result = self.db.table('exercises')\
@@ -170,34 +176,46 @@ class WorkoutService:
                     .eq('is_active', True)\
                     .limit(1)\
                     .execute()
+                print(f"DEBUG: Partial match result: {result.data if result.data else 'No data'}")
             
             if result.data:
                 exercise = result.data[0]
+                print(f"DEBUG: Found exercise in DB: {exercise.get('name')}")
                 
                 # Get the appropriate URL based on gender
                 url = None
                 if gender == 'female' and exercise.get('gif_url_female'):
                     url = exercise['gif_url_female']
+                    print(f"DEBUG: Using female URL: {url}")
                 elif gender == 'male' and exercise.get('gif_url_male'):
                     url = exercise['gif_url_male']
+                    print(f"DEBUG: Using male URL: {url}")
                 elif exercise.get('gif_url_neutral'):
                     url = exercise['gif_url_neutral']
+                    print(f"DEBUG: Using neutral URL: {url}")
                 # Fallback to any available URL
                 elif exercise.get('gif_url_male'):
                     url = exercise['gif_url_male']
+                    print(f"DEBUG: Fallback to male URL: {url}")
                 elif exercise.get('gif_url_female'):
                     url = exercise['gif_url_female']
+                    print(f"DEBUG: Fallback to female URL: {url}")
                 
                 if url:
+                    print(f"DEBUG: Returning URL: {url}")
                     return url
                 elif exercise.get('instructions'):
                     # Return text instructions if no video
-                    return f"📝 {exercise['instructions'][:100]}..."
+                    instructions = f"📝 {exercise['instructions'][:100]}..."
+                    print(f"DEBUG: Returning instructions: {instructions}")
+                    return instructions
             
             # Exercise not in database - return instructions emoji
+            print(f"DEBUG: Exercise '{exercise_name}' not found in database")
             return "💪"
             
         except Exception as e:
+            print(f"DEBUG: Error in find_exercise_gif: {str(e)}")
             log_error(f"Error finding exercise demo: {str(e)}")
             return "💪"
   
