@@ -303,8 +303,7 @@ class RefiloeAssistant:
                 enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
                 if enhanced_response and enhanced_response != self.handle_trainer_message(trainer_context, message_text):
                     return enhanced_response
-        
-        try:
+                
             trainer = trainer_context['data']
             message_lower = message_text.lower()
             is_first = trainer_context.get('first_interaction', False)
