@@ -267,9 +267,9 @@ class RefiloeAssistant:
             return self.handle_trainer_message(trainer_context, message_text)
             
         except Exception as e:
-            log_error(f"Error in enhanced handler: {str(e)}")
-            # Fall back to original handler
-            return self.handle_trainer_message(trainer_context, message_text)
+            return None
+
+        return None
 
     def process_message(self, phone_number: str, message_text: str) -> str:
         """Main message processing logic"""
@@ -325,9 +325,15 @@ class RefiloeAssistant:
         try:
             # Try enhanced AI-powered handling first
             if self.config.ANTHROPIC_API_KEY:
-                enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
-                if enhanced_response and enhanced_response != self.handle_trainer_message(trainer_context, message_text):
-                    return enhanced_response
+                try: 
+                    enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
+                    # If enhanced handler returns a valid response, use it
+                    if enhanced_response:
+                        return enhanced_response
+                    # Otherwise fall through to keyword-based logic
+                except:
+                    # If enhanced handler fails, continue with keyword logic
+                    pass
                 
             trainer = trainer_context['data']
             message_lower = message_text.lower()
