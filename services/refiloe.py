@@ -758,164 +758,109 @@ Reply "TRAINER" if you want to sign up! 😊"""
         try:
             message_lower = message_text.lower()
             
-            # Check if trainer wants to create/generate a workout
-            if any(phrase in message_lower for phrase in ['create workout', 'make workout', 'build workout', 'generate workout']):
+            # Check if trainer wants to generate a workout
+            if any(phrase in message_lower for phrase in ['generate workout', 'create upper body', 'create lower body', 'create leg workout', 'create chest workout']):
                 return self.handle_workout_generation(trainer, message_text, greeting)
             
-            # Check for client name in various patterns
-            client_patterns = [
-                r'(?:for|to|send to|send it to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
-                r'send\s+(?:this\s+)?(?:workout\s+)?to\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
-                r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+workout'
-            ]
+            # Try to parse exercises from the message
+            exercises = self.workout_service.parse_workout_text(message_text)
             
-            client_match = None
-            for pattern in client_patterns:
-                match = re.search(pattern, message_text)
-                if match:
-                    client_match = match
-                    break
-            
-            # Check if message contains workout exercises (sets, reps, exercises)
-            workout_indicators = ['sets', 'reps', 'set', 'rep', 'x', '×', 'squats', 'lunges', 'push', 'pull', 
-                                'press', 'curl', 'raise', 'plank', 'burpee', 'deadlift', 'bench']
-            contains_workout = any(indicator in message_lower for indicator in workout_indicators)
-            
-            # Try to parse workout content first if it looks like there are exercises
-            if contains_workout:
-                exercises = self.workout_service.parse_workout_text(message_text)
+            # If we found exercises in the message
+            if exercises:
+                # Look for client name patterns
+                client_patterns = [
+                    r'for\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',  # "for Itumeleng"
+                    r'to\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',   # "to Itumeleng"
+                ]
                 
-                if exercises:
-                    # We have a valid workout parsed
+                client_name = None
+                for pattern in client_patterns:
+                    match = re.search(pattern, message_text)
+                    if match:
+                        client_name = match.group(1)
+                        break
+                
+                # If client name is found, try to send immediately
+                if client_name:
+                    # Find the client
+                    clients = self.client_model.get_trainer_clients(trainer['id'])
+                    matching_client = None
                     
-                    # If client is specified, send it
-                    if client_match:
-                        client_name = client_match.group(1)
+                    for client in clients:
+                        if client_name.lower() in client['name'].lower() or client['name'].lower() in client_name.lower():
+                            matching_client = client
+                            break
+                    
+                    if matching_client:
+                        # Get client gender
+                        client_gender = matching_client.get('gender', 'male')
                         
-                        # Find client
-                        clients = self.client_model.get_trainer_clients(trainer['id'])
-                        matching_client = None
+                        # Format the workout
+                        workout_message = self.workout_service.format_workout_for_whatsapp(
+                            exercises, 
+                            matching_client['name'],
+                            client_gender
+                        )
                         
-                        for client in clients:
-                            if client_name.lower() in client['name'].lower():
-                                matching_client = client
-                                break
+                        # Store workout in session for confirmation
+                        # Store in database or session for "yes" confirmation
+                        if self.db:
+                            self.db.table('pending_workouts').upsert({
+                                'trainer_id': trainer['id'],
+                                'client_id': matching_client['id'],
+                                'client_name': matching_client['name'],
+                                'client_whatsapp': matching_client['whatsapp'],
+                                'workout_message': workout_message,
+                                'exercises': json.dumps(exercises),
+                                'created_at': datetime.now(self.sa_tz).isoformat()
+                            }, on_conflict='trainer_id').execute()
                         
-                        if matching_client:
-                            # Get client gender (default to 'male' if not set)
-                            client_gender = matching_client.get('gender', 'male')
-                            
-                            # Format workout
-                            workout_message = self.workout_service.format_workout_for_whatsapp(
-                                exercises, 
-                                matching_client['name'],
-                                client_gender
-                            )
-                            
-                            # Send to client
-                            self.whatsapp.send_message(matching_client['whatsapp'], workout_message)
-                            
-                            # Save to history
-                            self.workout_service.save_workout_to_history(
-                                matching_client['id'],
-                                trainer['id'],
-                                'Custom Workout',
-                                exercises
-                            )
-                            
-                            # Show the trainer what was sent
-                            return f"""{greeting}✅ Workout sent to {matching_client['name']}! 
-    
-    **Here's what I sent:**
+                        # Show preview and ask for confirmation
+                        preview = f"""{greeting}Perfect! Here's the workout for {matching_client['name']}:
     
     {workout_message}
     
-    They can reply with questions! 💪"""
-                        else:
-                            # Client not found, show workout and available clients
-                            preview = f"{greeting}I've prepared this workout:\n\n"
-                            for i, ex in enumerate(exercises, 1):
-                                if ex.get('type') in ['warmup', 'cooldown']:
-                                    preview += f"• {ex['details']}\n"
-                                else:
-                                    preview += f"{i}. {ex['name']}"
-                                    if ex.get('sets') and ex.get('reps'):
-                                        preview += f" - {ex['sets']} sets × {ex['reps']}"
-                                    preview += "\n"
-                            
-                            if clients:
-                                preview += f"\nI couldn't find '{client_name}'. Your clients are:\n"
-                                preview += '\n'.join([f"• {c['name']}" for c in clients])
-                                preview += "\n\nWho should receive this workout?"
-                            else:
-                                preview += "\nYou don't have any clients yet. Add a client first!"
-                            
-                            return preview
-                    
-                    # No client specified but we have a workout - show preview and ask
-                    else:
-                        preview = f"{greeting}Great workout! Here's what I've prepared:\n\n"
-                        for i, ex in enumerate(exercises, 1):
-                            if ex.get('type') in ['warmup', 'cooldown']:
-                                preview += f"• {ex['details']}\n"
-                            else:
-                                preview += f"{i}. {ex['name']}"
-                                if ex.get('sets') and ex.get('reps'):
-                                    preview += f" - {ex['sets']} sets × {ex['reps']}"
-                                preview += "\n"
-                        
-                        # If asking how to send, show example
-                        if 'how' in message_lower and 'send' in message_lower:
-                            preview += "\n**To send this workout:**\n"
-                            preview += "Just tell me the client's name, like:\n"
-                            preview += "• 'Send to Sarah'\n"
-                            preview += "• 'Send this to John'\n"
-                            preview += "• 'For Michael'\n"
-                            
-                            clients = self.client_model.get_trainer_clients(trainer['id'])
-                            if clients:
-                                preview += f"\n**Your clients:** {', '.join([c['name'] for c in clients])}"
-                        else:
-                            preview += "\nWho should I send this to? Just say 'Send to [Client Name]'"
-                            
-                            clients = self.client_model.get_trainer_clients(trainer['id'])
-                            if clients:
-                                preview += f"\n\n**Your clients:** {', '.join([c['name'] for c in clients])}"
+    Reply with:
+    ✅ **'Send'** to deliver this to {matching_client['name']}
+    ✏️ **'Edit'** to modify the workout
+    ❌ **'Cancel'** to start over"""
                         
                         return preview
+                    
+                    else:
+                        # Client not found
+                        client_list = '\n'.join([f"• {c['name']}" for c in clients])
+                        return f"""{greeting}I couldn't find a client named '{client_name}'.
+    
+    Your current clients:
+    {client_list}
+    
+    Please specify the correct client name or add them first."""
                 
-                # Couldn't parse the workout properly
+                # No client specified - show workout and ask who to send to
                 else:
-                    return f"""{greeting}I see you're trying to create a workout, but I'm having trouble understanding the format.
+                    preview = f"""{greeting}Great workout! Here's what I've prepared:
     
-    **Try formatting like this:**
-    Squats - 3 sets x 12 reps
-    Lunges - 2 sets x 10 reps each leg
-    Push-ups - 3 x 15
-    
-    Or just list exercises naturally and I'll help structure it! 💪"""
+    """
+                    for i, ex in enumerate(exercises, 1):
+                        preview += f"{i}. {ex['name']} - {ex['sets']} sets × {ex['reps']}\n"
+                    
+                    clients = self.client_model.get_trainer_clients(trainer['id'])
+                    if clients:
+                        preview += f"\n**Who should receive this workout?**\n"
+                        preview += "Just say: 'Send to [Client Name]'\n\n"
+                        preview += "Your clients: " + ', '.join([c['name'] for c in clients])
+                    else:
+                        preview += "\nYou don't have any clients yet. Add a client first!"
+                    
+                    return preview
             
-            # No workout content detected - check if they're asking for help
-            if any(phrase in message_lower for phrase in ['how do i', 'how to', 'help']):
-                return f"""{greeting}Here's how to create and send workouts:
-    
-    **Option 1: Type the workout directly**
-    Example: "Squats 3 sets 12 reps, Lunges 2 sets 10 reps each leg"
-    
-    **Option 2: Create and send in one message**
-    Example: "Send leg workout to Sarah: Squats 3x12, Lunges 2x10"
-    
-    **Option 3: Generate a workout**
-    Example: "Create upper body workout for John"
-    
-    Try one of these! 💪"""
-            
-            # Default response if nothing matches
+            # No exercises found - provide help
             return f"""{greeting}I can help you create and send workouts! 
     
     **Quick examples:**
     • Type a workout: "Squats 3x12, Lunges 2x10"
-    • Send to client: "Send leg workout to Sarah"
+    • Send to client: "Squats 3x12 for Sarah"
     • Generate: "Create upper body workout"
     
     What would you like to do? 💪"""
@@ -923,6 +868,71 @@ Reply "TRAINER" if you want to sign up! 😊"""
         except Exception as e:
             log_error(f"Error handling workout request: {str(e)}")
             return f"{greeting}I had trouble with that workout. Try again?"
+    
+    def handle_workout_confirmation(self, trainer: Dict, message_text: str) -> str:
+        """Handle workout confirmation (send/edit/cancel)"""
+        try:
+            message_lower = message_text.lower()
+            
+            # Check for pending workout
+            if self.db:
+                result = self.db.table('pending_workouts')\
+                    .select('*')\
+                    .eq('trainer_id', trainer['id'])\
+                    .execute()
+                
+                if result.data:
+                    pending = result.data[0]
+                    
+                    # Handle confirmation
+                    if any(word in message_lower for word in ['send', 'yes', 'confirm', '✅']):
+                        # Send the workout
+                        self.whatsapp.send_message(
+                            pending['client_whatsapp'], 
+                            pending['workout_message']
+                        )
+                        
+                        # Save to history
+                        exercises = json.loads(pending.get('exercises', '[]'))
+                        self.workout_service.save_workout_to_history(
+                            pending['client_id'],
+                            trainer['id'],
+                            'Custom Workout',
+                            exercises
+                        )
+                        
+                        # Clear pending
+                        self.db.table('pending_workouts')\
+                            .delete()\
+                            .eq('trainer_id', trainer['id'])\
+                            .execute()
+                        
+                        return f"""✅ Workout sent to {pending['client_name']}! 
+    
+    They received:
+    • {len(exercises)} exercises with demonstrations
+    • Clear sets & reps instructions
+    • Form tips and safety reminders
+    
+    They can reply with questions! 💪"""
+                    
+                    elif any(word in message_lower for word in ['cancel', 'no', '❌']):
+                        # Clear pending
+                        self.db.table('pending_workouts')\
+                            .delete()\
+                            .eq('trainer_id', trainer['id'])\
+                            .execute()
+                        
+                        return "Workout cancelled. What would you like to do instead?"
+                    
+                    elif any(word in message_lower for word in ['edit', 'change', '✏️']):
+                        return "Please type the updated workout (e.g., 'Squats 4x12, Lunges 3x10')"
+            
+            return None  # No pending workout
+            
+        except Exception as e:
+            log_error(f"Error handling workout confirmation: {str(e)}")
+            return None
     
     def handle_workout_generation(self, trainer: Dict, message_text: str, greeting: str = "") -> str:
         """Handle AI workout generation requests"""
