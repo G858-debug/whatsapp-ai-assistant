@@ -52,9 +52,10 @@ class RefiloeAssistant:
         """Get recent conversation history for context"""
         try:
             if self.db:
+                # Fixed: Using correct column names for messages table
                 result = self.db.table('messages')\
-                    .select('content, response, created_at')\
-                    .eq('sender_id', trainer_id)\
+                    .select('message_text, whatsapp_from, created_at')\
+                    .eq('whatsapp_from', trainer_id)\
                     .order('created_at', desc=True)\
                     .limit(limit)\
                     .execute()
@@ -63,10 +64,9 @@ class RefiloeAssistant:
                     # Format for context
                     history = []
                     for msg in reversed(result.data):  # Chronological order
-                        if msg.get('content'):
-                            history.append(f"Trainer: {msg['content']}")
-                        if msg.get('response'):
-                            history.append(f"Refiloe: {msg['response'][:200]}...")  # Truncate long responses
+                        if msg.get('message_text'):
+                            # Just show the message without labels for now
+                            history.append(msg['message_text'][:200])  # Truncate long messages
                     
                     return '\n'.join(history) if history else "No recent messages"
             return "No conversation history available"
