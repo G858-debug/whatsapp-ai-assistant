@@ -92,196 +92,6 @@ class WorkoutService:
         
         return exercises
     
-    def parse_exercise_line(self, line: str) -> Dict:
-        """Parse a single exercise line into structured format"""
-        
-        # Common exercise patterns to match:
-        # "Squats 3x12" or "Squats 3 x 12"
-        # "Squats - 3 sets x 12 reps"
-        # "Squats: 3 sets of 12"
-        # "Squats 3 sets 12 reps"
-        # "3x12 Squats" or "3 x 12 Squats"
-        
-        exercise = {}
-        line = line.strip()
-        
-        # Pattern 1: Exercise name followed by sets/reps (most common)
-        # Matches: "Squats 3x12", "Lunges 3 x 10", "Push-ups 3 sets x 12 reps"
-        pattern1 = r'^([A-Za-z\s\-]+?)[\s\-:]+(\d+)\s*[xX×]\s*(\d+)'
-        match1 = re.match(pattern1, line)
-        
-        if match1:
-            exercise['name'] = match1.group(1).strip().title()
-            exercise['sets'] = int(match1.group(2))
-            exercise['reps'] = match1.group(3)
-            
-            # Check for "each leg", "each arm", "per side" etc.
-            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
-                exercise['reps'] += ' each side'
-            
-            return exercise
-        
-        # Pattern 2: Sets/reps followed by exercise name
-        # Matches: "3x12 Squats", "3 x 10 Lunges"
-        pattern2 = r'^(\d+)\s*[xX×]\s*(\d+)\s+([A-Za-z\s\-]+)'
-        match2 = re.match(pattern2, line)
-        
-        if match2:
-            exercise['sets'] = int(match2.group(1))
-            exercise['reps'] = match2.group(2)
-            exercise['name'] = match2.group(3).strip().title()
-            
-            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
-                exercise['reps'] += ' each side'
-            
-            return exercise
-        
-        # Pattern 3: "sets of" format
-        # Matches: "Squats 3 sets of 12", "Lunges - 2 sets of 10"
-        pattern3 = r'^([A-Za-z\s\-]+?)[\s\-:]+(\d+)\s*sets?\s*of\s*(\d+)'
-        match3 = re.match(pattern3, line, re.IGNORECASE)
-        
-        if match3:
-            exercise['name'] = match3.group(1).strip().title()
-            exercise['sets'] = int(match3.group(2))
-            exercise['reps'] = match3.group(3)
-            
-            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
-                exercise['reps'] += ' each side'
-            
-            return exercise
-        
-        # Pattern 4: Simple format with just numbers
-        # Matches: "Squats 3 12" or "Squats 3 sets 12 reps"
-        pattern4 = r'^([A-Za-z\s\-]+?)\s+(\d+)\s*(?:sets?)?\s+(\d+)\s*(?:reps?)?'
-        match4 = re.match(pattern4, line, re.IGNORECASE)
-        
-        if match4:
-            exercise['name'] = match4.group(1).strip().title()
-            exercise['sets'] = int(match4.group(2))
-            exercise['reps'] = match4.group(3)
-            
-            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
-                exercise['reps'] += ' each side'
-            
-            return exercise
-        
-        # Pattern 5: Exercise with time duration
-        # Matches: "Plank 3x30 seconds", "Wall sit 2 x 45 sec"
-        pattern5 = r'^([A-Za-z\s\-]+?)[\s\-:]+(\d+)\s*[xX×]\s*(\d+)\s*(seconds?|secs?|minutes?|mins?)'
-        match5 = re.match(pattern5, line, re.IGNORECASE)
-        
-        if match5:
-            exercise['name'] = match5.group(1).strip().title()
-            exercise['sets'] = int(match5.group(2))
-            time_unit = 'seconds' if 'sec' in match5.group(4).lower() else 'minutes'
-            exercise['reps'] = f"{match5.group(3)} {time_unit}"
-            return exercise
-        
-        # Pattern 6: Just exercise name with basic numbers somewhere
-        # Last resort - try to find any numbers in the line
-        if re.search(r'\d+', line):
-            # Try to extract exercise name and any numbers
-            name_match = re.match(r'^([A-Za-z\s\-]+)', line)
-            numbers = re.findall(r'\d+', line)
-            
-            if name_match and len(numbers) >= 2:
-                exercise['name'] = name_match.group(1).strip().title()
-                exercise['sets'] = int(numbers[0])
-                exercise['reps'] = numbers[1]
-                
-                if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
-                    exercise['reps'] += ' each side'
-                
-                return exercise
-        
-        # If no pattern matches but we have what looks like an exercise name, 
-        # return it with default sets/reps
-        if re.match(r'^[A-Za-z\s\-]+$', line):
-            exercise['name'] = line.strip().title()
-            exercise['sets'] = 3  # Default
-            exercise['reps'] = '12'  # Default
-            return exercise
-        
-        return None
-    
-    def parse_exercise_line(self, line: str) -> Optional[Dict]:
-        """Parse a single exercise line"""
-        try:
-            # Initialize exercise dict
-            exercise = {
-                'original_text': line,
-                'sets': None,
-                'reps': None,
-                'special': []
-            }
-            
-            # Split exercise name from details (usually separated by - or :)
-            parts = re.split(r'[-–—:]', line, 1)
-            exercise_name = parts[0].strip()
-            details = parts[1].strip() if len(parts) > 1 else ""
-            
-            # Clean up exercise name
-            exercise['name'] = self.clean_exercise_name(exercise_name)
-            
-            # If no details, try to parse from the exercise name line
-            if not details:
-                details = exercise_name
-            
-            # Parse pyramid sets
-            pyramid_match = re.search(self.exercise_patterns['pyramid'], details, re.IGNORECASE)
-            if pyramid_match:
-                reps_text = pyramid_match.group(1)
-                reps = [r.strip() for r in re.split(r'[,;]', reps_text)]
-                exercise['sets'] = len(reps)
-                exercise['reps'] = reps
-                exercise['special'].append('pyramid')
-                return exercise
-            
-            # Parse regular sets and reps
-            for pattern in self.exercise_patterns['sets_reps']:
-                match = re.search(pattern, details, re.IGNORECASE)
-                if match:
-                    exercise['sets'] = int(match.group(1))
-                    exercise['reps'] = int(match.group(2))
-                    break
-            
-            # Check for special instructions
-            if re.search(self.exercise_patterns['superset'], details, re.IGNORECASE):
-                exercise['special'].append('superset')
-            
-            if re.search(self.exercise_patterns['to_failure'], details, re.IGNORECASE):
-                exercise['special'].append('to failure')
-                if not exercise['reps']:
-                    exercise['reps'] = 'failure'
-            
-            # Parse max reps
-            max_reps_match = re.search(self.exercise_patterns['max_reps'], details, re.IGNORECASE)
-            if max_reps_match:
-                exercise['reps'] = f"max {max_reps_match.group(1) or ''}"
-            
-            # Parse time-based exercises (like planks)
-            time_match = re.search(self.exercise_patterns['time_based'], details, re.IGNORECASE)
-            if time_match:
-                time_value = time_match.group(1)
-                time_value_2 = time_match.group(2) if time_match.group(2) else None
-                
-                if 'second' in time_match.group(0):
-                    unit = 'seconds'
-                else:
-                    unit = 'minutes'
-                
-                if time_value_2:
-                    exercise['reps'] = f"{time_value}-{time_value_2} {unit}"
-                else:
-                    exercise['reps'] = f"{time_value} {unit}"
-            
-            return exercise if exercise['name'] else None
-            
-        except Exception as e:
-            log_error(f"Error parsing exercise line: {line} - {str(e)}")
-            return None
-    
     def clean_exercise_name(self, name: str) -> str:
         """Clean and standardize exercise name"""
         # Remove numbers and special characters from the beginning
@@ -322,179 +132,136 @@ class WorkoutService:
         # Title case if not in map
         return ' '.join(word.capitalize() for word in name.split())
     
-    def search_giphy(self, exercise_name: str, gender: str) -> str:
-        """Search Giphy for exercise GIF with multiple fallback strategies"""
-        try:
-            api_key = self.config.GIPHY_API_KEY
-            
-            if not api_key:
-                log_error("GIPHY_API_KEY not configured")
-                return "🏋️"
-            
-            # Clean up exercise name for better search results
-            # Remove common words that might confuse search
-            exercise_clean = exercise_name.lower()
-            exercise_clean = exercise_clean.replace('-', ' ').replace('_', ' ')
-            
-            # Try multiple search strategies in order of preference
-            search_strategies = [
-                f"{exercise_clean} fitness exercise",  # Most specific
-                f"{exercise_clean} workout",           # General workout
-                f"{exercise_clean} gym",              # Gym context
-                f"{exercise_clean} demonstration",     # Demo focused
-                exercise_clean,                        # Just the exercise name
-            ]
-            
-            # Try gender-specific search first, then generic
-            if gender in ['male', 'female']:
-                # Add gender-specific searches at the beginning
-                gender_searches = [
-                    f"{exercise_clean} {gender} fitness",
-                    f"{exercise_clean} exercise {gender}",
-                ]
-                search_strategies = gender_searches + search_strategies
-            
-            url = "https://api.giphy.com/v1/gifs/search"
-            
-            for search_term in search_strategies:
-                try:
-                    params = {
-                        'api_key': api_key,
-                        'q': search_term,
-                        'limit': 5,  # Get more results to choose from
-                        'rating': 'g',
-                        'lang': 'en'
-                    }
-                    
-                    log_error(f"Searching Giphy with term: {search_term}")  # Debug log
-                    response = requests.get(url, params=params, timeout=5)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        if data.get('data') and len(data['data']) > 0:
-                            # Try to find the best quality GIF
-                            for gif in data['data']:
-                                # Skip if title suggests it's not exercise-related
-                                title = gif.get('title', '').lower()
-                                
-                                # Skip obvious non-exercise content
-                                skip_words = ['cartoon', 'anime', 'funny', 'fail', 'meme', 'cat', 'dog']
-                                if any(word in title for word in skip_words):
-                                    continue
-                                
-                                # Prefer GIFs with exercise-related titles
-                                good_words = ['exercise', 'workout', 'fitness', 'gym', 'training']
-                                is_relevant = any(word in title for word in good_words) or exercise_clean in title
-                                
-                                # Get the URL - prefer downsized for faster loading on mobile
-                                if 'images' in gif:
-                                    # Try different image sizes in order of preference for WhatsApp
-                                    image_options = [
-                                        ('downsized', 'url'),
-                                        ('fixed_height', 'url'),
-                                        ('original', 'url'),
-                                    ]
-                                    
-                                    for size_key, url_key in image_options:
-                                        if size_key in gif['images'] and url_key in gif['images'][size_key]:
-                                            gif_url = gif['images'][size_key][url_key]
-                                            if gif_url:
-                                                log_error(f"Found GIF for {exercise_name}: {gif_url}")
-                                                return gif_url
-                                
-                                # If we found a relevant GIF but couldn't get URL, continue searching
-                                if is_relevant:
-                                    continue
-                            
-                            # If no relevant GIFs found in filtered results, take the first one
-                            if data['data'][0].get('images', {}).get('downsized', {}).get('url'):
-                                return data['data'][0]['images']['downsized']['url']
-                    
-                    elif response.status_code == 401:
-                        log_error(f"Giphy API authentication failed. Check API key.")
-                        return "🏋️"
-                    elif response.status_code == 429:
-                        log_error(f"Giphy API rate limit exceeded.")
-                        return "💪"
-                        
-                except requests.exceptions.RequestException as e:
-                    log_error(f"Request error for search term '{search_term}': {str(e)}")
-                    continue
-            
-            # If no GIF found after all attempts, return emoji
-            log_error(f"No GIF found for exercise: {exercise_name}")
-            return "🏋️"
-            
-        except Exception as e:
-            log_error(f"Giphy search error: {str(e)}")
-            return "💪"
-    
+    # In services/workout.py, replace the find_exercise_gif method with this:
+
     def find_exercise_gif(self, exercise_name: str, gender: str = 'male') -> str:
-        """Find appropriate GIF for exercise"""
+        """Find exercise GIF/video from database ONLY - no more Giphy"""
         try:
-            # First, check our database for cached/curated GIFs
-            if self.db:
-                result = self.db.table('exercises').select('*').ilike(
-                    'name', f'%{exercise_name}%'
-                ).limit(1).execute()
-                
-                if result.data:
-                    exercise = result.data[0]
-                    
-                    # Check for gender-specific GIF
-                    gif_field = f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male'
-                    gif_url = exercise.get(gif_field, '') or exercise.get('gif_url_male', '')
-                    
-                    # Validate that it's a real URL, not a placeholder
-                    if gif_url and gif_url.startswith('http') and 'giphy.com' in gif_url:
-                        # Test if it's a valid URL (not our fake placeholder)
-                        if not any(fake in gif_url for fake in ['demo/giphy.gif', 'placeholder', 'example']):
-                            log_error(f"Using cached GIF for {exercise_name}: {gif_url}")
-                            return gif_url
-                        else:
-                            log_error(f"Found placeholder URL in database for {exercise_name}, searching Giphy instead")
+            if not self.db:
+                return "💪"  # Return emoji if no database
             
-            # If not in database or invalid URL, search Giphy
-            if hasattr(self.config, 'GIPHY_API_KEY') and self.config.GIPHY_API_KEY:
-                gif_url = self.search_giphy(exercise_name, gender)
-                
-                # If we found a real GIF, optionally cache it in the database
-                if gif_url and gif_url.startswith('http'):
-                    try:
-                        if self.db:
-                            # Check if exercise exists in database
-                            existing = self.db.table('exercises').select('id').ilike(
-                                'name', f'%{exercise_name}%'
-                            ).limit(1).execute()
-                            
-                            if existing.data:
-                                # Update existing record with real GIF URL
-                                gif_field = f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male'
-                                self.db.table('exercises').update({
-                                    gif_field: gif_url
-                                }).eq('id', existing.data[0]['id']).execute()
-                                log_error(f"Cached GIF URL for {exercise_name}")
-                            else:
-                                # Create new record
-                                self.db.table('exercises').insert({
-                                    'name': exercise_name.title(),
-                                    f'gif_url_{gender}' if gender in ['male', 'female'] else 'gif_url_male': gif_url,
-                                    'created_at': datetime.now(self.sa_tz).isoformat()
-                                }).execute()
-                                log_error(f"Created new exercise record with GIF for {exercise_name}")
-                    except Exception as e:
-                        log_error(f"Error caching GIF: {str(e)}")
-                
-                return gif_url
+            # Clean the exercise name for better matching
+            exercise_clean = exercise_name.strip().lower()
             
-            # Return emoji as last resort
-            log_error(f"No Giphy API key configured, returning emoji for {exercise_name}")
-            return "🏋️"
+            # Try exact match first
+            result = self.db.table('exercises')\
+                .select('name, gif_url_male, gif_url_female, gif_url_neutral, instructions')\
+                .ilike('name', exercise_clean)\
+                .eq('is_active', True)\
+                .limit(1)\
+                .execute()
+            
+            # If no exact match, try partial match
+            if not result.data:
+                result = self.db.table('exercises')\
+                    .select('name, gif_url_male, gif_url_female, gif_url_neutral, instructions')\
+                    .ilike('name', f'%{exercise_clean}%')\
+                    .eq('is_active', True)\
+                    .limit(1)\
+                    .execute()
+            
+            if result.data:
+                exercise = result.data[0]
+                
+                # Get the appropriate URL based on gender
+                url = None
+                if gender == 'female' and exercise.get('gif_url_female'):
+                    url = exercise['gif_url_female']
+                elif gender == 'male' and exercise.get('gif_url_male'):
+                    url = exercise['gif_url_male']
+                elif exercise.get('gif_url_neutral'):
+                    url = exercise['gif_url_neutral']
+                # Fallback to any available URL
+                elif exercise.get('gif_url_male'):
+                    url = exercise['gif_url_male']
+                elif exercise.get('gif_url_female'):
+                    url = exercise['gif_url_female']
+                
+                if url:
+                    return url
+                elif exercise.get('instructions'):
+                    # Return text instructions if no video
+                    return f"📝 {exercise['instructions'][:100]}..."
+            
+            # Exercise not in database - return instructions emoji
+            return "💪"
             
         except Exception as e:
-            log_error(f"Error finding GIF for {exercise_name}: {str(e)}")
+            log_error(f"Error finding exercise demo: {str(e)}")
             return "💪"
+  
+    def parse_exercise_line(self, line: str) -> Dict:
+        """Parse a single exercise line into structured format"""
+        
+        exercise = {}
+        line = line.strip()
+        
+        # Skip lines that are instructions or headers
+        skip_phrases = ['create', 'workout', 'for', 'program', 'routine']
+        if any(phrase in line.lower() and ':' in line for phrase in skip_phrases):
+            return None  # Skip header lines like "Create leg workout for Itumeleng:"
+        
+        # Remove leading numbers and bullets
+        line = re.sub(r'^\d+[\.\)]\s*', '', line)
+        line = re.sub(r'^[\*\-•]\s*', '', line)
+        
+        # Pattern 1: Exercise name followed by sets/reps
+        # Matches: "Squats 3x12", "Lunges 3 x 10"
+        pattern1 = r'^([A-Za-z][A-Za-z\s\-]*?)[\s\-:]+(\d+)\s*[xX×]\s*(\d+)'
+        match1 = re.match(pattern1, line)
+        
+        if match1:
+            exercise['name'] = match1.group(1).strip().title()
+            exercise['sets'] = int(match1.group(2))
+            exercise['reps'] = match1.group(3)
+            
+            # Check for "each leg", "each arm", etc.
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 2: Sets/reps followed by exercise name
+        # Matches: "3x12 Squats"
+        pattern2 = r'^(\d+)\s*[xX×]\s*(\d+)\s+([A-Za-z][A-Za-z\s\-]+)'
+        match2 = re.match(pattern2, line)
+        
+        if match2:
+            exercise['sets'] = int(match2.group(1))
+            exercise['reps'] = match2.group(2)
+            exercise['name'] = match2.group(3).strip().title()
+            
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 3: "sets of" format
+        pattern3 = r'^([A-Za-z][A-Za-z\s\-]*?)[\s\-:]+(\d+)\s*sets?\s*of\s*(\d+)'
+        match3 = re.match(pattern3, line, re.IGNORECASE)
+        
+        if match3:
+            exercise['name'] = match3.group(1).strip().title()
+            exercise['sets'] = int(match3.group(2))
+            exercise['reps'] = match3.group(3)
+            
+            if any(phrase in line.lower() for phrase in ['each', 'per side', 'per leg', 'per arm']):
+                exercise['reps'] += ' each side'
+            
+            return exercise
+        
+        # Pattern 4: Time-based exercises
+        pattern4 = r'^([A-Za-z][A-Za-z\s\-]*?)[\s\-:]+(\d+)\s*[xX×]\s*(\d+)\s*(seconds?|secs?|minutes?|mins?)'
+        match4 = re.match(pattern4, line, re.IGNORECASE)
+        
+        if match4:
+            exercise['name'] = match4.group(1).strip().title()
+            exercise['sets'] = int(match4.group(2))
+            time_unit = 'seconds' if 'sec' in match4.group(4).lower() else 'minutes'
+            exercise['reps'] = f"{match4.group(3)} {time_unit}"
+            return exercise
+        
+        return None
     
     def format_workout_for_whatsapp(self, exercises: List[Dict], client_name: str, 
                                    client_gender: str = 'male') -> str:
