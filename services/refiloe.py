@@ -1,4 +1,4 @@
-from services.assessment_enhanced import EnhancedAssessmentService
+from services.assessment import EnhancedAssessmentService
 from services.workout import WorkoutService
 import re
 import requests
