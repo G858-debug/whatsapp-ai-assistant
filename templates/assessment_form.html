@@ -11,6 +11,14 @@
         .progress-bar {
             transition: width 0.3s ease;
         }
+        
+        /* Mobile-friendly styles */
+        @media (max-width: 640px) {
+            .mobile-button {
+                font-size: 16px;
+                padding: 12px;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -56,7 +64,7 @@
                     </div>
                     
                     <button @click="nextSection()" 
-                            class="w-full bg-purple-600 text-white py-3 rounded-lg font-medium">
+                            class="w-full bg-purple-600 text-white py-3 rounded-lg font-medium mobile-button">
                         Let's Get Started! 🚀
                     </button>
                 </div>
@@ -77,14 +85,14 @@
                                 Do you have any current injuries or areas of pain?
                             </label>
                             <div class="space-y-2">
-                                <label class="flex items-center">
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                                     <input type="radio" name="has_injuries" value="no" 
-                                           x-model="formData.health.has_injuries" class="mr-2">
+                                           x-model="formData.health.has_injuries" class="mr-3">
                                     <span>No injuries or pain</span>
                                 </label>
-                                <label class="flex items-center">
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                                     <input type="radio" name="has_injuries" value="yes" 
-                                           x-model="formData.health.has_injuries" class="mr-2">
+                                           x-model="formData.health.has_injuries" class="mr-3">
                                     <span>Yes, I have injuries/pain</span>
                                 </label>
                             </div>
@@ -164,7 +172,8 @@
                             </label>
                             <input type="number" x-model="formData.lifestyle.sleep_hours"
                                    min="3" max="12" step="0.5"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="e.g., 7.5">
                         </div>
 
                         <!-- Stress -->
@@ -176,7 +185,7 @@
                                    min="1" max="10" class="w-full">
                             <div class="flex justify-between text-xs text-gray-600">
                                 <span>Low (1)</span>
-                                <span x-text="formData.lifestyle.stress_level"></span>
+                                <span class="text-lg font-bold text-purple-600" x-text="formData.lifestyle.stress_level || 5"></span>
                                 <span>High (10)</span>
                             </div>
                         </div>
@@ -188,7 +197,8 @@
                             </label>
                             <input type="number" x-model="formData.lifestyle.water_intake"
                                    min="0" max="6" step="0.5"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="e.g., 2.5">
                         </div>
                     </div>
                 </div>
@@ -238,7 +248,8 @@
                             </label>
                             <input type="number" x-model="formData.goals.timeline_weeks"
                                    min="4" max="52"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="e.g., 12">
                         </div>
 
                         <!-- Motivation -->
@@ -250,7 +261,7 @@
                                    min="1" max="10" class="w-full">
                             <div class="flex justify-between text-xs text-gray-600">
                                 <span>Low (1)</span>
-                                <span x-text="formData.goals.motivation_level"></span>
+                                <span class="text-lg font-bold text-purple-600" x-text="formData.goals.motivation_level || 5"></span>
                                 <span>High (10)</span>
                             </div>
                         </div>
@@ -274,7 +285,8 @@
                             </label>
                             <input type="number" x-model="formData.measurements.weight_kg"
                                    min="30" max="300" step="0.1"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="e.g., 75.5">
                         </div>
 
                         <!-- Height -->
@@ -284,7 +296,8 @@
                             </label>
                             <input type="number" x-model="formData.measurements.height_cm"
                                    min="100" max="250"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="e.g., 175">
                         </div>
 
                         <!-- Waist -->
@@ -294,7 +307,8 @@
                             </label>
                             <input type="number" x-model="formData.measurements.waist"
                                    min="40" max="200"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="Measure at belly button">
                         </div>
 
                         <!-- Other measurements -->
@@ -304,7 +318,8 @@
                             </label>
                             <input type="number" x-model="formData.measurements.chest"
                                    min="50" max="200"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="Measure at fullest part">
                         </div>
 
                         <div x-show="template.measurements.hips">
@@ -313,7 +328,8 @@
                             </label>
                             <input type="number" x-model="formData.measurements.hips"
                                    min="50" max="200"
-                                   class="w-full p-3 border rounded-lg">
+                                   class="w-full p-3 border rounded-lg"
+                                   placeholder="Measure at widest part">
                         </div>
                     </div>
                 </div>
@@ -383,9 +399,9 @@
                 </div>
             </div>
 
-            <!-- Photos Section -->
+            <!-- Enhanced Mobile-Optimized Photos Section -->
             <div x-show="currentSection === 6 && template.include_photos" x-transition>
-                <div class="bg-white rounded-lg shadow-sm p-6">
+                <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
                     <h2 class="text-xl font-bold mb-4">
                         <i class="fas fa-camera mr-2"></i>
                         Progress Photos (Optional)
@@ -395,40 +411,165 @@
                     </p>
                     
                     <div class="space-y-4">
-                        <!-- Photo upload areas -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="text-center">
-                                <label class="block">
-                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:border-purple-500">
-                                        <i class="fas fa-camera text-3xl text-gray-400 mb-2"></i>
-                                        <p class="text-sm">Front View</p>
-                                        <input type="file" accept="image/*" class="hidden"
+                        <!-- Photo upload areas optimized for mobile -->
+                        <div class="grid grid-cols-1 gap-4">
+                            
+                            <!-- Front View -->
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="font-medium">Front View</span>
+                                    <span x-show="formData.photos.front && formData.photos.front.uploaded" class="text-green-600">
+                                        <i class="fas fa-check-circle"></i> Uploaded
+                                    </span>
+                                </div>
+                                
+                                <!-- Preview if photo exists -->
+                                <div x-show="formData.photos.front && formData.photos.front.preview" class="mb-3">
+                                    <img :src="formData.photos.front.preview" 
+                                         class="w-32 h-32 object-cover rounded mx-auto">
+                                </div>
+                                
+                                <!-- Loading indicator -->
+                                <div x-show="photoLoading.front" class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin text-2xl text-purple-600"></i>
+                                    <p class="text-sm text-gray-600 mt-2">Uploading photo...</p>
+                                </div>
+                                
+                                <!-- Upload buttons -->
+                                <div x-show="!photoLoading.front" class="flex gap-2">
+                                    <label class="flex-1">
+                                        <input type="file" 
+                                               accept="image/*" 
+                                               capture="environment"
+                                               class="hidden"
                                                @change="uploadPhoto($event, 'front')">
-                                    </div>
-                                </label>
+                                        <div class="bg-purple-600 text-white text-center py-3 px-4 rounded-lg cursor-pointer hover:bg-purple-700 transition">
+                                            <i class="fas fa-camera mr-2"></i>
+                                            Take Photo
+                                        </div>
+                                    </label>
+                                    
+                                    <label class="flex-1">
+                                        <input type="file" 
+                                               accept="image/*"
+                                               class="hidden"
+                                               @change="uploadPhoto($event, 'front')">
+                                        <div class="bg-gray-200 text-gray-700 text-center py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-300 transition">
+                                            <i class="fas fa-folder-open mr-2"></i>
+                                            Choose File
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                             
-                            <div class="text-center">
-                                <label class="block">
-                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:border-purple-500">
-                                        <i class="fas fa-camera text-3xl text-gray-400 mb-2"></i>
-                                        <p class="text-sm">Side View</p>
-                                        <input type="file" accept="image/*" class="hidden"
+                            <!-- Side View -->
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="font-medium">Side View</span>
+                                    <span x-show="formData.photos.side && formData.photos.side.uploaded" class="text-green-600">
+                                        <i class="fas fa-check-circle"></i> Uploaded
+                                    </span>
+                                </div>
+                                
+                                <!-- Preview if photo exists -->
+                                <div x-show="formData.photos.side && formData.photos.side.preview" class="mb-3">
+                                    <img :src="formData.photos.side.preview" 
+                                         class="w-32 h-32 object-cover rounded mx-auto">
+                                </div>
+                                
+                                <!-- Loading indicator -->
+                                <div x-show="photoLoading.side" class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin text-2xl text-purple-600"></i>
+                                    <p class="text-sm text-gray-600 mt-2">Uploading photo...</p>
+                                </div>
+                                
+                                <!-- Upload buttons -->
+                                <div x-show="!photoLoading.side" class="flex gap-2">
+                                    <label class="flex-1">
+                                        <input type="file" 
+                                               accept="image/*" 
+                                               capture="environment"
+                                               class="hidden"
                                                @change="uploadPhoto($event, 'side')">
-                                    </div>
-                                </label>
+                                        <div class="bg-purple-600 text-white text-center py-3 px-4 rounded-lg cursor-pointer hover:bg-purple-700 transition">
+                                            <i class="fas fa-camera mr-2"></i>
+                                            Take Photo
+                                        </div>
+                                    </label>
+                                    
+                                    <label class="flex-1">
+                                        <input type="file" 
+                                               accept="image/*"
+                                               class="hidden"
+                                               @change="uploadPhoto($event, 'side')">
+                                        <div class="bg-gray-200 text-gray-700 text-center py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-300 transition">
+                                            <i class="fas fa-folder-open mr-2"></i>
+                                            Choose File
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                             
-                            <div class="text-center">
-                                <label class="block">
-                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:border-purple-500">
-                                        <i class="fas fa-camera text-3xl text-gray-400 mb-2"></i>
-                                        <p class="text-sm">Back View</p>
-                                        <input type="file" accept="image/*" class="hidden"
+                            <!-- Back View -->
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="font-medium">Back View</span>
+                                    <span x-show="formData.photos.back && formData.photos.back.uploaded" class="text-green-600">
+                                        <i class="fas fa-check-circle"></i> Uploaded
+                                    </span>
+                                </div>
+                                
+                                <!-- Preview if photo exists -->
+                                <div x-show="formData.photos.back && formData.photos.back.preview" class="mb-3">
+                                    <img :src="formData.photos.back.preview" 
+                                         class="w-32 h-32 object-cover rounded mx-auto">
+                                </div>
+                                
+                                <!-- Loading indicator -->
+                                <div x-show="photoLoading.back" class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin text-2xl text-purple-600"></i>
+                                    <p class="text-sm text-gray-600 mt-2">Uploading photo...</p>
+                                </div>
+                                
+                                <!-- Upload buttons -->
+                                <div x-show="!photoLoading.back" class="flex gap-2">
+                                    <label class="flex-1">
+                                        <input type="file" 
+                                               accept="image/*" 
+                                               capture="environment"
+                                               class="hidden"
                                                @change="uploadPhoto($event, 'back')">
-                                    </div>
-                                </label>
+                                        <div class="bg-purple-600 text-white text-center py-3 px-4 rounded-lg cursor-pointer hover:bg-purple-700 transition">
+                                            <i class="fas fa-camera mr-2"></i>
+                                            Take Photo
+                                        </div>
+                                    </label>
+                                    
+                                    <label class="flex-1">
+                                        <input type="file" 
+                                               accept="image/*"
+                                               class="hidden"
+                                               @change="uploadPhoto($event, 'back')">
+                                        <div class="bg-gray-200 text-gray-700 text-center py-3 px-4 rounded-lg cursor-pointer hover:bg-gray-300 transition">
+                                            <i class="fas fa-folder-open mr-2"></i>
+                                            Choose File
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
+                        </div>
+                        
+                        <!-- Tips for good photos -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                            <p class="text-sm text-blue-800 font-medium mb-2">
+                                <i class="fas fa-lightbulb mr-1"></i> Photo Tips:
+                            </p>
+                            <ul class="text-xs text-blue-700 space-y-1">
+                                <li>• Stand against a plain background</li>
+                                <li>• Wear fitted clothing to show progress</li>
+                                <li>• Keep the same pose for consistency</li>
+                                <li>• Use good lighting (natural light is best)</li>
+                            </ul>
                         </div>
                         
                         <p class="text-xs text-gray-500 text-center">
@@ -460,7 +601,7 @@
                     <div class="space-y-4 mb-6">
                         <div class="text-sm">
                             <span class="font-medium">Primary Goal:</span>
-                            <span x-text="formData.goals.primary_goal || 'Not specified'"></span>
+                            <span x-text="formData.goals.primary_goal ? formData.goals.primary_goal.replace('_', ' ') : 'Not specified'"></span>
                         </div>
                         <div class="text-sm">
                             <span class="font-medium">Current Weight:</span>
@@ -473,28 +614,47 @@
                     </div>
                     
                     <button @click="submitAssessment()"
-                            class="w-full bg-green-600 text-white py-3 rounded-lg font-medium">
-                        Submit Assessment ✅
+                            :disabled="isSubmitting"
+                            class="w-full bg-green-600 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!isSubmitting">Submit Assessment ✅</span>
+                        <span x-show="isSubmitting">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Submitting...
+                        </span>
                     </button>
+                </div>
+            </div>
+
+            <!-- Success Section -->
+            <div x-show="currentSection === 8" x-transition>
+                <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+                    <div class="text-6xl mb-4">🎉</div>
+                    <h2 class="text-2xl font-bold mb-4">Assessment Complete!</h2>
+                    <p class="text-gray-600 mb-6">
+                        Thank you for completing your fitness assessment. Your trainer will review your information and create a personalized program for you.
+                    </p>
+                    <p class="text-sm text-gray-500">
+                        You can close this window now. Your trainer will be in touch soon!
+                    </p>
                 </div>
             </div>
 
             <!-- Navigation Buttons -->
             <div class="flex justify-between mt-6" x-show="currentSection > 0 && currentSection < 7">
                 <button @click="previousSection()"
-                        class="px-6 py-2 border border-gray-300 rounded-lg">
+                        class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Back
                 </button>
                 
                 <button @click="saveProgress()"
-                        class="px-6 py-2 bg-gray-200 rounded-lg">
+                        class="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition">
                     <i class="fas fa-save mr-2"></i>
-                    Save Progress
+                    Save
                 </button>
                 
                 <button @click="nextSection()"
-                        class="px-6 py-2 bg-purple-600 text-white rounded-lg">
+                        class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
                     Next
                     <i class="fas fa-arrow-right ml-2"></i>
                 </button>
@@ -508,18 +668,62 @@
                 currentSection: 0,
                 totalSections: 8,
                 progress: 0,
+                isSubmitting: false,
+                photoLoading: {
+                    front: false,
+                    side: false,
+                    back: false
+                },
                 
-                // Template settings from backend
-                template: {{ template_settings|tojson }},
+                // Template settings from backend (this would come from your server)
+                template: {
+                    health: {
+                        injuries: true,
+                        medications: true,
+                        conditions: true,
+                        clearance: true
+                    },
+                    lifestyle: {
+                        activity: true,
+                        sleep: true,
+                        stress: true,
+                        water: true
+                    },
+                    goals: {
+                        primary: true,
+                        specific: true,
+                        timeline: true,
+                        motivation: true
+                    },
+                    measurements: {
+                        weight: true,
+                        height: true,
+                        waist: true,
+                        chest: true,
+                        hips: true
+                    },
+                    tests: {
+                        pushups: true,
+                        plank: true,
+                        squats: true,
+                        cardio: true
+                    },
+                    include_photos: true
+                },
                 
                 // Form data
                 formData: {
                     health: {},
-                    lifestyle: {},
-                    goals: {},
+                    lifestyle: {
+                        stress_level: 5,
+                        motivation_level: 5
+                    },
+                    goals: {
+                        motivation_level: 5
+                    },
                     measurements: {},
                     tests: {},
-                    photos: []
+                    photos: {}
                 },
                 
                 init() {
@@ -564,7 +768,7 @@
                 
                 saveProgress() {
                     this.saveToBackend();
-                    alert('Progress saved! You can continue anytime.');
+                    this.showNotification('Progress saved! You can continue anytime.', 'success');
                 },
                 
                 saveToBackend() {
@@ -578,46 +782,150 @@
                             data: this.formData,
                             section: this.currentSection
                         })
+                    }).catch(error => {
+                        console.error('Error saving progress:', error);
                     });
                 },
                 
                 loadProgress() {
                     const saved = localStorage.getItem('assessment_progress');
                     if (saved) {
-                        const data = JSON.parse(saved);
-                        this.formData = data.data;
-                        this.currentSection = data.section;
+                        try {
+                            const data = JSON.parse(saved);
+                            this.formData = data.data;
+                            this.currentSection = data.section;
+                        } catch (e) {
+                            console.error('Error loading saved progress:', e);
+                        }
                     }
                 },
                 
                 uploadPhoto(event, type) {
                     const file = event.target.files[0];
-                    if (file) {
-                        // Handle photo upload
-                        const formData = new FormData();
-                        formData.append('photo', file);
-                        formData.append('type', type);
-                        formData.append('token', '{{ access_token }}');
-                        
-                        fetch('/api/assessment/upload-photo', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                this.formData.photos.push({
-                                    type: type,
-                                    url: data.url
-                                });
-                                alert('Photo uploaded successfully!');
-                            }
-                        });
+                    if (!file) return;
+                    
+                    // Check file size (limit to 10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                        this.showNotification('Photo is too large. Please choose a photo under 10MB.', 'error');
+                        return;
                     }
+                    
+                    // Show loading state
+                    this.photoLoading[type] = true;
+                    
+                    // Initialize photo object if not exists
+                    if (!this.formData.photos[type]) {
+                        this.formData.photos[type] = {};
+                    }
+                    
+                    // Create preview immediately for better UX
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.formData.photos[type].preview = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                    
+                    // Compress and upload
+                    this.compressAndUpload(file, type);
+                },
+                
+                compressAndUpload(file, type) {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                        // Calculate new dimensions (max 1200px wide/tall)
+                        let width = img.width;
+                        let height = img.height;
+                        const maxSize = 1200;
+                        
+                        if (width > height) {
+                            if (width > maxSize) {
+                                height = (height * maxSize) / width;
+                                width = maxSize;
+                            }
+                        } else {
+                            if (height > maxSize) {
+                                width = (width * maxSize) / height;
+                                height = maxSize;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convert to blob
+                        canvas.toBlob((blob) => {
+                            const formData = new FormData();
+                            formData.append('photo', blob, `${type}_photo.jpg`);
+                            formData.append('type', type);
+                            formData.append('token', '{{ access_token }}');
+                            
+                            fetch('/api/assessment/upload-photo', {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    this.formData.photos[type].uploaded = true;
+                                    this.formData.photos[type].url = data.url;
+                                    this.photoLoading[type] = false;
+                                    this.showNotification('Photo uploaded successfully!', 'success');
+                                } else {
+                                    throw new Error(data.error || 'Upload failed');
+                                }
+                            })
+                            .catch(error => {
+                                this.showNotification('Failed to upload photo. Please try again.', 'error');
+                                this.photoLoading[type] = false;
+                                delete this.formData.photos[type];
+                            });
+                        }, 'image/jpeg', 0.8);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                },
+                
+                showNotification(message, type = 'info') {
+                    // Haptic feedback on mobile (if supported)
+                    if (navigator.vibrate && type === 'success') {
+                        navigator.vibrate(200);
+                    }
+                    
+                    // Create notification element
+                    const notification = document.createElement('div');
+                    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+                    notification.className = `fixed top-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300`;
+                    notification.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation' : 'info'}-circle mr-2"></i>
+                            <span>${message}</span>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    // Animate in
+                    setTimeout(() => {
+                        notification.style.transform = 'translateX(0)';
+                    }, 10);
+                    
+                    // Remove after 3 seconds
+                    setTimeout(() => {
+                        notification.style.transform = 'translateX(400px)';
+                        setTimeout(() => notification.remove(), 300);
+                    }, 3000);
                 },
                 
                 submitAssessment() {
+                    if (this.isSubmitting) return;
+                    
                     if (confirm('Are you ready to submit your assessment?')) {
+                        this.isSubmitting = true;
+                        
                         fetch('/api/assessment/submit', {
                             method: 'POST',
                             headers: {
@@ -634,15 +942,20 @@
                                 // Clear saved progress
                                 localStorage.removeItem('assessment_progress');
                                 
-                                // Show success message
-                                this.currentSection = 8; // Success screen
-                                alert('Assessment submitted successfully! Your trainer will review it soon.');
+                                // Move to success screen
+                                this.currentSection = 8;
+                                this.updateProgress();
+                                window.scrollTo(0, 0);
                                 
-                                // Redirect after 3 seconds
-                                setTimeout(() => {
-                                    window.location.href = '/assessment/complete';
-                                }, 3000);
+                                // Show success notification
+                                this.showNotification('Assessment submitted successfully!', 'success');
+                            } else {
+                                throw new Error(data.error || 'Submission failed');
                             }
+                        })
+                        .catch(error => {
+                            this.showNotification('Failed to submit assessment. Please try again.', 'error');
+                            this.isSubmitting = false;
                         });
                     }
                 }
