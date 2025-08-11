@@ -439,3 +439,51 @@ def refresh_dashboard_data(token):
     except Exception as e:
         log_error(f"Error refreshing dashboard: {str(e)}")
         return jsonify({'error': 'Refresh failed'}), 500
+
+@dashboard_bp.route('/dashboard/<token>/assessment-settings')
+def assessment_settings(token):
+    """Assessment customization page"""
+    try:
+        # Validate token
+        trainer_id = dashboard_service.validate_token(token)
+        
+        if not trainer_id:
+            return render_template('error.html', 
+                                 message="This link has expired or is invalid. Please request a new link via WhatsApp."), 403
+        
+        # Get trainer data
+        trainer = dashboard_service.trainer_model.get_by_id(trainer_id)
+        if not trainer:
+            return render_template('error.html', 
+                                 message="Could not load trainer data."), 404
+        
+        # Get existing template if any
+        template_result = dashboard_service.db.table('assessment_templates').select('*').eq(
+            'trainer_id', trainer_id
+        ).eq('is_active', True).execute()
+        
+        template_settings = {}
+        if template_result.data:
+            template_settings = template_result.data[0]
+        else:
+            # Default settings
+            template_settings = {
+                'completed_by': 'client',
+                'frequency': 'quarterly',
+                'include_photos': True,
+                'include_health': True,
+                'include_lifestyle': True,
+                'include_goals': True,
+                'include_measurements': True,
+                'include_tests': True
+            }
+        
+        # Render the assessment settings page
+        return render_template('dashboard_assessment.html', 
+                             trainer=trainer,
+                             template_settings=json.dumps(template_settings))
+        
+    except Exception as e:
+        log_error(f"Error loading assessment settings: {str(e)}")
+        return render_template('error.html', 
+                             message="An error occurred loading settings."), 500
