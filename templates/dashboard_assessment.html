@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customize Assessment - {{ trainer.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <div x-data="assessmentEditor()" class="min-h-screen p-4">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-sm rounded-lg mb-4">
+            <div class="px-4 py-3">
+                <h1 class="text-xl font-bold text-gray-900">
+                    <i class="fas fa-clipboard-check mr-2"></i>
+                    Customize Your Fitness Assessment
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">Choose what information to collect from clients</p>
+            </div>
+        </header>
+
+        <!-- Settings Section -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <h2 class="text-lg font-semibold mb-4">Assessment Settings</h2>
+            
+            <div class="space-y-4">
+                <!-- Who completes -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Who will complete the assessment?
+                    </label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="completed_by" value="client" 
+                                   x-model="settings.completed_by" class="mr-2">
+                            <span>Client (on their phone)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="completed_by" value="trainer" 
+                                   x-model="settings.completed_by" class="mr-2">
+                            <span>Trainer (during session)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Frequency -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        How often should assessments be done?
+                    </label>
+                    <select x-model="settings.frequency" 
+                            class="w-full md:w-auto px-3 py-2 border rounded-lg">
+                        <option value="once">One-time only</option>
+                        <option value="monthly">Every month</option>
+                        <option value="quarterly">Every 3 months</option>
+                        <option value="biannual">Every 6 months</option>
+                        <option value="annual">Once a year</option>
+                    </select>
+                </div>
+
+                <!-- Include photos -->
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" x-model="settings.include_photos" class="mr-2">
+                        <span class="text-sm font-medium">Allow progress photos</span>
+                    </label>
+                    <p class="text-xs text-gray-500 ml-6">Clients can upload before/after photos</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sections to Include -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <h2 class="text-lg font-semibold mb-4">Assessment Sections</h2>
+            <p class="text-sm text-gray-600 mb-4">Toggle sections on/off and customize questions</p>
+            
+            <div class="space-y-4">
+                <!-- Health Section -->
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="sections.health.enabled" class="mr-2">
+                            <span class="font-medium">Health & Medical History</span>
+                        </label>
+                        <button @click="sections.health.expanded = !sections.health.expanded"
+                                x-show="sections.health.enabled"
+                                class="text-purple-600">
+                            <i class="fas" :class="sections.health.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                    
+                    <div x-show="sections.health.enabled && sections.health.expanded" x-transition>
+                        <div class="space-y-2 ml-6">
+                            <template x-for="question in sections.health.questions">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" x-model="question.selected" class="mr-2">
+                                    <span x-text="question.text"></span>
+                                    <span class="ml-2 text-xs text-gray-500" x-show="question.required">(Required)</span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lifestyle Section -->
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="sections.lifestyle.enabled" class="mr-2">
+                            <span class="font-medium">Lifestyle & Habits</span>
+                        </label>
+                        <button @click="sections.lifestyle.expanded = !sections.lifestyle.expanded"
+                                x-show="sections.lifestyle.enabled"
+                                class="text-purple-600">
+                            <i class="fas" :class="sections.lifestyle.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                    
+                    <div x-show="sections.lifestyle.enabled && sections.lifestyle.expanded" x-transition>
+                        <div class="space-y-2 ml-6">
+                            <template x-for="question in sections.lifestyle.questions">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" x-model="question.selected" class="mr-2">
+                                    <span x-text="question.text"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Goals Section -->
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="sections.goals.enabled" class="mr-2">
+                            <span class="font-medium">Fitness Goals</span>
+                        </label>
+                        <button @click="sections.goals.expanded = !sections.goals.expanded"
+                                x-show="sections.goals.enabled"
+                                class="text-purple-600">
+                            <i class="fas" :class="sections.goals.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                    
+                    <div x-show="sections.goals.enabled && sections.goals.expanded" x-transition>
+                        <div class="space-y-2 ml-6">
+                            <template x-for="question in sections.goals.questions">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" x-model="question.selected" class="mr-2">
+                                    <span x-text="question.text"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Measurements Section -->
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="sections.measurements.enabled" class="mr-2">
+                            <span class="font-medium">Physical Measurements</span>
+                        </label>
+                        <button @click="sections.measurements.expanded = !sections.measurements.expanded"
+                                x-show="sections.measurements.enabled"
+                                class="text-purple-600">
+                            <i class="fas" :class="sections.measurements.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                    
+                    <div x-show="sections.measurements.enabled && sections.measurements.expanded" x-transition>
+                        <div class="space-y-2 ml-6">
+                            <template x-for="question in sections.measurements.questions">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" x-model="question.selected" class="mr-2">
+                                    <span x-text="question.text"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fitness Tests Section -->
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="sections.tests.enabled" class="mr-2">
+                            <span class="font-medium">Fitness Tests</span>
+                        </label>
+                        <button @click="sections.tests.expanded = !sections.tests.expanded"
+                                x-show="sections.tests.enabled"
+                                class="text-purple-600">
+                            <i class="fas" :class="sections.tests.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                    
+                    <div x-show="sections.tests.enabled && sections.tests.expanded" x-transition>
+                        <div class="space-y-2 ml-6">
+                            <template x-for="question in sections.tests.questions">
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" x-model="question.selected" class="mr-2">
+                                    <span x-text="question.text"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4">
+            <div class="max-w-4xl mx-auto flex justify-between items-center">
+                <span class="text-sm text-gray-600">
+                    <span x-text="countSelectedQuestions()"></span> questions selected
+                </span>
+                <button @click="saveTemplate()" 
+                        class="bg-purple-600 text-white px-6 py-2 rounded-lg font-medium">
+                    Save Template
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function assessmentEditor() {
+            return {
+                settings: {
+                    completed_by: 'client',
+                    frequency: 'quarterly',
+                    include_photos: true
+                },
+                sections: {
+                    health: {
+                        enabled: true,
+                        expanded: false,
+                        questions: [
+                            { id: 'injuries', text: 'Current injuries or pain?', selected: true, required: true },
+                            { id: 'medications', text: 'Current medications?', selected: true },
+                            { id: 'conditions', text: 'Chronic conditions?', selected: true },
+                            { id: 'surgeries', text: 'Past surgeries?', selected: false },
+                            { id: 'allergies', text: 'Allergies?', selected: false },
+                            { id: 'clearance', text: 'Doctor clearance?', selected: true }
+                        ]
+                    },
+                    lifestyle: {
+                        enabled: true,
+                        expanded: false,
+                        questions: [
+                            { id: 'activity', text: 'Job activity level?', selected: true },
+                            { id: 'sleep', text: 'Sleep hours & quality?', selected: true },
+                            { id: 'stress', text: 'Stress level?', selected: true },
+                            { id: 'nutrition', text: 'Dietary habits?', selected: false },
+                            { id: 'water', text: 'Water intake?', selected: false },
+                            { id: 'smoking', text: 'Smoking status?', selected: false },
+                            { id: 'alcohol', text: 'Alcohol consumption?', selected: false }
+                        ]
+                    },
+                    goals: {
+                        enabled: true,
+                        expanded: false,
+                        questions: [
+                            { id: 'primary', text: 'Primary fitness goal?', selected: true, required: true },
+                            { id: 'specific', text: 'Specific targets?', selected: true },
+                            { id: 'timeline', text: 'Timeline?', selected: true },
+                            { id: 'motivation', text: 'Motivation level?', selected: true },
+                            { id: 'preferences', text: 'Exercise preferences?', selected: false },
+                            { id: 'dislikes', text: 'Exercises to avoid?', selected: false }
+                        ]
+                    },
+                    measurements: {
+                        enabled: true,
+                        expanded: false,
+                        questions: [
+                            { id: 'weight', text: 'Weight', selected: true, required: true },
+                            { id: 'height', text: 'Height', selected: true, required: true },
+                            { id: 'waist', text: 'Waist circumference', selected: true },
+                            { id: 'chest', text: 'Chest circumference', selected: false },
+                            { id: 'hips', text: 'Hip circumference', selected: false },
+                            { id: 'arms', text: 'Arm measurements', selected: false },
+                            { id: 'thighs', text: 'Thigh measurements', selected: false },
+                            { id: 'bodyfat', text: 'Body fat percentage', selected: false }
+                        ]
+                    },
+                    tests: {
+                        enabled: true,
+                        expanded: false,
+                        questions: [
+                            { id: 'pushups', text: 'Push-ups test', selected: true },
+                            { id: 'plank', text: 'Plank hold test', selected: true },
+                            { id: 'squats', text: 'Squats test', selected: true },
+                            { id: 'cardio', text: 'Cardio fitness', selected: false },
+                            { id: 'flexibility', text: 'Flexibility tests', selected: false },
+                            { id: 'balance', text: 'Balance tests', selected: false }
+                        ]
+                    }
+                },
+                
+                countSelectedQuestions() {
+                    let count = 0;
+                    for (let section in this.sections) {
+                        if (this.sections[section].enabled) {
+                            count += this.sections[section].questions.filter(q => q.selected).length;
+                        }
+                    }
+                    return count;
+                },
+                
+                saveTemplate() {
+                    // Prepare template data
+                    const templateData = {
+                        settings: this.settings,
+                        sections: {}
+                    };
+                    
+                    // Collect selected questions
+                    for (let key in this.sections) {
+                        if (this.sections[key].enabled) {
+                            templateData.sections[key] = this.sections[key].questions
+                                .filter(q => q.selected)
+                                .map(q => q.id);
+                        }
+                    }
+                    
+                    // Send to backend
+                    fetch('/api/assessment-template/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(templateData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Template saved successfully!');
+                            window.location.href = '/dashboard';
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error saving template. Please try again.');
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
