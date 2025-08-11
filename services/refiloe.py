@@ -325,21 +325,8 @@ class RefiloeAssistant:
             return {'type': 'unknown', 'data': None}
     
     def handle_trainer_message(self, trainer_context: Dict, message_text: str) -> str:
-        """Handle messages from trainers"""
-
+        """Handle messages from trainers with correct priority ordering"""
         try:
-            # Try enhanced AI-powered handling first
-            if self.config.ANTHROPIC_API_KEY:
-                try: 
-                    enhanced_response = self.handle_trainer_message_enhanced(trainer_context, message_text)
-                    # If enhanced handler returns a valid response, use it
-                    if enhanced_response:
-                        return enhanced_response
-                    # Otherwise fall through to keyword-based logic
-                except:
-                    # If enhanced handler fails, continue with keyword logic
-                    pass
-                
             trainer = trainer_context['data']
             message_lower = message_text.lower()
             is_first = trainer_context.get('first_interaction', False)
@@ -364,13 +351,149 @@ class RefiloeAssistant:
             if any(phrase in message_lower for phrase in ['help', 'commands', 'what can you do', 'how do you work']):
                 return self.get_trainer_help_menu(trainer['name'], is_first)
             
-            # 3. DASHBOARD REQUEST
+            # 3. FITNESS ASSESSMENT (HIGH PRIORITY - CHECK BEFORE WORKOUTS!)
+            if self.assessment_service:
+                # Check for assessment-related keywords
+                assessment_keywords = [
+                    'assessment', 'assess', 'evaluation', 'fitness test', 'fitness check',
+                    'check progress', 'measure', 'test fitness', 'fitness level',
+                    'initial consultation', 'onboarding', 'intake form', 'health check',
+                    'body measurements', 'fitness goals', 'health questionnaire'
+                ]
+                
+                if any(keyword in message_lower for keyword in assessment_keywords):
+                    # Use AI to understand intent
+                    intent = self.assessment_service.understand_assessment_intent(message_text, trainer['id'])
+                    
+                    # Start assessment
+                    if intent.get('type') == 'start_assessment' or 'start' in message_lower or 'send' in message_lower:
+                        # Extract client name
+                        client_name = intent.get('client_name')
+                        if not client_name:
+                            # Try to extract manually
+                            import re
+                            name_match = re.search(r'(?:for|to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', message_text)
+                            if name_match:
+                                client_name = name_match.group(1)
+                        
+                        if client_name:
+                            # Find the client
+                            clients = self.client_model.get_trainer_clients(trainer['id'])
+                            matching_client = None
+                            
+                            for client in clients:
+                                if client_name.lower() in client['name'].lower() or client['name'].lower() in client_name.lower():
+                                    matching_client = client
+                                    break
+                            
+                            if matching_client:
+                                # Create assessment with web form
+                                result = self.assessment_service.create_assessment_with_template(
+                                    trainer['id'],
+                                    matching_client['id'],
+                                    matching_client['name']
+                                )
+                                
+                                if result['success']:
+                                    # Send to appropriate person
+                                    if result['completed_by'] == 'trainer':
+                                        # Send link to trainer
+                                        return greeting + result['message']
+                                    else:
+                                        # Send link to client
+                                        self.whatsapp.send_message(
+                                            matching_client['whatsapp'],
+                                            result['message']
+                                        )
+                                        
+                                        return greeting + f"""✅ Fitness assessment started for {matching_client['name']}!
+    
+    I've sent them the assessment form via WhatsApp.
+    
+    🔗 They'll receive a personal link to complete it
+    📱 Works perfectly on their phone
+    ⏱️ Takes about 10-15 minutes
+    📊 You'll get the results when they're done
+    
+    The link is valid for 7 days. They can pause and resume anytime! 💪"""
+                                else:
+                                    return greeting + f"I couldn't create the assessment. {result.get('error', 'Please try again.')}"
+                            else:
+                                # Client not found - show list
+                                clients = self.client_model.get_trainer_clients(trainer['id'])
+                                if clients:
+                                    client_list = '\n'.join([f"• {c['name']}" for c in clients])
+                                    return greeting + f"""I couldn't find a client named '{client_name}'.
+    
+    Your clients:
+    {client_list}
+    
+    Please try again with the correct name!"""
+                                else:
+                                    return greeting + "You need to add clients first before starting assessments!"
+                        else:
+                            # No client specified - ask
+                            clients = self.client_model.get_trainer_clients(trainer['id'])
+                            if clients:
+                                client_list = '\n'.join([f"• {c['name']}" for c in clients])
+                                return greeting + f"""Which client needs a fitness assessment?
+    
+    Your clients:
+    {client_list}
+    
+    Say: "Start fitness assessment for [Client Name]" 📋"""
+                            else:
+                                return greeting + "You need to add clients first before starting assessments!"
+                    
+                    # View assessment results
+                    elif intent.get('type') == 'view_assessment' or any(word in message_lower for word in ['view', 'show', 'results', 'see']):
+                        client_name = intent.get('client_name')
+                        if client_name:
+                            # Get specific client's assessment
+                            clients = self.client_model.get_trainer_clients(trainer['id'])
+                            for client in clients:
+                                if client_name.lower() in client['name'].lower():
+                                    results = self.assessment_service.get_assessment_results(trainer['id'], client['id'])
+                                    if results['success']:
+                                        return greeting + self.assessment_service.format_assessment_summary(results)
+                                    else:
+                                        return greeting + f"No completed assessments for {client['name']} yet."
+                        else:
+                            # Get all assessments
+                            results = self.assessment_service.get_assessment_results(trainer['id'])
+                            if results['success']:
+                                return greeting + self.assessment_service.format_assessment_summary(results)
+                            else:
+                                return greeting + "No completed assessments yet. Start one by saying 'Start fitness assessment for [Client Name]'"
+                    
+                    # Track progress
+                    elif intent.get('type') == 'track_progress' or 'progress' in message_lower:
+                        return self.handle_progress_tracking(trainer, message_text)
+                
+                # Customize assessment form
+                if any(phrase in message_lower for phrase in ['customize assessment', 'set up assessment', 'assessment form', 'configure assessment', 'assessment settings']):
+                    from routes.dashboard import dashboard_service
+                    if dashboard_service:
+                        result = dashboard_service.generate_dashboard_link(trainer['id'])
+                        if result['success']:
+                            return greeting + f"""📋 **Customize Your Fitness Assessment**
+    
+    Click here to set up your assessment template:
+    {result['url']}/assessment-settings
+    
+    You can:
+    ✅ Choose which questions to include
+    ✅ Decide who fills it out (you or client)
+    ✅ Set how often assessments happen
+    ✅ Enable/disable photo uploads
+    
+    This link expires in 24 hours."""
+                        else:
+                            return greeting + "I had trouble generating the settings link. Please try again."
+            
+            # 4. DASHBOARD REQUEST
             if any(phrase in message_lower for phrase in ['dashboard', 'my dashboard', 'show dashboard', 'view dashboard', 'calendar view', 'web view']):
                 return self.handle_dashboard_request(trainer, greeting)
-            
-            # 4. WORKOUT/PROGRAM REQUESTS
-            if any(phrase in message_lower for phrase in ['workout', 'program', 'exercise', 'routine', 'training plan']):
-                return self.handle_workout_request(trainer, message_text, greeting)
             
             # 5. VIEW CLIENTS
             if any(phrase in message_lower for phrase in ['my clients', 'list clients', 'show clients', 'all clients']):
@@ -384,21 +507,9 @@ class RefiloeAssistant:
             if any(phrase in message_lower for phrase in ['revenue', 'payments', 'money', 'earnings', 'income']):
                 return greeting + self.get_trainer_revenue_display(trainer)
             
-            # 8. AVAILABILITY UPDATE
-            if any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours', 'when i work']):
-                return self.handle_availability_update(trainer, message_text, greeting)
-            
-            # 9. BOOKING PREFERENCES
-            if any(phrase in message_lower for phrase in ['booking preference', 'prefer early', 'prefer late', 'slot preference']):
-                return self.handle_preference_update(trainer, message_text, greeting)
-            
-            # 10. SESSION DURATION
-            if any(phrase in message_lower for phrase in ['session length', 'session duration', 'minutes long', 'hour long']):
-                return self.handle_session_duration_update(trainer, message_text, greeting)
-            
-            # 11. EXPLICIT CLIENT ADDITION REQUEST (must mention "add" or "new" with "client")
+            # 8. CLIENT ADDITION REQUEST (must mention "add" or "new" with "client")
             if any(phrase in message_lower for phrase in ['add client', 'new client', 'onboard client', 'add a client', 'register client', 'sign up client']):
-                return f"""{greeting}Let's add your new client! I'll need:
+                return greeting + f"""Let's add your new client! I'll need:
     
     📝 Client's full name
     📱 WhatsApp number (e.g., 0821234567)
@@ -407,26 +518,20 @@ class RefiloeAssistant:
     
     Go ahead! 💪"""
             
-            # 12. CHECK IF PROVIDING CLIENT DETAILS (only after explicit add request or with clear indicators)
+            # 9. CHECK IF PROVIDING CLIENT DETAILS
             has_phone = bool(re.search(r'(?:\+27|27|0)?\d{9,10}', message_text))
             has_email = bool(re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', message_text))
             
-            # Only try to parse as client details if:
-            # - Has phone/email AND mentions client-related keywords
-            # - OR looks strongly like client details
             client_keywords = ['client', 'trains', 'training', 'sessions', 'week', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
             has_client_context = any(word in message_lower for word in client_keywords)
             
             if (has_phone or has_email) and has_client_context:
-                # Check if this might be client details
                 if self.looks_like_client_details(message_text):
                     details = self.extract_client_details_naturally(message_text)
                     
                     if details and details.get('name') and details.get('phone'):
-                        # Add the client directly
                         return self.complete_client_addition(trainer, details)
                     else:
-                        # Only ask for clarification if we're confident they're trying to add a client
                         if 'client' in message_lower or has_phone:
                             missing = []
                             if not details.get('name'):
@@ -434,7 +539,7 @@ class RefiloeAssistant:
                             if not details.get('phone'):
                                 missing.append("phone number")
                             
-                            return f"""I see you're trying to add a client, but I need their {' and '.join(missing)}.
+                            return greeting + f"""I see you're trying to add a client, but I need their {' and '.join(missing)}.
     
     Could you provide:
     📝 Full name
@@ -444,9 +549,42 @@ class RefiloeAssistant:
     
     Just give me the details! 💪"""
             
-            # 13. GENERAL AI FALLBACK - for everything else
-            # This should handle confusion, general questions, and unclear requests
-            return self.process_with_ai(trainer, message_text, 'trainer', greeting=greeting)
+            # 10. WORKOUT/PROGRAM REQUESTS (NOW LOWER PRIORITY)
+            # Only process as workout if it explicitly mentions workout/exercise/program
+            workout_keywords = ['workout', 'program', 'exercise', 'routine', 'training plan', 'exercises']
+            if any(keyword in message_lower for keyword in workout_keywords):
+                # But exclude if it has assessment keywords
+                if not any(keyword in message_lower for keyword in ['assessment', 'assess', 'test', 'evaluate']):
+                    return self.handle_workout_request(trainer, message_text, greeting)
+            
+            # 11. AVAILABILITY UPDATE
+            if any(phrase in message_lower for phrase in ['my availability', 'available times', 'working hours', 'schedule hours', 'when i work']):
+                return self.handle_availability_update(trainer, message_text, greeting)
+            
+            # 12. BOOKING PREFERENCES
+            if any(phrase in message_lower for phrase in ['booking preference', 'prefer early', 'prefer late', 'slot preference']):
+                return self.handle_preference_update(trainer, message_text, greeting)
+            
+            # 13. SESSION DURATION
+            if any(phrase in message_lower for phrase in ['session length', 'session duration', 'minutes long', 'hour long']):
+                return self.handle_session_duration_update(trainer, message_text, greeting)
+            
+            # 14. GENERAL AI FALLBACK - for everything else
+            # Use AI to understand any other request
+            if self.config.ANTHROPIC_API_KEY:
+                return self.process_with_ai(trainer, message_text, 'trainer', greeting=greeting)
+            else:
+                # No AI available - provide helpful response
+                return greeting + f"""I'm not sure what you need help with, {trainer['name']}.
+    
+    Try one of these:
+    - "Start fitness assessment for [Client Name]"
+    - "View my dashboard"
+    - "Show my clients"
+    - "Add new client"
+    - "View schedule"
+    
+    Or just say "help" to see all commands! 💪"""
             
         except Exception as e:
             log_error(f"Error handling trainer message: {str(e)}", exc_info=True)
