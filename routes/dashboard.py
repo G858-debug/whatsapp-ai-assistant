@@ -487,3 +487,75 @@ def assessment_settings(token):
         log_error(f"Error loading assessment settings: {str(e)}")
         return render_template('error.html', 
                              message="An error occurred loading settings."), 500
+
+@dashboard_bp.route('/api/assessment-template/save', methods=['POST'])
+def save_assessment_template():
+    """Save assessment template settings"""
+    try:
+        data = request.get_json()
+        
+        # Get token from header or data
+        token = request.headers.get('X-Dashboard-Token') or data.get('token')
+        
+        # For now, we'll use the referrer to extract token
+        referrer = request.referrer
+        if referrer and '/dashboard/' in referrer:
+            # Extract token from URL
+            parts = referrer.split('/dashboard/')
+            if len(parts) > 1:
+                token = parts[1].split('/')[0]
+        
+        if not token:
+            return jsonify({'success': False, 'error': 'Invalid session'}), 401
+        
+        # Validate token and get trainer_id
+        trainer_id = dashboard_service.validate_token(token)
+        if not trainer_id:
+            return jsonify({'success': False, 'error': 'Session expired'}), 401
+        
+        # Prepare template data
+        template_data = {
+            'trainer_id': trainer_id,
+            'template_name': 'Custom Template',
+            'is_active': True,
+            'completed_by': data['settings']['completed_by'],
+            'frequency': data['settings']['frequency'],
+            'include_photos': data['settings']['include_photos'],
+            'include_health': 'health' in data.get('sections', {}),
+            'include_lifestyle': 'lifestyle' in data.get('sections', {}),
+            'include_goals': 'goals' in data.get('sections', {}),
+            'include_measurements': 'measurements' in data.get('sections', {}),
+            'include_tests': 'tests' in data.get('sections', {}),
+            'health_questions': json.dumps(data.get('sections', {}).get('health', [])),
+            'lifestyle_questions': json.dumps(data.get('sections', {}).get('lifestyle', [])),
+            'goals_questions': json.dumps(data.get('sections', {}).get('goals', [])),
+            'measurement_fields': json.dumps(data.get('sections', {}).get('measurements', [])),
+            'test_fields': json.dumps(data.get('sections', {}).get('tests', [])),
+            'updated_at': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat()
+        }
+        
+        # Check if template exists
+        existing = dashboard_service.db.table('assessment_templates').select('id').eq(
+            'trainer_id', trainer_id
+        ).eq('is_active', True).execute()
+        
+        if existing.data:
+            # Update existing template
+            result = dashboard_service.db.table('assessment_templates').update(
+                template_data
+            ).eq('id', existing.data[0]['id']).execute()
+        else:
+            # Create new template
+            template_data['created_at'] = datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat()
+            result = dashboard_service.db.table('assessment_templates').insert(
+                template_data
+            ).execute()
+        
+        if result.data:
+            return jsonify({'success': True, 'message': 'Template saved successfully!'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save template'}), 500
+            
+    except Exception as e:
+        log_error(f"Error saving template: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
