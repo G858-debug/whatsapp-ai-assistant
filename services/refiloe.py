@@ -1,3 +1,4 @@
+from services.assessment_enhanced import EnhancedAssessmentService
 from services.workout import WorkoutService
 import re
 import requests
@@ -26,6 +27,7 @@ class RefiloeAssistant:
         # Add rate limiting for AI calls
         self.last_ai_call_time = None
         self.ai_call_minimum_interval = 2  # Wait at least 2 seconds between AI calls
+        self.assessment_service = EnhancedAssessmentService(config, supabase_client)
         
         # Initialize models
         self.trainer_model = TrainerModel(supabase_client, config)
