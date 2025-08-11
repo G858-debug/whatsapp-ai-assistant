@@ -54,9 +54,48 @@
             border-color: var(--sage);
         }
         
+        /* Custom radio button styling to match checkboxes */
+        input[type="radio"] {
+            cursor: pointer;
+            border: 2px solid #d1d5db;
+            border-radius: 50%;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: inline-block;
+            vertical-align: middle;
+            background-origin: border-box;
+            flex-shrink: 0;
+            position: relative;
+        }
+        
         input[type="radio"]:checked {
             background-color: var(--sage) !important;
             border-color: var(--sage) !important;
+        }
+        
+        input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background-color: white;
+        }
+        
+        input[type="radio"]:hover {
+            border-color: var(--sage-light);
+        }
+        
+        input[type="radio"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(139, 154, 123, 0.2);
+            border-color: var(--sage);
         }
         
         /* Button hover effects */
@@ -95,6 +134,12 @@
                 </p>
             </div>
         </header>
+
+        <!-- Debug info (remove after testing) -->
+        <div class="bg-yellow-100 p-2 rounded mb-4 text-xs">
+            Debug: <span x-text="'Sections loaded: ' + Object.keys(sections).length"></span> |
+            Questions selected: <span x-text="countSelectedQuestions()"></span>
+        </div>
 
         <!-- Settings Section -->
         <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
