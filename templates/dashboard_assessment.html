@@ -18,25 +18,44 @@
             --text-dark: #2C2C2C;
         }
         
-        /* Custom checkbox styling with sage color */
+        /* Custom checkbox styling with sage color - IMPORTANT: Override Tailwind */
         input[type="checkbox"]:checked {
-            background-color: var(--sage);
-            border-color: var(--sage);
+            background-color: var(--sage) !important;
+            border-color: var(--sage) !important;
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         
         input[type="checkbox"] {
             cursor: pointer;
             border: 2px solid #d1d5db;
             border-radius: 4px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: inline-block;
+            vertical-align: middle;
+            background-origin: border-box;
+            flex-shrink: 0;
         }
         
         input[type="checkbox"]:hover {
             border-color: var(--sage-light);
         }
         
-        input[type="radio"]:checked {
-            background-color: var(--sage);
+        input[type="checkbox"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(139, 154, 123, 0.2);
             border-color: var(--sage);
+        }
+        
+        input[type="radio"]:checked {
+            background-color: var(--sage) !important;
+            border-color: var(--sage) !important;
         }
         
         input[type="radio"]:checked::before {
@@ -150,7 +169,7 @@
                 <!-- Include photos -->
                 <div>
                     <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input type="checkbox" x-model="settings.include_photos" class="mr-3 w-5 h-5">
+                        <input type="checkbox" x-model="settings.include_photos" class="mr-3">
                         <div>
                             <span class="text-sm font-medium">Allow progress photos</span>
                             <p class="text-xs text-gray-500">Clients can upload before/after photos</p>
@@ -169,13 +188,13 @@
                 <!-- Health Section -->
                 <div class="border rounded-lg p-4 section-card">
                     <div class="flex items-center justify-between mb-3">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="sections.health.enabled" class="mr-3 w-5 h-5">
+                        <label class="flex items-center cursor-pointer flex-1">
+                            <input type="checkbox" x-model="sections.health.enabled" class="mr-3">
                             <span class="font-medium">Health & Medical History</span>
                         </label>
                         <button @click="sections.health.expanded = !sections.health.expanded"
                                 x-show="sections.health.enabled"
-                                class="expand-button">
+                                class="expand-button p-2">
                             <i class="fas text-lg" :class="sections.health.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
@@ -196,13 +215,13 @@
                 <!-- Lifestyle Section -->
                 <div class="border rounded-lg p-4 section-card">
                     <div class="flex items-center justify-between mb-3">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="sections.lifestyle.enabled" class="mr-3 w-5 h-5">
+                        <label class="flex items-center cursor-pointer flex-1">
+                            <input type="checkbox" x-model="sections.lifestyle.enabled" class="mr-3">
                             <span class="font-medium">Lifestyle & Habits</span>
                         </label>
                         <button @click="sections.lifestyle.expanded = !sections.lifestyle.expanded"
                                 x-show="sections.lifestyle.enabled"
-                                class="expand-button">
+                                class="expand-button p-2">
                             <i class="fas text-lg" :class="sections.lifestyle.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
@@ -222,13 +241,13 @@
                 <!-- Goals Section -->
                 <div class="border rounded-lg p-4 section-card">
                     <div class="flex items-center justify-between mb-3">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="sections.goals.enabled" class="mr-3 w-5 h-5">
+                        <label class="flex items-center cursor-pointer flex-1">
+                            <input type="checkbox" x-model="sections.goals.enabled" class="mr-3">
                             <span class="font-medium">Fitness Goals</span>
                         </label>
                         <button @click="sections.goals.expanded = !sections.goals.expanded"
                                 x-show="sections.goals.enabled"
-                                class="expand-button">
+                                class="expand-button p-2">
                             <i class="fas text-lg" :class="sections.goals.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
@@ -248,13 +267,13 @@
                 <!-- Measurements Section -->
                 <div class="border rounded-lg p-4 section-card">
                     <div class="flex items-center justify-between mb-3">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="sections.measurements.enabled" class="mr-3 w-5 h-5">
+                        <label class="flex items-center cursor-pointer flex-1">
+                            <input type="checkbox" x-model="sections.measurements.enabled" class="mr-3">
                             <span class="font-medium">Physical Measurements</span>
                         </label>
                         <button @click="sections.measurements.expanded = !sections.measurements.expanded"
                                 x-show="sections.measurements.enabled"
-                                class="expand-button">
+                                class="expand-button p-2">
                             <i class="fas text-lg" :class="sections.measurements.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
@@ -274,13 +293,13 @@
                 <!-- Fitness Tests Section -->
                 <div class="border rounded-lg p-4 section-card">
                     <div class="flex items-center justify-between mb-3">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="sections.tests.enabled" class="mr-3 w-5 h-5">
+                        <label class="flex items-center cursor-pointer flex-1">
+                            <input type="checkbox" x-model="sections.tests.enabled" class="mr-3">
                             <span class="font-medium">Fitness Tests</span>
                         </label>
                         <button @click="sections.tests.expanded = !sections.tests.expanded"
                                 x-show="sections.tests.enabled"
-                                class="expand-button">
+                                class="expand-button p-2">
                             <i class="fas text-lg" :class="sections.tests.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
