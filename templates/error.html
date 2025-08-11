@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Error - Refiloe</title>
     <style>
+        :root {
+            --beige-light: #FFF8E8;
+            --beige: #F7EED3;
+            --beige-dark: #E8D5B7;
+            --text-dark: #2C2C2C;
+            --text-light: #5A5A5A;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             display: flex;
@@ -12,48 +20,67 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--beige) 0%, var(--beige-light) 100%);
+            color: var(--text-dark);
             padding: 20px;
         }
+        
         .container {
             text-align: center;
             max-width: 400px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
+        
         h1 {
             font-size: 4em;
             margin: 0;
+            color: var(--text-dark);
         }
+        
         h2 {
             font-size: 1.5em;
             margin: 10px 0;
-            opacity: 0.9;
+            color: var(--text-dark);
+            font-weight: 600;
         }
+        
         p {
-            opacity: 0.8;
+            color: var(--text-light);
             line-height: 1.6;
+            margin: 20px 0;
         }
+        
         .button {
             display: inline-block;
             margin-top: 20px;
             padding: 12px 24px;
-            background: rgba(255,255,255,0.2);
+            background: var(--text-dark);
             border-radius: 25px;
             text-decoration: none;
             color: white;
             transition: all 0.3s;
+            font-weight: 500;
         }
+        
         .button:hover {
-            background: rgba(255,255,255,0.3);
+            background: #1C1C1C;
             transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .emoji {
+            filter: sepia(20%);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>😕</h1>
+        <h1 class="emoji">😕</h1>
         <h2>Oops!</h2>
-        <p>{{ message|default("Something went wrong. Please try again or contact your trainer for a new link.") }}</p>
+        <p>{{ message|default("Page not found. Please check the link or contact your trainer for a new one.") }}</p>
         <a href="/" class="button">Go Home</a>
     </div>
 </body>
