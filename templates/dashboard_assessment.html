@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customize Assessment - {{ trainer.name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js MUST load before your custom script -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -18,7 +19,7 @@
             --text-dark: #2C2C2C;
         }
         
-        /* Custom checkbox styling with sage color - IMPORTANT: Override Tailwind */
+        /* Custom checkbox styling */
         input[type="checkbox"]:checked {
             background-color: var(--sage) !important;
             border-color: var(--sage) !important;
@@ -58,21 +59,6 @@
             border-color: var(--sage) !important;
         }
         
-        input[type="radio"]:checked::before {
-            background-color: white;
-        }
-        
-        /* Custom select styling */
-        select {
-            cursor: pointer;
-        }
-        
-        select:focus {
-            border-color: var(--sage);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(139, 154, 123, 0.1);
-        }
-        
         /* Button hover effects */
         .sage-button {
             background-color: var(--sage);
@@ -86,33 +72,16 @@
             box-shadow: 0 4px 12px rgba(107, 122, 91, 0.3);
         }
         
-        .sage-button:active {
-            transform: translateY(0);
-        }
-        
-        /* Expand button styling */
-        .expand-button {
-            color: var(--sage);
-            transition: all 0.2s ease;
-        }
-        
-        .expand-button:hover {
-            color: var(--sage-dark);
-        }
-        
-        /* Section borders */
-        .section-card {
-            transition: all 0.3s ease;
-        }
-        
-        .section-card:hover {
-            border-color: var(--sage-light);
-            box-shadow: 0 2px 8px rgba(139, 154, 123, 0.1);
+        /* Make sure the save button area is visible */
+        .bottom-save-area {
+            z-index: 50;
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 <body class="bg-gray-50">
-    <div x-data="assessmentEditor()" class="min-h-screen p-4 pb-24">
+    <div x-data="assessmentEditor()" x-init="init()" class="min-h-screen p-4 pb-32">
         
         <!-- Header with Beige Background -->
         <header class="rounded-lg mb-4 shadow-sm" style="background: linear-gradient(135deg, var(--beige) 0%, var(--beige-light) 100%);">
@@ -126,6 +95,12 @@
                 </p>
             </div>
         </header>
+
+        <!-- Debug info (remove after testing) -->
+        <div class="bg-yellow-100 p-2 rounded mb-4 text-xs">
+            Debug: <span x-text="'Sections loaded: ' + Object.keys(sections).length"></span> |
+            Questions selected: <span x-text="countSelectedQuestions()"></span>
+        </div>
 
         <!-- Settings Section -->
         <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
@@ -157,7 +132,7 @@
                         How often should assessments be done?
                     </label>
                     <select x-model="settings.frequency" 
-                            class="w-full md:w-auto px-3 py-2 border rounded-lg focus:border-sage">
+                            class="w-full md:w-auto px-3 py-2 border rounded-lg">
                         <option value="once">One-time only</option>
                         <option value="monthly">Every month</option>
                         <option value="quarterly">Every 3 months</option>
@@ -186,22 +161,25 @@
             
             <div class="space-y-4">
                 <!-- Health Section -->
-                <div class="border rounded-lg p-4 section-card">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between">
                         <label class="flex items-center cursor-pointer flex-1">
                             <input type="checkbox" x-model="sections.health.enabled" class="mr-3">
                             <span class="font-medium">Health & Medical History</span>
                         </label>
                         <button @click="sections.health.expanded = !sections.health.expanded"
                                 x-show="sections.health.enabled"
-                                class="expand-button p-2">
-                            <i class="fas text-lg" :class="sections.health.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                class="p-2 text-gray-600 hover:text-gray-800">
+                            <i class="fas text-lg transition-transform duration-200" 
+                               :class="sections.health.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
                     
-                    <div x-show="sections.health.enabled && sections.health.expanded" x-transition>
+                    <div x-show="sections.health.enabled && sections.health.expanded" 
+                         x-transition
+                         class="mt-4">
                         <div class="space-y-2 ml-8">
-                            <template x-for="question in sections.health.questions">
+                            <template x-for="question in sections.health.questions" :key="question.id">
                                 <label class="flex items-center text-sm p-2 rounded hover:bg-gray-50 cursor-pointer">
                                     <input type="checkbox" x-model="question.selected" class="mr-3">
                                     <span x-text="question.text"></span>
@@ -213,22 +191,25 @@
                 </div>
 
                 <!-- Lifestyle Section -->
-                <div class="border rounded-lg p-4 section-card">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between">
                         <label class="flex items-center cursor-pointer flex-1">
                             <input type="checkbox" x-model="sections.lifestyle.enabled" class="mr-3">
                             <span class="font-medium">Lifestyle & Habits</span>
                         </label>
                         <button @click="sections.lifestyle.expanded = !sections.lifestyle.expanded"
                                 x-show="sections.lifestyle.enabled"
-                                class="expand-button p-2">
-                            <i class="fas text-lg" :class="sections.lifestyle.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                class="p-2 text-gray-600 hover:text-gray-800">
+                            <i class="fas text-lg transition-transform duration-200" 
+                               :class="sections.lifestyle.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
                     
-                    <div x-show="sections.lifestyle.enabled && sections.lifestyle.expanded" x-transition>
+                    <div x-show="sections.lifestyle.enabled && sections.lifestyle.expanded" 
+                         x-transition
+                         class="mt-4">
                         <div class="space-y-2 ml-8">
-                            <template x-for="question in sections.lifestyle.questions">
+                            <template x-for="question in sections.lifestyle.questions" :key="question.id">
                                 <label class="flex items-center text-sm p-2 rounded hover:bg-gray-50 cursor-pointer">
                                     <input type="checkbox" x-model="question.selected" class="mr-3">
                                     <span x-text="question.text"></span>
@@ -239,22 +220,25 @@
                 </div>
 
                 <!-- Goals Section -->
-                <div class="border rounded-lg p-4 section-card">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between">
                         <label class="flex items-center cursor-pointer flex-1">
                             <input type="checkbox" x-model="sections.goals.enabled" class="mr-3">
                             <span class="font-medium">Fitness Goals</span>
                         </label>
                         <button @click="sections.goals.expanded = !sections.goals.expanded"
                                 x-show="sections.goals.enabled"
-                                class="expand-button p-2">
-                            <i class="fas text-lg" :class="sections.goals.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                class="p-2 text-gray-600 hover:text-gray-800">
+                            <i class="fas text-lg transition-transform duration-200" 
+                               :class="sections.goals.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
                     
-                    <div x-show="sections.goals.enabled && sections.goals.expanded" x-transition>
+                    <div x-show="sections.goals.enabled && sections.goals.expanded" 
+                         x-transition
+                         class="mt-4">
                         <div class="space-y-2 ml-8">
-                            <template x-for="question in sections.goals.questions">
+                            <template x-for="question in sections.goals.questions" :key="question.id">
                                 <label class="flex items-center text-sm p-2 rounded hover:bg-gray-50 cursor-pointer">
                                     <input type="checkbox" x-model="question.selected" class="mr-3">
                                     <span x-text="question.text"></span>
@@ -265,22 +249,25 @@
                 </div>
 
                 <!-- Measurements Section -->
-                <div class="border rounded-lg p-4 section-card">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between">
                         <label class="flex items-center cursor-pointer flex-1">
                             <input type="checkbox" x-model="sections.measurements.enabled" class="mr-3">
                             <span class="font-medium">Physical Measurements</span>
                         </label>
                         <button @click="sections.measurements.expanded = !sections.measurements.expanded"
                                 x-show="sections.measurements.enabled"
-                                class="expand-button p-2">
-                            <i class="fas text-lg" :class="sections.measurements.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                class="p-2 text-gray-600 hover:text-gray-800">
+                            <i class="fas text-lg transition-transform duration-200" 
+                               :class="sections.measurements.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
                     
-                    <div x-show="sections.measurements.enabled && sections.measurements.expanded" x-transition>
+                    <div x-show="sections.measurements.enabled && sections.measurements.expanded" 
+                         x-transition
+                         class="mt-4">
                         <div class="space-y-2 ml-8">
-                            <template x-for="question in sections.measurements.questions">
+                            <template x-for="question in sections.measurements.questions" :key="question.id">
                                 <label class="flex items-center text-sm p-2 rounded hover:bg-gray-50 cursor-pointer">
                                     <input type="checkbox" x-model="question.selected" class="mr-3">
                                     <span x-text="question.text"></span>
@@ -291,22 +278,25 @@
                 </div>
 
                 <!-- Fitness Tests Section -->
-                <div class="border rounded-lg p-4 section-card">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="border rounded-lg p-4">
+                    <div class="flex items-center justify-between">
                         <label class="flex items-center cursor-pointer flex-1">
                             <input type="checkbox" x-model="sections.tests.enabled" class="mr-3">
                             <span class="font-medium">Fitness Tests</span>
                         </label>
                         <button @click="sections.tests.expanded = !sections.tests.expanded"
                                 x-show="sections.tests.enabled"
-                                class="expand-button p-2">
-                            <i class="fas text-lg" :class="sections.tests.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                class="p-2 text-gray-600 hover:text-gray-800">
+                            <i class="fas text-lg transition-transform duration-200" 
+                               :class="sections.tests.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </button>
                     </div>
                     
-                    <div x-show="sections.tests.enabled && sections.tests.expanded" x-transition>
+                    <div x-show="sections.tests.enabled && sections.tests.expanded" 
+                         x-transition
+                         class="mt-4">
                         <div class="space-y-2 ml-8">
-                            <template x-for="question in sections.tests.questions">
+                            <template x-for="question in sections.tests.questions" :key="question.id">
                                 <label class="flex items-center text-sm p-2 rounded hover:bg-gray-50 cursor-pointer">
                                     <input type="checkbox" x-model="question.selected" class="mr-3">
                                     <span x-text="question.text"></span>
@@ -318,21 +308,23 @@
             </div>
         </div>
 
-        <!-- Save Button -->
-        <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-lg">
-            <div class="max-w-4xl mx-auto flex justify-between items-center">
-                <span class="text-sm text-gray-600">
-                    <span x-text="countSelectedQuestions()"></span> questions selected
-                </span>
-                <button @click="saveTemplate()" 
-                        :disabled="isSaving"
-                        class="sage-button px-6 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span x-show="!isSaving">Save Template</span>
-                    <span x-show="isSaving">
-                        <i class="fas fa-spinner fa-spin mr-2"></i>
-                        Saving...
+        <!-- Save Button (Fixed at bottom) -->
+        <div class="fixed bottom-0 left-0 right-0 bottom-save-area">
+            <div class="p-4 bg-white border-t">
+                <div class="max-w-4xl mx-auto flex justify-between items-center">
+                    <span class="text-sm text-gray-600">
+                        <span x-text="countSelectedQuestions()"></span> questions selected
                     </span>
-                </button>
+                    <button @click="saveTemplate()" 
+                            :disabled="isSaving"
+                            class="sage-button px-6 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!isSaving">Save Template</span>
+                        <span x-show="isSaving">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -413,19 +405,24 @@
                 },
                 
                 init() {
-                    // Load existing settings if provided
-                    const existingSettings = {{ template_settings|default('{}') }};
-                    if (existingSettings && Object.keys(existingSettings).length > 0) {
-                        this.settings.completed_by = existingSettings.completed_by || 'client';
-                        this.settings.frequency = existingSettings.frequency || 'quarterly';
-                        this.settings.include_photos = existingSettings.include_photos !== false;
-                        
-                        // Update enabled sections
-                        this.sections.health.enabled = existingSettings.include_health !== false;
-                        this.sections.lifestyle.enabled = existingSettings.include_lifestyle !== false;
-                        this.sections.goals.enabled = existingSettings.include_goals !== false;
-                        this.sections.measurements.enabled = existingSettings.include_measurements !== false;
-                        this.sections.tests.enabled = existingSettings.include_tests !== false;
+                    console.log('Alpine initialized');
+                    // Parse existing settings if provided by the server
+                    try {
+                        const existingSettings = {{ template_settings|default('{}')|safe }};
+                        if (existingSettings && Object.keys(existingSettings).length > 0) {
+                            this.settings.completed_by = existingSettings.completed_by || 'client';
+                            this.settings.frequency = existingSettings.frequency || 'quarterly';
+                            this.settings.include_photos = existingSettings.include_photos !== false;
+                            
+                            // Update enabled sections
+                            this.sections.health.enabled = existingSettings.include_health !== false;
+                            this.sections.lifestyle.enabled = existingSettings.include_lifestyle !== false;
+                            this.sections.goals.enabled = existingSettings.include_goals !== false;
+                            this.sections.measurements.enabled = existingSettings.include_measurements !== false;
+                            this.sections.tests.enabled = existingSettings.include_tests !== false;
+                        }
+                    } catch (error) {
+                        console.error('Error loading existing settings:', error);
                     }
                 },
                 
@@ -459,6 +456,8 @@
                         }
                     }
                     
+                    console.log('Saving template:', templateData);
+                    
                     // Send to backend
                     fetch('/api/assessment-template/save', {
                         method: 'POST',
@@ -491,7 +490,7 @@
                 
                 showNotification(message, type = 'info') {
                     const notification = document.createElement('div');
-                    const bgColor = type === 'success' ? 'sage-button' : 'bg-red-500';
+                    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
                     notification.className = `fixed top-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg z-50`;
                     notification.innerHTML = `
                         <div class="flex items-center">
