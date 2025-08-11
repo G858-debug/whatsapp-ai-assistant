@@ -27,6 +27,9 @@ class RefiloeAssistant:
         # Add rate limiting for AI calls
         self.last_ai_call_time = None
         self.ai_call_minimum_interval = 2  # Wait at least 2 seconds between AI calls
+
+        # Import and initialize assessment service
+        from services.assessment import EnhancedAssessmentService
         self.assessment_service = EnhancedAssessmentService(config, supabase_client)
         
         # Initialize models
