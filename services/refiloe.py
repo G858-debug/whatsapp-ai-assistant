@@ -476,18 +476,19 @@ class RefiloeAssistant:
                     if dashboard_service:
                         result = dashboard_service.generate_dashboard_link(trainer['id'])
                         if result['success']:
+                            # Don't append /assessment-settings to the URL, it's handled by the route
                             return greeting + f"""📋 **Customize Your Fitness Assessment**
-    
-    Click here to set up your assessment template:
-    {result['url']}/assessment-settings
-    
-    You can:
-    ✅ Choose which questions to include
-    ✅ Decide who fills it out (you or client)
-    ✅ Set how often assessments happen
-    ✅ Enable/disable photo uploads
-    
-    This link expires in 24 hours."""
+                
+                Click here to set up your assessment template:
+                {result['url']}/assessment-settings
+                
+                You can:
+                ✅ Choose which questions to include
+                ✅ Decide who fills it out (you or client)
+                ✅ Set how often assessments happen
+                ✅ Enable/disable photo uploads
+                
+                This link expires in 24 hours."""
                         else:
                             return greeting + "I had trouble generating the settings link. Please try again."
             
