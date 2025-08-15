@@ -130,3 +130,68 @@ class VoiceProcessor:
         except Exception as e:
             print(f"Send voice note error: {str(e)}")
             raise
+
+def handle_voice_note_with_fallback(self, message, phone_number):
+    """
+    Handle voice note with proper error handling and fallback
+    """
+    try:
+        # Try voice processing
+        audio_id = message['audio']['id']
+        audio_buffer = self.download_whatsapp_media(audio_id)
+        
+        # Check audio size (WhatsApp limit is usually 16MB)
+        if len(audio_buffer) > 16 * 1024 * 1024:
+            raise Exception("Audio file too large")
+        
+        text = self.transcribe_audio(audio_buffer)
+        
+        # Validate transcription
+        if not text or len(text.strip()) == 0:
+            raise Exception("Could not understand the audio")
+        
+        return {
+            'text': text,
+            'success': True,
+            'should_reply_with_voice': True
+        }
+        
+    except requests.exceptions.RequestException as e:
+        # Network errors
+        log_error(f"Network error downloading voice note: {str(e)}")
+        self.send_message(
+            phone_number,
+            "📶 I'm having connection issues with voice notes. Please try again or type your message instead."
+        )
+        return {'success': False}
+        
+    except openai.APIError as e:
+        # OpenAI API errors
+        log_error(f"OpenAI API error: {str(e)}")
+        self.send_message(
+            phone_number,
+            "🎤 I'm having trouble understanding voice notes right now. Could you please type your message instead? 🙏"
+        )
+        return {'success': False}
+        
+    except Exception as e:
+        # General errors
+        log_error(f"Voice processing failed: {str(e)}")
+        
+        # Send user-friendly error message
+        error_messages = {
+            "too_long": "🎤 That voice note is too long. Please keep voice messages under 2 minutes.",
+            "format_error": "🎤 I couldn't process that audio format. Please try recording again.",
+            "default": "🎤 I'm having trouble processing voice notes right now. Could you please type your message instead? 🙏"
+        }
+        
+        # Determine error type
+        if "too large" in str(e).lower() or "too long" in str(e).lower():
+            error_msg = error_messages["too_long"]
+        elif "format" in str(e).lower() or "codec" in str(e).lower():
+            error_msg = error_messages["format_error"]
+        else:
+            error_msg = error_messages["default"]
+        
+        self.send_message(phone_number, error_msg)
+        return {'success': False}
