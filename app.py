@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 import pytz
 import json
+from voice_helpers import VoiceProcessor
 
 # Import our modules
 from config import Config
@@ -33,6 +34,9 @@ try:
     # Initialize dashboard service
     import routes.dashboard as dashboard_module
     dashboard_module.dashboard_service = DashboardService(config, supabase)
+
+    # Initialize voice processor (if separate file)
+    voice_processor = VoiceProcessor()
     
     # Register dashboard blueprint
     app.register_blueprint(dashboard_bp)
@@ -155,7 +159,6 @@ def handle_message():
                     log_info(f"Duplicate message {message_id} ignored")
                     continue
                 
-                # ============= NEW CODE STARTS HERE =============
                 # Variable to track if we should respond with voice
                 should_respond_with_voice = False
                 message_text = None
@@ -227,7 +230,6 @@ def handle_message():
                             whatsapp_service.send_message(phone_number, response)
                 elif not refiloe:
                     log_error("Refiloe service not initialized")
-                # ============= NEW CODE ENDS HERE =============
         
         return jsonify({'status': 'success'}), 200
         
