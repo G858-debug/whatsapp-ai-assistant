@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 import pytz
 import json
-from voice_helpers import VoiceProcessor
 
 # Import our modules
 from config import Config
@@ -21,105 +20,86 @@ app = Flask(__name__)
 config = Config()
 logger = ErrorLogger()
 
-# Initialize services
+# Initialize services with proper error handling
+supabase = None
+whatsapp_service = None
+refiloe = None
+scheduler = None
+voice_processor = None
+
 try:
     # Initialize database
     supabase = init_supabase(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
-    
+    log_info("Database initialized successfully")
+except Exception as e:
+    log_error(f"Failed to initialize database: {str(e)}")
+
+try:
     # Initialize services with error handling
-    whatsapp_service = WhatsAppService(config, supabase, logger)
-    refiloe = RefiloeAssistant(config, supabase, whatsapp_service, logger)
-    scheduler = SchedulerService(config, supabase, whatsapp_service, logger)
-    
-    # Initialize dashboard service
-    import routes.dashboard as dashboard_module
-    dashboard_module.dashboard_service = DashboardService(config, supabase)
-
-    # Initialize voice processor (if separate file)
-    voice_processor = VoiceProcessor()
-    audio_buffer = voice_processor.download_whatsapp_media(message['audio']['id'])
-
-    # Voice processing configuration
-    VOICE_CONFIG = {
-        'max_audio_size_mb': 16,
-        'max_audio_duration_seconds': 120,  # 2 minutes
-        'supported_languages': ['en', 'af', 'zu', 'xh'],  # English, Afrikaans, Zulu, Xhosa
-        'fallback_to_text': True,
-        'retry_attempts': 3,
-        'error_messages': {
-            'transcription_failed': "🎤 I couldn't understand that voice note clearly. Could you try again or type instead?",
-            'audio_too_long': "🎤 Voice notes should be under 2 minutes. Please record a shorter message.",
-            'network_error': "📶 Connection issue with voice notes. Please try again.",
-            'general_error': "🎤 Having trouble with voice notes right now. Please type your message instead.",
-        }
-    }
-    
-    # Register dashboard blueprint
-    app.register_blueprint(dashboard_bp)
-    
-    log_info("All services initialized successfully")
+    if supabase:
+        whatsapp_service = WhatsAppService(config, supabase, logger)
+        log_info("WhatsApp service initialized successfully")
+        
+        refiloe = RefiloeAssistant(config, supabase, whatsapp_service, logger)
+        log_info("Refiloe assistant initialized successfully")
+        
+        scheduler = SchedulerService(config, supabase, whatsapp_service, logger)
+        log_info("Scheduler service initialized successfully")
+        
+        # Initialize dashboard service
+        import routes.dashboard as dashboard_module
+        dashboard_module.dashboard_service = DashboardService(config, supabase)
+        log_info("Dashboard service initialized successfully")
 except Exception as e:
     log_error(f"Failed to initialize services: {str(e)}")
-    supabase = None
-    whatsapp_service = None
-    refiloe = None
-    scheduler = None
 
-# Error template (create templates/error.html)
-@app.errorhandler(404)
-def not_found(e):
-    return render_template('error.html', 
-                         message="Page not found"), 404
+# Try to initialize voice processor if available
+try:
+    from voice_helpers import VoiceProcessor
+    voice_processor = VoiceProcessor()
+    log_info("Voice processor initialized successfully")
+except ImportError:
+    log_warning("Voice processor not available - voice features disabled")
+except Exception as e:
+    log_error(f"Failed to initialize voice processor: {str(e)}")
 
-@app.errorhandler(500)
-def server_error(e):
-    log_error(f"Server error: {str(e)}")
-    return render_template('error.html', 
-                         message="Internal server error"), 500
+# Voice processing configuration
+VOICE_CONFIG = {
+    'max_audio_size_mb': 16,
+    'max_audio_duration_seconds': 120,  # 2 minutes
+    'supported_languages': ['en', 'af', 'zu', 'xh'],  # English, Afrikaans, Zulu, Xhosa
+    'fallback_to_text': True,
+    'retry_attempts': 3,
+    'error_messages': {
+        'transcription_failed': "🎤 I couldn't understand that voice note clearly. Could you try again or type instead?",
+        'audio_too_long': "🎤 Voice notes should be under 2 minutes. Please record a shorter message.",
+        'network_error': "📶 Connection issue with voice notes. Please try again.",
+        'general_error': "🎤 Having trouble with voice notes right now. Please type your message instead.",
+    }
+}
 
-# Routes
+log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}")
+
+# Register blueprints
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+
 @app.route('/')
 def home():
+    """Home page"""
     return """
     <html>
         <head>
-            <title>Refiloe AI - Personal Trainer Assistant</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Refiloe AI Assistant</title>
             <style>
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                }
-                .container {
-                    text-align: center;
-                    padding: 20px;
-                }
-                h1 {
-                    font-size: 2.5em;
-                    margin-bottom: 10px;
-                }
-                p {
-                    font-size: 1.2em;
-                    opacity: 0.9;
-                }
-                .status {
-                    margin-top: 20px;
-                    padding: 10px 20px;
-                    background: rgba(255,255,255,0.2);
-                    border-radius: 20px;
-                    display: inline-block;
-                }
+                body { font-family: Arial; padding: 40px; background: #f0f0f0; }
+                .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+                h1 { color: #333; }
+                .status { padding: 10px; background: #e8f5e9; border-radius: 5px; color: #2e7d32; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>👋 Hi! I'm Refiloe</h1>
+                <h1>🤖 I'm Refiloe</h1>
                 <p>Your AI assistant for personal trainers</p>
                 <div class="status">✅ System Online</div>
             </div>
@@ -145,17 +125,13 @@ def verify_webhook():
         log_error(f"Error in webhook verification: {str(e)}")
         return 'Internal Server Error', 500
 
-# In app.py - REPLACE your current handle_message function with this:
-
-# In app.py - Updated handle_message function with comprehensive error handling
-
 @app.route('/webhook', methods=['POST'])
 def handle_message():
     """Handle incoming WhatsApp messages"""
     try:
         data = request.get_json()
         
-        # Verify webhook signature
+        # Verify webhook signature if service is available
         if whatsapp_service and not whatsapp_service.verify_webhook_signature(request):
             log_error("Invalid webhook signature")
             return 'Unauthorized', 401
@@ -183,24 +159,43 @@ def handle_message():
                     message_text = None
                     should_reply_with_voice = False
                     
-                    # Handle voice notes
-                    if 'audio' in message:
-                        result = whatsapp_service.handle_voice_note_with_fallback(
-                            message, 
-                            phone_number
-                        )
-                        
-                        if result['success']:
-                            message_text = result['text']
-                            should_reply_with_voice = result.get('should_reply_with_voice', False)
-                        else:
-                            # Error already handled and user notified
+                    # Handle voice notes (only if voice processor is available)
+                    if 'audio' in message and voice_processor:
+                        try:
+                            result = voice_processor.handle_voice_note_with_fallback(
+                                message, 
+                                phone_number
+                            )
+                            
+                            if result['success']:
+                                message_text = result['text']
+                                should_reply_with_voice = result.get('should_reply_with_voice', False)
+                            else:
+                                # Error already handled and user notified
+                                continue
+                        except Exception as e:
+                            log_error(f"Voice processing error: {str(e)}")
+                            if whatsapp_service:
+                                whatsapp_service.send_message(
+                                    phone_number,
+                                    "🎤 I'm having trouble with voice notes right now. Please type your message instead."
+                                )
                             continue
                     
                     # Handle text messages
                     elif 'text' in message:
                         message_text = message['text']['body']
                         log_info(f"Text message from {phone_number}: {message_text}")
+                    
+                    # Handle voice notes when voice processor not available
+                    elif 'audio' in message and not voice_processor:
+                        log_info(f"Voice note received but processor not available")
+                        if whatsapp_service:
+                            whatsapp_service.send_message(
+                                phone_number,
+                                "🎤 Voice notes are temporarily unavailable. Please send a text message instead."
+                            )
+                        continue
                     
                     # Handle unsupported message types
                     else:
@@ -219,41 +214,60 @@ def handle_message():
                         if message_type != 'unknown' and whatsapp_service:
                             whatsapp_service.send_message(
                                 phone_number,
-                                f"I received your {message_type}, but I can only process text and voice messages at the moment. Please send me a text or voice message instead! 😊"
+                                f"I received your {message_type}, but I can only process text messages at the moment. Please send me a text message instead! 😊"
                             )
                         continue
                     
                     # Process with Refiloe
-                    if message_text and refiloe:
+                    if message_text:
+                        # Check if services are initialized
+                        if not refiloe:
+                            log_error("Refiloe service not initialized")
+                            if whatsapp_service:
+                                whatsapp_service.send_message(
+                                    phone_number,
+                                    "I'm starting up! Please try again in a few seconds. 🚀"
+                                )
+                            continue
+                        
+                        if not whatsapp_service:
+                            log_error("WhatsApp service not initialized - cannot send response")
+                            continue
+                        
                         try:
+                            # Process the message
+                            log_info(f"Processing message with Refiloe for {phone_number}")
                             response = refiloe.process_message(phone_number, message_text)
                             
-                            # Send response with appropriate format
-                            if whatsapp_service:
-                                if should_reply_with_voice:
+                            if response:
+                                log_info(f"Refiloe response generated: {response[:100]}...")
+                                
+                                # Send response with appropriate format
+                                if should_reply_with_voice and voice_processor:
                                     try:
-                                        voice_buffer = whatsapp_service.text_to_speech(response)
-                                        whatsapp_service.send_voice_note(phone_number, voice_buffer)
+                                        voice_buffer = voice_processor.text_to_speech(response)
+                                        voice_processor.send_voice_note(phone_number, voice_buffer)
                                         log_info(f"Sent voice response to {phone_number}")
-                                        
                                     except Exception as voice_error:
                                         log_error(f"Failed to send voice response: {str(voice_error)}")
                                         # Fallback to text
                                         whatsapp_service.send_message(phone_number, response)
-                                        whatsapp_service.send_message(
-                                            phone_number,
-                                            "📝 (I tried to send this as a voice note but had to send text instead)"
-                                        )
                                 else:
-                                    whatsapp_service.send_message(phone_number, response)
-                                    
+                                    # Send as text message
+                                    send_result = whatsapp_service.send_message(phone_number, response)
+                                    if send_result.get('success'):
+                                        log_info(f"Message sent successfully to {phone_number}")
+                                    else:
+                                        log_error(f"Failed to send message: {send_result.get('error')}")
+                            else:
+                                log_warning(f"No response generated for message from {phone_number}")
+                                
                         except Exception as process_error:
                             log_error(f"Error processing message with Refiloe: {str(process_error)}")
-                            if whatsapp_service:
-                                whatsapp_service.send_message(
-                                    phone_number,
-                                    "I'm having a moment! 🤯 Let me collect myself... Please try again in a few seconds."
-                                )
+                            whatsapp_service.send_message(
+                                phone_number,
+                                "I'm having a moment! 🤯 Let me collect myself... Please try again in a few seconds."
+                            )
                     
                 except Exception as message_error:
                     log_error(f"Error processing individual message: {str(message_error)}")
@@ -276,7 +290,9 @@ def health_check():
             'services': {
                 'database': 'connected' if supabase else 'disconnected',
                 'whatsapp': whatsapp_service.check_health() if whatsapp_service else 'not initialized',
+                'refiloe': 'initialized' if refiloe else 'not initialized',
                 'scheduler': scheduler.check_health() if scheduler else 'not initialized',
+                'voice_processor': 'available' if voice_processor else 'not available',
                 'dashboard': 'enabled' if dashboard_module.dashboard_service else 'disabled',
                 'ai_model': config.AI_MODEL if hasattr(config, 'AI_MODEL') else 'not configured',
             },
@@ -287,94 +303,41 @@ def health_check():
     except Exception as e:
         log_error(f"Health check failed: {str(e)}")
         return jsonify({
-            'status': 'unhealthy', 
-            'error': str(e),
-            'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat()
+            'status': 'error',
+            'error': str(e)
         }), 500
 
-@app.route('/logs/errors')
-def view_errors():
-    """View recent errors (protected endpoint)"""
+@app.route('/test', methods=['POST'])
+def test_endpoint():
+    """Test endpoint for debugging"""
     try:
-        if logger:
-            errors = logger.get_recent_errors(limit=50)
+        data = request.get_json()
+        phone = data.get('phone', '27731863036')
+        message = data.get('message', 'Test message')
+        
+        if not refiloe:
             return jsonify({
-                'error_count': len(errors),
-                'errors': errors,
-                'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat()
-            })
-        else:
-            return jsonify({
-                'error': 'Logger not initialized',
-                'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat()
+                'success': False,
+                'error': 'Refiloe not initialized'
             }), 500
+        
+        response = refiloe.process_message(phone, message)
+        
+        return jsonify({
+            'success': True,
+            'input': message,
+            'response': response,
+            'services': {
+                'database': supabase is not None,
+                'whatsapp': whatsapp_service is not None,
+                'refiloe': refiloe is not None
+            }
+        })
     except Exception as e:
         return jsonify({
-            'error': str(e),
-            'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat()
+            'success': False,
+            'error': str(e)
         }), 500
-
-@app.route('/logs/download')
-def download_logs():
-    """Download error logs"""
-    try:
-        if logger:
-            log_file = logger.get_log_file_path()
-            if os.path.exists(log_file):
-                return send_file(log_file, as_attachment=True, download_name='refiloe_errors.log')
-            else:
-                return jsonify({'error': 'Log file not found'}), 404
-        else:
-            return jsonify({'error': 'Logger not initialized'}), 500
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# Admin endpoints
-@app.route('/admin/add_trainer', methods=['POST'])
-def add_trainer():
-    """Add a new trainer"""
-    try:
-        if not refiloe:
-            return jsonify({'error': 'Service not initialized'}), 500
-            
-        data = request.get_json()
-        
-        # Validate input
-        required_fields = ['name', 'whatsapp', 'email']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing required field: {field}'}), 400
-        
-        # Add trainer through Refiloe
-        result = refiloe.add_trainer(data)
-        
-        return jsonify(result)
-    except Exception as e:
-        log_error(f"Error adding trainer: {str(e)}")
-        return jsonify({'error': 'Failed to add trainer'}), 500
-
-@app.route('/admin/trigger_reminders/<trainer_id>')
-def trigger_reminders(trainer_id):
-    """Manually trigger reminders for a trainer"""
-    try:
-        if not scheduler:
-            return jsonify({'error': 'Scheduler not initialized'}), 500
-            
-        result = scheduler.send_trainer_reminders(trainer_id)
-        return jsonify(result)
-    except Exception as e:
-        log_error(f"Error triggering reminders: {str(e)}")
-        return jsonify({'error': 'Failed to send reminders'}), 500
-
-# Cleanup on shutdown
-import atexit
-def cleanup():
-    if scheduler:
-        scheduler.shutdown()
-    if logger:
-        logger.close()
-
-atexit.register(cleanup)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
