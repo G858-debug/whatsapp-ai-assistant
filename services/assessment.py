@@ -532,3 +532,294 @@ This helps us optimize your training program!"""
             summary += f"\n📸 {len(assess['photos'])} progress photos on file"
         
         return summary
+
+def get_client_assessment_summary(self, client_id: str, client_name: str, 
+                                 trainer_name: str = None) -> str:
+    """Get a client-friendly summary of their latest assessment"""
+    try:
+        # Get latest completed assessment with all related data
+        result = self.db.table('fitness_assessments').select(
+            '''*, 
+            physical_measurements(*),
+            fitness_goals(*),
+            fitness_test_results(*),
+            assessment_photos(*)'''
+        ).eq('client_id', client_id).eq('status', 'completed').order(
+            'assessment_date', desc=True
+        ).limit(1).execute()
+        
+        if not result.data:
+            return """📋 No completed assessments yet!
+
+Your trainer will send you an assessment soon to track your starting point and create your personalized program.
+
+It's quick and easy - you'll do it on your phone! 📱"""
+        
+        assessment = result.data[0]
+        
+        # Format the date nicely
+        assessment_date = datetime.fromisoformat(assessment['assessment_date'])
+        date_str = assessment_date.strftime('%d %B %Y')
+        days_ago = (datetime.now(self.sa_tz) - assessment_date).days
+        
+        # Build the response
+        response = f"""📊 **YOUR FITNESS ASSESSMENT**
+📅 {date_str} ({days_ago} days ago)
+
+"""
+        
+        # Add measurements if available
+        if assessment.get('physical_measurements'):
+            measurements = assessment['physical_measurements'][0]
+            response += "💪 **Your Measurements:**\n"
+            
+            if measurements.get('weight_kg'):
+                response += f"• Weight: {measurements['weight_kg']}kg\n"
+            if measurements.get('height_cm'):
+                response += f"• Height: {measurements['height_cm']}cm\n"
+            if measurements.get('bmi'):
+                bmi = measurements['bmi']
+                bmi_status = self.get_bmi_status(bmi)
+                response += f"• BMI: {bmi} ({bmi_status})\n"
+            if measurements.get('waist'):
+                response += f"• Waist: {measurements['waist']}cm\n"
+            if measurements.get('body_fat_percentage'):
+                response += f"• Body Fat: {measurements['body_fat_percentage']}%\n"
+            
+            response += "\n"
+        
+        # Add fitness test results
+        if assessment.get('fitness_test_results'):
+            tests = assessment['fitness_test_results'][0]
+            response += "🏃‍♂️ **Your Fitness Tests:**\n"
+            
+            if tests.get('push_ups_count') is not None:
+                pushups = tests['push_ups_count']
+                pushup_level = self.get_fitness_level(pushups, 'pushups')
+                response += f"• Push-ups: {pushups} ({pushup_level})\n"
+            if tests.get('plank_hold_seconds') is not None:
+                plank = tests['plank_hold_seconds']
+                plank_level = self.get_fitness_level(plank, 'plank')
+                response += f"• Plank: {plank} seconds ({plank_level})\n"
+            if tests.get('squat_reps') is not None:
+                response += f"• Squats: {tests['squat_reps']}\n"
+            
+            response += "\n"
+        
+        # Add goals
+        if assessment.get('fitness_goals'):
+            goals = assessment['fitness_goals'][0]
+            response += "🎯 **Your Goals:**\n"
+            
+            if goals.get('primary_goal'):
+                goal_text = goals['primary_goal'].replace('_', ' ').title()
+                response += f"• Main Goal: {goal_text}\n"
+            if goals.get('timeline_weeks'):
+                response += f"• Timeline: {goals['timeline_weeks']} weeks\n"
+            if goals.get('specific_targets'):
+                response += f"• Target: {goals['specific_targets']}\n"
+            
+            response += "\n"
+        
+        # Add motivational message based on assessment age
+        if days_ago < 30:
+            response += "💪 Keep pushing! You're doing great!\n"
+        elif days_ago < 90:
+            response += "📈 Time to check your progress soon!\n"
+        else:
+            response += "⏰ It's been a while! Time for a new assessment?\n"
+        
+        # Add next assessment date if scheduled
+        if assessment.get('next_assessment_date'):
+            next_date = datetime.fromisoformat(assessment['next_assessment_date'])
+            next_date_str = next_date.strftime('%d %B')
+            response += f"\n📅 Next Assessment: {next_date_str}"
+        
+        # Add photo count if any
+        if assessment.get('assessment_photos'):
+            photo_count = len([p for p in assessment['assessment_photos'] if not p.get('is_deleted', False)])
+            if photo_count > 0:
+                response += f"\n📸 {photo_count} progress photos on file"
+        
+        # Add option to see full report
+        response += "\n\n💡 Want to see graphs and full details? Say 'show my full assessment'"
+        
+        return response
+        
+    except Exception as e:
+        log_error(f"Error getting client assessment summary: {str(e)}")
+        return "I'm having trouble getting your assessment. I'll check with your trainer! 💪"
+
+def get_client_progress_summary(self, client_id: str, client_name: str) -> str:
+    """Get progress comparison between assessments"""
+    try:
+        # Get last two assessments
+        result = self.db.table('fitness_assessments').select(
+            '''*, 
+            physical_measurements(*),
+            fitness_test_results(*)'''
+        ).eq('client_id', client_id).eq('status', 'completed').order(
+            'assessment_date', desc=True
+        ).limit(2).execute()
+        
+        if not result.data:
+            return "No assessments to compare yet. Complete your first assessment to start tracking progress! 📊"
+        
+        if len(result.data) < 2:
+            return """You've completed one assessment so far! 
+
+Complete your next assessment to see your progress comparison. 
+
+Your trainer will schedule it based on your program! 💪"""
+        
+        latest = result.data[0]
+        previous = result.data[1]
+        
+        # Calculate date difference
+        latest_date = datetime.fromisoformat(latest['assessment_date'])
+        previous_date = datetime.fromisoformat(previous['assessment_date'])
+        days_between = (latest_date - previous_date).days
+        
+        response = f"""📈 **YOUR PROGRESS REPORT**
+Comparing: {previous_date.strftime('%d %b')} → {latest_date.strftime('%d %b')}
+({days_between} days)
+
+"""
+        
+        # Compare measurements
+        if latest.get('physical_measurements') and previous.get('physical_measurements'):
+            latest_m = latest['physical_measurements'][0]
+            previous_m = previous['physical_measurements'][0]
+            
+            response += "📊 **Body Changes:**\n"
+            
+            # Weight change
+            if latest_m.get('weight_kg') and previous_m.get('weight_kg'):
+                weight_change = latest_m['weight_kg'] - previous_m['weight_kg']
+                emoji = "📉" if weight_change < 0 else "📈" if weight_change > 0 else "➡️"
+                response += f"{emoji} Weight: {weight_change:+.1f}kg\n"
+            
+            # BMI change
+            if latest_m.get('bmi') and previous_m.get('bmi'):
+                bmi_change = latest_m['bmi'] - previous_m['bmi']
+                response += f"• BMI: {bmi_change:+.1f}\n"
+            
+            # Waist change
+            if latest_m.get('waist') and previous_m.get('waist'):
+                waist_change = latest_m['waist'] - previous_m['waist']
+                emoji = "✅" if waist_change < 0 else "📊"
+                response += f"{emoji} Waist: {waist_change:+.1f}cm\n"
+            
+            response += "\n"
+        
+        # Compare fitness tests
+        if latest.get('fitness_test_results') and previous.get('fitness_test_results'):
+            latest_t = latest['fitness_test_results'][0]
+            previous_t = previous['fitness_test_results'][0]
+            
+            response += "💪 **Fitness Improvements:**\n"
+            
+            # Push-ups
+            if latest_t.get('push_ups_count') is not None and previous_t.get('push_ups_count') is not None:
+                pushup_change = latest_t['push_ups_count'] - previous_t['push_ups_count']
+                emoji = "🔥" if pushup_change > 5 else "✅" if pushup_change > 0 else "➡️"
+                response += f"{emoji} Push-ups: {pushup_change:+d} more!\n"
+                
+            # Plank
+            if latest_t.get('plank_hold_seconds') is not None and previous_t.get('plank_hold_seconds') is not None:
+                plank_change = latest_t['plank_hold_seconds'] - previous_t['plank_hold_seconds']
+                emoji = "🔥" if plank_change > 30 else "✅" if plank_change > 0 else "➡️"
+                response += f"{emoji} Plank: {plank_change:+d} seconds longer!\n"
+            
+            # Squats
+            if latest_t.get('squat_reps') is not None and previous_t.get('squat_reps') is not None:
+                squat_change = latest_t['squat_reps'] - previous_t['squat_reps']
+                if squat_change > 0:
+                    response += f"✅ Squats: {squat_change:+d} more!\n"
+        
+        # Add motivational message based on overall progress
+        response += "\n" + self.get_progress_motivation(latest, previous)
+        
+        return response
+        
+    except Exception as e:
+        log_error(f"Error getting progress summary: {str(e)}")
+        return "Let me check your progress with your trainer! 📊"
+
+def get_bmi_status(self, bmi: float) -> str:
+    """Get BMI category"""
+    if bmi < 18.5:
+        return "underweight"
+    elif bmi < 25:
+        return "healthy ✅"
+    elif bmi < 30:
+        return "overweight"
+    else:
+        return "obese"
+
+def get_fitness_level(self, value: int, test_type: str) -> str:
+    """Get fitness level description"""
+    if test_type == 'pushups':
+        if value < 10:
+            return "beginner"
+        elif value < 20:
+            return "intermediate"
+        elif value < 40:
+            return "good"
+        else:
+            return "excellent! 🔥"
+    elif test_type == 'plank':
+        if value < 30:
+            return "beginner"
+        elif value < 60:
+            return "intermediate"
+        elif value < 120:
+            return "good"
+        else:
+            return "excellent! 🔥"
+    return ""
+
+def get_progress_motivation(self, latest: Dict, previous: Dict) -> str:
+    """Generate motivational message based on progress"""
+    improved_areas = 0
+    total_areas = 0
+    
+    # Check various improvements
+    if latest.get('physical_measurements') and previous.get('physical_measurements'):
+        latest_m = latest['physical_measurements'][0]
+        previous_m = previous['physical_measurements'][0]
+        
+        if latest_m.get('weight_kg') and previous_m.get('weight_kg'):
+            total_areas += 1
+            # Assume weight loss is the goal (you could check actual goal)
+            if latest_m['weight_kg'] < previous_m['weight_kg']:
+                improved_areas += 1
+    
+    if latest.get('fitness_test_results') and previous.get('fitness_test_results'):
+        latest_t = latest['fitness_test_results'][0]
+        previous_t = previous['fitness_test_results'][0]
+        
+        if latest_t.get('push_ups_count') is not None and previous_t.get('push_ups_count') is not None:
+            total_areas += 1
+            if latest_t['push_ups_count'] > previous_t['push_ups_count']:
+                improved_areas += 1
+        
+        if latest_t.get('plank_hold_seconds') is not None and previous_t.get('plank_hold_seconds') is not None:
+            total_areas += 1
+            if latest_t['plank_hold_seconds'] > previous_t['plank_hold_seconds']:
+                improved_areas += 1
+    
+    # Generate message based on improvement ratio
+    if total_areas == 0:
+        return "Keep working hard! 💪"
+    
+    improvement_ratio = improved_areas / total_areas
+    
+    if improvement_ratio >= 0.8:
+        return "🎉 **AMAZING PROGRESS!** You're crushing it! Keep up the incredible work! 🔥"
+    elif improvement_ratio >= 0.5:
+        return "💪 **Great job!** You're making solid progress! Keep pushing!"
+    elif improvement_ratio > 0:
+        return "✅ You're improving! Every step forward counts. Keep going!"
+    else:
+        return "💭 Plateaus happen! Stay consistent and the results will come. You've got this!"
