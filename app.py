@@ -38,6 +38,21 @@ try:
     # Initialize voice processor (if separate file)
     voice_processor = VoiceProcessor()
     audio_buffer = voice_processor.download_whatsapp_media(message['audio']['id'])
+
+    # Voice processing configuration
+    VOICE_CONFIG = {
+        'max_audio_size_mb': 16,
+        'max_audio_duration_seconds': 120,  # 2 minutes
+        'supported_languages': ['en', 'af', 'zu', 'xh'],  # English, Afrikaans, Zulu, Xhosa
+        'fallback_to_text': True,
+        'retry_attempts': 3,
+        'error_messages': {
+            'transcription_failed': "🎤 I couldn't understand that voice note clearly. Could you try again or type instead?",
+            'audio_too_long': "🎤 Voice notes should be under 2 minutes. Please record a shorter message.",
+            'network_error': "📶 Connection issue with voice notes. Please try again.",
+            'general_error': "🎤 Having trouble with voice notes right now. Please type your message instead.",
+        }
+    }
     
     # Register dashboard blueprint
     app.register_blueprint(dashboard_bp)
