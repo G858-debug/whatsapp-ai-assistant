@@ -823,3 +823,36 @@ def get_progress_motivation(self, latest: Dict, previous: Dict) -> str:
         return "✅ You're improving! Every step forward counts. Keep going!"
     else:
         return "💭 Plateaus happen! Stay consistent and the results will come. You've got this!"
+
+def generate_client_assessment_link(self, client_id: str) -> Dict:
+    """Generate a secure link for client to view their assessment"""
+    try:
+        import secrets
+        
+        # Generate secure token
+        token = secrets.token_urlsafe(32)
+        
+        # Store token in database
+        self.db.table('assessment_access_tokens').insert({
+            'token': token,
+            'client_id': client_id,
+            'created_at': datetime.now(self.sa_tz).isoformat(),
+            'expires_at': (datetime.now(self.sa_tz) + timedelta(days=7)).isoformat()
+        }).execute()
+        
+        # Generate URL
+        base_url = self.config.DASHBOARD_BASE_URL if hasattr(self.config, 'DASHBOARD_BASE_URL') else 'https://web-production-26de5.up.railway.app'
+        assessment_url = f"{base_url}/assessment/client/{token}"
+        
+        return {
+            'success': True,
+            'url': assessment_url,
+            'expires_in': '7 days'
+        }
+        
+    except Exception as e:
+        log_error(f"Error generating client assessment link: {str(e)}")
+        return {
+            'success': False,
+            'error': 'Failed to generate link'
+        }
