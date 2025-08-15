@@ -339,6 +339,306 @@ def test_endpoint():
             'error': str(e)
         }), 500
 
+# Add these test endpoints to your app.py file (before the if __name__ == '__main__': line)
+
+@app.route('/test-voice', methods=['GET'])
+def test_voice_page():
+    """Simple page to test voice functionality"""
+    return """
+    <html>
+        <head>
+            <title>Voice Test - Refiloe</title>
+            <style>
+                body { font-family: Arial; padding: 40px; background: #f0f0f0; }
+                .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+                h1 { color: #333; }
+                .test-section { margin: 20px 0; padding: 20px; background: #f5f5f5; border-radius: 5px; }
+                button { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+                button:hover { background: #45a049; }
+                .result { margin-top: 20px; padding: 10px; background: #e8f5e9; border-radius: 5px; }
+                .error { background: #ffebee; color: #c62828; }
+                .success { background: #e8f5e9; color: #2e7d32; }
+                pre { background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎤 Voice Feature Testing</h1>
+                
+                <div class="test-section">
+                    <h2>1. Test Voice Processor Status</h2>
+                    <button onclick="testVoiceStatus()">Check Voice Status</button>
+                    <div id="status-result"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h2>2. Test Text-to-Speech</h2>
+                    <input type="text" id="tts-text" placeholder="Enter text to convert to speech" style="width: 300px; padding: 8px;">
+                    <button onclick="testTTS()">Test TTS</button>
+                    <div id="tts-result"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h2>3. Test WhatsApp Media Download</h2>
+                    <input type="text" id="media-id" placeholder="Enter WhatsApp media ID" style="width: 300px; padding: 8px;">
+                    <button onclick="testMediaDownload()">Test Download</button>
+                    <div id="download-result"></div>
+                </div>
+                
+                <div class="test-section">
+                    <h2>4. Send Test Voice Message</h2>
+                    <input type="text" id="phone-number" placeholder="Phone number (e.g., 27731863036)" style="width: 300px; padding: 8px;">
+                    <button onclick="sendTestVoice()">Send Voice Test</button>
+                    <div id="send-result"></div>
+                </div>
+            </div>
+            
+            <script>
+                async function testVoiceStatus() {
+                    const result = document.getElementById('status-result');
+                    result.innerHTML = 'Testing...';
+                    try {
+                        const response = await fetch('/api/test-voice-status');
+                        const data = await response.json();
+                        result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                        result.className = response.ok ? 'result success' : 'result error';
+                    } catch (error) {
+                        result.innerHTML = 'Error: ' + error.message;
+                        result.className = 'result error';
+                    }
+                }
+                
+                async function testTTS() {
+                    const result = document.getElementById('tts-result');
+                    const text = document.getElementById('tts-text').value;
+                    if (!text) {
+                        result.innerHTML = 'Please enter some text';
+                        return;
+                    }
+                    result.innerHTML = 'Testing...';
+                    try {
+                        const response = await fetch('/api/test-tts', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({text: text})
+                        });
+                        const data = await response.json();
+                        result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                        result.className = response.ok ? 'result success' : 'result error';
+                    } catch (error) {
+                        result.innerHTML = 'Error: ' + error.message;
+                        result.className = 'result error';
+                    }
+                }
+                
+                async function testMediaDownload() {
+                    const result = document.getElementById('download-result');
+                    const mediaId = document.getElementById('media-id').value;
+                    if (!mediaId) {
+                        result.innerHTML = 'Please enter a media ID';
+                        return;
+                    }
+                    result.innerHTML = 'Testing...';
+                    try {
+                        const response = await fetch('/api/test-media-download', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({media_id: mediaId})
+                        });
+                        const data = await response.json();
+                        result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                        result.className = response.ok ? 'result success' : 'result error';
+                    } catch (error) {
+                        result.innerHTML = 'Error: ' + error.message;
+                        result.className = 'result error';
+                    }
+                }
+                
+                async function sendTestVoice() {
+                    const result = document.getElementById('send-result');
+                    const phone = document.getElementById('phone-number').value;
+                    if (!phone) {
+                        result.innerHTML = 'Please enter a phone number';
+                        return;
+                    }
+                    result.innerHTML = 'Sending test voice message...';
+                    try {
+                        const response = await fetch('/api/test-send-voice', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({phone: phone})
+                        });
+                        const data = await response.json();
+                        result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                        result.className = response.ok ? 'result success' : 'result error';
+                    } catch (error) {
+                        result.innerHTML = 'Error: ' + error.message;
+                        result.className = 'result error';
+                    }
+                }
+            </script>
+        </body>
+    </html>
+    """
+
+@app.route('/api/test-voice-status', methods=['GET'])
+def test_voice_status():
+    """Test if voice processor is properly initialized"""
+    try:
+        status = {
+            'voice_processor_available': voice_processor is not None,
+            'openai_configured': False,
+            'whatsapp_token_configured': bool(config.ACCESS_TOKEN),
+            'phone_number_configured': bool(config.PHONE_NUMBER_ID),
+            'errors': []
+        }
+        
+        if voice_processor:
+            # Check OpenAI
+            if hasattr(voice_processor, 'openai_client'):
+                status['openai_configured'] = voice_processor.openai_client is not None
+            
+            # Check if methods exist
+            status['methods_available'] = {
+                'download_whatsapp_media': hasattr(voice_processor, 'download_whatsapp_media'),
+                'transcribe_audio': hasattr(voice_processor, 'transcribe_audio'),
+                'text_to_speech': hasattr(voice_processor, 'text_to_speech'),
+                'send_voice_note': hasattr(voice_processor, 'send_voice_note'),
+            }
+            
+            # Check environment variables
+            import os
+            status['env_vars'] = {
+                'OPENAI_API_KEY': 'set' if os.getenv('OPENAI_API_KEY') else 'missing',
+                'ACCESS_TOKEN': 'set' if os.getenv('ACCESS_TOKEN') else 'missing',
+                'PHONE_NUMBER_ID': 'set' if os.getenv('PHONE_NUMBER_ID') else 'missing',
+            }
+        else:
+            status['errors'].append('Voice processor not initialized')
+        
+        return jsonify(status), 200 if not status['errors'] else 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/test-tts', methods=['POST'])
+def test_tts():
+    """Test text-to-speech conversion"""
+    try:
+        data = request.get_json()
+        text = data.get('text', 'Hello, this is a test of the voice system.')
+        
+        if not voice_processor:
+            return jsonify({'error': 'Voice processor not available'}), 500
+        
+        # Try to convert text to speech
+        try:
+            audio_buffer = voice_processor.text_to_speech(text)
+            return jsonify({
+                'success': True,
+                'text': text,
+                'audio_size_bytes': len(audio_buffer) if audio_buffer else 0,
+                'message': 'Text-to-speech conversion successful'
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'error_type': type(e).__name__
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/test-media-download', methods=['POST'])
+def test_media_download():
+    """Test downloading media from WhatsApp"""
+    try:
+        data = request.get_json()
+        media_id = data.get('media_id')
+        
+        if not media_id:
+            return jsonify({'error': 'No media_id provided'}), 400
+        
+        if not voice_processor:
+            return jsonify({'error': 'Voice processor not available'}), 500
+        
+        try:
+            audio_buffer = voice_processor.download_whatsapp_media(media_id)
+            return jsonify({
+                'success': True,
+                'media_id': media_id,
+                'size_bytes': len(audio_buffer) if audio_buffer else 0,
+                'message': 'Media download successful'
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'error_type': type(e).__name__,
+                'hint': 'Make sure the media_id is valid and recent'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/test-send-voice', methods=['POST'])
+def test_send_voice():
+    """Test sending a voice message"""
+    try:
+        data = request.get_json()
+        phone = data.get('phone', '27731863036')
+        test_message = "Hello! This is a test voice message from Refiloe. If you can hear this, voice notes are working!"
+        
+        if not voice_processor:
+            return jsonify({'error': 'Voice processor not available'}), 500
+        
+        try:
+            # Convert to voice
+            audio_buffer = voice_processor.text_to_speech(test_message)
+            
+            # Send voice note
+            result = voice_processor.send_voice_note(phone, audio_buffer)
+            
+            return jsonify({
+                'success': True,
+                'phone': phone,
+                'message': test_message,
+                'whatsapp_response': result,
+                'status': 'Voice message sent successfully'
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'error_type': type(e).__name__,
+                'hint': 'Check OPENAI_API_KEY and WhatsApp credentials'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/test-transcribe', methods=['POST'])
+def test_transcribe():
+    """Test transcribing audio"""
+    try:
+        # This would need an actual audio file upload
+        # For now, just test if the method exists
+        if not voice_processor:
+            return jsonify({'error': 'Voice processor not available'}), 500
+        
+        if not hasattr(voice_processor, 'transcribe_audio'):
+            return jsonify({'error': 'Transcribe method not available'}), 500
+        
+        return jsonify({
+            'success': True,
+            'message': 'Transcription method available',
+            'note': 'To fully test, send a voice note via WhatsApp'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
