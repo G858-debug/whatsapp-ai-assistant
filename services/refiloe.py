@@ -591,6 +591,179 @@ class RefiloeAssistant:
             log_error(f"Error handling trainer message: {str(e)}", exc_info=True)
             return "Let me try that again. What would you like help with?"
 
+    def handle_client_message(self, client_context: Dict, message_text: str) -> str:
+        """Handle messages from clients"""
+        try:
+            client = client_context['data']
+            trainer = client.get('trainers', {})
+            message_lower = message_text.lower()
+            is_first = client_context.get('first_interaction', False)
+            
+            greeting = f"Hi {client['name']}! " if is_first else ""
+            
+            # 1. GREETINGS
+            if any(word in message_lower for word in ['hi', 'hello', 'hey', 'howzit']) and len(message_text.split()) <= 5:
+                if is_first:
+                    return f"Hi {client['name']}! I'm Refiloe, {trainer.get('name', 'your trainer')}'s AI assistant. How can I help you today? 💪"
+                else:
+                    return f"Hey {client['name']}! What can I help you with today? 😊"
+            
+            # 2. FITNESS ASSESSMENT REQUESTS (NEW CODE!)
+            assessment_keywords = [
+                'my assessment', 'fitness assessment', 'my results', 'assessment results',
+                'fitness results', 'my progress', 'fitness test', 'my measurements',
+                'body measurements', 'fitness level', 'test results', 'how am i doing',
+                'my stats', 'my fitness stats', 'check progress', 'show my assessment',
+                'view assessment', 'see my results'
+            ]
+            
+            if any(keyword in message_lower for keyword in assessment_keywords):
+                return self.handle_client_assessment_request(client, trainer, greeting)
+            
+            # 3. PROGRESS/COMPARISON REQUESTS (NEW CODE!)
+            if any(phrase in message_lower for phrase in ['compare', 'improvement', 'better', 'worse', 'changes', 'progress']):
+                return self.handle_client_progress_request(client, trainer, greeting)
+            
+            # 4. BOOKING REQUESTS
+            if any(phrase in message_lower for phrase in ['book', 'session', 'appointment', 'training', 'schedule', 'when can', 'available']):
+                return self.handle_booking_request(client, trainer, message_text, greeting)
+            
+            # 5. VIEW SCHEDULE
+            if any(phrase in message_lower for phrase in ['my sessions', 'my bookings', 'upcoming', 'next session']):
+                return self.get_client_schedule(client, greeting)
+            
+            # 6. CANCEL/RESCHEDULE
+            if any(word in message_lower for word in ['cancel', 'reschedule', 'change', 'move']):
+                return self.handle_booking_modification(client, message_text, greeting)
+            
+            # 7. HELP
+            if any(word in message_lower for word in ['help', 'what can you do', 'commands']):
+                return f"""{greeting}I can help you with:
+                
+    - Book training sessions
+    - View your schedule
+    - Check your fitness assessment
+    - Track your progress
+    - See workouts from {trainer.get('name', 'your trainer')}
+    
+    Just tell me what you need! 💪"""
+            
+            # 8. DEFAULT RESPONSE
+            return f"""{greeting}I can help you:
+    - Book a session - "Book Thursday at 2pm"
+    - See your assessment - "Show my fitness results"
+    - Check schedule - "My upcoming sessions"
+    
+    What would you like to do? 😊"""
+            
+        except Exception as e:
+            log_error(f"Error handling client message: {str(e)}")
+            return "Let me help you with that! What would you like to do?"
+
+def handle_booking_request(self, client: Dict, trainer: Dict, message_text: str, greeting: str = "") -> str:
+    """Handle client booking requests"""
+    try:
+        # This is placeholder - implement your booking logic
+        return f"""{greeting}I'll help you book a session!
+        
+Here's what's available this week:
+Mon: 9am, 2pm, 5pm
+Tue: 10am, 1pm, 4pm
+Wed: 8am, 3pm, 6pm
+
+Which time works for you? Just say something like "Tuesday at 10am" 📅"""
+        
+    except Exception as e:
+        log_error(f"Error handling booking: {str(e)}")
+        return f"{greeting}Let me check the schedule for you..."
+
+def handle_client_assessment_request(self, client: Dict, trainer: Dict, greeting: str = "") -> str:
+    """Handle client request to view their assessment"""
+    try:
+        if not self.assessment_service:
+            return f"{greeting}Assessment feature is being set up. Try again soon! 💪"
+        
+        # Get client's latest assessment
+        assessment_data = self.assessment_service.get_client_assessment_summary(
+            client['id'], 
+            client['name'],
+            trainer['name'] if trainer else None
+        )
+        
+        return greeting + assessment_data
+        
+    except Exception as e:
+        log_error(f"Error getting client assessment: {str(e)}")
+        return f"{greeting}I'm having trouble getting your assessment. Let me ask {trainer.get('name', 'your trainer')} to help! 😊"
+
+def handle_client_progress_request(self, client: Dict, trainer: Dict, greeting: str = "") -> str:
+    """Handle client request to see their progress"""
+    try:
+        if not self.assessment_service:
+            return f"{greeting}Progress tracking is being set up. Try again soon! 📈"
+        
+        # Get progress comparison
+        progress_data = self.assessment_service.get_client_progress_summary(
+            client['id'],
+            client['name']
+        )
+        
+        return greeting + progress_data
+        
+    except Exception as e:
+        log_error(f"Error getting client progress: {str(e)}")
+        return f"{greeting}Let me check your progress with {trainer.get('name', 'your trainer')}! 💪"
+
+def get_client_schedule(self, client: Dict, greeting: str = "") -> str:
+    """Get client's upcoming sessions"""
+    try:
+        if not self.booking_model:
+            return f"{greeting}Let me check your schedule..."
+        
+        bookings = self.booking_model.get_client_bookings(client['id'])
+        
+        if not bookings:
+            return f"""{greeting}You don't have any upcoming sessions booked.
+
+Ready to book one? Just tell me when you'd like to train! 💪"""
+        
+        response = f"{greeting}Your upcoming sessions:\n\n"
+        for booking in bookings[:5]:  # Show max 5
+            session_time = datetime.fromisoformat(booking['session_datetime'])
+            session_time = session_time.replace(tzinfo=pytz.UTC).astimezone(self.sa_tz)
+            day = session_time.strftime('%A %d %B')
+            time = session_time.strftime('%I:%M %p')
+            
+            response += f"📅 {day} at {time}\n"
+        
+        return response + "\nNeed to change anything? Just let me know!"
+        
+    except Exception as e:
+        log_error(f"Error getting client schedule: {str(e)}")
+        return f"{greeting}Let me check your schedule..."
+
+def handle_booking_modification(self, client: Dict, message_text: str, greeting: str = "") -> str:
+    """Handle cancellation or rescheduling"""
+    try:
+        message_lower = message_text.lower()
+        
+        if 'cancel' in message_lower:
+            return f"""{greeting}Which session would you like to cancel?
+
+Just tell me the date/time, or say "cancel my next session" 📅"""
+        
+        elif any(word in message_lower for word in ['reschedule', 'change', 'move']):
+            return f"""{greeting}Which session would you like to reschedule?
+
+Tell me the current time and when you'd like to move it to.
+Example: "Move Tuesday 2pm to Thursday 3pm" 📅"""
+        
+        return f"{greeting}Would you like to cancel or reschedule a session?"
+        
+    except Exception as e:
+        log_error(f"Error handling modification: {str(e)}")
+        return f"{greeting}Let me help you with that session change..."
+
     def handle_dashboard_request(self, trainer: Dict, greeting: str = "") -> str:
         """Handle trainer's request to view dashboard"""
         try:
