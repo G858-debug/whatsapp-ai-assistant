@@ -5,6 +5,9 @@ from openai import OpenAI
 import io
 import base64
 from pydub import AudioSegment
+import time
+from functools import wraps
+
 
 class VoiceProcessor:
     def __init__(self):
@@ -195,3 +198,34 @@ def handle_voice_note_with_fallback(self, message, phone_number):
         
         self.send_message(phone_number, error_msg)
         return {'success': False}
+
+def retry_on_failure(max_retries=3, delay=1):
+    """
+    Decorator to retry failed operations
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    retries += 1
+                    if retries >= max_retries:
+                        raise e
+                    time.sleep(delay * retries)  # Exponential backoff
+                    log_info(f"Retrying {func.__name__} (attempt {retries + 1}/{max_retries})")
+            return None
+        return wrapper
+    return decorator
+
+# Use the decorator on critical functions
+@retry_on_failure(max_retries=3, delay=1)
+def transcribe_audio(self, audio_buffer):
+    """Convert voice to text with retry logic"""
+    # Your transcription code here
+    
+@retry_on_failure(max_retries=2, delay=0.5)
+def send_voice_note(self, phone_number, audio_buffer):
+    """Send voice note with retry logic"""
