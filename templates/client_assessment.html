@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Fitness Assessment - {{ client.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #9333ea;
+            --primary-dark: #7c3aed;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%);
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div x-data="assessmentDashboard()" class="min-h-screen pb-20">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-40">
+            <div class="px-4 py-3">
+                <h1 class="text-xl font-bold text-gray-900">
+                    My Fitness Assessment
+                </h1>
+                <p class="text-sm text-gray-500">{{ client.name }}</p>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="px-4 py-4">
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Weight Card -->
+                <div class="stat-card p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-600">Weight</p>
+                            <p class="text-2xl font-bold">
+                                {{ latest_assessment.physical_measurements[0].weight_kg|default('--') }}kg
+                            </p>
+                            {% if has_progress and weight_history|length > 1 %}
+                            <p class="text-xs mt-1">
+                                {% set change = weight_history[-1].value - weight_history[-2].value %}
+                                <span class="{% if change < 0 %}text-green-600{% else %}text-orange-600{% endif %}">
+                                    {{ change|round(1) }}kg
+                                </span>
+                            </p>
+                            {% endif %}
+                        </div>
+                        <i class="fas fa-weight text-2xl text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <!-- BMI Card -->
+                <div class="stat-card p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-600">BMI</p>
+                            <p class="text-2xl font-bold">
+                                {{ latest_assessment.physical_measurements[0].bmi|default('--') }}
+                            </p>
+                            <p class="text-xs mt-1">
+                                {% set bmi = latest_assessment.physical_measurements[0].bmi|default(0) %}
+                                {% if bmi < 18.5 %}
+                                    Underweight
+                                {% elif bmi < 25 %}
+                                    <span class="text-green-600">Healthy</span>
+                                {% elif bmi < 30 %}
+                                    Overweight
+                                {% else %}
+                                    Obese
+                                {% endif %}
+                            </p>
+                        </div>
+                        <i class="fas fa-chart-line text-2xl text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <!-- Push-ups Card -->
+                <div class="stat-card p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-600">Push-ups</p>
+                            <p class="text-2xl font-bold">
+                                {{ latest_assessment.fitness_test_results[0].push_ups_count|default('--') }}
+                            </p>
+                            {% if has_progress and fitness_history|length > 1 %}
+                            <p class="text-xs mt-1">
+                                {% set change = fitness_history[-1].pushups - fitness_history[-2].pushups %}
+                                <span class="{% if change > 0 %}text-green-600{% else %}text-gray-600{% endif %}">
+                                    +{{ change }} 
+                                </span>
+                            </p>
+                            {% endif %}
+                        </div>
+                        <i class="fas fa-dumbbell text-2xl text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <!-- Plank Card -->
+                <div class="stat-card p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-600">Plank</p>
+                            <p class="text-2xl font-bold">
+                                {{ latest_assessment.fitness_test_results[0].plank_hold_seconds|default('--') }}s
+                            </p>
+                            {% if has_progress and fitness_history|length > 1 %}
+                            <p class="text-xs mt-1">
+                                {% set change = fitness_history[-1].plank - fitness_history[-2].plank %}
+                                <span class="{% if change > 0 %}text-green-600{% else %}text-gray-600{% endif %}">
+                                    +{{ change }}s
+                                </span>
+                            </p>
+                            {% endif %}
+                        </div>
+                        <i class="fas fa-stopwatch text-2xl text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="px-4 py-2 bg-white sticky top-14 z-30 shadow-sm">
+            <div class="flex space-x-6 overflow-x-auto">
+                <button @click="activeTab = 'overview'" 
+                        :class="activeTab === 'overview' ? 'border-b-2 border-purple-600' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Overview
+                </button>
+                <button @click="activeTab = 'progress'" 
+                        :class="activeTab === 'progress' ? 'border-b-2 border-purple-600' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Progress
+                </button>
+                <button @click="activeTab = 'photos'" 
+                        :class="activeTab === 'photos' ? 'border-b-2 border-purple-600' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Photos
+                </button>
+                <button @click="activeTab = 'goals'" 
+                        :class="activeTab === 'goals' ? 'border-b-2 border-purple-600' : ''"
+                        class="pb-2 px-1 text-sm font-medium whitespace-nowrap">
+                    Goals
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="px-4 py-4">
+            
+            <!-- Overview Tab -->
+            <div x-show="activeTab === 'overview'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Latest Assessment</h2>
+                
+                <!-- Assessment Date -->
+                <div class="bg-white rounded-lg p-4 mb-4">
+                    <p class="text-sm text-gray-600">Assessment Date</p>
+                    <p class="font-semibold">
+                        {{ latest_assessment.assessment_date|date('d F Y') }}
+                    </p>
+                </div>
+                
+                <!-- All Measurements -->
+                <div class="bg-white rounded-lg p-4 mb-4">
+                    <h3 class="font-semibold mb-3">Body Measurements</h3>
+                    <div class="space-y-2">
+                        {% set m = latest_assessment.physical_measurements[0] %}
+                        {% if m %}
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Height</span>
+                                <span class="font-medium">{{ m.height_cm|default('--') }}cm</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Weight</span>
+                                <span class="font-medium">{{ m.weight_kg|default('--') }}kg</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Waist</span>
+                                <span class="font-medium">{{ m.waist|default('--') }}cm</span>
+                            </div>
+                            {% if m.chest %}
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Chest</span>
+                                <span class="font-medium">{{ m.chest }}cm</span>
+                            </div>
+                            {% endif %}
+                            {% if m.hips %}
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Hips</span>
+                                <span class="font-medium">{{ m.hips }}cm</span>
+                            </div>
+                            {% endif %}
+                            {% if m.body_fat_percentage %}
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Body Fat</span>
+                                <span class="font-medium">{{ m.body_fat_percentage }}%</span>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Fitness Tests -->
+                <div class="bg-white rounded-lg p-4">
+                    <h3 class="font-semibold mb-3">Fitness Tests</h3>
+                    <div class="space-y-2">
+                        {% set t = latest_assessment.fitness_test_results[0] %}
+                        {% if t %}
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Push-ups</span>
+                                <span class="font-medium">{{ t.push_ups_count|default('--') }}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Plank Hold</span>
+                                <span class="font-medium">{{ t.plank_hold_seconds|default('--') }} seconds</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Squats</span>
+                                <span class="font-medium">{{ t.squat_reps|default('--') }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Tab -->
+            <div x-show="activeTab === 'progress'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Your Progress</h2>
+                
+                {% if has_progress %}
+                    <!-- Weight Chart -->
+                    <div class="bg-white rounded-lg p-4 mb-4">
+                        <h3 class="font-semibold mb-3">Weight Progress</h3>
+                        <canvas id="weightChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <!-- Fitness Chart -->
+                    <div class="bg-white rounded-lg p-4">
+                        <h3 class="font-semibold mb-3">Fitness Progress</h3>
+                        <canvas id="fitnessChart" width="400" height="200"></canvas>
+                    </div>
+                {% else %}
+                    <div class="bg-gray-100 rounded-lg p-8 text-center">
+                        <i class="fas fa-chart-line text-4xl text-gray-400 mb-3"></i>
+                        <p class="text-gray-600">Complete more assessments to see your progress!</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Photos Tab -->
+            <div x-show="activeTab === 'photos'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Progress Photos</h2>
+                
+                {% if photos.front or photos.side or photos.back %}
+                    <div class="space-y-4">
+                        {% for photo_type, photo_list in photos.items() %}
+                            {% if photo_list %}
+                            <div class="bg-white rounded-lg p-4">
+                                <h3 class="font-semibold mb-3 capitalize">{{ photo_type }} View</h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    {% for photo in photo_list[:2] %}
+                                    <div>
+                                        <img src="{{ photo.url }}" 
+                                             alt="{{ photo_type }} view"
+                                             class="w-full rounded-lg">
+                                        <p class="text-xs text-center mt-2 text-gray-600">
+                                            {{ photo.date }}
+                                        </p>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="bg-gray-100 rounded-lg p-8 text-center">
+                        <i class="fas fa-camera text-4xl text-gray-400 mb-3"></i>
+                        <p class="text-gray-600">No photos uploaded yet</p>
+                        <p class="text-sm text-gray-500 mt-2">
+                            Photos help track visual progress!
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Goals Tab -->
+            <div x-show="activeTab === 'goals'" x-transition>
+                <h2 class="text-lg font-semibold mb-3">Your Goals</h2>
+                
+                {% set goals = latest_assessment.fitness_goals[0] %}
+                {% if goals %}
+                <div class="bg-white rounded-lg p-4">
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm text-gray-600">Primary Goal</p>
+                            <p class="font-semibold">
+                                {{ goals.primary_goal|replace('_', ' ')|title }}
+                            </p>
+                        </div>
+                        
+                        {% if goals.specific_targets %}
+                        <div>
+                            <p class="text-sm text-gray-600">Specific Targets</p>
+                            <p class="font-semibold">{{ goals.specific_targets }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if goals.timeline_weeks %}
+                        <div>
+                            <p class="text-sm text-gray-600">Timeline</p>
+                            <p class="font-semibold">{{ goals.timeline_weeks }} weeks</p>
+                            
+                            <!-- Progress bar -->
+                            {% set weeks_passed = ((now - latest_assessment.assessment_date).days / 7)|round %}
+                            {% set progress = ((weeks_passed / goals.timeline_weeks) * 100)|round %}
+                            <div class="mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-purple-600 h-2 rounded-full" 
+                                         style="width: {{ [progress, 100]|min }}%"></div>
+                                </div>
+                                <p class="text-xs text-gray-600 mt-1">
+                                    Week {{ weeks_passed }} of {{ goals.timeline_weeks }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if goals.motivation_level %}
+                        <div>
+                            <p class="text-sm text-gray-600">Motivation Level</p>
+                            <div class="flex items-center">
+                                {% for i in range(1, 11) %}
+                                <div class="w-6 h-6 rounded-full mr-1
+                                    {% if i <= goals.motivation_level %}
+                                        bg-purple-600
+                                    {% else %}
+                                        bg-gray-200
+                                    {% endif %}">
+                                </div>
+                                {% endfor %}
+                                <span class="ml-2 text-sm font-medium">
+                                    {{ goals.motivation_level }}/10
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-gray-100 rounded-lg p-8 text-center">
+                    <p class="text-gray-600">No goals set yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4">
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="downloadPDF()" 
+                        class="bg-purple-600 text-white py-3 rounded-lg font-medium">
+                    <i class="fas fa-download mr-2"></i>
+                    Download PDF
+                </button>
+                <button onclick="shareResults()" 
+                        class="bg-gray-200 text-gray-700 py-3 rounded-lg font-medium">
+                    <i class="fas fa-share mr-2"></i>
+                    Share
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function assessmentDashboard() {
+            return {
+                activeTab: 'overview',
+                
+                init() {
+                    // Initialize charts if we have progress data
+                    {% if has_progress %}
+                    this.$nextTick(() => {
+                        this.initCharts();
+                    });
+                    {% endif %}
+                },
+                
+                initCharts() {
+                    // Weight Chart
+                    const weightCtx = document.getElementById('weightChart');
+                    if (weightCtx) {
+                        new Chart(weightCtx, {
+                            type: 'line',
+                            data: {
+                                labels: {{ weight_history|map(attribute='date')|list|tojson }},
+                                datasets: [{
+                                    label: 'Weight (kg)',
+                                    data: {{ weight_history|map(attribute='value')|list|tojson }},
+                                    borderColor: 'rgb(147, 51, 234)',
+                                    backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                                    tension: 0.3
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: false
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Fitness Chart
+                    const fitnessCtx = document.getElementById('fitnessChart');
+                    if (fitnessCtx) {
+                        new Chart(fitnessCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: {{ fitness_history|map(attribute='date')|list|tojson }},
+                                datasets: [
+                                    {
+                                        label: 'Push-ups',
+                                        data: {{ fitness_history|map(attribute='pushups')|list|tojson }},
+                                        backgroundColor: 'rgba(147, 51, 234, 0.8)'
+                                    },
+                                    {
+                                        label: 'Plank (seconds)',
+                                        data: {{ fitness_history|map(attribute='plank')|list|tojson }},
+                                        backgroundColor: 'rgba(236, 72, 153, 0.8)'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        
+        function downloadPDF() {
+            // This would generate a PDF report
+            alert('PDF download coming soon!');
+        }
+        
+        function shareResults() {
+            // Share functionality
+            if (navigator.share) {
+                navigator.share({
+                    title: 'My Fitness Assessment',
+                    text: 'Check out my fitness progress!',
+                    url: window.location.href
+                });
+            } else {
+                alert('Sharing coming soon!');
+            }
+        }
+    </script>
+</body>
+</html>
