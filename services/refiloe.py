@@ -683,13 +683,33 @@ def handle_client_assessment_request(self, client: Dict, trainer: Dict, greeting
         if not self.assessment_service:
             return f"{greeting}Assessment feature is being set up. Try again soon! 💪"
         
-        # Get client's latest assessment
+        # Get client's latest assessment summary
         assessment_data = self.assessment_service.get_client_assessment_summary(
             client['id'], 
             client['name'],
             trainer['name'] if trainer else None
         )
         
+        # Check if they asked for full/detailed view
+        message_lower = message_text.lower()
+        if any(phrase in message_lower for phrase in ['full', 'detailed', 'complete', 'graphs', 'charts', 'dashboard']):
+            # Generate dashboard link
+            link_result = self.assessment_service.generate_client_assessment_link(client['id'])
+            
+            if link_result['success']:
+                return f"""{greeting}{assessment_data}
+
+📊 **View Full Dashboard:**
+{link_result['url']}
+
+This link includes:
+- Progress charts 📈
+- Before/after photos 📸
+- Detailed measurements 📏
+- Goal tracking 🎯
+
+Link expires in 7 days."""
+            
         return greeting + assessment_data
         
     except Exception as e:
