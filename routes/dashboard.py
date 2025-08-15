@@ -559,3 +559,123 @@ def save_assessment_template():
     except Exception as e:
         log_error(f"Error saving template: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@dashboard_bp.route('/assessment/client/<token>')
+def view_client_assessment(token):
+    """Client view of their assessment with charts and progress"""
+    try:
+        # Validate token (could be a special client token)
+        result = dashboard_service.db.table('assessment_access_tokens').select(
+            'client_id, expires_at'
+        ).eq('token', token).execute()
+        
+        if not result.data:
+            return render_template('error.html', 
+                                 message="Invalid or expired link. Please request a new one."), 403
+        
+        token_data = result.data[0]
+        expires_at = datetime.fromisoformat(token_data['expires_at'])
+        
+        if datetime.now(pytz.timezone('Africa/Johannesburg')) > expires_at:
+            return render_template('error.html', 
+                                 message="This link has expired. Please request a new one."), 403
+        
+        client_id = token_data['client_id']
+        
+        # Get client and assessment data
+        client = dashboard_service.client_model.get_by_id(client_id)
+        assessment_data = dashboard_service.get_client_assessment_dashboard_data(client_id)
+        
+        if not assessment_data:
+            return render_template('error.html', 
+                                 message="No assessment data found."), 404
+        
+        return render_template('client_assessment.html', 
+                             client=client,
+                             **assessment_data)
+        
+    except Exception as e:
+        log_error(f"Error viewing client assessment: {str(e)}")
+        return render_template('error.html', 
+                             message="An error occurred loading your assessment."), 500
+
+def get_client_assessment_dashboard_data(self, client_id: str) -> Dict:
+    """Get comprehensive assessment data for client dashboard"""
+    try:
+        # Get all assessments for progress tracking
+        assessments = self.db.table('fitness_assessments').select(
+            '''*, 
+            physical_measurements(*),
+            fitness_goals(*),
+            fitness_test_results(*),
+            assessment_photos(*)'''
+        ).eq('client_id', client_id).eq('status', 'completed').order(
+            'assessment_date', desc=True
+        ).execute()
+        
+        if not assessments.data:
+            return None
+        
+        latest = assessments.data[0]
+        
+        # Prepare chart data for weight progress
+        weight_history = []
+        bmi_history = []
+        fitness_history = []
+        
+        for assess in assessments.data:
+            date = datetime.fromisoformat(assess['assessment_date']).strftime('%d %b')
+            
+            if assess.get('physical_measurements'):
+                m = assess['physical_measurements'][0]
+                if m.get('weight_kg'):
+                    weight_history.append({
+                        'date': date,
+                        'value': m['weight_kg']
+                    })
+                if m.get('bmi'):
+                    bmi_history.append({
+                        'date': date,
+                        'value': m['bmi']
+                    })
+            
+            if assess.get('fitness_test_results'):
+                t = assess['fitness_test_results'][0]
+                if t.get('push_ups_count') is not None:
+                    fitness_history.append({
+                        'date': date,
+                        'pushups': t['push_ups_count'],
+                        'plank': t.get('plank_hold_seconds', 0)
+                    })
+        
+        # Get photos for before/after
+        photos = {
+            'front': [],
+            'side': [],
+            'back': []
+        }
+        
+        for assess in assessments.data[:2]:  # Get last 2 assessments for comparison
+            if assess.get('assessment_photos'):
+                for photo in assess['assessment_photos']:
+                    if not photo.get('is_deleted'):
+                        photo_type = photo.get('photo_type', 'other')
+                        if photo_type in photos:
+                            photos[photo_type].append({
+                                'url': photo['photo_url'],
+                                'date': datetime.fromisoformat(assess['assessment_date']).strftime('%d %b %Y')
+                            })
+        
+        return {
+            'latest_assessment': latest,
+            'total_assessments': len(assessments.data),
+            'weight_history': list(reversed(weight_history)),
+            'bmi_history': list(reversed(bmi_history)),
+            'fitness_history': list(reversed(fitness_history)),
+            'photos': photos,
+            'has_progress': len(assessments.data) > 1
+        }
+        
+    except Exception as e:
+        log_error(f"Error getting client dashboard data: {str(e)}")
+        return None
