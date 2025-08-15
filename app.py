@@ -155,20 +155,79 @@ def handle_message():
                     log_info(f"Duplicate message {message_id} ignored")
                     continue
                 
-                # Handle text messages
-                if 'text' in message:
-                    message_text = message['text']['body']
-                    log_info(f"Processing message from {phone_number}: {message_text}")
+                # ============= NEW CODE STARTS HERE =============
+                # Variable to track if we should respond with voice
+                should_respond_with_voice = False
+                message_text = None
+                
+                # Handle voice messages (audio)
+                if 'audio' in message:
+                    should_respond_with_voice = True
+                    audio_id = message['audio']['id']
+                    log_info(f"Processing voice note from {phone_number}, audio ID: {audio_id}")
                     
-                    # Process with Refiloe
-                    if refiloe:
-                        response = refiloe.process_message(phone_number, message_text)
+                    try:
+                        # Download the voice note
+                        audio_buffer = whatsapp_service.download_media(audio_id)
                         
-                        # Send response
+                        # Convert voice to text
+                        message_text = whatsapp_service.transcribe_audio(audio_buffer)
+                        log_info(f"Transcribed voice note: {message_text}")
+                        
+                        # Optional: Save to database that this was a voice message
+                        # You can add database logging here if needed
+                        
+                    except Exception as e:
+                        log_error(f"Error processing voice note: {str(e)}")
+                        # Fallback message if voice processing fails
                         if whatsapp_service:
+                            whatsapp_service.send_message(
+                                phone_number, 
+                                "🎤 I'm having trouble processing voice notes right now. Could you please type your message instead? 🙏"
+                            )
+                        continue
+                
+                # Handle text messages (existing code, slightly modified)
+                elif 'text' in message:
+                    message_text = message['text']['body']
+                    log_info(f"Processing text message from {phone_number}: {message_text}")
+                
+                # Handle other message types (images, documents, etc.)
+                elif 'image' in message:
+                    log_info(f"Image message received from {phone_number} - not yet supported")
+                    if whatsapp_service:
+                        whatsapp_service.send_message(
+                            phone_number,
+                            "📷 I can't process images yet, but I'm learning! Please send a text or voice message instead."
+                        )
+                    continue
+                else:
+                    # Unknown message type
+                    log_info(f"Unknown message type from {phone_number}")
+                    continue
+                
+                # Process the message (whether from text or transcribed voice)
+                if message_text and refiloe:
+                    response = refiloe.process_message(phone_number, message_text)
+                    
+                    # Send response based on input type
+                    if whatsapp_service:
+                        if should_respond_with_voice:
+                            # Convert response to voice and send as voice note
+                            try:
+                                voice_buffer = whatsapp_service.text_to_speech(response)
+                                whatsapp_service.send_voice_note(phone_number, voice_buffer)
+                                log_info(f"Sent voice response to {phone_number}")
+                            except Exception as e:
+                                log_error(f"Error sending voice note, falling back to text: {str(e)}")
+                                # Fallback to text if voice fails
+                                whatsapp_service.send_message(phone_number, response)
+                        else:
+                            # Send as regular text message
                             whatsapp_service.send_message(phone_number, response)
-                    else:
-                        log_error("Refiloe service not initialized")
+                elif not refiloe:
+                    log_error("Refiloe service not initialized")
+                # ============= NEW CODE ENDS HERE =============
         
         return jsonify({'status': 'success'}), 200
         
