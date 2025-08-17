@@ -124,7 +124,7 @@ def debug_endpoint():
     try:
         from services.refiloe import RefiloeAssistant
         from services.whatsapp import WhatsAppService
-        from utils.logger import Logger
+        from utils.logger import ErrorLogger
         
         if config and 'supabase' in locals():
             # Initialize dependencies
