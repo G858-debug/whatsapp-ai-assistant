@@ -128,7 +128,7 @@ def debug_endpoint():
         
         if config and 'supabase' in locals():
             # Initialize dependencies
-            logger = Logger(config)
+            logger = ErrorLogger(config)
             whatsapp_service = WhatsAppService(config, supabase, logger)
             
             # Initialize Refiloe
