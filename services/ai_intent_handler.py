@@ -336,7 +336,7 @@ The message might be informal or use WhatsApp shorthand.
         intent_keywords = {
             'greeting': ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo'],
             'help': ['help', 'commands', 'what can you do'],
-            'schedule': ['schedule', 'bookings', 'appointments', 'sessions', 'calendar'],
+            'schedule': ['schedule', 'bookings', 'appointments', 'sessions', 'calendar', 'week', 'my week', 'weekly', 'upcoming'],
             'add_client': ['add client', 'new client', 'register client'],
             'workout': ['workout', 'exercise', 'training plan', 'program'],
             'assessment': ['assessment', 'fitness test', 'evaluate', 'measure'],
