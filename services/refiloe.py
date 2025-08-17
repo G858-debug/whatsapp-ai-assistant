@@ -168,7 +168,16 @@ class RefiloeAssistant:
         
         trainer = context['data']
         
-        # Map intents to handlers
+        # Check for casual conversation intents first
+        casual_intents = ['status_check', 'casual_chat', 'thanks', 'farewell', 'small_talk']
+        if intent in casual_intents:
+            return self.ai_handler.generate_smart_response(
+                {'primary_intent': intent, 'extracted_data': extracted},
+                'trainer',
+                trainer
+            )
+        
+        # Map task intents to handlers
         handlers = {
             'greeting': lambda: self._greeting_response(trainer, True),
             'help': lambda: self._help_menu(trainer),
@@ -203,7 +212,16 @@ class RefiloeAssistant:
         client = context['data']
         trainer = client.get('trainers', {})
         
-        # Map intents to handlers
+        # Check for casual conversation intents first
+        casual_intents = ['status_check', 'casual_chat', 'thanks', 'farewell', 'small_talk']
+        if intent in casual_intents:
+            return self.ai_handler.generate_smart_response(
+                {'primary_intent': intent, 'extracted_data': extracted},
+                'client',
+                client
+            )
+        
+        # Map task intents to handlers
         handlers = {
             'greeting': lambda: self._greeting_response(client, False),
             'help': lambda: self._help_menu_client(client, trainer),
@@ -232,37 +250,54 @@ class RefiloeAssistant:
         """Ask for clarification when intent is unclear"""
         
         name = sender_context['data'].get('name', 'there')
+        response_type = intent_data.get('suggested_response_type', 'task')
         
+        # If it seems conversational, respond conversationally
+        if response_type == 'conversational':
+            return self.ai_handler.generate_smart_response(
+                intent_data, 
+                sender_context['type'], 
+                sender_context['data']
+            )
+        
+        # Otherwise, gently suggest options
         if sender_context['type'] == 'trainer':
-            return f"""I didn't quite understand that, {name}.
+            return f"""Hmm, I'm not quite sure what you need there, {name}. 
 
-You can try:
-• "Add client John Smith 0821234567"
-• "Show my schedule"
-• "Send workout for Sarah"
-• "View dashboard"
-• "Start assessment for Mike"
+If you need something specific, you could try things like "Show my schedule" or "Add a client". 
 
-What would you like to do? 😊"""
+Or we can just chat - I'm here either way! 😊"""
         else:
-            return f"""I didn't quite catch that, {name}.
-            
-You can:
-• "Book session for Tuesday 2pm"
-• "Show my upcoming sessions"
-• "Cancel my next session"
-• "View my fitness results"
+            return f"""I'm not quite following, {name}. 
 
-What would you like help with? 💪"""
+If you need help with something specific like booking a session or checking your schedule, just let me know!
+
+Or if you just want to chat, that's cool too! 💪"""
     
     # Helper methods for trainer intents
     def _greeting_response(self, user_data: Dict, is_trainer: bool) -> str:
         """Generate greeting response"""
+        import random
         name = user_data.get('name', 'there')
+        
         if is_trainer:
-            return f"Hey {name}! 👋 Ready to manage your fitness empire? What can I help with today?"
+            greetings = [
+                f"Hey {name}! 👋 Good to hear from you!",
+                f"Hi {name}! How's everything going?",
+                f"Hello {name}! 😊",
+                f"Hey there {name}! Hope you're having a great day!",
+                f"Hi {name}! What's happening in your world?",
+            ]
         else:
-            return f"Hi {name}! 💪 How's your fitness journey going? What can I help you with?"
+            greetings = [
+                f"Hi {name}! 💪 Good to hear from you!",
+                f"Hey {name}! How's it going?",
+                f"Hello {name}! 😊",
+                f"Hi there {name}! Hope you're doing well!",
+                f"Hey {name}! How's your day been?",
+            ]
+        
+        return random.choice(greetings)
     
     def _help_menu(self, trainer: Dict) -> str:
         """Show help menu for trainers"""
