@@ -731,3 +731,18 @@ def test_direct():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+# Add this test endpoint to app.py temporarily
+@app.route('/test-send', methods=['GET'])
+def test_send():
+    """Test sending a message"""
+    try:
+        if whatsapp_service:
+            result = whatsapp_service.send_message(
+                "27731863036",  # Your number
+                "Test from Refiloe! If you see this, sending works! 🎉"
+            )
+            return jsonify(result)
+        return jsonify({"error": "WhatsApp service not initialized"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
