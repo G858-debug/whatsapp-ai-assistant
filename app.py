@@ -366,7 +366,7 @@ def test_endpoint():
                 'error': 'Refiloe not initialized'
             }), 500
         
-        response = refiloe.process_message(phone, message)
+        response = refiloe.process_message(phone, message, 'test_msg_' + str(datetime.now().timestamp()))
         
         return jsonify({
             'success': True,
