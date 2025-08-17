@@ -83,11 +83,7 @@ class RefiloeAssistant:
             
         except Exception as e:
             log_error(f"Error processing message: {str(e)}", exc_info=True)
-            log_error(f"Error type: {type(e).__name__}")
-            log_error(f"WhatsApp: {whatsapp_number}, Message: {message_text[:50]}")
-            
-            # Return more detailed error for debugging (temporarily)
-            return f"Error: {str(e)[:100]}"  # First 100 chars of error
+            return "I encountered an issue. Please try again or type 'help' for assistance."
     
     def _identify_sender(self, whatsapp_number: str) -> Optional[Dict]:
         """Identify if sender is trainer or client"""
@@ -99,7 +95,7 @@ class RefiloeAssistant:
                 'type': 'trainer',
                 'id': trainer['id'],
                 'data': trainer,
-                'first_interaction': False  # Could check message history
+                'first_interaction': False
             }
         
         # Check if client
@@ -178,7 +174,6 @@ class RefiloeAssistant:
             'help': lambda: self._help_menu(trainer),
             'add_client': lambda: self._add_client_flow(trainer, extracted),
             'view_schedule': lambda: self._show_schedule(trainer),
-            'calendar': lambda: self._show_schedule(trainer),
             'view_clients': lambda: self._show_clients(trainer),
             'send_workout': lambda: self._send_workout_flow(trainer, extracted, message),
             'start_assessment': lambda: self._start_assessment_flow(trainer, extracted),
@@ -208,17 +203,18 @@ class RefiloeAssistant:
         client = context['data']
         trainer = client.get('trainers', {})
         
+        # Map intents to handlers
         handlers = {
             'greeting': lambda: self._greeting_response(client, False),
             'help': lambda: self._help_menu_client(client, trainer),
-            'book_session': lambda: self._book_session_flow(client, trainer, extracted),
+            'book_session': lambda: self._book_session_flow(client, extracted),
             'view_schedule': lambda: self._show_client_schedule(client),
             'cancel_session': lambda: self._cancel_session_flow(client, extracted),
             'reschedule_session': lambda: self._reschedule_flow(client, extracted),
-            'view_assessment': lambda: self._show_assessment(client, trainer),
-            'check_progress': lambda: self._show_progress(client, trainer),
+            'view_assessment': lambda: self._show_assessment_results(client),
+            'check_progress': lambda: self._show_progress(client),
             'request_workout': lambda: self._request_workout(client, trainer),
-            'payment_query': lambda: self._handle_payment_query(client)
+            'payment_query': lambda: self._payment_info(client)
         }
         
         handler = handlers.get(intent)
@@ -232,70 +228,96 @@ class RefiloeAssistant:
                 client
             )
     
-    # Specific handler implementations
-    def _greeting_response(self, user: Dict, is_trainer: bool) -> str:
-        """Generate personalized greeting"""
-        name = user.get('name', 'there')
+    def _get_clarification(self, sender_context: Dict, intent_data: Dict) -> str:
+        """Ask for clarification when intent is unclear"""
         
-        if is_trainer:
-            greetings = [
-                f"Hey {name}! Ready to build your fitness empire? 💪",
-                f"Hi {name}! Let's make today productive! What's on the agenda? 🎯",
-                f"Hello {name}! Your AI assistant reporting for duty! 🚀"
-            ]
+        name = sender_context['data'].get('name', 'there')
+        
+        if sender_context['type'] == 'trainer':
+            return f"""I didn't quite understand that, {name}.
+
+You can try:
+• "Add client John Smith 0821234567"
+• "Show my schedule"
+• "Send workout for Sarah"
+• "View dashboard"
+• "Start assessment for Mike"
+
+What would you like to do? 😊"""
         else:
-            greetings = [
-                f"Hi {name}! Ready to crush your fitness goals? 💪",
-                f"Hey {name}! How's the training going? 😊",
-                f"Hello {name}! Let's keep that momentum going! 🏃‍♂️"
-            ]
-        
-        import random
-        return random.choice(greetings)
+            return f"""I didn't quite catch that, {name}.
+            
+You can:
+• "Book session for Tuesday 2pm"
+• "Show my upcoming sessions"
+• "Cancel my next session"
+• "View my fitness results"
+
+What would you like help with? 💪"""
+    
+    # Helper methods for trainer intents
+    def _greeting_response(self, user_data: Dict, is_trainer: bool) -> str:
+        """Generate greeting response"""
+        name = user_data.get('name', 'there')
+        if is_trainer:
+            return f"Hey {name}! 👋 Ready to manage your fitness empire? What can I help with today?"
+        else:
+            return f"Hi {name}! 💪 How's your fitness journey going? What can I help you with?"
+    
+    def _help_menu(self, trainer: Dict) -> str:
+        """Show help menu for trainers"""
+        name = trainer.get('name', 'there')
+        return f"""Here's what I can do for you, {name}:
+
+📱 **Client Management**
+• Add new clients
+• View all clients
+• Check client balances
+
+📅 **Scheduling**
+• View your schedule
+• See today's sessions
+• Check weekly calendar
+
+💪 **Workouts & Assessments**
+• Send workouts to clients
+• Start fitness assessments
+• Track client progress
+
+📊 **Business**
+• View dashboard
+• Check revenue
+• Send reminders
+
+Just tell me what you need! 🚀"""
     
     def _add_client_flow(self, trainer: Dict, extracted: Dict) -> str:
         """Handle adding a new client"""
         
-        # Check if we have all required info
         name = extracted.get('client_name')
         phone = extracted.get('phone_number')
         email = extracted.get('email')
         
         if name and phone:
-            # Validate phone number (SA format)
-            import re
-            phone_clean = re.sub(r'\D', '', phone)
-            if len(phone_clean) == 9:
-                phone_clean = '0' + phone_clean
-            elif len(phone_clean) == 11 and phone_clean.startswith('27'):
-                phone_clean = '0' + phone_clean[2:]
-            
-            if len(phone_clean) != 10 or not phone_clean.startswith('0'):
-                return f"⚠️ Please provide a valid SA phone number (10 digits starting with 0)"
-            
-            # Check if client already exists
-            existing = self.client_model.get_by_whatsapp(phone_clean)
-            if existing:
-                return f"This number is already registered to {existing['name']}! 📱"
-            
             # Add the client
-            result = self.client_model.create({
-                'trainer_id': trainer['id'],
-                'name': name,
-                'whatsapp': phone_clean,
-                'email': email,
-                'sessions_remaining': 0,
-                'status': 'active'
-            })
+            result = self.client_model.add_client(
+                trainer['id'],
+                {
+                    'name': name,
+                    'phone': phone,
+                    'email': email,
+                    'package': 'single'
+                }
+            )
             
             if result['success']:
-                return f"""✅ Successfully added {name}!
+                return f"""✅ Successfully added {name} as your client!
 
-📱 WhatsApp: {phone_clean}
+📱 WhatsApp: {phone}
 📧 Email: {email or 'Not provided'}
-💳 Sessions: 0 (add package when ready)
+💰 Sessions: Starting with 1 session
 
-I'll send them a welcome message now! They can:
+They can now:
 - Book sessions
 - Check their schedule
 - View assessments
@@ -371,71 +393,38 @@ Want to see your dashboard? Just ask! 📊"""
             return response
             
         except Exception as e:
-            log_error(f"Error showing schedule: {str(e)}", exc_info=True)
-            # More helpful error message
-            return f"""📅 I'm having trouble loading your schedule right now.
-            
-        This might be because:
-        - There's a connection issue with the database
-        - Your calendar settings need updating
-            
-        Try asking: "Show my schedule" or "What sessions do I have this week?"
+            log_error(f"Error showing schedule: {str(e)}")
+            return "Let me check your schedule... Please try again."
     
-If this keeps happening, please contact support. 🤝"""
-    
-    def _send_workout_flow(self, trainer: Dict, extracted: Dict, message: str) -> str:
-        """Handle workout sending with AI understanding"""
-        
-        client_name = extracted.get('client_name')
-        exercises = extracted.get('exercises', [])
-        
-        # If we have exercises in the message, parse them
-        if not exercises and self.workout_service:
-            exercises = self.workout_service.parse_workout_text(message)
-        
-        if exercises and client_name:
-            # Find the client
+    def _show_clients(self, trainer: Dict) -> str:
+        """Show trainer's client list"""
+        try:
             clients = self.client_model.get_trainer_clients(trainer['id'])
-            target_client = None
+            
+            if not clients:
+                return """You don't have any clients yet! 
+
+Ready to grow your business? 
+Just say: "Add client [name] [phone]"
+
+Example: "Add Sarah Jones 0821234567" 🚀"""
+            
+            response = f"📱 Your clients ({len(clients)} total):\n\n"
             
             for client in clients:
-                if client_name.lower() in client['name'].lower():
-                    target_client = client
-                    break
-            
-            if target_client:
-                # Format and preview workout
-                workout_formatted = self.workout_service.format_workout_for_whatsapp(
-                    exercises, trainer['name']
-                )
+                sessions = client.get('sessions_remaining', 0)
+                last_session = client.get('last_session_display', 'Never')
                 
-                return f"""📋 Workout for {target_client['name']}:
-
-{workout_formatted}
-
-Ready to send? Reply YES to confirm! ✅"""
-            else:
-                return f"I couldn't find a client named '{client_name}'. Check your client list?"
-        
-        elif exercises and not client_name:
-            # Have workout but no client
-            return """I see the workout! Who should I send it to? 
-
-Just tell me the client's name."""
-        
-        else:
-            # Need both workout and client
-            return """I'll help you send a workout! Please provide:
-
-1. The client's name
-2. The workout details
-
-Example: "Send this workout to Sarah:
-Squats 3x12
-Push-ups 3x10
-Plank 3x45 seconds"
-
-I'll format it perfectly! 💪"""
+                response += f"**{client['name']}**\n"
+                response += f"📞 {client['whatsapp']}\n"
+                response += f"💰 Sessions: {sessions}\n"
+                response += f"📅 Last session: {last_session}\n\n"
+            
+            return response + "Need to update any client info? Just let me know!"
+            
+        except Exception as e:
+            log_error(f"Error showing clients: {str(e)}")
+            return "Let me get your client list... Please try again."
     
     def _generate_dashboard_link(self, trainer: Dict) -> str:
         """Generate dashboard link for trainer"""
@@ -474,12 +463,16 @@ Tap to view! 💪"""
                         intent_data: Dict, message_id: str):
         """Log the interaction to database"""
         try:
+            # Get WhatsApp number from the data
+            whatsapp_from = sender_context['data'].get('whatsapp')
+            
             log_entry = {
                 'message_text': message_text[:500],  # Truncate long messages
                 'message_type': 'text',
                 'direction': 'incoming',
                 'ai_intent': intent_data.get('primary_intent'),
-                'whatsapp_from': sender_context.get('whatsapp'),
+                'whatsapp_from': whatsapp_from,
+                'whatsapp_to': 'system',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
             
@@ -519,21 +512,85 @@ I don't recognize your number yet. Are you:
 • A trainer? Contact support to get registered
 • A client? Ask your trainer to add you
 
-Once you're in the system, I can help with scheduling, workouts, and more! 💪"""
+Once you're in the system, I can help with scheduling, workouts, and more! 🚀"""
     
-    def _get_clarification(self, sender_context: Dict, intent_data: Dict) -> str:
-        """Ask for clarification when intent is unclear"""
-        
-        name = sender_context['data'].get('name', 'there')
-        guessed_intent = intent_data.get('primary_intent', 'unknown')
-        
-        # Contextual clarification based on what we think they might want
-        clarifications = {
-            'booking': f"It seems like you want to book something, {name}. Could you be more specific? Example: 'Book Tuesday at 2pm'",
-            'workout': f"Are you looking for a workout, {name}? Tell me who it's for and what exercises you want.",
-            'schedule': f"Want to see your schedule, {name}? Just say 'show my schedule' or 'what's on today'",
-            'assessment': f"Looking to do an assessment, {name}? Tell me which client: 'Start assessment for [name]'",
-            'unknown': f"I didn't quite understand that, {name}. Could you rephrase or type 'help' to see what I can do?"
-        }
-        
-        return clarifications.get(guessed_intent, clarifications['unknown'])
+    # Additional handler methods would go here...
+    def _send_workout_flow(self, trainer: Dict, extracted: Dict, message: str) -> str:
+        """Handle sending workout to client"""
+        # Implementation here
+        return "Workout feature coming soon!"
+    
+    def _start_assessment_flow(self, trainer: Dict, extracted: Dict) -> str:
+        """Handle starting assessment"""
+        # Implementation here
+        return "Assessment feature coming soon!"
+    
+    def _show_revenue(self, trainer: Dict) -> str:
+        """Show revenue information"""
+        # Implementation here
+        return "Revenue tracking coming soon!"
+    
+    def _send_reminders(self, trainer: Dict, extracted: Dict) -> str:
+        """Send reminders to clients"""
+        # Implementation here
+        return "Reminder feature coming soon!"
+    
+    def _update_availability(self, trainer: Dict, extracted: Dict) -> str:
+        """Update trainer availability"""
+        # Implementation here
+        return "Availability update coming soon!"
+    
+    # Client-specific handlers
+    def _help_menu_client(self, client: Dict, trainer: Dict) -> str:
+        """Show help menu for clients"""
+        trainer_name = trainer.get('name', 'your trainer')
+        return f"""I can help you with:
+
+📅 Book training sessions
+👀 View your schedule
+✏️ Reschedule or cancel
+📊 Check your fitness assessment
+💪 Get workouts from {trainer_name}
+📈 Track your progress
+
+What would you like to do? 😊"""
+    
+    def _book_session_flow(self, client: Dict, extracted: Dict) -> str:
+        """Handle session booking for client"""
+        # Implementation here
+        return "Booking feature coming soon!"
+    
+    def _show_client_schedule(self, client: Dict) -> str:
+        """Show client's schedule"""
+        # Implementation here
+        return "Your schedule will be shown here!"
+    
+    def _cancel_session_flow(self, client: Dict, extracted: Dict) -> str:
+        """Handle session cancellation"""
+        # Implementation here
+        return "Cancellation feature coming soon!"
+    
+    def _reschedule_flow(self, client: Dict, extracted: Dict) -> str:
+        """Handle session rescheduling"""
+        # Implementation here
+        return "Rescheduling feature coming soon!"
+    
+    def _show_assessment_results(self, client: Dict) -> str:
+        """Show assessment results"""
+        # Implementation here
+        return "Assessment results coming soon!"
+    
+    def _show_progress(self, client: Dict) -> str:
+        """Show client progress"""
+        # Implementation here
+        return "Progress tracking coming soon!"
+    
+    def _request_workout(self, client: Dict, trainer: Dict) -> str:
+        """Request workout from trainer"""
+        # Implementation here
+        return "Workout request feature coming soon!"
+    
+    def _payment_info(self, client: Dict) -> str:
+        """Show payment information"""
+        # Implementation here
+        return "Payment info coming soon!"
