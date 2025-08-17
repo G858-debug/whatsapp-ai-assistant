@@ -154,6 +154,10 @@ def handle_message():
                         if value.get('statuses'):
                             log_info(f"Status update received: {value['statuses']}")
                             continue
+
+                        # Debug: Log everything in value
+                        log_info(f"Value keys: {list(value.keys())}")
+                        log_info(f"Full value content: {json.dumps(value, indent=2)}")
                         
                         # Handle messages
                         if value.get('messages'):
