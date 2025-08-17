@@ -1,2 +1,9 @@
+# nixpacks.toml
 [phases.setup]
 aptPkgs = ["ffmpeg"]
+
+[phases.build]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python app.py"
