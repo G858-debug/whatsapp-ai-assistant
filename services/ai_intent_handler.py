@@ -7,7 +7,7 @@ This replaces keyword matching with intelligent intent understanding
 import json
 import anthropic
 from typing import Dict, Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from utils.logger import log_info, log_error, log_warning
 
