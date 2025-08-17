@@ -82,8 +82,12 @@ class RefiloeAssistant:
             return response
             
         except Exception as e:
-            log_error(f"Error processing message: {str(e)}")
-            return "I encountered an issue. Please try again or type 'help' for assistance."
+            log_error(f"Error processing message: {str(e)}", exc_info=True)
+            log_error(f"Error type: {type(e).__name__}")
+            log_error(f"WhatsApp: {whatsapp_number}, Message: {message_text[:50]}")
+            
+            # Return more detailed error for debugging (temporarily)
+            return f"Error: {str(e)[:100]}"  # First 100 chars of error
     
     def _identify_sender(self, whatsapp_number: str) -> Optional[Dict]:
         """Identify if sender is trainer or client"""
