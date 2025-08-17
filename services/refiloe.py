@@ -366,8 +366,17 @@ Want to see your dashboard? Just ask! 📊"""
             return response
             
         except Exception as e:
-            log_error(f"Error showing schedule: {str(e)}")
-            return "Let me check your schedule... Please try again."
+            log_error(f"Error showing schedule: {str(e)}", exc_info=True)
+            # More helpful error message
+            return f"""📅 I'm having trouble loading your schedule right now.
+            
+        This might be because:
+        - There's a connection issue with the database
+        - Your calendar settings need updating
+            
+        Try asking: "Show my schedule" or "What sessions do I have this week?"
+    
+If this keeps happening, please contact support. 🤝"""
     
     def _send_workout_flow(self, trainer: Dict, extracted: Dict, message: str) -> str:
         """Handle workout sending with AI understanding"""
