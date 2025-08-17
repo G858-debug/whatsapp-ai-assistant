@@ -277,7 +277,7 @@ def handle_message():
                                         
                                         try:
                                             log_info(f"Processing with Refiloe: {message_text[:50]}...")
-                                            response = refiloe.process_message(phone_number, message_text)
+                                            response = refiloe.process_message(phone_number, message_text, message_id)
                                             
                                             if response:
                                                 log_info(f"Sending response: {response[:50]}...")
