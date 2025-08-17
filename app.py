@@ -732,6 +732,77 @@ def test_direct():
             "error": str(e)
         })
 
+# Add test endpoints HERE - BEFORE if __name__ == '__main__':
+@app.route('/test-send', methods=['GET'])
+def test_send():
+    """Test sending a message"""
+    try:
+        if whatsapp_service:
+            result = whatsapp_service.send_message(
+                "27731863036",  # Your number
+                "Test from Refiloe! If you see this, sending works! 🎉"
+            )
+            return jsonify(result)
+        return jsonify({"error": "WhatsApp service not initialized"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/test-message', methods=['GET', 'POST'])
+def test_message():
+    """Test message processing directly"""
+    try:
+        # Simulate incoming WhatsApp message
+        test_data = {
+            "object": "whatsapp_business_account",
+            "entry": [{
+                "id": "1087673310001777",
+                "changes": [{
+                    "value": {
+                        "messaging_product": "whatsapp",
+                        "metadata": {
+                            "display_phone_number": "27730564882",
+                            "phone_number_id": "671257819413918"
+                        },
+                        "messages": [{
+                            "from": "27731863036",
+                            "id": "test_msg_" + str(datetime.now().timestamp()),
+                            "timestamp": str(int(datetime.now().timestamp())),
+                            "text": {
+                                "body": request.args.get('message', 'Hi Refiloe')
+                            },
+                            "type": "text"
+                        }]
+                    },
+                    "field": "messages"
+                }]
+            }]
+        }
+        
+        # Process through webhook handler
+        with app.test_request_context(
+            '/webhook',
+            method='POST',
+            json=test_data,
+            headers={'Content-Type': 'application/json'}
+        ):
+            from flask import request as flask_request
+            response = handle_message()
+            
+        return jsonify({
+            'success': True,
+            'message': 'Check WhatsApp for response',
+            'webhook_response': str(response)
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        })
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
