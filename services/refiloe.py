@@ -93,7 +93,7 @@ class RefiloeAssistant:
         """Identify if sender is trainer or client"""
         
         # Check if trainer
-        trainer = self.trainer_model.get_by_whatsapp(whatsapp_number)
+        trainer = self.trainer_model.get_by_phone(whatsapp_number)
         if trainer:
             return {
                 'type': 'trainer',
@@ -103,7 +103,7 @@ class RefiloeAssistant:
             }
         
         # Check if client
-        client = self.client_model.get_by_whatsapp(whatsapp_number)
+        client = self.client_model.get_by_phone(whatsapp_number)
         if client:
             return {
                 'type': 'client',
