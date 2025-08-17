@@ -127,7 +127,7 @@ def verify_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def handle_message():
-    """Handle incoming WhatsApp messages"""
+    """Handle incoming WhatsApp messages with enhanced logging"""
     try:
         data = request.get_json()
         
@@ -139,145 +139,182 @@ def handle_message():
         # Log incoming webhook data
         log_info(f"Webhook received: {json.dumps(data, indent=2)}")
         
-        # Process messages
-        if (data.get('entry') and 
-            data['entry'][0].get('changes') and 
-            data['entry'][0]['changes'][0].get('value', {}).get('messages')):
-            
-            messages = data['entry'][0]['changes'][0]['value']['messages']
-            
-            for message in messages:
-                try:  # Individual message error handling
-                    phone_number = message['from']
-                    message_id = message['id']
-                    
-                    # Check for duplicate messages
-                    if whatsapp_service and whatsapp_service.is_duplicate_message(message_id):
-                        log_info(f"Duplicate message {message_id} ignored")
-                        continue
-                    
-                    message_text = None
-                    should_reply_with_voice = False
-                    
-                    # Handle voice notes (only if voice processor is available)
-                    if 'audio' in message and voice_processor:
-                        try:
-                            result = voice_processor.handle_voice_note_with_fallback(
-                                message, 
-                                phone_number
-                            )
+        # Check what type of webhook this is
+        if data.get('entry'):
+            for entry in data['entry']:
+                if entry.get('changes'):
+                    for change in entry['changes']:
+                        # Log the field type
+                        field = change.get('field')
+                        log_info(f"Webhook field type: {field}")
+                        
+                        value = change.get('value', {})
+                        
+                        # Handle status updates
+                        if value.get('statuses'):
+                            log_info(f"Status update received: {value['statuses']}")
+                            continue
+                        
+                        # Handle messages
+                        if value.get('messages'):
+                            messages = value['messages']
+                            log_info(f"Processing {len(messages)} message(s)")
                             
-                            if result['success']:
-                                message_text = result['text']
-                                should_reply_with_voice = result.get('should_reply_with_voice', False)
-                            else:
-                                # Error already handled and user notified
-                                continue
-                        except Exception as e:
-                            log_error(f"Voice processing error: {str(e)}")
-                            if whatsapp_service:
-                                whatsapp_service.send_message(
-                                    phone_number,
-                                    "🎤 I'm having trouble with voice notes right now. Please type your message instead."
-                                )
-                            continue
-                    
-                    # Handle text messages
-                    elif 'text' in message:
-                        message_text = message['text']['body']
-                        log_info(f"Text message from {phone_number}: {message_text}")
-                    
-                    # Handle voice notes when voice processor not available
-                    elif 'audio' in message and not voice_processor:
-                        log_info(f"Voice note received but processor not available")
-                        if whatsapp_service:
-                            whatsapp_service.send_message(
-                                phone_number,
-                                "🎤 Voice notes are temporarily unavailable. Please send a text message instead."
-                            )
-                        continue
-                    
-                    # Handle unsupported message types
-                    else:
-                        message_type = 'unknown'
-                        if 'image' in message:
-                            message_type = 'image'
-                        elif 'video' in message:
-                            message_type = 'video'
-                        elif 'document' in message:
-                            message_type = 'document'
-                        elif 'sticker' in message:
-                            message_type = 'sticker'
-                        
-                        log_info(f"{message_type} message from {phone_number} - not supported")
-                        
-                        if message_type != 'unknown' and whatsapp_service:
-                            whatsapp_service.send_message(
-                                phone_number,
-                                f"I received your {message_type}, but I can only process text messages at the moment. Please send me a text message instead! 😊"
-                            )
-                        continue
-                    
-                    # Process with Refiloe
-                    if message_text:
-                        # Check if services are initialized
-                        if not refiloe:
-                            log_error("Refiloe service not initialized")
-                            if whatsapp_service:
-                                whatsapp_service.send_message(
-                                    phone_number,
-                                    "I'm starting up! Please try again in a few seconds. 🚀"
-                                )
-                            continue
-                        
-                        if not whatsapp_service:
-                            log_error("WhatsApp service not initialized - cannot send response")
-                            continue
-                        
-                        try:
-                            # Process the message
-                            log_info(f"Processing message with Refiloe for {phone_number}")
-                            response = refiloe.process_message(phone_number, message_text)
-                            
-                            if response:
-                                log_info(f"Refiloe response generated: {response[:100]}...")
-                                
-                                # Send response with appropriate format
-                                if should_reply_with_voice and voice_processor:
-                                    try:
-                                        voice_buffer = voice_processor.text_to_speech(response)
-                                        voice_processor.send_voice_note(phone_number, voice_buffer)
-                                        log_info(f"Sent voice response to {phone_number}")
-                                    except Exception as voice_error:
-                                        log_error(f"Failed to send voice response: {str(voice_error)}")
-                                        # Fallback to text
-                                        whatsapp_service.send_message(phone_number, response)
-                                else:
-                                    # Send as text message
-                                    send_result = whatsapp_service.send_message(phone_number, response)
-                                    if send_result.get('success'):
-                                        log_info(f"Message sent successfully to {phone_number}")
+                            for message in messages:
+                                try:
+                                    phone_number = message['from']
+                                    message_id = message['id']
+                                    message_type = message.get('type', 'unknown')
+                                    
+                                    # ENHANCED LOGGING
+                                    log_info(f"Message from {phone_number}")
+                                    log_info(f"Message type: {message_type}")
+                                    log_info(f"Message keys: {list(message.keys())}")
+                                    
+                                    # Check for duplicate messages
+                                    if whatsapp_service and whatsapp_service.is_duplicate_message(message_id):
+                                        log_info(f"Duplicate message {message_id} ignored")
+                                        continue
+                                    
+                                    message_text = None
+                                    should_reply_with_voice = False
+                                    
+                                    # Handle different message types
+                                    if message_type == 'audio' or 'audio' in message:
+                                        log_info(f"AUDIO MESSAGE RECEIVED!")
+                                        log_info(f"Audio data: {message.get('audio', {})}")
+                                        
+                                        if voice_processor:
+                                            try:
+                                                audio_data = message.get('audio', {})
+                                                audio_id = audio_data.get('id')
+                                                
+                                                if not audio_id:
+                                                    log_error("No audio ID in message")
+                                                    if whatsapp_service:
+                                                        whatsapp_service.send_message(
+                                                            phone_number,
+                                                            "🎤 Received your voice note but couldn't process it. Please try again."
+                                                        )
+                                                    continue
+                                                
+                                                log_info(f"Attempting to download audio with ID: {audio_id}")
+                                                
+                                                # Download and transcribe
+                                                audio_buffer = voice_processor.download_whatsapp_media(audio_id)
+                                                log_info(f"Downloaded audio: {len(audio_buffer)} bytes")
+                                                
+                                                message_text = voice_processor.transcribe_audio(audio_buffer)
+                                                log_info(f"Transcribed text: {message_text}")
+                                                
+                                                should_reply_with_voice = True
+                                                
+                                            except Exception as e:
+                                                log_error(f"Voice processing error: {str(e)}")
+                                                log_error(f"Error type: {type(e).__name__}")
+                                                log_error(f"Full error details: {e}", exc_info=True)
+                                                
+                                                if whatsapp_service:
+                                                    whatsapp_service.send_message(
+                                                        phone_number,
+                                                        f"🎤 I had trouble processing your voice note. Error: {str(e)[:100]}... Please try typing instead."
+                                                    )
+                                                continue
+                                        else:
+                                            log_error("Voice processor not available")
+                                            if whatsapp_service:
+                                                whatsapp_service.send_message(
+                                                    phone_number,
+                                                    "🎤 Voice notes are temporarily unavailable. Please type your message instead."
+                                                )
+                                            continue
+                                    
+                                    elif message_type == 'text' or 'text' in message:
+                                        message_text = message.get('text', {}).get('body', '')
+                                        log_info(f"Text message: {message_text}")
+                                    
+                                    elif message_type == 'image' or 'image' in message:
+                                        log_info(f"Image message received")
+                                        if whatsapp_service:
+                                            whatsapp_service.send_message(
+                                                phone_number,
+                                                "📷 I see you sent an image! I can't process images yet, but I can help with text or voice messages."
+                                            )
+                                        continue
+                                    
                                     else:
-                                        log_error(f"Failed to send message: {send_result.get('error')}")
-                            else:
-                                log_warning(f"No response generated for message from {phone_number}")
-                                
-                        except Exception as process_error:
-                            log_error(f"Error processing message with Refiloe: {str(process_error)}")
-                            whatsapp_service.send_message(
-                                phone_number,
-                                "I'm having a moment! 🤯 Let me collect myself... Please try again in a few seconds."
-                            )
-                    
-                except Exception as message_error:
-                    log_error(f"Error processing individual message: {str(message_error)}")
-                    continue  # Skip to next message
+                                        log_info(f"Unsupported message type: {message_type}")
+                                        log_info(f"Full message data: {json.dumps(message, indent=2)}")
+                                        if whatsapp_service:
+                                            whatsapp_service.send_message(
+                                                phone_number,
+                                                f"I received your {message_type} message, but I can only process text and voice messages. Please try those instead!"
+                                            )
+                                        continue
+                                    
+                                    # Process with Refiloe if we have text
+                                    if message_text:
+                                        if not refiloe:
+                                            log_error("Refiloe service not initialized")
+                                            if whatsapp_service:
+                                                whatsapp_service.send_message(
+                                                    phone_number,
+                                                    "I'm starting up! Please try again in a few seconds. 🚀"
+                                                )
+                                            continue
+                                        
+                                        if not whatsapp_service:
+                                            log_error("WhatsApp service not initialized")
+                                            continue
+                                        
+                                        try:
+                                            log_info(f"Processing with Refiloe: {message_text[:50]}...")
+                                            response = refiloe.process_message(phone_number, message_text)
+                                            
+                                            if response:
+                                                log_info(f"Sending response: {response[:50]}...")
+                                                
+                                                if should_reply_with_voice and voice_processor:
+                                                    try:
+                                                        log_info("Converting response to voice...")
+                                                        voice_buffer = voice_processor.text_to_speech(response)
+                                                        log_info(f"Voice buffer size: {len(voice_buffer)} bytes")
+                                                        
+                                                        result = voice_processor.send_voice_note(phone_number, voice_buffer)
+                                                        log_info(f"Voice send result: {result}")
+                                                        
+                                                    except Exception as voice_error:
+                                                        log_error(f"Failed to send voice: {str(voice_error)}")
+                                                        whatsapp_service.send_message(phone_number, response)
+                                                else:
+                                                    send_result = whatsapp_service.send_message(phone_number, response)
+                                                    log_info(f"Text send result: {send_result}")
+                                            else:
+                                                log_warning(f"No response from Refiloe")
+                                                
+                                        except Exception as process_error:
+                                            log_error(f"Refiloe processing error: {str(process_error)}")
+                                            whatsapp_service.send_message(
+                                                phone_number,
+                                                "I had a hiccup! 🤯 Please try again."
+                                            )
+                                    
+                                except Exception as message_error:
+                                    log_error(f"Error processing message: {str(message_error)}", exc_info=True)
+                                    continue
+                        
+                        # Handle other value types
+                        elif value.get('contacts'):
+                            log_info(f"Contact update received")
+                        elif value.get('errors'):
+                            log_error(f"WhatsApp error: {value['errors']}")
+                        else:
+                            log_info(f"Unknown value type: {list(value.keys())}")
         
         return jsonify({'status': 'success'}), 200
         
     except Exception as e:
-        log_error(f"Critical error in webhook: {str(e)}", exc_info=True)
-        # Don't expose internal errors to WhatsApp
+        log_error(f"Critical webhook error: {str(e)}", exc_info=True)
         return jsonify({'status': 'error'}), 500
 
 @app.route('/health')
