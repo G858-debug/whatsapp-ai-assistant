@@ -15,6 +15,10 @@ from models import init_supabase
 # Import dashboard
 from routes.dashboard import dashboard_bp, DashboardService
 
+# Debug test
+from debug_test import debug_bp
+app.register_blueprint(debug_bp)
+
 # Initialize Flask app
 app = Flask(__name__)
 config = Config()
