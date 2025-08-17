@@ -22,7 +22,8 @@ class AIIntentHandler:
         # Initialize Claude
         if config.ANTHROPIC_API_KEY:
             self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            self.model = "claude-3-5-sonnet-20241022"  # Use Sonnet for better performance
+            self.model = "claude-3-5-sonnet-20241022"
+            log_info("AI Intent Handler initialized with Claude")
         else:
             self.client = None
             log_warning("No Anthropic API key - falling back to keyword matching")
@@ -38,6 +39,7 @@ class AIIntentHandler:
         """
         
         if not self.client:
+            log_info(f"Using fallback intent detection for: {message[:50]}")
             return self._fallback_intent_detection(message, sender_type)
         
         try:
@@ -59,7 +61,7 @@ class AIIntentHandler:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=500,
-                temperature=0.3,  # Lower temp for consistency
+                temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -75,14 +77,35 @@ class AIIntentHandler:
             return validated_intent
             
         except Exception as e:
-            log_error(f"AI intent understanding failed: {str(e)}")
+            log_error(f"AI intent understanding failed: {str(e)}", exc_info=True)
             return self._fallback_intent_detection(message, sender_type)
+    
+    def _build_trainer_context(self, trainer_data: Dict) -> Dict:
+        """Build context for trainer"""
+        return {
+            'name': trainer_data.get('name', 'Trainer'),
+            'id': trainer_data.get('id'),
+            'whatsapp': trainer_data.get('whatsapp'),
+            'business_name': trainer_data.get('business_name'),
+            'active_clients': trainer_data.get('active_clients', 0)
+        }
+    
+    def _build_client_context(self, client_data: Dict) -> Dict:
+        """Build context for client"""
+        return {
+            'name': client_data.get('name', 'Client'),
+            'id': client_data.get('id'),
+            'whatsapp': client_data.get('whatsapp'),
+            'trainer_name': client_data.get('trainer_name', 'your trainer'),
+            'sessions_remaining': client_data.get('sessions_remaining', 0)
+        }
     
     def _create_intent_prompt(self, message: str, sender_type: str, 
                              context: Dict, history: List[str]) -> str:
         """Create a comprehensive prompt for Claude"""
         
-        prompt = f"""You are analyzing a WhatsApp message to Refiloe, an AI assistant for personal trainers.
+        prompt = f"""You are analyzing a WhatsApp message to Refiloe, a friendly AI assistant for personal trainers. 
+Refiloe should be conversational and human-like, not always task-focused.
 
 SENDER: {sender_type} ({context.get('name', 'Unknown')})
 
@@ -94,11 +117,14 @@ RECENT CONVERSATION:
 
 CURRENT MESSAGE: "{message}"
 
-TASK: Understand what the {sender_type} wants and extract all relevant information.
+TASK: Understand what the {sender_type} wants. Remember:
+- Sometimes people just want to chat or check in
+- Not every message needs a task response
+- Be conversational and natural
 
 Analyze and return ONLY valid JSON with this structure:
 {{
-    "primary_intent": "string - main action needed",
+    "primary_intent": "string - main action or conversation type",
     "secondary_intents": ["list of other detected intents"],
     "confidence": 0.0-1.0,
     "extracted_data": {{
@@ -110,10 +136,11 @@ Analyze and return ONLY valid JSON with this structure:
         "phone_number": "if mentioned",
         "email": "if mentioned"
     }},
-    "sentiment": "positive/neutral/negative/urgent",
+    "sentiment": "positive/neutral/negative/urgent/casual/friendly",
     "requires_confirmation": true/false,
-    "suggested_response_type": "string - type of response needed",
-    "is_follow_up": true/false
+    "suggested_response_type": "task/conversational/mixed",
+    "is_follow_up": true/false,
+    "conversation_tone": "casual/business/friendly/concerned"
 }}
 
 POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
@@ -121,6 +148,12 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
         
         if sender_type == 'trainer':
             prompt += """
+- casual_chat: Just checking in, casual conversation
+- greeting: Just saying hello (no task needed)
+- status_check: Asking if Refiloe is there/working
+- thanks: Expressing gratitude
+- farewell: Saying goodbye
+- small_talk: Weather, how are you, etc.
 - add_client: Adding a new client
 - view_schedule: Checking their schedule/bookings
 - send_workout: Sending a workout to a client
@@ -131,11 +164,16 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - update_availability: Changing available times
 - view_clients: Listing all clients
 - general_question: General query
-- greeting: Just saying hello
 - help: Asking for help/commands
 """
         else:  # client
             prompt += """
+- casual_chat: Just checking in, casual conversation
+- greeting: Just saying hello (no task needed)
+- status_check: Asking if Refiloe is there/working
+- thanks: Expressing gratitude
+- farewell: Saying goodbye
+- small_talk: Weather, how are you, etc.
 - book_session: Booking a training session
 - view_schedule: Checking their upcoming sessions
 - cancel_session: Cancelling a booking
@@ -145,7 +183,6 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - request_workout: Asking for a workout plan
 - payment_query: Question about payment
 - general_question: General query
-- greeting: Just saying hello
 - help: Asking for help
 """
         
@@ -153,66 +190,15 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 Be precise and extract ALL mentioned information. 
 Consider South African context (ZA phone numbers, Rand currency, local slang).
 The message might be informal or use WhatsApp shorthand.
+Recognize casual conversation - not everything needs a task response.
 """
         
         return prompt
     
-    def _build_trainer_context(self, trainer: Dict) -> Dict:
-        """Build context about the trainer"""
-        try:
-            # Get trainer's clients
-            clients = self.db.table('clients').select('name, sessions_remaining')\
-                .eq('trainer_id', trainer['id']).execute()
-            
-            # Get today's schedule
-            today = datetime.now(self.sa_tz).date()
-            bookings = self.db.table('bookings').select('session_datetime, clients(name)')\
-                .eq('trainer_id', trainer['id'])\
-                .gte('session_datetime', today.isoformat())\
-                .lt('session_datetime', (today + timedelta(days=1)).isoformat())\
-                .execute()
-            
-            return {
-                'name': trainer.get('name'),
-                'id': trainer.get('id'),
-                'client_names': [c['name'] for c in clients.data] if clients.data else [],
-                'client_count': len(clients.data) if clients.data else 0,
-                'todays_sessions': len(bookings.data) if bookings.data else 0,
-                'settings': trainer.get('settings', {})
-            }
-        except Exception as e:
-            log_error(f"Error building trainer context: {str(e)}")
-            return {'name': trainer.get('name'), 'id': trainer.get('id')}
-    
-    def _build_client_context(self, client: Dict) -> Dict:
-        """Build context about the client"""
-        try:
-            trainer = client.get('trainers', {})
-            
-            # Get upcoming bookings
-            bookings = self.db.table('bookings').select('session_datetime')\
-                .eq('client_id', client['id'])\
-                .gte('session_datetime', datetime.now(self.sa_tz).isoformat())\
-                .order('session_datetime')\
-                .limit(3)\
-                .execute()
-            
-            return {
-                'name': client.get('name'),
-                'id': client.get('id'),
-                'trainer_name': trainer.get('name', 'your trainer'),
-                'sessions_remaining': client.get('sessions_remaining', 0),
-                'upcoming_sessions': len(bookings.data) if bookings.data else 0,
-                'next_session': bookings.data[0]['session_datetime'] if bookings.data else None
-            }
-        except Exception as e:
-            log_error(f"Error building client context: {str(e)}")
-            return {'name': client.get('name'), 'id': client.get('id')}
-    
     def _parse_ai_response(self, response_text: str) -> Dict:
-        """Parse Claude's response into structured data"""
+        """Parse the AI's JSON response"""
         try:
-            # Extract JSON from response
+            # Try to extract JSON from the response
             import re
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
@@ -228,7 +214,8 @@ The message might be informal or use WhatsApp shorthand.
                 'primary_intent': 'unclear',
                 'confidence': 0.3,
                 'extracted_data': {},
-                'sentiment': 'neutral'
+                'sentiment': 'neutral',
+                'suggested_response_type': 'conversational'
             }
     
     def _validate_intent(self, intent_data: Dict, sender_data: Dict, 
@@ -240,6 +227,8 @@ The message might be informal or use WhatsApp shorthand.
         intent_data.setdefault('confidence', 0.5)
         intent_data.setdefault('extracted_data', {})
         intent_data.setdefault('requires_confirmation', False)
+        intent_data.setdefault('suggested_response_type', 'conversational')
+        intent_data.setdefault('conversation_tone', 'friendly')
         
         # Validate client names against actual clients
         if sender_type == 'trainer' and intent_data['extracted_data'].get('client_name'):
@@ -332,219 +321,150 @@ The message might be informal or use WhatsApp shorthand.
         """Basic keyword-based intent detection when AI is unavailable"""
         message_lower = message.lower()
         
-        # Define keyword mappings
-        intent_keywords = {
-            'greeting': ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo'],
-            'help': ['help', 'commands', 'what can you do'],
-            'schedule': ['schedule', 'bookings', 'appointments', 'sessions', 'calendar', 'week', 'my week', 'weekly', 'upcoming'],
-            'add_client': ['add client', 'new client', 'register client'],
-            'workout': ['workout', 'exercise', 'training plan', 'program'],
-            'assessment': ['assessment', 'fitness test', 'evaluate', 'measure'],
-            'dashboard': ['dashboard', 'web view', 'portal'],
-            'book_session': ['book', 'appointment', 'session', 'training'],
-            'cancel': ['cancel', 'remove'],
-            'reschedule': ['reschedule', 'move', 'change time']
+        # Check for casual conversation first
+        casual_keywords = {
+            'status_check': ['are you there', 'you there', 'still there', 'are you working', 'you alive', 'you up'],
+            'greeting': ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo', 'morning', 'afternoon', 'evening'],
+            'thanks': ['thanks', 'thank you', 'appreciate', 'cheers', 'shot', 'dankie'],
+            'farewell': ['bye', 'goodbye', 'see you', 'later', 'cheers', 'chat soon'],
+            'casual_chat': ['how are you', 'what\'s up', 'wassup', 'how\'s it', 'you good'],
         }
         
-        # Check each intent
-        detected_intent = 'general_question'
-        confidence = 0.3
+        # Check casual intents first
+        for intent, keywords in casual_keywords.items():
+            for keyword in keywords:
+                if keyword in message_lower:
+                    return {
+                        'primary_intent': intent,
+                        'secondary_intents': [],
+                        'confidence': 0.8,
+                        'extracted_data': {},
+                        'sentiment': 'friendly',
+                        'requires_confirmation': False,
+                        'suggested_response_type': 'conversational',
+                        'conversation_tone': 'casual',
+                        'is_follow_up': False
+                    }
+        
+        # Then check task-based keywords
+        intent_keywords = {
+            'help': ['help', 'commands', 'what can you do', 'menu'],
+            'view_schedule': ['schedule', 'bookings', 'appointments', 'sessions', 'calendar', 'week', 'today'],
+            'add_client': ['add client', 'new client', 'register client'],
+            'view_clients': ['view clients', 'show clients', 'list clients', 'my clients'],
+            'view_dashboard': ['dashboard', 'stats', 'overview'],
+            'send_workout': ['workout', 'exercise', 'training program'],
+            'start_assessment': ['assessment', 'fitness test', 'evaluate'],
+            'check_revenue': ['revenue', 'earnings', 'income', 'payments'],
+            'book_session': ['book', 'booking', 'schedule session'],
+            'cancel_session': ['cancel', 'cancel booking'],
+            'general_question': ['what', 'when', 'where', 'why', 'how']
+        }
+        
+        # Detect primary intent
+        primary_intent = 'general_question'
+        highest_confidence = 0.3
+        response_type = 'task'
         
         for intent, keywords in intent_keywords.items():
-            if any(keyword in message_lower for keyword in keywords):
-                detected_intent = intent
-                confidence = 0.6
-                break
+            for keyword in keywords:
+                if keyword in message_lower:
+                    primary_intent = intent
+                    highest_confidence = 0.7
+                    break
+        
+        # Extract basic data
+        extracted_data = {}
+        
+        # Extract phone numbers (South African format)
+        import re
+        phone_pattern = r'(?:0|27)?[678]\d{8}'
+        phone_match = re.search(phone_pattern, message)
+        if phone_match:
+            extracted_data['phone_number'] = phone_match.group()
+        
+        # Extract times
+        time_pattern = r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|AM|PM)?\b'
+        time_match = re.search(time_pattern, message)
+        if time_match:
+            extracted_data['date_time'] = time_match.group()
+        
+        # Look for client names (basic)
+        if 'for' in message_lower:
+            parts = message_lower.split('for')
+            if len(parts) > 1:
+                potential_name = parts[1].strip().split()[0:2]
+                if potential_name:
+                    extracted_data['client_name'] = ' '.join(potential_name).title()
         
         return {
-            'primary_intent': detected_intent,
-            'confidence': confidence,
-            'extracted_data': {},
+            'primary_intent': primary_intent,
+            'secondary_intents': [],
+            'confidence': highest_confidence,
+            'extracted_data': extracted_data,
             'sentiment': 'neutral',
-            'requires_confirmation': False
+            'requires_confirmation': False,
+            'suggested_response_type': response_type,
+            'conversation_tone': 'friendly',
+            'is_follow_up': False
         }
     
     def generate_smart_response(self, intent_data: Dict, sender_type: str, 
                                sender_data: Dict) -> str:
-        """Generate an appropriate response based on intent"""
+        """Generate a contextual response when no specific handler exists"""
         
         intent = intent_data.get('primary_intent')
-        extracted = intent_data.get('extracted_data', {})
-        confidence = intent_data.get('confidence', 0)
+        name = sender_data.get('name', 'there')
+        tone = intent_data.get('conversation_tone', 'friendly')
+        response_type = intent_data.get('suggested_response_type', 'conversational')
         
-        # Low confidence - ask for clarification
-        if confidence < 0.5:
-            return self._get_clarification_response(sender_type, sender_data)
-        
-        # High confidence - execute the intent
-        response_methods = {
-            'greeting': self._respond_to_greeting,
-            'help': self._respond_with_help,
-            'add_client': self._respond_to_add_client,
-            'view_schedule': self._respond_with_schedule,
-            'send_workout': self._respond_to_workout_request,
-            'book_session': self._respond_to_booking,
-            'cancel_session': self._respond_to_cancellation,
-            'view_dashboard': self._respond_with_dashboard_link,
-            'start_assessment': self._respond_to_assessment
+        # Handle casual conversation intents
+        casual_responses = {
+            'status_check': [
+                f"Yes {name}, I'm here! 😊 Just chilling in the cloud, ready when you need me.",
+                f"I'm always here for you, {name}! 24/7, rain or shine ☀️",
+                f"Yep, still here {name}! Not going anywhere 😄",
+                f"Present and accounted for! What's on your mind, {name}?"
+            ],
+            'casual_chat': [
+                f"I'm doing great, {name}! Just here helping trainers and clients stay fit. How are things with you?",
+                f"All good on my end! How's your day going, {name}?",
+                f"Can't complain - living the AI dream! 😄 How are you doing?",
+                f"I'm well, thanks for asking! How's the fitness world treating you?"
+            ],
+            'thanks': [
+                f"You're welcome, {name}! Always happy to help 😊",
+                f"My pleasure! That's what I'm here for 💪",
+                f"Anytime, {name}! 🙌",
+                f"No worries at all! Glad I could help."
+            ],
+            'farewell': [
+                f"Chat soon, {name}! Have an awesome day! 👋",
+                f"Later, {name}! Stay strong! 💪",
+                f"Bye {name}! Catch you later 😊",
+                f"See you soon! Don't be a stranger!"
+            ]
         }
         
-        handler = response_methods.get(intent, self._respond_to_general)
-        return handler(sender_data, extracted, sender_type)
-    
-    def _get_clarification_response(self, sender_type: str, sender_data: Dict) -> str:
-        """Ask for clarification when intent is unclear"""
-        name = sender_data.get('name', 'there')
+        # Check if we have a casual response
+        import random
+        if intent in casual_responses:
+            return random.choice(casual_responses[intent])
         
-        if sender_type == 'trainer':
-            return f"""I'm not quite sure what you need, {name}. 
-            
-You can try:
-• "Add client John Smith 0821234567"
-• "Show my schedule"
-• "Send workout for Sarah"
-• "View dashboard"
-• "Start assessment for Mike"
-
-What would you like to do? 😊"""
-        else:
-            return f"""I didn't quite catch that, {name}.
-            
-You can:
-• "Book session for Tuesday 2pm"
-• "Show my upcoming sessions"
-• "Cancel my next session"
-• "View my fitness results"
-
-What would you like help with? 💪"""
-    
-    # Response generation methods
-    def _respond_to_greeting(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        name = sender_data.get('name', 'there')
-        if sender_type == 'trainer':
-            return f"Hey {name}! Ready to manage your fitness empire? What can I help with today? 💪"
-        else:
-            return f"Hi {name}! How's your fitness journey going? What can I help you with? 😊"
-    
-    def _respond_with_help(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        name = sender_data.get('name', 'there')
-        if sender_type == 'trainer':
-            return f"""Here's what I can do for you, {name}:
-
-📱 **Client Management**
-• Add new clients
-• View all clients
-• Check client balances
-
-📅 **Scheduling**
-• View your schedule
-• See today's sessions
-• Check weekly calendar
-
-💪 **Workouts & Assessments**
-• Send workouts to clients
-• Start fitness assessments
-• Track client progress
-
-📊 **Business**
-• View dashboard
-• Check revenue
-• Send reminders
-
-Just tell me what you need! 🚀"""
-        else:
-            trainer_name = sender_data.get('trainer_name', 'your trainer')
-            return f"""I can help you with:
-
-📅 Book training sessions
-👀 View your schedule
-✏️ Reschedule or cancel
-📊 Check your fitness assessment
-💪 Get workouts from {trainer_name}
-📈 Track your progress
-
-What would you like to do? 😊"""
-    
-    def _respond_to_add_client(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Handle add client intent"""
-        if extracted.get('client_name') and extracted.get('phone_number'):
-            # We have enough info to add
-            return f"""Perfect! I'll add {extracted['client_name']} as your client.
-
-📱 WhatsApp: {extracted['phone_number']}
-📧 Email: {extracted.get('email', 'Not provided')}
-💰 Sessions: Starting with 0 (you can add packages later)
-
-Shall I send them a welcome message? Reply YES to confirm! ✅"""
-        else:
-            # Need more info
-            missing = []
-            if not extracted.get('client_name'):
-                missing.append("client's name")
-            if not extracted.get('phone_number'):
-                missing.append("WhatsApp number")
-            
-            return f"""I'll help you add a new client! I still need their {' and '.join(missing)}.
-
-Please provide:
-📝 Full name
-📱 WhatsApp number (10 digits)
-📧 Email (optional)
-
-Example: "Add John Smith 0821234567 john@email.com" 💪"""
-    
-    def _respond_with_schedule(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Show schedule based on intent"""
-        # This would connect to your existing schedule display logic
-        return "Let me get your schedule..."
-    
-    def _respond_to_workout_request(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Handle workout sending"""
-        if extracted.get('exercises') and extracted.get('client_name'):
-            return f"""Got it! Here's the workout for {extracted['client_name']}:
-
-{chr(10).join(extracted['exercises'])}
-
-Send this workout? Reply YES to confirm! 💪"""
-        else:
-            return "What workout would you like to send and to which client?"
-    
-    def _respond_to_booking(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Handle booking requests"""
-        if extracted.get('parsed_datetime'):
-            from datetime import datetime
-            dt = datetime.fromisoformat(extracted['parsed_datetime'])
-            return f"""Perfect! Booking request for:
-            
-📅 {dt.strftime('%A, %d %B')}
-🕐 {dt.strftime('%I:%M %p')}
-
-Let me check availability... ✅"""
-        else:
-            return """When would you like to book your session?
-            
-Available slots this week:
-Mon-Fri: 9am, 2pm, 5pm
-Saturday: 9am, 11am
-
-Just tell me the day and time! 📅"""
-    
-    def _respond_to_cancellation(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Handle cancellation requests"""
-        return "Which session would you like to cancel? Tell me the date/time or say 'next session'."
-    
-    def _respond_with_dashboard_link(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Generate dashboard link"""
-        # This would connect to your dashboard service
-        return "Generating your dashboard link..."
-    
-    def _respond_to_assessment(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Handle assessment requests"""
-        if extracted.get('client_name'):
-            return f"I'll start a fitness assessment for {extracted['client_name']}. Sending them the form now..."
-        else:
-            return "Which client would you like to assess? Just give me their name!"
-    
-    def _respond_to_general(self, sender_data: Dict, extracted: Dict, sender_type: str) -> str:
-        """Handle general questions"""
-        return "I understand you have a question. Let me help you with that..."
+        # Default responses based on response type
+        if response_type == 'conversational':
+            if intent == 'greeting':
+                greetings = [
+                    f"Hey {name}! 👋",
+                    f"Hi {name}! Good to hear from you 😊",
+                    f"Hello {name}! How's it going?",
+                    f"Hey there {name}! 🙌"
+                ]
+                return random.choice(greetings)
+            elif intent == 'unclear':
+                return f"I didn't quite catch that, {name}. Could you rephrase that for me?"
+            else:
+                return f"Interesting, {name}! Tell me more about that."
+        
+        # Task-based but still friendly
+        return f"Let me help you with that, {name}. What specifically would you like to know?"
