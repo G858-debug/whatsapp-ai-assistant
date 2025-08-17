@@ -119,7 +119,7 @@ class RefiloeAssistant:
             result = self.db.table('messages')\
                 .select('message_text, direction, created_at')\
                 .eq(id_field, sender_id)\
-                .order('created_at', desc=True)\
+                .order('created_at desc')\
                 .limit(10)\
                 .execute()
             
