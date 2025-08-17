@@ -1,60 +1,124 @@
 # voice_helpers.py
 import os
 import requests
-from openai import OpenAI
 import io
-import base64
-from pydub import AudioSegment
-import time
-from functools import wraps
 import logging
+from typing import Dict, Optional
+from pydub import AudioSegment
 
+# Set up logging
+log = logging.getLogger(__name__)
 
 class VoiceProcessor:
     def __init__(self):
-        self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        self.whatsapp_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
-        self.phone_number_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+        self.whatsapp_token = os.getenv('ACCESS_TOKEN')  # Note: Changed from WHATSAPP_ACCESS_TOKEN
+        self.phone_number_id = os.getenv('PHONE_NUMBER_ID')  # Note: Changed from WHATSAPP_PHONE_NUMBER_ID
+        
+        # Only initialize OpenAI if you have the key
+        self.openai_client = None
+        openai_key = os.getenv('OPENAI_API_KEY')
+        if openai_key:
+            try:
+                from openai import OpenAI
+                self.openai_client = OpenAI(api_key=openai_key)
+                log.info("OpenAI client initialized successfully")
+            except ImportError:
+                log.warning("OpenAI not installed - voice features disabled")
     
-    def download_whatsapp_media(self, media_id):
-        """Download voice note from WhatsApp"""
-        # Get media URL
-        url = f"https://graph.facebook.com/v18.0/{media_id}"
-        headers = {
-            'Authorization': f'Bearer {self.whatsapp_token}'
-        }
-        
-        response = requests.get(url, headers=headers)
-        media_info = response.json()
-        
-        # Download the actual file
-        audio_response = requests.get(media_info['url'], headers=headers)
-        
-        return audio_response.content
-    
-    def transcribe_audio(self, audio_buffer):
-        """Convert voice to text using OpenAI Whisper"""
+    def download_whatsapp_media(self, media_id: str) -> bytes:
+        """Download voice note from WhatsApp - FIXED VERSION"""
         try:
-            # Create a file-like object from the buffer
-            audio_file = io.BytesIO(audio_buffer)
-            audio_file.name = "audio.ogg"  # WhatsApp usually sends .ogg files
+            # Step 1: Get media URL from WhatsApp
+            url = f"https://graph.facebook.com/v18.0/{media_id}"
+            headers = {'Authorization': f'Bearer {self.whatsapp_token}'}
             
-            # Transcribe using OpenAI Whisper
-            transcription = self.openai_client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="en"  # You can add Afrikaans "af" support later
-            )
+            log.info(f"Fetching media info from: {url}")
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
             
-            return transcription.text
+            media_info = response.json()
+            log.info(f"Media info response: {media_info}")
+            
+            # Step 2: Get the actual media URL
+            # The response should contain a 'url' field
+            media_url = media_info.get('url')
+            
+            if not media_url:
+                # Log what we actually got
+                log.error(f"No URL in media info. Keys available: {list(media_info.keys())}")
+                log.error(f"Full response: {media_info}")
+                raise Exception(f"No URL found in media response. Got keys: {list(media_info.keys())}")
+            
+            # Step 3: Download the actual audio file
+            log.info(f"Downloading audio from: {media_url[:50]}...")
+            audio_response = requests.get(media_url, headers=headers)
+            audio_response.raise_for_status()
+            
+            audio_content = audio_response.content
+            log.info(f"Downloaded audio: {len(audio_content)} bytes")
+            
+            return audio_content
+            
+        except requests.exceptions.HTTPError as e:
+            log.error(f"HTTP error downloading media: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Failed to download media: HTTP {e.response.status_code}")
         except Exception as e:
-            print(f"Transcription error: {str(e)}")
+            log.error(f"Failed to download media: {str(e)}")
             raise
     
-    def text_to_speech(self, text):
-        """Convert text to voice using OpenAI TTS"""
+    def transcribe_audio(self, audio_buffer: bytes) -> str:
+        """Convert voice to text using OpenAI Whisper"""
+        if not self.openai_client:
+            raise Exception("OpenAI not configured for voice transcription")
+        
         try:
-            # Generate speech
+            # WhatsApp sends audio in OGG format, but we need to handle it properly
+            # Create a file-like object
+            audio_file = io.BytesIO(audio_buffer)
+            
+            # Try to convert from OGG to a format OpenAI handles better
+            try:
+                # Load the audio using pydub
+                audio = AudioSegment.from_file(audio_file, format="ogg")
+                
+                # Convert to MP3 (which OpenAI handles well)
+                mp3_buffer = io.BytesIO()
+                audio.export(mp3_buffer, format="mp3")
+                mp3_buffer.seek(0)
+                mp3_buffer.name = "audio.mp3"
+                
+                # Use the MP3 for transcription
+                transcription_file = mp3_buffer
+                log.info("Converted OGG to MP3 for transcription")
+            except Exception as conv_error:
+                log.warning(f"Could not convert audio format: {conv_error}. Using original.")
+                audio_file.seek(0)
+                audio_file.name = "audio.ogg"
+                transcription_file = audio_file
+            
+            # Transcribe
+            log.info("Starting transcription with Whisper...")
+            transcription = self.openai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=transcription_file,
+                language="en"  # You can make this dynamic later
+            )
+            
+            text = transcription.text
+            log.info(f"Transcription successful: {text[:50]}...")
+            return text
+            
+        except Exception as e:
+            log.error(f"Transcription failed: {str(e)}")
+            raise
+    
+    def text_to_speech(self, text: str) -> bytes:
+        """Convert text to voice using OpenAI TTS"""
+        if not self.openai_client:
+            raise Exception("OpenAI not configured for text-to-speech")
+        
+        try:
+            log.info(f"Converting text to speech: {text[:50]}...")
             response = self.openai_client.audio.speech.create(
                 model="tts-1",
                 voice="nova",  # Female voice, friendly tone
@@ -64,26 +128,33 @@ class VoiceProcessor:
             # Get audio data
             audio_data = response.content
             
-            # Convert to format WhatsApp accepts (OGG with Opus codec)
-            audio = AudioSegment.from_mp3(io.BytesIO(audio_data))
-            
-            # Export as OGG
-            output_buffer = io.BytesIO()
-            audio.export(output_buffer, format="ogg", codec="libopus")
-            
-            return output_buffer.getvalue()
+            # Convert to OGG format for WhatsApp
+            try:
+                # Convert MP3 to OGG with Opus codec (WhatsApp's preferred format)
+                audio = AudioSegment.from_mp3(io.BytesIO(audio_data))
+                
+                output_buffer = io.BytesIO()
+                audio.export(output_buffer, format="ogg", codec="libopus")
+                output_buffer.seek(0)
+                
+                log.info(f"Converted to OGG: {output_buffer.tell()} bytes")
+                return output_buffer.getvalue()
+            except Exception as e:
+                log.warning(f"Could not convert to OGG, using MP3: {e}")
+                return audio_data
+                
         except Exception as e:
-            print(f"Text-to-speech error: {str(e)}")
+            log.error(f"Text-to-speech failed: {str(e)}")
             raise
     
-    def send_voice_note(self, phone_number, audio_buffer):
+    def send_voice_note(self, phone_number: str, audio_buffer: bytes) -> Dict:
         """Send voice note via WhatsApp"""
         try:
-            # First, upload the audio to WhatsApp
+            # Upload audio to WhatsApp
             upload_url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/media"
             
             files = {
-                'file': ('voice_note.ogg', audio_buffer, 'audio/ogg'),
+                'file': ('voice_note.ogg', audio_buffer, 'audio/ogg; codecs=opus'),
             }
             
             data = {
@@ -95,19 +166,26 @@ class VoiceProcessor:
                 'Authorization': f'Bearer {self.whatsapp_token}'
             }
             
-            # Upload the audio
+            log.info(f"Uploading audio to WhatsApp...")
             upload_response = requests.post(
                 upload_url, 
                 headers=headers, 
                 data=data, 
                 files=files
             )
+            
+            if upload_response.status_code != 200:
+                log.error(f"Upload failed: {upload_response.status_code} - {upload_response.text}")
+                raise Exception(f"Failed to upload audio: {upload_response.text}")
+            
             upload_result = upload_response.json()
+            log.info(f"Upload response: {upload_result}")
             
             if 'id' not in upload_result:
                 raise Exception(f"Failed to upload audio: {upload_result}")
             
             media_id = upload_result['id']
+            log.info(f"Audio uploaded with ID: {media_id}")
             
             # Send the voice note message
             message_url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
@@ -121,6 +199,7 @@ class VoiceProcessor:
                 }
             }
             
+            log.info(f"Sending voice note to {phone_number}...")
             message_response = requests.post(
                 message_url,
                 headers={
@@ -130,29 +209,43 @@ class VoiceProcessor:
                 json=message_data
             )
             
-            return message_response.json()
+            if message_response.status_code != 200:
+                log.error(f"Send failed: {message_response.status_code} - {message_response.text}")
+                raise Exception(f"Failed to send voice note: {message_response.text}")
+            
+            result = message_response.json()
+            log.info(f"Voice note sent successfully: {result}")
+            return result
+            
         except Exception as e:
-            print(f"Send voice note error: {str(e)}")
+            log.error(f"Send voice note error: {str(e)}")
             raise
-
-    def handle_voice_note_with_fallback(self, message, phone_number):
-        """
-        Handle voice note with proper error handling and fallback
-        """
+    
+    def handle_voice_note_with_fallback(self, message: Dict, phone_number: str) -> Dict:
+        """Handle voice note with proper error handling"""
         try:
-            # Try voice processing
-            audio_id = message['audio']['id']
+            # Extract audio ID from message
+            audio_data = message.get('audio', {})
+            audio_id = audio_data.get('id')
+            
+            if not audio_id:
+                log.error(f"No audio ID in message. Audio data: {audio_data}")
+                raise Exception("No audio ID found in message")
+            
+            log.info(f"Processing voice note with ID: {audio_id}")
+            
+            # Download the audio
             audio_buffer = self.download_whatsapp_media(audio_id)
             
-            # Check audio size (WhatsApp limit is usually 16MB)
+            # Check size
             if len(audio_buffer) > 16 * 1024 * 1024:
-                raise Exception("Audio file too large")
+                raise Exception("Audio file too large (over 16MB)")
             
+            # Transcribe
             text = self.transcribe_audio(audio_buffer)
             
-            # Validate transcription
             if not text or len(text.strip()) == 0:
-                raise Exception("Could not understand the audio")
+                raise Exception("Could not understand the audio - transcription was empty")
             
             return {
                 'text': text,
@@ -160,104 +253,9 @@ class VoiceProcessor:
                 'should_reply_with_voice': True
             }
             
-        except requests.exceptions.RequestException as e:
-            # Network errors
-            log_error(f"Network error downloading voice note: {str(e)}")
-            self.send_message(
-                phone_number,
-                "📶 I'm having connection issues with voice notes. Please try again or type your message instead."
-            )
-            return {'success': False}
-            
-        except openai.APIError as e:
-            # OpenAI API errors
-            log_error(f"OpenAI API error: {str(e)}")
-            self.send_message(
-                phone_number,
-                "🎤 I'm having trouble understanding voice notes right now. Could you please type your message instead? 🙏"
-            )
-            return {'success': False}
-            
         except Exception as e:
-            # General errors
-            log_error(f"Voice processing failed: {str(e)}")
-            
-            # Send user-friendly error message
-            error_messages = {
-                "too_long": "🎤 That voice note is too long. Please keep voice messages under 2 minutes.",
-                "format_error": "🎤 I couldn't process that audio format. Please try recording again.",
-                "default": "🎤 I'm having trouble processing voice notes right now. Could you please type your message instead? 🙏"
+            log.error(f"Voice processing failed: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
             }
-            
-            # Determine error type
-            if "too large" in str(e).lower() or "too long" in str(e).lower():
-                error_msg = error_messages["too_long"]
-            elif "format" in str(e).lower() or "codec" in str(e).lower():
-                error_msg = error_messages["format_error"]
-            else:
-                error_msg = error_messages["default"]
-            
-            self.send_message(phone_number, error_msg)
-            return {'success': False}
-    
-    def retry_on_failure(max_retries=3, delay=1):
-        """
-        Decorator to retry failed operations
-        """
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                retries = 0
-                while retries < max_retries:
-                    try:
-                        return func(*args, **kwargs)
-                    except Exception as e:
-                        retries += 1
-                        if retries >= max_retries:
-                            raise e
-                        time.sleep(delay * retries)  # Exponential backoff
-                        log_info(f"Retrying {func.__name__} (attempt {retries + 1}/{max_retries})")
-                return None
-            return wrapper
-        return decorator
-    
-    # Use the decorator on critical functions
-    @retry_on_failure(max_retries=3, delay=1)
-    def transcribe_audio(self, audio_buffer):
-        """Convert voice to text with retry logic"""
-        # Your transcription code here
-        
-    @retry_on_failure(max_retries=2, delay=0.5)
-    def send_voice_note(self, phone_number, audio_buffer):
-        """Send voice note with retry logic"""
-
-    def setup_voice_logging():
-        """Set up detailed logging for voice processing"""
-        voice_logger = logging.getLogger('voice_processing')
-        voice_logger.setLevel(logging.DEBUG)
-        
-        # Create file handler for voice-specific logs
-        handler = logging.FileHandler('voice_processing.log')
-        handler.setLevel(logging.DEBUG)
-        
-        # Create formatter
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        
-        voice_logger.addHandler(handler)
-        return voice_logger
-    
-    # Use in your functions
-    voice_logger = setup_voice_logging()
-    
-    def transcribe_audio(self, audio_buffer):
-        try:
-            voice_logger.info(f"Starting transcription, buffer size: {len(audio_buffer)} bytes")
-            # Your transcription code
-            voice_logger.info("Transcription successful")
-            return result
-        except Exception as e:
-            voice_logger.error(f"Transcription failed: {str(e)}")
-            raise
