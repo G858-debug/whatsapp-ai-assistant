@@ -680,20 +680,53 @@ def test_transcribe():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Add this test endpoint to app.py temporarily
-@app.route('/test-send', methods=['GET'])
-def test_send():
-    """Test sending a message"""
+@app.route('/test-direct', methods=['POST', 'GET'])
+def test_direct():
+    """Test Refiloe directly without WhatsApp"""
     try:
-        if whatsapp_service:
-            result = whatsapp_service.send_message(
-                "27731863036",  # Your number
-                "Test from Refiloe! If you see this, sending works! 🎉"
-            )
-            return jsonify(result)
-        return jsonify({"error": "WhatsApp service not initialized"})
+        # Simulate an incoming message
+        test_data = {
+            "object": "whatsapp_business_account",
+            "entry": [{
+                "id": "TEST",
+                "changes": [{
+                    "value": {
+                        "messaging_product": "whatsapp",
+                        "metadata": {
+                            "display_phone_number": "27730564882",
+                            "phone_number_id": "671257819413918"
+                        },
+                        "messages": [{
+                            "from": "27731863036",
+                            "id": "test_message_123",
+                            "timestamp": "1755424056",
+                            "text": {
+                                "body": "Test message - show my schedule"
+                            },
+                            "type": "text"
+                        }]
+                    },
+                    "field": "messages"
+                }]
+            }]
+        }
+        
+        # Process it through the webhook handler
+        with app.test_request_context(json=test_data):
+            from flask import request
+            result = handle_message()
+            
+        return jsonify({
+            "success": True,
+            "webhook_response": result,
+            "message": "Check your WhatsApp for Refiloe's response"
+        })
+        
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
