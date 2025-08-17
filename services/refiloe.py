@@ -174,6 +174,7 @@ class RefiloeAssistant:
             'help': lambda: self._help_menu(trainer),
             'add_client': lambda: self._add_client_flow(trainer, extracted),
             'view_schedule': lambda: self._show_schedule(trainer),
+            'calendar': lambda: self._show_schedule(trainer),
             'view_clients': lambda: self._show_clients(trainer),
             'send_workout': lambda: self._send_workout_flow(trainer, extracted, message),
             'start_assessment': lambda: self._start_assessment_flow(trainer, extracted),
