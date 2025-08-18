@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 import pytz
 import json
+import atexit
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Payment imports
 from payment_manager import PaymentManager
@@ -33,8 +35,11 @@ scheduler = None
 voice_processor = None
 
 # Initialize payment system
-payment_manager = PaymentManager()
-payment_integration = PaymentIntegration()
+payment_manager = None
+payment_integration = None
+
+# Initialize background scheduler for payments
+payment_scheduler = BackgroundScheduler()
 
 # Register PayFast webhook blueprint
 app.register_blueprint(payfast_webhook_bp)
@@ -45,6 +50,15 @@ try:
     log_info("Database initialized successfully")
 except Exception as e:
     log_error(f"Failed to initialize database: {str(e)}")
+
+try:
+    # Initialize payment system
+    if supabase:
+        payment_manager = PaymentManager()
+        payment_integration = PaymentIntegration()
+        log_info("Payment system initialized successfully")
+except Exception as e:
+    log_error(f"Failed to initialize payment system: {str(e)}")
 
 try:
     # Initialize services with error handling
@@ -90,10 +104,97 @@ VOICE_CONFIG = {
     }
 }
 
-log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}")
+log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}, Payments: {payment_manager is not None}")
 
 # Register blueprints
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+
+# ============================================
+# SCHEDULED PAYMENT TASKS
+# ============================================
+
+def send_daily_payment_reminders():
+    """Send daily payment reminders (runs at 9 AM daily)"""
+    try:
+        if payment_manager:
+            log_info("Running daily payment reminders...")
+            payment_manager.send_monthly_payment_reminders()
+            log_info("Payment reminders sent successfully")
+    except Exception as e:
+        log_error(f"Error in payment reminder job: {str(e)}")
+
+# Schedule the payment reminder job
+if payment_manager:
+    payment_scheduler.add_job(
+        func=send_daily_payment_reminders,
+        trigger="cron",
+        hour=9,
+        minute=0,
+        id='payment_reminders',
+        replace_existing=True
+    )
+    payment_scheduler.start()
+    log_info("Payment scheduler started")
+
+# Shut down scheduler when app exits
+atexit.register(lambda: payment_scheduler.shutdown() if payment_scheduler else None)
+
+# ============================================
+# HELPER FUNCTIONS FOR PAYMENTS
+# ============================================
+
+def get_user_info(phone: str):
+    """Get user information from database"""
+    try:
+        if not supabase:
+            return None
+            
+        # Check if trainer
+        trainer = supabase.table('trainers').select('id').eq('whatsapp', phone).execute()
+        if trainer.data:
+            return {'type': 'trainer', 'id': trainer.data[0]['id']}
+        
+        # Check if client
+        client = supabase.table('clients').select('id, trainer_id').eq('whatsapp', phone).execute()
+        if client.data:
+            return {'type': 'client', 'id': client.data[0]['id'], 'trainer_id': client.data[0].get('trainer_id')}
+        
+        return None
+    except Exception as e:
+        log_error(f"Error getting user info: {str(e)}")
+        return None
+
+def handle_payment_response(phone: str, response: dict):
+    """Handle payment-related responses"""
+    try:
+        message = response.get('message', '')
+        
+        # Send WhatsApp response
+        if whatsapp_service:
+            whatsapp_service.send_message(phone, message)
+            log_info(f"Payment response sent to {phone}")
+        
+        # Log the interaction
+        if supabase:
+            user_info = get_user_info(phone)
+            supabase.table('messages').insert({
+                'trainer_id': user_info['id'] if user_info and user_info['type'] == 'trainer' else None,
+                'client_id': user_info['id'] if user_info and user_info['type'] == 'client' else None,
+                'whatsapp_from': phone,
+                'whatsapp_to': config.PHONE_NUMBER_ID if hasattr(config, 'PHONE_NUMBER_ID') else None,
+                'message_text': message[:500],  # Limit message length
+                'message_type': 'text',
+                'direction': 'outgoing',
+                'ai_intent': 'payment',
+                'created_at': datetime.now().isoformat()
+            }).execute()
+            
+    except Exception as e:
+        log_error(f"Error handling payment response: {str(e)}")
+
+# ============================================
+# ROUTES
+# ============================================
 
 @app.route('/')
 def home():
@@ -107,6 +208,7 @@ def home():
                 .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
                 h1 { color: #333; }
                 .status { padding: 10px; background: #e8f5e9; border-radius: 5px; color: #2e7d32; }
+                .payment-status { padding: 10px; background: #fff3e0; border-radius: 5px; color: #e65100; margin-top: 10px; }
             </style>
         </head>
         <body>
@@ -114,6 +216,7 @@ def home():
                 <h1>🤖 I'm Refiloe</h1>
                 <p>Your AI assistant for personal trainers</p>
                 <div class="status">✅ System Online</div>
+                <div class="payment-status">💳 Payment System Active</div>
             </div>
         </body>
     </html>
@@ -139,7 +242,7 @@ def verify_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def handle_message():
-    """Handle incoming WhatsApp messages with enhanced logging"""
+    """Handle incoming WhatsApp messages with payment integration"""
     try:
         data = request.get_json()
         
@@ -256,7 +359,26 @@ def handle_message():
                                             )
                                         continue
                                     
-                                    # Process with Refiloe if we have text
+                                    # Process with payment integration FIRST
+                                    if message_text and payment_integration:
+                                        user_info = get_user_info(phone_number)
+                                        
+                                        if user_info:
+                                            # Check if it's a payment-related message
+                                            payment_response = payment_integration.process_payment_message(
+                                                phone_number,
+                                                message_text,
+                                                user_info['type'],
+                                                user_info['id']
+                                            )
+                                            
+                                            if payment_response:
+                                                # Handle payment response
+                                                log_info(f"Payment command processed: {payment_response.get('type')}")
+                                                handle_payment_response(phone_number, payment_response)
+                                                continue  # Skip regular Refiloe processing
+                                    
+                                    # Process with Refiloe if not a payment command
                                     if message_text:
                                         if not refiloe:
                                             log_error("Refiloe service not initialized")
@@ -325,9 +447,249 @@ def handle_message():
         log_error(f"Critical webhook error: {str(e)}", exc_info=True)
         return jsonify({'status': 'error'}), 500
 
+# ============================================
+# PAYMENT SPECIFIC ROUTES
+# ============================================
+
+@app.route('/payment/success', methods=['GET'])
+def payment_success():
+    """PayFast payment success redirect"""
+    return """
+    <html>
+        <head>
+            <title>Payment Successful - Refiloe</title>
+            <style>
+                body { font-family: Arial; text-align: center; padding: 50px; background: #f0f0f0; }
+                .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #4CAF50; }
+                .emoji { font-size: 48px; margin: 20px 0; }
+                .message { color: #666; margin: 20px 0; line-height: 1.6; }
+                .button { display: inline-block; padding: 12px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="emoji">✅</div>
+                <h1>Payment Successful!</h1>
+                <div class="message">
+                    Your payment has been processed successfully.<br>
+                    You'll receive a confirmation on WhatsApp shortly.
+                </div>
+                <p>You can close this window and return to WhatsApp.</p>
+                <a href="https://wa.me/" class="button">Open WhatsApp</a>
+            </div>
+        </body>
+    </html>
+    """
+
+@app.route('/payment/cancel', methods=['GET'])
+def payment_cancel():
+    """PayFast payment cancelled redirect"""
+    return """
+    <html>
+        <head>
+            <title>Payment Cancelled - Refiloe</title>
+            <style>
+                body { font-family: Arial; text-align: center; padding: 50px; background: #f0f0f0; }
+                .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #f44336; }
+                .emoji { font-size: 48px; margin: 20px 0; }
+                .message { color: #666; margin: 20px 0; line-height: 1.6; }
+                .button { display: inline-block; padding: 12px 30px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="emoji">❌</div>
+                <h1>Payment Cancelled</h1>
+                <div class="message">
+                    Your payment was cancelled.<br>
+                    No charges have been made to your account.
+                </div>
+                <p>You can try again or contact your trainer for assistance.</p>
+                <a href="https://wa.me/" class="button">Return to WhatsApp</a>
+            </div>
+        </body>
+    </html>
+    """
+
+@app.route('/payment/token-success', methods=['GET'])
+def token_success():
+    """PayFast token creation success"""
+    return """
+    <html>
+        <head>
+            <title>Payment Method Saved - Refiloe</title>
+            <style>
+                body { font-family: Arial; text-align: center; padding: 50px; background: #f0f0f0; }
+                .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #4CAF50; }
+                .emoji { font-size: 48px; margin: 20px 0; }
+                .message { color: #666; margin: 20px 0; line-height: 1.6; }
+                .features { text-align: left; margin: 30px auto; max-width: 300px; }
+                .feature { margin: 10px 0; color: #666; }
+                .button { display: inline-block; padding: 12px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="emoji">💳</div>
+                <h1>Payment Method Saved!</h1>
+                <div class="message">
+                    Your card has been securely saved with PayFast.
+                </div>
+                <div class="features">
+                    <div class="feature">✅ Quick payments via WhatsApp</div>
+                    <div class="feature">✅ No need to enter card details again</div>
+                    <div class="feature">✅ Secure and encrypted</div>
+                    <div class="feature">✅ You approve each payment</div>
+                </div>
+                <p>You can close this window.</p>
+                <a href="https://wa.me/" class="button">Back to WhatsApp</a>
+            </div>
+        </body>
+    </html>
+    """
+
+@app.route('/payment/dashboard/<trainer_id>', methods=['GET'])
+def payment_dashboard(trainer_id):
+    """Simple payment dashboard for trainers"""
+    try:
+        if not supabase:
+            return "Database not connected", 500
+            
+        # Get dashboard data using the view
+        dashboard = supabase.from_('trainer_payment_dashboard').select('*').eq(
+            'trainer_id', trainer_id
+        ).single().execute()
+        
+        if dashboard.data:
+            plan_color = '#4CAF50' if dashboard.data.get('plan_name') == 'Professional' else '#FF9800'
+            return f"""
+            <html>
+                <head>
+                    <title>Payment Dashboard - Refiloe</title>
+                    <style>
+                        body {{ 
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+                            padding: 20px; 
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            margin: 0;
+                        }}
+                        .container {{
+                            max-width: 1200px;
+                            margin: 0 auto;
+                        }}
+                        h1 {{ 
+                            color: white; 
+                            margin-bottom: 30px;
+                            font-size: 32px;
+                        }}
+                        h2 {{ 
+                            color: white;
+                            font-weight: 300;
+                            margin-top: 0;
+                        }}
+                        .stats-grid {{ 
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                            gap: 20px;
+                            margin-bottom: 30px;
+                        }}
+                        .stat {{ 
+                            background: white;
+                            padding: 25px;
+                            border-radius: 10px;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            transition: transform 0.2s;
+                        }}
+                        .stat:hover {{
+                            transform: translateY(-5px);
+                            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+                        }}
+                        .stat h3 {{ 
+                            margin: 0; 
+                            color: #666;
+                            font-size: 14px;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                        }}
+                        .stat p {{ 
+                            margin: 10px 0 0 0; 
+                            font-size: 28px; 
+                            font-weight: bold;
+                            color: #333;
+                        }}
+                        .stat.plan {{ background: {plan_color}; }}
+                        .stat.plan h3, .stat.plan p {{ color: white; }}
+                        .revenue {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }}
+                        .revenue h3, .revenue p {{ color: white; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>💳 Payment Dashboard</h1>
+                        <h2>{dashboard.data.get('trainer_name', 'Trainer')}</h2>
+                        
+                        <div class="stats-grid">
+                            <div class="stat plan">
+                                <h3>Current Plan</h3>
+                                <p>{dashboard.data.get('plan_name', 'Starter')}</p>
+                            </div>
+                            
+                            <div class="stat">
+                                <h3>Total Clients</h3>
+                                <p>{dashboard.data.get('total_clients', 0)}</p>
+                            </div>
+                            
+                            <div class="stat">
+                                <h3>Payment Methods Saved</h3>
+                                <p>{dashboard.data.get('clients_with_tokens', 0)}</p>
+                            </div>
+                            
+                            <div class="stat">
+                                <h3>Pending Payments</h3>
+                                <p>{dashboard.data.get('pending_payments', 0)}</p>
+                            </div>
+                            
+                            <div class="stat">
+                                <h3>Paid This Month</h3>
+                                <p>{dashboard.data.get('paid_this_month', 0)}</p>
+                            </div>
+                            
+                            <div class="stat revenue">
+                                <h3>Revenue This Month</h3>
+                                <p>R{dashboard.data.get('revenue_this_month', 0) or 0:.2f}</p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+        else:
+            return """
+            <html>
+                <body style="font-family: Arial; text-align: center; padding: 50px;">
+                    <h1>Dashboard Not Found</h1>
+                    <p>Please check the trainer ID and try again.</p>
+                </body>
+            </html>
+            """, 404
+            
+    except Exception as e:
+        log_error(f"Dashboard error: {str(e)}")
+        return f"""
+        <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+                <h1>Error Loading Dashboard</h1>
+                <p>{str(e)}</p>
+            </body>
+        </html>
+        """, 500
+
 @app.route('/health')
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with payment status"""
     try:
         health_status = {
             'status': 'healthy' if supabase else 'degraded',
@@ -339,10 +701,19 @@ def health_check():
                 'scheduler': scheduler.check_health() if scheduler else 'not initialized',
                 'voice_processor': 'available' if voice_processor else 'not available',
                 'dashboard': 'enabled' if dashboard_module.dashboard_service else 'disabled',
+                'payment_manager': 'initialized' if payment_manager else 'not initialized',
+                'payment_integration': 'initialized' if payment_integration else 'not initialized',
+                'payment_scheduler': 'running' if payment_scheduler and payment_scheduler.running else 'stopped',
                 'ai_model': config.AI_MODEL if hasattr(config, 'AI_MODEL') else 'not configured',
             },
-            'version': '2.1.0',
-            'errors_today': logger.get_error_count_today() if logger else 0
+            'version': '3.0.0',  # Updated version with payments
+            'errors_today': logger.get_error_count_today() if logger else 0,
+            'payment_features': {
+                'tokenization': True,
+                'subscriptions': True,
+                'auto_payments': True,
+                'reminders': payment_scheduler.running if payment_scheduler else False
+            }
         }
         return jsonify(health_status)
     except Exception as e:
