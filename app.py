@@ -4,6 +4,11 @@ from datetime import datetime
 import pytz
 import json
 
+# Payment imports
+from payment_manager import PaymentManager
+from payment_integration import PaymentIntegration
+from payfast_webhook import payfast_webhook_bp
+
 # Import our modules
 from config import Config
 from utils.logger import ErrorLogger, log_info, log_error, log_warning
@@ -26,6 +31,13 @@ whatsapp_service = None
 refiloe = None
 scheduler = None
 voice_processor = None
+
+# Initialize payment system
+payment_manager = PaymentManager()
+payment_integration = PaymentIntegration()
+
+# Register PayFast webhook blueprint
+app.register_blueprint(payfast_webhook_bp)
 
 try:
     # Initialize database
