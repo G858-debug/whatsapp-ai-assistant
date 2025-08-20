@@ -15,6 +15,7 @@ from payfast_webhook import payfast_webhook_bp
 # Import our modules
 from config import Config
 from utils.logger import ErrorLogger, log_info, log_error, log_warning
+from utils.rate_limiter import RateLimiter  # NEW IMPORT
 from services.whatsapp import WhatsAppService
 from services.refiloe import RefiloeAssistant
 from services.scheduler import SchedulerService
@@ -34,6 +35,7 @@ whatsapp_service = None
 refiloe = None
 scheduler = None
 voice_processor = None
+rate_limiter = None  # NEW VARIABLE
 
 # Initialize payment system
 payment_manager = None
@@ -51,6 +53,15 @@ try:
     log_info("Database initialized successfully")
 except Exception as e:
     log_error(f"Failed to initialize database: {str(e)}")
+
+# NEW: Initialize Rate Limiter
+try:
+    if supabase:
+        rate_limiter = RateLimiter(config, supabase)
+        log_info("Rate limiter initialized successfully")
+except Exception as e:
+    log_error(f"Failed to initialize rate limiter: {str(e)}")
+    rate_limiter = None
 
 try:
     # Initialize payment system
@@ -105,13 +116,13 @@ VOICE_CONFIG = {
     }
 }
 
-log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}, Payments: {payment_manager is not None}")
+log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}, Payments: {payment_manager is not None}, Rate Limiter: {rate_limiter is not None}")
 
 # Register blueprints
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
 # ============================================
-# SCHEDULED PAYMENT TASKS
+# SCHEDULED TASKS WITH RATE LIMITER CLEANUP
 # ============================================
 
 def send_daily_payment_reminders():
@@ -123,6 +134,15 @@ def send_daily_payment_reminders():
             log_info("Payment reminders sent successfully")
     except Exception as e:
         log_error(f"Error in payment reminder job: {str(e)}")
+
+def cleanup_rate_limiter():
+    """Clean up old rate limiter data (runs every 6 hours)"""
+    if rate_limiter:
+        try:
+            rate_limiter.cleanup_old_data()
+            log_info("Rate limiter cleanup completed")
+        except Exception as e:
+            log_error(f"Error during rate limiter cleanup: {str(e)}")
 
 # Schedule the payment reminder job
 if payment_manager:
@@ -136,6 +156,17 @@ if payment_manager:
     )
     payment_scheduler.start()
     log_info("Payment scheduler started")
+
+# NEW: Schedule rate limiter cleanup
+if rate_limiter:
+    payment_scheduler.add_job(
+        func=cleanup_rate_limiter,
+        trigger="interval",
+        hours=6,
+        id='rate_limiter_cleanup',
+        replace_existing=True
+    )
+    log_info("Rate limiter cleanup scheduled")
 
 # Shut down scheduler when app exits
 atexit.register(lambda: payment_scheduler.shutdown() if payment_scheduler else None)
@@ -298,6 +329,7 @@ def home():
                 h1 { color: #333; }
                 .status { padding: 10px; background: #e8f5e9; border-radius: 5px; color: #2e7d32; }
                 .payment-status { padding: 10px; background: #fff3e0; border-radius: 5px; color: #e65100; margin-top: 10px; }
+                .security-status { padding: 10px; background: #e3f2fd; border-radius: 5px; color: #1565c0; margin-top: 10px; }
             </style>
         </head>
         <body>
@@ -306,6 +338,7 @@ def home():
                 <p>Your AI assistant for personal trainers</p>
                 <div class="status">✅ System Online</div>
                 <div class="payment-status">💳 Payment System Active</div>
+                <div class="security-status">🔒 Rate Limiting Enabled</div>
             </div>
         </body>
     </html>
@@ -331,14 +364,20 @@ def verify_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def handle_message():
-    """Handle incoming WhatsApp messages with payment integration"""
+    """Handle incoming WhatsApp messages with rate limiting and payment integration"""
     try:
         data = request.get_json()
         
-        # Verify webhook signature if service is available
+        # SECURITY CHECK 1: Verify webhook signature
         if whatsapp_service and not whatsapp_service.verify_webhook_signature(request):
             log_error("Invalid webhook signature")
             return 'Unauthorized', 401
+        
+        # SECURITY CHECK 2: Check webhook IP rate limit
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if rate_limiter and not rate_limiter.check_webhook_rate(client_ip):
+            log_warning(f"Webhook rate limit exceeded for IP {client_ip}")
+            return 'Too Many Requests', 429
         
         # Log incoming webhook data
         log_info(f"Webhook received: {json.dumps(data, indent=2)}")
@@ -371,11 +410,36 @@ def handle_message():
                                     message_type = message.get('type', 'text')
                                     message_text = None
                                     should_reply_with_voice = False
+                                    warning_needed = False
                                     
                                     # Check for duplicates
                                     if whatsapp_service and whatsapp_service.is_duplicate_message(message_id):
                                         log_info(f"Duplicate message {message_id} - skipping")
                                         continue
+                                    
+                                    # SECURITY CHECK 3: Apply rate limiting based on message type
+                                    if rate_limiter:
+                                        # Determine actual message type for rate limiting
+                                        if message_type == 'audio' or 'audio' in message:
+                                            check_type = 'voice'
+                                        else:
+                                            check_type = 'text'
+                                        
+                                        allowed, error_message = rate_limiter.check_message_rate(
+                                            phone_number, 
+                                            check_type
+                                        )
+                                        
+                                        if not allowed:
+                                            # Send rate limit message
+                                            if whatsapp_service:
+                                                whatsapp_service.send_message(phone_number, error_message)
+                                            log_warning(f"Rate limited message from {phone_number}: {error_message}")
+                                            continue
+                                        
+                                        # Check if we should send a warning
+                                        if rate_limiter.should_send_warning(phone_number):
+                                            warning_needed = True
                                     
                                     # Handle different message types
                                     if message_type == 'audio' or 'audio' in message:
@@ -437,7 +501,7 @@ def handle_message():
                                                 deletion_request = {
                                                     'id': str(uuid.uuid4()),
                                                     'user_type': user_info['type'],
-                                                    'full_name': 'WhatsApp User',  # We don't have the name readily available
+                                                    'full_name': 'WhatsApp User',
                                                     'phone': phone_number,
                                                     'reason': 'Requested via WhatsApp',
                                                     'status': 'pending',
@@ -487,8 +551,17 @@ def handle_message():
                                             )
                                         continue
                                     
-                                    # Process with payment integration FIRST
+                                    # SECURITY CHECK 4: Special rate limiting for payment messages
                                     if message_text and payment_integration:
+                                        payment_keywords = ['pay', 'payment', 'invoice', 'bill', 'charge']
+                                        if any(keyword in message_text.lower() for keyword in payment_keywords):
+                                            if rate_limiter:
+                                                allowed, error_msg = rate_limiter.check_payment_rate(phone_number)
+                                                if not allowed:
+                                                    if whatsapp_service:
+                                                        whatsapp_service.send_message(phone_number, error_msg)
+                                                    continue
+                                        
                                         user_info = get_user_info(phone_number)
                                         
                                         if user_info:
@@ -504,6 +577,13 @@ def handle_message():
                                                 # Handle payment response
                                                 log_info(f"Payment command processed: {payment_response.get('type')}")
                                                 handle_payment_response(phone_number, payment_response)
+                                                
+                                                # Send warning if needed after payment processing
+                                                if warning_needed and whatsapp_service:
+                                                    whatsapp_service.send_message(
+                                                        phone_number, 
+                                                        config.RATE_LIMIT_WARNING_MESSAGE
+                                                    )
                                                 continue  # Skip regular Refiloe processing
                                     
                                     # Process with Refiloe if not a payment command
@@ -547,6 +627,13 @@ def handle_message():
                                                 else:
                                                     send_result = whatsapp_service.send_message(phone_number, response)
                                                     log_info(f"Text send result: {send_result}")
+                                                
+                                                # Send warning message if needed after successful processing
+                                                if warning_needed and whatsapp_service:
+                                                    whatsapp_service.send_message(
+                                                        phone_number, 
+                                                        config.RATE_LIMIT_WARNING_MESSAGE
+                                                    )
                                             else:
                                                 log_warning(f"No response from Refiloe")
                                                 
@@ -576,14 +663,12 @@ def handle_message():
         return jsonify({'status': 'error'}), 500
 
 # ============================================
-# DATA DELETION ROUTES
+# DATA DELETION ROUTES (unchanged)
 # ============================================
 
 @app.route('/data-deletion')
 def data_deletion_page():
     """Serve the data deletion request page"""
-    # For Railway deployment, you might want to redirect to an external page
-    # or serve a template. For now, returning a simple redirect instruction
     return """
     <html>
         <head>
@@ -606,10 +691,7 @@ def data_deletion_page():
 
 @app.route('/api/data-deletion', methods=['POST'])
 def handle_data_deletion():
-    """
-    Handle data deletion requests from the web form
-    This creates a deletion request that will be processed within 30 days
-    """
+    """Handle data deletion requests from the web form"""
     try:
         data = request.get_json()
         
@@ -617,21 +699,20 @@ def handle_data_deletion():
         if not data.get('fullName') or not data.get('phone') or not data.get('userType'):
             return jsonify({'error': 'Missing required fields'}), 400
         
-        # Clean the phone number (remove spaces, ensure it starts with +)
+        # Clean the phone number
         phone = data['phone'].replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
         if not phone.startswith('+'):
             if phone.startswith('0'):
-                # Convert SA local number to international
                 phone = '+27' + phone[1:]
             elif phone.startswith('27'):
                 phone = '+' + phone
             else:
                 phone = '+27' + phone
         
-        # Create deletion request record in database
+        # Create deletion request record
         deletion_request = {
             'id': str(uuid.uuid4()),
-            'user_type': data['userType'],  # 'client' or 'trainer'
+            'user_type': data['userType'],
             'full_name': data['fullName'],
             'email': data.get('email'),
             'phone': phone,
@@ -645,10 +726,10 @@ def handle_data_deletion():
         # Store in Supabase
         result = supabase.table('data_deletion_requests').insert(deletion_request).execute()
         
-        # Log the request for admin notification
+        # Log the request
         log_info(f"Data deletion request received: {deletion_request['id']} for {phone}")
         
-        # Send WhatsApp confirmation to user
+        # Send WhatsApp confirmation
         if whatsapp_service:
             confirmation_msg = (
                 "📋 *Data Deletion Request Received*\n\n"
@@ -662,9 +743,8 @@ def handle_data_deletion():
             )
             whatsapp_service.send_message(phone, confirmation_msg)
         
-        # Notify admin/trainer about the deletion request
+        # Notify trainer if applicable
         if data['userType'] == 'client':
-            # Find the trainer associated with this client
             client_result = supabase.table('clients').select('trainer_id').eq('whatsapp', phone).execute()
             if client_result.data:
                 trainer_id = client_result.data[0]['trainer_id']
@@ -693,10 +773,7 @@ def handle_data_deletion():
 
 @app.route('/api/process-deletions', methods=['POST'])
 def process_pending_deletions():
-    """
-    Admin endpoint to process pending deletion requests
-    This should be called by a scheduled job or admin manually
-    """
+    """Admin endpoint to process pending deletion requests"""
     try:
         # Check for admin authorization
         auth_token = request.headers.get('X-Admin-Token')
@@ -729,7 +806,7 @@ def process_pending_deletions():
         return jsonify({'error': 'Processing failed'}), 500
 
 # ============================================
-# PAYMENT SPECIFIC ROUTES
+# PAYMENT SPECIFIC ROUTES (unchanged)
 # ============================================
 
 @app.route('/payment/success', methods=['GET'])
@@ -970,7 +1047,7 @@ def payment_dashboard(trainer_id):
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint with payment status"""
+    """Health check endpoint with rate limiting status"""
     try:
         health_status = {
             'status': 'healthy' if supabase else 'degraded',
@@ -985,10 +1062,17 @@ def health_check():
                 'payment_manager': 'initialized' if payment_manager else 'not initialized',
                 'payment_integration': 'initialized' if payment_integration else 'not initialized',
                 'payment_scheduler': 'running' if payment_scheduler and payment_scheduler.running else 'stopped',
+                'rate_limiter': 'active' if rate_limiter else 'not initialized',  # NEW
                 'ai_model': config.AI_MODEL if hasattr(config, 'AI_MODEL') else 'not configured',
             },
-            'version': '3.1.0',  # Updated version with data deletion
+            'version': '3.2.0',  # Updated version with rate limiting
             'errors_today': logger.get_error_count_today() if logger else 0,
+            'security_features': {  # NEW SECTION
+                'rate_limiting': config.ENABLE_RATE_LIMITING if hasattr(config, 'ENABLE_RATE_LIMITING') else False,
+                'webhook_verification': True,
+                'message_rate_limit': config.MESSAGE_RATE_LIMIT if hasattr(config, 'MESSAGE_RATE_LIMIT') else 0,
+                'payment_rate_limit': config.PAYMENT_REQUEST_RATE_LIMIT if hasattr(config, 'PAYMENT_REQUEST_RATE_LIMIT') else 0,
+            },
             'payment_features': {
                 'tokenization': True,
                 'subscriptions': True,
