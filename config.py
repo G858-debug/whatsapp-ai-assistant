@@ -43,10 +43,63 @@ class Config:
     MAX_LOG_SIZE_MB = 10
     LOG_RETENTION_DAYS = 30
     
-    # Rate Limiting
+    # ===================================
+    # ENHANCED RATE LIMITING CONFIGURATION
+    # ===================================
+    
+    # Message Rate Limiting
     MESSAGE_RATE_LIMIT = 60  # Max messages per minute per user
+    MESSAGE_BURST_LIMIT = 10  # Max messages in a 10-second burst
+    MESSAGE_DAILY_LIMIT = 500  # Max messages per day per user
+    
+    # API Rate Limiting
     API_RATE_LIMIT = 100  # Max API calls per minute
-
+    API_BURST_LIMIT = 20  # Max API calls in a 10-second burst
+    
+    # Webhook Rate Limiting
+    WEBHOOK_RATE_LIMIT = 200  # Max webhook calls per minute (total)
+    WEBHOOK_PER_IP_LIMIT = 50  # Max webhook calls per IP per minute
+    
+    # Voice Note Rate Limiting
+    VOICE_NOTE_RATE_LIMIT = 10  # Max voice notes per minute per user
+    VOICE_NOTE_DAILY_LIMIT = 50  # Max voice notes per day per user
+    
+    # Payment Request Rate Limiting
+    PAYMENT_REQUEST_RATE_LIMIT = 5  # Max payment requests per hour per user
+    PAYMENT_REQUEST_DAILY_LIMIT = 10  # Max payment requests per day per user
+    
+    # Blocking Configuration
+    RATE_LIMIT_BLOCK_DURATION_MINUTES = 15  # How long to block after exceeding limits
+    RATE_LIMIT_WARNING_THRESHOLD = 0.8  # Warn at 80% of limit
+    
+    # Whitelist (never rate limited)
+    RATE_LIMIT_WHITELIST = os.environ.get('RATE_LIMIT_WHITELIST', '').split(',')
+    
+    # Enable/Disable Rate Limiting (for testing)
+    ENABLE_RATE_LIMITING = os.environ.get('ENABLE_RATE_LIMITING', 'true').lower() == 'true'
+    
+    # Rate Limit Messages
+    RATE_LIMIT_MESSAGE = (
+        "🚦 Whoa there! You're sending messages too quickly. "
+        "Please wait a moment before trying again. "
+        "This helps me provide better service to everyone! 😊"
+    )
+    
+    RATE_LIMIT_WARNING_MESSAGE = (
+        "⚠️ Heads up! You're approaching the message limit. "
+        "Please slow down a bit to avoid being temporarily blocked."
+    )
+    
+    RATE_LIMIT_DAILY_MESSAGE = (
+        "📅 You've reached your daily message limit. "
+        "Please try again tomorrow! "
+        "If this is urgent, please contact your trainer directly."
+    )
+    
+    # ===================================
+    # END OF RATE LIMITING CONFIGURATION
+    # ===================================
+    
     # Feature Flags
     ENABLE_PAYMENT_TRACKING = True
     ENABLE_WORKOUT_PROGRAMS = True  
@@ -56,7 +109,7 @@ class Config:
     # Dashboard Settings
     DASHBOARD_BASE_URL = 'https://web-production-26de5.up.railway.app'
     DASHBOARD_TOKEN_EXPIRY_HOURS = 24  # How long dashboard links remain valid
-
+    
     # Workout Settings
     GIPHY_API_KEY = os.environ.get('GIPHY_API_KEY')
     
