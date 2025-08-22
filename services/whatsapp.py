@@ -251,3 +251,25 @@ class WhatsAppService:
         # This would require webhook status updates
         # For now, return None
         return None
+
+    def send_message_with_buttons(self, phone_number: str, message: str, buttons: List[Dict]) -> Dict:
+        """Send WhatsApp message with quick reply buttons"""
+        
+        # This requires WhatsApp Business API configuration
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": phone_number,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {
+                    "text": message
+                },
+                "action": {
+                    "buttons": buttons[:3]  # WhatsApp limits to 3 buttons
+                }
+            }
+        }
+        
+        # Send via WhatsApp API
+        return self._send_api_request(payload)
