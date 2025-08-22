@@ -255,7 +255,16 @@ class WhatsAppService:
     def send_message_with_buttons(self, phone_number: str, message: str, buttons: List[Dict]) -> Dict:
         """Send WhatsApp message with quick reply buttons"""
         
-        # This requires WhatsApp Business API configuration
+        if not self.config.ACCESS_TOKEN or not self.config.PHONE_NUMBER_ID:
+            return {'success': False, 'error': 'WhatsApp not configured'}
+        
+        url = f"https://graph.facebook.com/v18.0/{self.config.PHONE_NUMBER_ID}/messages"
+        
+        headers = {
+            'Authorization': f'Bearer {self.config.ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
         payload = {
             "messaging_product": "whatsapp",
             "to": phone_number,
@@ -271,5 +280,29 @@ class WhatsAppService:
             }
         }
         
-        # Send via WhatsApp API
-        return self._send_api_request(payload)
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                log_info(f"Button message sent to {phone_number}")
+                
+                # Log to database
+                self.log_message(phone_number, message, 'outgoing')
+                
+                return {
+                    'success': True,
+                    'message_id': response.json().get('messages', [{}])[0].get('id')
+                }
+            else:
+                log_error(f"WhatsApp button message error: {response.status_code} - {response.text}")
+                return {
+                    'success': False,
+                    'error': f'WhatsApp API error: {response.status_code}'
+                }
+                
+        except Exception as e:
+            log_error(f"Error sending button message: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
