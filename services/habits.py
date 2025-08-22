@@ -506,4 +506,43 @@ class HabitService:
             log_error(f"Error getting client habits: {str(e)}")
             return []
     
-    # Additional methods for setup, compliance, reports, etc. would go here...
+    def get_streak_message(self, streak: int, broken: bool = False) -> str:
+        """Generate motivational message based on streak length"""
+        
+        if broken:
+            if streak > 30:
+                return f"You had an amazing {streak}-day streak! 👑 Let's build an even better one!"
+            elif streak > 14:
+                return f"Great run of {streak} days! Ready to beat it? 💪"
+            elif streak > 7:
+                return f"Nice {streak}-day streak! Tomorrow we start fresh 🌅"
+            else:
+                return f"No worries! You had {streak} days. Every day is a new chance 🌱"
+        
+        # Active streak messages
+        if streak == 1:
+            return "Day 1 - Great start! 🌱"
+        elif streak == 3:
+            return "3 days! You're building momentum 🚀"
+        elif streak == 7:
+            return "ONE WEEK! You're officially consistent! 🔥"
+        elif streak == 14:
+            return "TWO WEEKS! This is becoming a habit! 💪"
+        elif streak == 21:
+            return "21 DAYS! Science says you've built a habit! 🧠"
+        elif streak == 30:
+            return "30 DAYS! You're a habit CHAMPION! 🏆"
+        elif streak == 50:
+            return "50 DAYS! Absolutely legendary! 👑"
+        elif streak == 100:
+            return "💯 DAYS! You're in the hall of fame! 🌟"
+        elif streak > 100:
+            return f"{streak} days! You're unstoppable! 🚀"
+        else:
+            # Generic messages for other days
+            if streak < 7:
+                return f"Day {streak} - Keep going! 🔥"
+            elif streak < 30:
+                return f"{streak} days strong! 💪"
+            else:
+                return f"{streak} days! Incredible dedication! 🌟"
