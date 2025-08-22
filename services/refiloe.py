@@ -37,7 +37,55 @@ class RefiloeAssistant:
         )
         self.habit_service = HabitService(config, supabase_client)  # NEW SERVICE
         
+        # Add the missing method to ClientModel if not present
+        if not hasattr(self.client_model, 'get_by_name_and_trainer'):
+            self.client_model.get_by_name_and_trainer = self._get_client_by_name_and_trainer
+        if not hasattr(self.client_model, 'get_similar_names'):
+            self.client_model.get_similar_names = self._get_similar_client_names
+        
         log_info("Refiloe AI Assistant initialized successfully")
+    
+    # Add these helper methods for ClientModel functionality
+    def _get_client_by_name_and_trainer(self, name: str, trainer_id: str) -> Optional[Dict]:
+        """Find client by name for a specific trainer"""
+        try:
+            result = self.db.table('clients')\
+                .select('*')\
+                .eq('trainer_id', trainer_id)\
+                .ilike('name', f'%{name}%')\
+                .limit(1)\
+                .execute()
+            
+            return result.data[0] if result.data else None
+        except Exception as e:
+            log_error(f"Error finding client: {str(e)}")
+            return None
+    
+    def _get_similar_client_names(self, name: str, trainer_id: str) -> List[Dict]:
+        """Find clients with similar names"""
+        try:
+            result = self.db.table('clients')\
+                .select('id, name')\
+                .eq('trainer_id', trainer_id)\
+                .execute()
+            
+            if not result.data:
+                return []
+            
+            # Simple fuzzy matching
+            name_lower = name.lower()
+            similar = []
+            for client in result.data:
+                client_name_lower = client['name'].lower()
+                if (name_lower in client_name_lower or 
+                    client_name_lower in name_lower or
+                    name_lower.split()[0] == client_name_lower.split()[0]):
+                    similar.append(client)
+            
+            return similar[:3]  # Return top 3 matches
+        except Exception as e:
+            log_error(f"Error finding similar clients: {str(e)}")
+            return []
     
     def process_message(self, whatsapp_number: str, message_text: str, 
                        message_id: str) -> str:
@@ -276,15 +324,16 @@ class RefiloeAssistant:
             
 Just tell me their name, like: "Set up habits for Sarah" """
         
-        # Find the client
-        client = self.client_model.get_by_name_and_trainer(client_name, trainer['id'])
+        # Find the client - using the helper method
+        client = self._get_client_by_name_and_trainer(client_name, trainer['id'])
         
         if not client:
-            similar_clients = self.client_model.get_similar_names(client_name, trainer['id'])
+            similar_clients = self._get_similar_client_names(client_name, trainer['id'])
             if similar_clients:
                 names = [c['name'] for c in similar_clients[:3]]
+                name_list = '\n'.join(f"• {n}" for n in names)
                 return f"""I couldn't find {client_name}. Did you mean:
-- {chr(10).join('• ' + n for n in names)}
+{name_list}
 
 Please use the exact name."""
             return f"I couldn't find a client named {client_name}. Check the spelling?"
@@ -331,7 +380,7 @@ Want to add another habit? Just tell me!"""
         
         if client_name:
             # Show specific client's compliance
-            client = self.client_model.get_by_name_and_trainer(client_name, trainer['id'])
+            client = self._get_client_by_name_and_trainer(client_name, trainer['id'])
             if not client:
                 return f"I couldn't find {client_name} in your client list."
             
@@ -351,16 +400,19 @@ Current streak: {compliance['best_streak']} days 🔥
         
         else:
             # Show all clients' compliance
-            report = self.habit_service.get_trainer_habit_report(trainer['id'])
+            report = self.habit_service.generate_weekly_report(trainer['id'])
             
-            if not report['clients_with_habits']:
+            if not report.get('has_data'):
                 return """No clients have habits set up yet!
 
 To get started, say: "Set up water tracking for [client name]" """
             
             return f"""📊 Habit Tracking Report:
 
-{report['summary']}
+**Overall Stats:**
+- Active trackers: {report['active_clients']}
+- Avg compliance: {report['average_compliance']}%
+- Total check-ins: {report['total_checkins']}
 
 Top performers:
 {report['top_performers']}
@@ -377,7 +429,7 @@ Want details for a specific client? Just ask!"""
         
         if client_name:
             # Send to specific client
-            client = self.client_model.get_by_name_and_trainer(client_name, trainer['id'])
+            client = self._get_client_by_name_and_trainer(client_name, trainer['id'])
             if not client:
                 return f"I couldn't find {client_name}."
             
@@ -402,29 +454,26 @@ Your clients will receive their daily habit check-in message."""
         
         report = self.habit_service.generate_weekly_report(trainer['id'])
         
-        if not report['has_data']:
+        if not report.get('has_data'):
             return """No habit data yet! 
 
 Start by setting up habits for your clients:
 "Set up water tracking for Sarah" """
         
         return f"""📊 Weekly Habit Report
-{report['date_range']}
+{report.get('date_range', 'This Week')}
 
 **Overall Stats:**
 - Active trackers: {report['active_clients']}
 - Avg compliance: {report['average_compliance']}%
 - Total check-ins: {report['total_checkins']}
 
-**By Habit Type:**
-{report['habit_breakdown']}
-
 **Client Highlights:**
-{report['client_highlights']}
+{report.get('client_highlights', 'See individual clients for details')}
 
 **Streaks:**
-🔥 Longest: {report['longest_streak']}
-📈 Most improved: {report['most_improved']}
+🔥 Longest: {report.get('longest_streak', 'None yet')}
+📈 Most improved: {report.get('most_improved', 'Track more to see')}
 
 Great work keeping your clients accountable! 💪"""
     
@@ -436,7 +485,7 @@ Great work keeping your clients accountable! 💪"""
         if not client_name:
             return "Which client's habits would you like to modify? Tell me their name."
         
-        client = self.client_model.get_by_name_and_trainer(client_name, trainer['id'])
+        client = self._get_client_by_name_and_trainer(client_name, trainer['id'])
         if not client:
             return f"I couldn't find {client_name}."
         
@@ -478,9 +527,10 @@ Your trainer will set these up for you. 🌟"""
                 habits = self.habit_service.get_client_habits(client['id'])
                 
                 if habits:
+                    habit_list = '\n'.join(f"{h['emoji']} {h['name']}" for h in habits)
                     return f"""I didn't quite get that. You have {len(habits)} habits to check:
 
-{chr(10).join(f"{h['emoji']} {h['name']}" for h in habits)}
+{habit_list}
 
 Reply with:
 - Numbers: "7 yes no" 
@@ -492,16 +542,10 @@ Reply with:
         # Successfully logged habits
         response = result['feedback_message']
         
-        # Add streak info if they're doing well
+        # Add streak message using the enhanced method
         if result['streak'] > 0:
-            if result['streak'] == 1:
-                response += f"\n\n🌱 Day 1 - Great start!"
-            elif result['streak'] < 7:
-                response += f"\n\n🔥 {result['streak']} day streak! Keep going!"
-            elif result['streak'] < 30:
-                response += f"\n\n🔥 {result['streak']} days! You're on fire!"
-            else:
-                response += f"\n\n👑 {result['streak']} day streak! Legendary!"
+            streak_msg = self.habit_service.get_streak_message(result['streak'])
+            response += f"\n\n{streak_msg}"
         
         # Add encouragement based on completion
         if result['completion_percentage'] == 100:
@@ -525,25 +569,14 @@ Reply with:
         
         response = f"🔥 Your Habit Streaks:\n\n"
         
-        for habit in streaks['habits']:
-            emoji = habit['emoji']
-            name = habit['name']
-            current = habit['current_streak']
-            best = habit['best_streak']
-            
-            if current > 0:
-                response += f"{emoji} {name}: {current} days"
-                if current == best:
-                    response += " (Personal best! 🏆)"
-                else:
-                    response += f" (Best: {best} days)"
-            else:
-                response += f"{emoji} {name}: No streak yet (Best was {best} days)"
-            response += "\n"
+        # Current streak with motivational message
+        current = streaks['current_streak']
+        response += self.habit_service.get_streak_message(current) + "\n\n"
         
         # Overall stats
-        response += f"\n📊 This week: {streaks['weekly_compliance']}% completion"
-        response += f"\n📈 This month: {streaks['monthly_compliance']}% completion"
+        response += f"📊 This week: {streaks['weekly_compliance']}% completion\n"
+        response += f"📈 This month: {streaks['monthly_compliance']}% completion\n"
+        response += f"🏆 Best ever: {streaks['best_streak']} days"
         
         # Motivational message based on performance
         if streaks['weekly_compliance'] >= 80:
@@ -575,13 +608,29 @@ Chat with your trainer about what would help you most! 🌟"""
         
         response = "Your daily habits to track:\n\n"
         
+        # Check if already logged today
+        today_logged = False
+        try:
+            today = datetime.now(self.sa_tz).date()
+            tracking = self.db.table('habit_tracking')\
+                .select('id')\
+                .eq('client_id', client['id'])\
+                .eq('date', today.isoformat())\
+                .limit(1)\
+                .execute()
+            today_logged = bool(tracking.data)
+        except:
+            pass
+        
         for habit in habits:
             response += f"{habit['emoji']} **{habit['name']}**\n"
             response += f"   Target: {habit['target_value']} {habit['unit']}\n"
-            response += f"   Today: {'✅ Done' if habit['completed_today'] else '⏳ Not logged'}\n\n"
+            response += f"   Today: {'✅ Done' if today_logged else '⏳ Not logged'}\n\n"
         
         response += f"⏰ Daily reminder: {habits[0]['reminder_time']}\n"
-        response += "\nReady to log today's habits? Just send your numbers or yes/no!"
+        
+        if not today_logged:
+            response += "\nReady to log today's habits? Just send your numbers or yes/no!"
         
         return response
     
@@ -591,10 +640,13 @@ Chat with your trainer about what would help you most! 🌟"""
         result = self.habit_service.skip_habits_today(client['id'])
         
         if result['streak_broken']:
+            streak_msg = self.habit_service.get_streak_message(
+                result['broken_streak'], 
+                broken=True
+            )
             return f"""Noted! Skipping today's habits.
 
-Your {result['broken_streak']} day streak has ended, but don't worry! 
-Tomorrow is a fresh start. 🌅
+{streak_msg}
 
 Remember: Progress, not perfection! See you tomorrow 💪"""
         else:
@@ -730,7 +782,7 @@ Just tell me what you need! 🚀"""
 
 What would you like to do? 😊"""
     
-    # [All other existing methods remain the same...]
+    # [All other existing methods remain exactly the same...]
     # Including: _add_client_flow, _show_schedule, _show_clients, 
     # _generate_dashboard_link, _log_interaction, _handle_unknown_sender,
     # and all the placeholder methods at the end
