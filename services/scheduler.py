@@ -7,7 +7,7 @@ from typing import Dict, List
 from models.client import ClientModel
 from models.booking import BookingModel
 from services.habits import HabitService  # NEW IMPORT
-from utils.logger import log_error, log_info
+from utils.logger import log_error, log_info, log_warning
 
 class SchedulerService:
     """Handle all automated scheduled tasks including habit tracking"""
