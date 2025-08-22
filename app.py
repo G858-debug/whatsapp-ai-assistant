@@ -5,6 +5,7 @@ import pytz
 import json
 import atexit
 import uuid
+import re  # Added for sanitization
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Payment imports
@@ -15,7 +16,8 @@ from payfast_webhook import payfast_webhook_bp
 # Import our modules
 from config import Config
 from utils.logger import ErrorLogger, log_info, log_error, log_warning
-from utils.rate_limiter import RateLimiter  # NEW IMPORT
+from utils.rate_limiter import RateLimiter
+from utils.input_sanitizer import InputSanitizer  # NEW IMPORT
 from services.whatsapp import WhatsAppService
 from services.refiloe import RefiloeAssistant
 from services.scheduler import SchedulerService
@@ -35,7 +37,8 @@ whatsapp_service = None
 refiloe = None
 scheduler = None
 voice_processor = None
-rate_limiter = None  # NEW VARIABLE
+rate_limiter = None
+input_sanitizer = None  # NEW VARIABLE
 
 # Initialize payment system
 payment_manager = None
@@ -54,7 +57,7 @@ try:
 except Exception as e:
     log_error(f"Failed to initialize database: {str(e)}")
 
-# NEW: Initialize Rate Limiter
+# Initialize Rate Limiter
 try:
     if supabase:
         rate_limiter = RateLimiter(config, supabase)
@@ -62,6 +65,14 @@ try:
 except Exception as e:
     log_error(f"Failed to initialize rate limiter: {str(e)}")
     rate_limiter = None
+
+# NEW: Initialize Input Sanitizer
+try:
+    input_sanitizer = InputSanitizer(config)
+    log_info("Input sanitizer initialized successfully")
+except Exception as e:
+    log_error(f"Failed to initialize input sanitizer: {str(e)}")
+    input_sanitizer = None
 
 try:
     # Initialize payment system
@@ -116,7 +127,7 @@ VOICE_CONFIG = {
     }
 }
 
-log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}, Payments: {payment_manager is not None}, Rate Limiter: {rate_limiter is not None}")
+log_info(f"Application initialized - Database: {supabase is not None}, WhatsApp: {whatsapp_service is not None}, Refiloe: {refiloe is not None}, Payments: {payment_manager is not None}, Rate Limiter: {rate_limiter is not None}, Sanitizer: {input_sanitizer is not None}")
 
 # Register blueprints
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -157,7 +168,7 @@ if payment_manager:
     payment_scheduler.start()
     log_info("Payment scheduler started")
 
-# NEW: Schedule rate limiter cleanup
+# Schedule rate limiter cleanup
 if rate_limiter:
     payment_scheduler.add_job(
         func=cleanup_rate_limiter,
@@ -246,10 +257,13 @@ def process_data_deletion_request(deletion_request: dict):
             client = supabase.table('clients').select('id').eq('whatsapp', phone).execute()
             if client.data:
                 client_id = client.data[0]['id']
-                supabase.table('workouts').delete().eq('client_id', client_id).execute()
-                supabase.table('workout_programs').delete().eq('client_id', client_id).execute()
-                supabase.table('assessments').delete().eq('client_id', client_id).execute()
-                supabase.table('progress_tracking').delete().eq('client_id', client_id).execute()
+                # Delete related data (only tables that exist)
+                for table in ['workout_history', 'pending_workouts', 'fitness_assessments', 
+                             'fitness_goals', 'physical_measurements', 'assessment_photos']:
+                    try:
+                        supabase.table(table).delete().eq('client_id', client_id).execute()
+                    except:
+                        pass  # Table might not exist
                 
                 # Delete payment tokens and requests
                 supabase.table('client_payment_tokens').delete().eq('client_id', client_id).execute()
@@ -278,7 +292,6 @@ def process_data_deletion_request(deletion_request: dict):
                 
                 # Delete trainer's data
                 supabase.table('trainers').delete().eq('id', trainer_id).execute()
-                supabase.table('trainer_settings').delete().eq('trainer_id', trainer_id).execute()
                 # Mark clients as orphaned instead of deleting
                 supabase.table('clients').update({'trainer_id': None}).eq('trainer_id', trainer_id).execute()
         
@@ -338,7 +351,7 @@ def home():
                 <p>Your AI assistant for personal trainers</p>
                 <div class="status">✅ System Online</div>
                 <div class="payment-status">💳 Payment System Active</div>
-                <div class="security-status">🔒 Rate Limiting Enabled</div>
+                <div class="security-status">🔒 Security Active (Rate Limiting + Input Sanitization)</div>
             </div>
         </body>
     </html>
@@ -364,7 +377,7 @@ def verify_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def handle_message():
-    """Handle incoming WhatsApp messages with rate limiting and payment integration"""
+    """Handle incoming WhatsApp messages with sanitization, rate limiting, and payment integration"""
     try:
         data = request.get_json()
         
@@ -412,12 +425,20 @@ def handle_message():
                                     should_reply_with_voice = False
                                     warning_needed = False
                                     
+                                    # SECURITY CHECK 3: Sanitize phone number
+                                    if input_sanitizer and phone_number:
+                                        sanitized_phone, phone_valid = input_sanitizer.sanitize_phone_number(phone_number)
+                                        if not phone_valid:
+                                            log_warning(f"Invalid phone number format: {phone_number}")
+                                            continue
+                                        phone_number = sanitized_phone
+                                    
                                     # Check for duplicates
                                     if whatsapp_service and whatsapp_service.is_duplicate_message(message_id):
                                         log_info(f"Duplicate message {message_id} - skipping")
                                         continue
                                     
-                                    # SECURITY CHECK 3: Apply rate limiting based on message type
+                                    # SECURITY CHECK 4: Apply rate limiting based on message type
                                     if rate_limiter:
                                         # Determine actual message type for rate limiting
                                         if message_type == 'audio' or 'audio' in message:
@@ -467,6 +488,24 @@ def handle_message():
                                                 message_text = voice_processor.transcribe_audio(audio_buffer)
                                                 log_info(f"Transcribed text: {message_text}")
                                                 
+                                                # SECURITY CHECK 5: Sanitize transcribed text
+                                                if input_sanitizer and message_text:
+                                                    sanitized_text, is_safe, warnings = input_sanitizer.sanitize_message(
+                                                        message_text, 
+                                                        phone_number
+                                                    )
+                                                    
+                                                    if not is_safe:
+                                                        log_error(f"Blocked unsafe voice message from {phone_number}")
+                                                        if whatsapp_service:
+                                                            whatsapp_service.send_message(
+                                                                phone_number,
+                                                                "⚠️ Your voice message contained invalid content. Please try again."
+                                                            )
+                                                        continue
+                                                    
+                                                    message_text = sanitized_text
+                                                
                                                 should_reply_with_voice = True
                                                 
                                             except Exception as e:
@@ -477,7 +516,7 @@ def handle_message():
                                                 if whatsapp_service:
                                                     whatsapp_service.send_message(
                                                         phone_number,
-                                                        f"🎤 I had trouble processing your voice note. Error: {str(e)[:100]}... Please try typing instead."
+                                                        f"🎤 I had trouble processing your voice note. Please try typing instead."
                                                     )
                                                 continue
                                         else:
@@ -490,8 +529,51 @@ def handle_message():
                                             continue
                                     
                                     elif message_type == 'text' or 'text' in message:
-                                        message_text = message.get('text', {}).get('body', '')
-                                        log_info(f"Text message: {message_text}")
+                                        raw_message = message.get('text', {}).get('body', '')
+                                        
+                                        # SECURITY CHECK 6: Sanitize message text
+                                        if input_sanitizer:
+                                            sanitized_text, is_safe, warnings = input_sanitizer.sanitize_message(
+                                                raw_message, 
+                                                phone_number
+                                            )
+                                            
+                                            # Log any warnings
+                                            for warning in warnings:
+                                                log_warning(f"Sanitization warning for {phone_number}: {warning}")
+                                            
+                                            # Block if unsafe
+                                            if not is_safe:
+                                                log_error(f"Blocked unsafe message from {phone_number}")
+                                                
+                                                # Log to database for security audit
+                                                if supabase:
+                                                    try:
+                                                        supabase.table('security_audit_log').insert({
+                                                            'event_type': 'blocked_message',
+                                                            'phone_number': phone_number,
+                                                            'details': {
+                                                                'warnings': warnings,
+                                                                'message_preview': raw_message[:100]
+                                                            },
+                                                            'created_at': datetime.now().isoformat()
+                                                        }).execute()
+                                                    except:
+                                                        pass  # Don't break if audit log doesn't exist
+                                                
+                                                # Send warning to user
+                                                if whatsapp_service:
+                                                    whatsapp_service.send_message(
+                                                        phone_number,
+                                                        "⚠️ Your message contained invalid content and was blocked for security reasons. Please try again with a different message."
+                                                    )
+                                                continue
+                                            
+                                            message_text = sanitized_text
+                                        else:
+                                            message_text = raw_message
+                                        
+                                        log_info(f"Sanitized message: {message_text[:50]}...")
                                         
                                         # Check for data deletion request via WhatsApp
                                         if message_text.upper().strip() == "DELETE MY DATA":
@@ -551,15 +633,30 @@ def handle_message():
                                             )
                                         continue
                                     
-                                    # SECURITY CHECK 4: Special rate limiting for payment messages
+                                    # SECURITY CHECK 7: Special handling for payment messages
                                     if message_text and payment_integration:
                                         payment_keywords = ['pay', 'payment', 'invoice', 'bill', 'charge']
                                         if any(keyword in message_text.lower() for keyword in payment_keywords):
+                                            # Additional rate limiting for payment requests
                                             if rate_limiter:
                                                 allowed, error_msg = rate_limiter.check_payment_rate(phone_number)
                                                 if not allowed:
                                                     if whatsapp_service:
                                                         whatsapp_service.send_message(phone_number, error_msg)
+                                                    continue
+                                            
+                                            # Extract and sanitize amount if present
+                                            amount_match = re.search(r'R?\s*(\d+(?:\.\d{2})?)', message_text)
+                                            if amount_match and input_sanitizer:
+                                                amount_str = amount_match.group(1)
+                                                sanitized_amount, amount_valid = input_sanitizer.sanitize_amount(amount_str)
+                                                
+                                                if not amount_valid:
+                                                    if whatsapp_service:
+                                                        whatsapp_service.send_message(
+                                                            phone_number,
+                                                            "💰 Invalid amount format. Please use format like: R100 or R100.50"
+                                                        )
                                                     continue
                                         
                                         user_info = get_user_info(phone_number)
@@ -605,7 +702,7 @@ def handle_message():
                                             log_info(f"Processing with Refiloe: {message_text[:50]}...")
                                             response = refiloe.process_message(
                                                 whatsapp_number=phone_number,
-                                                message_text=message_text,
+                                                message_text=message_text,  # This is now sanitized
                                                 message_id=message_id
                                             )
                                             
@@ -663,7 +760,30 @@ def handle_message():
         return jsonify({'status': 'error'}), 500
 
 # ============================================
-# DATA DELETION ROUTES (unchanged)
+# ADMIN ENDPOINTS
+# ============================================
+
+@app.route('/admin/sanitization-stats', methods=['GET'])
+def get_sanitization_stats():
+    """Get sanitization statistics (admin only)"""
+    try:
+        # Check admin authorization
+        auth_token = request.headers.get('X-Admin-Token')
+        if auth_token != os.environ.get('ADMIN_TOKEN'):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if input_sanitizer:
+            stats = input_sanitizer.get_sanitization_stats()
+            return jsonify(stats), 200
+        else:
+            return jsonify({'error': 'Sanitizer not initialized'}), 500
+            
+    except Exception as e:
+        log_error(f"Error getting sanitization stats: {str(e)}")
+        return jsonify({'error': 'Failed to get stats'}), 500
+
+# ============================================
+# DATA DELETION ROUTES
 # ============================================
 
 @app.route('/data-deletion')
@@ -699,24 +819,41 @@ def handle_data_deletion():
         if not data.get('fullName') or not data.get('phone') or not data.get('userType'):
             return jsonify({'error': 'Missing required fields'}), 400
         
-        # Clean the phone number
-        phone = data['phone'].replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-        if not phone.startswith('+'):
-            if phone.startswith('0'):
-                phone = '+27' + phone[1:]
-            elif phone.startswith('27'):
-                phone = '+' + phone
-            else:
-                phone = '+27' + phone
+        # Sanitize inputs
+        if input_sanitizer:
+            # Sanitize phone number
+            phone = data['phone'].replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+            if not phone.startswith('+'):
+                if phone.startswith('0'):
+                    phone = '+27' + phone[1:]
+                elif phone.startswith('27'):
+                    phone = '+' + phone
+                else:
+                    phone = '+27' + phone
+            
+            sanitized_phone, phone_valid = input_sanitizer.sanitize_phone_number(phone)
+            if not phone_valid:
+                return jsonify({'error': 'Invalid phone number'}), 400
+            phone = sanitized_phone
+            
+            # Sanitize name
+            sanitized_name, name_valid = input_sanitizer.sanitize_name(data['fullName'])
+            if not name_valid:
+                return jsonify({'error': 'Invalid name'}), 400
+            full_name = sanitized_name
+        else:
+            # Fallback if sanitizer not available
+            phone = data['phone']
+            full_name = data['fullName']
         
         # Create deletion request record
         deletion_request = {
             'id': str(uuid.uuid4()),
             'user_type': data['userType'],
-            'full_name': data['fullName'],
+            'full_name': full_name,
             'email': data.get('email'),
             'phone': phone,
-            'reason': data.get('reason', ''),
+            'reason': data.get('reason', '')[:500],  # Limit reason length
             'status': 'pending',
             'requested_at': datetime.now().isoformat(),
             'process_by': (datetime.now() + timedelta(days=30)).isoformat(),
@@ -733,7 +870,7 @@ def handle_data_deletion():
         if whatsapp_service:
             confirmation_msg = (
                 "📋 *Data Deletion Request Received*\n\n"
-                f"Dear {data['fullName']},\n\n"
+                f"Dear {full_name},\n\n"
                 "We've received your request to delete your data from Refiloe. "
                 "Your request will be processed within 30 days as per data protection regulations.\n\n"
                 f"Request ID: {deletion_request['id'][:8].upper()}\n"
@@ -754,7 +891,7 @@ def handle_data_deletion():
                     trainer_phone = trainer_result.data[0]['whatsapp']
                     trainer_msg = (
                         "⚠️ *Client Data Deletion Request*\n\n"
-                        f"Client {data['fullName']} has requested data deletion.\n"
+                        f"Client {full_name} has requested data deletion.\n"
                         f"Phone: {phone}\n\n"
                         "Their data will be deleted within 30 days. "
                         "Please download any important records if needed."
@@ -806,7 +943,7 @@ def process_pending_deletions():
         return jsonify({'error': 'Processing failed'}), 500
 
 # ============================================
-# PAYMENT SPECIFIC ROUTES (unchanged)
+# PAYMENT SPECIFIC ROUTES
 # ============================================
 
 @app.route('/payment/success', methods=['GET'])
@@ -1047,8 +1184,20 @@ def payment_dashboard(trainer_id):
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint with rate limiting status"""
+    """Health check endpoint with security status"""
     try:
+        # Get sanitizer stats if available
+        if input_sanitizer:
+            sanitizer_stats = input_sanitizer.get_sanitization_stats()
+            sanitizer_status = {
+                'status': 'active',
+                'messages_processed': sanitizer_stats['total_processed'],
+                'threats_blocked': sanitizer_stats['blocked_total'],
+                'block_rate': f"{sanitizer_stats['block_rate']:.2f}%"
+            }
+        else:
+            sanitizer_status = {'status': 'not initialized'}
+        
         health_status = {
             'status': 'healthy' if supabase else 'degraded',
             'timestamp': datetime.now(pytz.timezone('Africa/Johannesburg')).isoformat(),
@@ -1062,14 +1211,16 @@ def health_check():
                 'payment_manager': 'initialized' if payment_manager else 'not initialized',
                 'payment_integration': 'initialized' if payment_integration else 'not initialized',
                 'payment_scheduler': 'running' if payment_scheduler and payment_scheduler.running else 'stopped',
-                'rate_limiter': 'active' if rate_limiter else 'not initialized',  # NEW
+                'rate_limiter': 'active' if rate_limiter else 'not initialized',
+                'input_sanitizer': 'active' if input_sanitizer else 'not initialized',  # NEW
                 'ai_model': config.AI_MODEL if hasattr(config, 'AI_MODEL') else 'not configured',
             },
-            'version': '3.2.0',  # Updated version with rate limiting
+            'version': '3.3.0',  # Updated version with input sanitization
             'errors_today': logger.get_error_count_today() if logger else 0,
-            'security_features': {  # NEW SECTION
+            'security_features': {
                 'rate_limiting': config.ENABLE_RATE_LIMITING if hasattr(config, 'ENABLE_RATE_LIMITING') else False,
                 'webhook_verification': True,
+                'input_sanitization': sanitizer_status,  # NEW
                 'message_rate_limit': config.MESSAGE_RATE_LIMIT if hasattr(config, 'MESSAGE_RATE_LIMIT') else 0,
                 'payment_rate_limit': config.PAYMENT_REQUEST_RATE_LIMIT if hasattr(config, 'PAYMENT_REQUEST_RATE_LIMIT') else 0,
             },
