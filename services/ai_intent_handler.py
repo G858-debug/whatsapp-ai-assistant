@@ -1,4 +1,3 @@
-# services/ai_intent_handler.py
 """
 AI-First Intent Handler for Refiloe
 This replaces keyword matching with intelligent intent understanding
@@ -121,6 +120,7 @@ TASK: Understand what the {sender_type} wants. Remember:
 - Sometimes people just want to chat or check in
 - Not every message needs a task response
 - Be conversational and natural
+- Recognize habit tracking responses (numbers, yes/no patterns, done/skip)
 
 Analyze and return ONLY valid JSON with this structure:
 {{
@@ -134,7 +134,11 @@ Analyze and return ONLY valid JSON with this structure:
         "duration": "if mentioned",
         "price": "if mentioned",
         "phone_number": "if mentioned",
-        "email": "if mentioned"
+        "email": "if mentioned",
+        "habit_type": "if setting up habit (water/steps/sleep/veggies/etc)",
+        "habit_responses": ["array of habit check responses if logging"],
+        "habit_values": ["numeric values for habits if provided"],
+        "target_value": "if mentioned for habit setup"
     }},
     "sentiment": "positive/neutral/negative/urgent/casual/friendly",
     "requires_confirmation": true/false,
@@ -154,6 +158,11 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - thanks: Expressing gratitude
 - farewell: Saying goodbye
 - small_talk: Weather, how are you, etc.
+- setup_habit: Setting up habit tracking for a client (water, steps, sleep, etc)
+- check_habit_compliance: Viewing client habit progress/compliance
+- modify_habit: Changing habit targets or settings
+- send_habit_reminder: Manually trigger habit check for clients
+- view_habit_report: Get habit tracking summary/reports
 - add_client: Adding a new client
 - view_schedule: Checking their schedule/bookings
 - send_workout: Sending a workout to a client
@@ -165,6 +174,12 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - view_clients: Listing all clients
 - general_question: General query
 - help: Asking for help/commands
+
+HABIT SETUP PATTERNS:
+- "Set up water tracking for [client]"
+- "Add habit for [client]"
+- "[client] needs to track [habit]"
+- "Start [client] on [habit] tracking"
 """
         else:  # client
             prompt += """
@@ -174,6 +189,11 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - thanks: Expressing gratitude
 - farewell: Saying goodbye
 - small_talk: Weather, how are you, etc.
+- log_habits: Recording daily habit completion (responding to habit check)
+- check_streak: Asking about their habit streak
+- view_habits: What habits they need to track
+- skip_habits: Skipping today's habit tracking
+- modify_habit_target: Requesting to change their habit goals
 - book_session: Booking a training session
 - view_schedule: Checking their upcoming sessions
 - cancel_session: Cancelling a booking
@@ -184,6 +204,13 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - payment_query: Question about payment
 - general_question: General query
 - help: Asking for help
+
+HABIT LOGGING PATTERNS:
+- Simple responses: "yes yes no", "7 yes no", "done done skip"
+- Numbers: "6", "8 glasses", "10000 steps"
+- Natural language: "I drank 6 glasses and ate my veggies"
+- Emojis: "✅ ✅ ❌", "👍 👍 👎"
+- Mixed: "6/8 water, veggies yes, no walk"
 """
         
         prompt += """
@@ -191,6 +218,12 @@ Be precise and extract ALL mentioned information.
 Consider South African context (ZA phone numbers, Rand currency, local slang).
 The message might be informal or use WhatsApp shorthand.
 Recognize casual conversation - not everything needs a task response.
+
+For habit tracking:
+- Detect when someone is responding to a habit check
+- Extract specific values (numbers for water, steps, etc)
+- Understand various response formats (yes/no, numbers, done/skip, emojis)
+- Identify which habits are being set up or tracked
 """
         
         return prompt
@@ -252,7 +285,45 @@ Recognize casual conversation - not everything needs a task response.
             if parsed_time:
                 intent_data['extracted_data']['parsed_datetime'] = parsed_time.isoformat()
         
+        # Process habit responses if present
+        if intent_data['extracted_data'].get('habit_responses'):
+            processed_responses = self._process_habit_responses(
+                intent_data['extracted_data']['habit_responses']
+            )
+            intent_data['extracted_data']['processed_habit_responses'] = processed_responses
+        
         return intent_data
+    
+    def _process_habit_responses(self, responses: List) -> List[Dict]:
+        """Process various habit response formats into structured data"""
+        processed = []
+        
+        for response in responses:
+            response_lower = str(response).lower()
+            
+            # Check for yes/no/done/skip
+            if response_lower in ['yes', '✅', 'done', 'complete', '👍']:
+                processed.append({'completed': True, 'value': None})
+            elif response_lower in ['no', '❌', 'skip', 'missed', '👎']:
+                processed.append({'completed': False, 'value': None})
+            # Check for numeric values
+            elif response_lower.replace('.', '').isdigit():
+                processed.append({'completed': True, 'value': float(response_lower)})
+            # Check for fractions like "6/8"
+            elif '/' in response_lower:
+                parts = response_lower.split('/')
+                if len(parts) == 2 and parts[0].isdigit():
+                    processed.append({'completed': True, 'value': float(parts[0])})
+            else:
+                # Try to extract numbers from text
+                import re
+                numbers = re.findall(r'\d+', response_lower)
+                if numbers:
+                    processed.append({'completed': True, 'value': float(numbers[0])})
+                else:
+                    processed.append({'completed': False, 'value': None})
+        
+        return processed
     
     def _fuzzy_match_client(self, search_name: str, clients: List[Dict]) -> Optional[Dict]:
         """Find best matching client name"""
@@ -321,7 +392,38 @@ Recognize casual conversation - not everything needs a task response.
         """Basic keyword-based intent detection when AI is unavailable"""
         message_lower = message.lower()
         
-        # Check for casual conversation first
+        # Check for habit-related keywords first
+        habit_keywords = {
+            'setup_habit': ['habit', 'track', 'water tracking', 'steps tracking', 'sleep tracking'],
+            'log_habits': ['yes yes', 'yes no', 'done done', 'glasses', 'steps', '✅', '❌'],
+            'check_streak': ['streak', 'how many days', 'consecutive'],
+            'view_habits': ['what habits', 'my habits', 'tracking what'],
+        }
+        
+        # Check habit intents
+        for intent, keywords in habit_keywords.items():
+            for keyword in keywords:
+                if keyword in message_lower:
+                    # Extract habit responses for logging
+                    extracted_data = {}
+                    if intent == 'log_habits':
+                        extracted_data = self._extract_habit_responses(message)
+                    elif intent == 'setup_habit':
+                        extracted_data = self._extract_habit_setup(message)
+                    
+                    return {
+                        'primary_intent': intent,
+                        'secondary_intents': [],
+                        'confidence': 0.75,
+                        'extracted_data': extracted_data,
+                        'sentiment': 'neutral',
+                        'requires_confirmation': False,
+                        'suggested_response_type': 'task',
+                        'conversation_tone': 'friendly',
+                        'is_follow_up': False
+                    }
+        
+        # Check for casual conversation
         casual_keywords = {
             'status_check': ['are you there', 'you there', 'still there', 'are you working', 'you alive', 'you up'],
             'greeting': ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo', 'morning', 'afternoon', 'evening'],
@@ -330,7 +432,7 @@ Recognize casual conversation - not everything needs a task response.
             'casual_chat': ['how are you', 'what\'s up', 'wassup', 'how\'s it', 'you good'],
         }
         
-        # Check casual intents first
+        # Check casual intents
         for intent, keywords in casual_keywords.items():
             for keyword in keywords:
                 if keyword in message_lower:
@@ -408,6 +510,79 @@ Recognize casual conversation - not everything needs a task response.
             'conversation_tone': 'friendly',
             'is_follow_up': False
         }
+    
+    def _extract_habit_responses(self, message: str) -> Dict:
+        """Extract habit logging responses from message"""
+        import re
+        
+        extracted = {
+            'habit_responses': [],
+            'habit_values': []
+        }
+        
+        message_lower = message.lower()
+        
+        # Pattern 1: yes/no responses
+        yes_no_pattern = r'\b(yes|no|done|skip|complete|missed)\b'
+        yes_no_matches = re.findall(yes_no_pattern, message_lower)
+        if yes_no_matches:
+            extracted['habit_responses'] = yes_no_matches
+        
+        # Pattern 2: numeric values
+        number_pattern = r'\b(\d+)\b'
+        numbers = re.findall(number_pattern, message)
+        if numbers:
+            extracted['habit_values'] = [int(n) for n in numbers]
+        
+        # Pattern 3: emojis
+        if '✅' in message or '❌' in message or '👍' in message or '👎' in message:
+            emoji_responses = []
+            for char in message:
+                if char in ['✅', '👍']:
+                    emoji_responses.append('yes')
+                elif char in ['❌', '👎']:
+                    emoji_responses.append('no')
+            extracted['habit_responses'] = emoji_responses
+        
+        return extracted
+    
+    def _extract_habit_setup(self, message: str) -> Dict:
+        """Extract habit setup information from message"""
+        extracted = {}
+        message_lower = message.lower()
+        
+        # Extract habit type
+        habit_types = {
+            'water': ['water', 'hydration', 'drink'],
+            'steps': ['steps', 'walking', 'walk'],
+            'sleep': ['sleep', 'rest'],
+            'vegetables': ['vegetables', 'veggies', 'greens'],
+            'exercise': ['exercise', 'workout', 'training'],
+            'meditation': ['meditation', 'mindfulness', 'meditate']
+        }
+        
+        for habit_type, keywords in habit_types.items():
+            for keyword in keywords:
+                if keyword in message_lower:
+                    extracted['habit_type'] = habit_type
+                    break
+        
+        # Extract target value if mentioned
+        import re
+        number_pattern = r'\b(\d+)\b'
+        numbers = re.findall(number_pattern, message)
+        if numbers:
+            extracted['target_value'] = int(numbers[0])
+        
+        # Extract client name if mentioned
+        if 'for' in message_lower:
+            parts = message_lower.split('for')
+            if len(parts) > 1:
+                potential_name = parts[1].strip().split()[0:2]
+                if potential_name:
+                    extracted['client_name'] = ' '.join(potential_name).title()
+        
+        return extracted
     
     def generate_smart_response(self, intent_data: Dict, sender_type: str, 
                                sender_data: Dict) -> str:
