@@ -3,7 +3,7 @@ import hashlib
 import hmac
 from datetime import datetime
 import pytz
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import json
 
 from utils.logger import log_error, log_info
