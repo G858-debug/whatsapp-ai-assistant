@@ -546,3 +546,45 @@ class HabitService:
                 return f"{streak} days strong! 💪"
             else:
                 return f"{streak} days! Incredible dedication! 🌟"
+    
+    
+    def generate_habit_quick_replies(self, client_id: str) -> Dict:
+        """Generate WhatsApp quick reply buttons for habit tracking"""
+        
+        habits = self.get_client_habits(client_id)
+        
+        if not habits or len(habits) > 3:
+            # Can't use buttons if more than 3 habits
+            return None
+        
+        # Generate button options
+        buttons = []
+        
+        # Common responses for 3 habits
+        if len(habits) == 3:
+            buttons = [
+                {"id": "habits_all_done", "title": "✅ All done"},
+                {"id": "habits_partial", "title": "📝 Some done"},
+                {"id": "habits_skip", "title": "⏭️ Skip today"}
+            ]
+        elif len(habits) == 2:
+            buttons = [
+                {"id": "habits_yes_yes", "title": "✅ Both done"},
+                {"id": "habits_yes_no", "title": "✅ ❌"},
+                {"id": "habits_no_no", "title": "❌ Both skip"}
+            ]
+        else:  # 1 habit
+            buttons = [
+                {"id": "habit_done", "title": "✅ Done"},
+                {"id": "habit_skip", "title": "❌ Skip"}
+            ]
+        
+        return {
+            "type": "button",
+            "body": {
+                "text": self._generate_habit_reminder_message(client_id)
+            },
+            "action": {
+                "buttons": buttons
+            }
+        }
