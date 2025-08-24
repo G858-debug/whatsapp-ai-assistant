@@ -107,7 +107,7 @@ class Config:
     ENABLE_MULTI_LANGUAGE = False  # Coming soon
     
     # Dashboard Settings
-    DASHBOARD_BASE_URL = 'https://web-production-26de5.up.railway.app'
+    DASHBOARD_BASE_URL = 'https://refiloe.co.za'
     DASHBOARD_TOKEN_EXPIRY_HOURS = 24  # How long dashboard links remain valid
     
     # Workout Settings
