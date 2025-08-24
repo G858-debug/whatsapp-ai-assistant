@@ -935,25 +935,12 @@ Example: "Add Sarah Jones 0821234567" 🚀"""
             if not dashboard_service:
                 return "Dashboard is being set up. Try again in a moment! 😊"
             
+            # Generate or retrieve the permanent link
             result = dashboard_service.generate_dashboard_link(trainer['id'])
             
             if result['success']:
-                return f"""📊 Your personal dashboard is ready!
-
-{result['url']}
-
-✨ Link expires in 24 hours
-📱 Mobile-optimized
-🔒 Secure & private
-
-Your dashboard shows:
-- Today's schedule
-- Client list & balances  
-- Revenue tracking
-- Habit compliance
-- Quick actions
-
-Tap to view! 💪"""
+                # Return the personalized message
+                return result['message']
             else:
                 return "Having trouble with the dashboard. Let me try again..."
                 
