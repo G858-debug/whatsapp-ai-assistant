@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template_string
+from flask import redirect
 import os
 from datetime import datetime, timedelta
 import pytz
@@ -758,6 +759,12 @@ def handle_message():
     except Exception as e:
         log_error(f"Critical webhook error: {str(e)}", exc_info=True)
         return jsonify({'status': 'error'}), 500
+
+@app.route('/d/<short_code>')
+def short_dashboard(short_code):
+    """Short URL redirect to dashboard"""
+    # Redirect to the full dashboard route
+    return redirect(f'/dashboard/{short_code}')
 
 # ============================================
 # ADMIN ENDPOINTS
