@@ -17,7 +17,7 @@ from utils.logger import log_info, log_error
 dashboard_bp = Blueprint('dashboard', __name__, template_folder='templates')
 
 class DashboardService:
-    """Handle dashboard token generation and management"""
+    """Handle keep-alive dashboard links"""
     
     def __init__(self, config, supabase_client):
         self.config = config
@@ -27,86 +27,186 @@ class DashboardService:
         self.client_model = ClientModel(supabase_client, config)
         self.booking_model = BookingModel(supabase_client, config)
         
-        # Store active tokens in memory (in production, use Redis or database)
-        self.active_tokens = {}
+        # Keep-alive configuration
+        self.INACTIVE_DAYS = 30  # Links expire after 30 days of no use
+        self.EXTEND_DAYS = 30    # Each click extends by 30 days
     
     def generate_dashboard_link(self, trainer_id: str) -> Dict:
-        """Generate a secure, temporary dashboard link"""
+        """Generate or retrieve permanent dashboard link"""
         try:
-            # Generate secure token
-            token = secrets.token_urlsafe(32)
+            # Check for existing link
+            result = self.db.table('dashboard_links').select('*').eq(
+                'trainer_id', trainer_id
+            ).eq('is_active', True).execute()
             
-            # Store token with expiration
-            self.active_tokens[token] = {
-                'trainer_id': trainer_id,
-                'created_at': datetime.now(self.sa_tz),
-                'expires_at': datetime.now(self.sa_tz) + timedelta(hours=24),
-                'used': False
-            }
+            if result.data:
+                # Return existing link
+                link_data = result.data[0]
+                dashboard_url = self._build_url(link_data['short_code'])
+                
+                # Check how long since last access
+                last_accessed = datetime.fromisoformat(link_data['last_accessed'].replace('Z', '+00:00'))
+                last_accessed = last_accessed.astimezone(self.sa_tz)
+                days_ago = (datetime.now(self.sa_tz) - last_accessed).days
+                
+                # Personalize message based on usage
+                access_count = link_data.get('access_count', 0)
+                
+                if days_ago == 0:
+                    message = f"📊 Your dashboard: {dashboard_url}"
+                elif days_ago < 7:
+                    message = f"📊 Welcome back! Your dashboard:\n\n{dashboard_url}"
+                else:
+                    message = f"📊 Your dashboard is ready:\n\n{dashboard_url}"
+                
+                # Add helpful tip for new users
+                if access_count < 3:
+                    message += "\n\n💡 Tip: Save this link - it's yours to keep!"
+                elif access_count < 10:
+                    message += "\n\n📌 This is your permanent dashboard link"
+                
+                log_info(f"Returned existing link for trainer {trainer_id}")
+                
+                return {
+                    'success': True,
+                    'url': dashboard_url,
+                    'message': message
+                }
             
-            # Also store in database for persistence
-            if self.db:
-                self.db.table('dashboard_tokens').insert({
-                    'token': token,
+            else:
+                # Create new permanent link
+                short_code = self._generate_short_code()
+                
+                # Store in database
+                self.db.table('dashboard_links').insert({
                     'trainer_id': trainer_id,
-                    'expires_at': (datetime.now(self.sa_tz) + timedelta(hours=24)).isoformat(),
-                    'created_at': datetime.now(self.sa_tz).isoformat()
+                    'short_code': short_code,
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'last_accessed': datetime.now(self.sa_tz).isoformat(),
+                    'expires_at': (datetime.now(self.sa_tz) + timedelta(days=self.EXTEND_DAYS)).isoformat(),
+                    'access_count': 0,
+                    'is_active': True
                 }).execute()
-            
-            # Generate URL
-            base_url = self.config.DASHBOARD_BASE_URL if hasattr(self.config, 'DASHBOARD_BASE_URL') else 'https://web-production-26de5.up.railway.app'
-            dashboard_url = f"{base_url}/dashboard/{token}"
-            
-            log_info(f"Generated dashboard link for trainer {trainer_id}")
-            
-            return {
-                'success': True,
-                'url': dashboard_url,
-                'expires_in': '24 hours'
-            }
-            
+                
+                dashboard_url = self._build_url(short_code)
+                
+                log_info(f"Created new permanent link for trainer {trainer_id}")
+                
+                return {
+                    'success': True,
+                    'url': dashboard_url,
+                    'message': f"""📊 Your permanent dashboard is ready!
+
+{dashboard_url}
+
+✨ This is YOUR link"""
+                }
+                
         except Exception as e:
             log_error(f"Error generating dashboard link: {str(e)}")
-            return {
-                'success': False,
-                'error': 'Failed to generate dashboard link'
-            }
+            # Fallback to simple temporary link
+            return self._generate_fallback_link(trainer_id)
     
     def validate_token(self, token: str) -> Optional[str]:
-        """Validate token and return trainer_id if valid"""
+        """Validate link and refresh expiry (keep-alive mechanism)"""
         try:
-            # Check in-memory tokens first
-            if token in self.active_tokens:
-                token_data = self.active_tokens[token]
-                if datetime.now(self.sa_tz) < token_data['expires_at']:
-                    return token_data['trainer_id']
-                else:
-                    del self.active_tokens[token]
-                    return None
+            # Try to find by short_code (new system)
+            result = self.db.table('dashboard_links').select('*').eq(
+                'short_code', token
+            ).eq('is_active', True).execute()
             
-            # Check database
-            if self.db:
-                result = self.db.table('dashboard_tokens').select('*').eq(
-                    'token', token
-                ).execute()
+            if not result.data:
+                # Maybe it's an old-style token, check dashboard_tokens table if it exists
+                return self._check_old_token(token)
+            
+            link_data = result.data[0]
+            expires_at = datetime.fromisoformat(link_data['expires_at'].replace('Z', '+00:00'))
+            expires_at = expires_at.astimezone(self.sa_tz)
+            
+            # Check if expired (only after 30 days of no use)
+            if datetime.now(self.sa_tz) > expires_at:
+                # Mark as inactive
+                self.db.table('dashboard_links').update({
+                    'is_active': False
+                }).eq('id', link_data['id']).execute()
                 
-                if result.data:
-                    token_data = result.data[0]
-                    expires_at = datetime.fromisoformat(token_data['expires_at'])
-                    
-                    if datetime.now(self.sa_tz) < expires_at:
-                        # Cache in memory
-                        self.active_tokens[token] = {
-                            'trainer_id': token_data['trainer_id'],
-                            'expires_at': expires_at
-                        }
-                        return token_data['trainer_id']
+                log_info(f"Link expired for trainer {link_data['trainer_id']} - not used for 30 days")
+                return None
             
-            return None
+            # KEEP-ALIVE: Extend expiry by 30 days from NOW
+            new_expiry = datetime.now(self.sa_tz) + timedelta(days=self.EXTEND_DAYS)
+            
+            # Update last accessed and extend expiry
+            self.db.table('dashboard_links').update({
+                'last_accessed': datetime.now(self.sa_tz).isoformat(),
+                'expires_at': new_expiry.isoformat(),
+                'access_count': link_data.get('access_count', 0) + 1
+            }).eq('id', link_data['id']).execute()
+            
+            log_info(f"Link accessed and extended for trainer {link_data['trainer_id']}")
+            
+            return link_data['trainer_id']
             
         except Exception as e:
             log_error(f"Error validating token: {str(e)}")
             return None
+    
+    def _generate_short_code(self) -> str:
+        """Generate a short, memorable code"""
+        # Generate 6-character code (enough for millions of trainers)
+        code = secrets.token_urlsafe(6)[:6]
+        
+        # Make sure it's unique
+        result = self.db.table('dashboard_links').select('id').eq(
+            'short_code', code
+        ).execute()
+        
+        if result.data:
+            # Collision (very rare), try again
+            return self._generate_short_code()
+        
+        return code
+    
+    def _build_url(self, short_code: str) -> str:
+        """Build the dashboard URL"""
+        base_url = self.config.DASHBOARD_BASE_URL if hasattr(self.config, 'DASHBOARD_BASE_URL') else 'https://web-production-26de5.up.railway.app'
+        return f"{base_url}/d/{short_code}"
+    
+    def _generate_fallback_link(self, trainer_id: str) -> Dict:
+        """Fallback for when database fails"""
+        code = secrets.token_urlsafe(6)[:6]
+        url = self._build_url(code)
+        
+        return {
+            'success': True,
+            'url': url,
+            'message': f"""📊 Dashboard ready!
+
+{url}
+
+(Temporary link - expires in 24 hours)"""
+        }
+    
+    def _check_old_token(self, token: str) -> Optional[str]:
+        """Check if this is an old-style token from the previous system"""
+        try:
+            # Check if dashboard_tokens table exists (old system)
+            result = self.db.table('dashboard_tokens').select('*').eq(
+                'token', token
+            ).execute()
+            
+            if result.data:
+                token_data = result.data[0]
+                expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
+                expires_at = expires_at.astimezone(self.sa_tz)
+                
+                if datetime.now(self.sa_tz) < expires_at:
+                    return token_data['trainer_id']
+        except:
+            # Table doesn't exist or other error - that's fine
+            pass
+        
+        return None
     
     def get_dashboard_data(self, trainer_id: str) -> Dict:
         """Get all data needed for dashboard"""
@@ -350,6 +450,87 @@ class DashboardService:
             
         except Exception as e:
             log_error(f"Error exporting data: {str(e)}")
+            return None
+    
+    def get_client_assessment_dashboard_data(self, client_id: str) -> Dict:
+        """Get comprehensive assessment data for client dashboard"""
+        try:
+            # Get all assessments for progress tracking
+            assessments = self.db.table('fitness_assessments').select(
+                '''*, 
+                physical_measurements(*),
+                fitness_goals(*),
+                fitness_test_results(*),
+                assessment_photos(*)'''
+            ).eq('client_id', client_id).eq('status', 'completed').order(
+                'assessment_date', desc=True
+            ).execute()
+            
+            if not assessments.data:
+                return None
+            
+            latest = assessments.data[0]
+            
+            # Prepare chart data for weight progress
+            weight_history = []
+            bmi_history = []
+            fitness_history = []
+            
+            for assess in assessments.data:
+                date = datetime.fromisoformat(assess['assessment_date']).strftime('%d %b')
+                
+                if assess.get('physical_measurements'):
+                    m = assess['physical_measurements'][0]
+                    if m.get('weight_kg'):
+                        weight_history.append({
+                            'date': date,
+                            'value': m['weight_kg']
+                        })
+                    if m.get('bmi'):
+                        bmi_history.append({
+                            'date': date,
+                            'value': m['bmi']
+                        })
+                
+                if assess.get('fitness_test_results'):
+                    t = assess['fitness_test_results'][0]
+                    if t.get('push_ups_count') is not None:
+                        fitness_history.append({
+                            'date': date,
+                            'pushups': t['push_ups_count'],
+                            'plank': t.get('plank_hold_seconds', 0)
+                        })
+            
+            # Get photos for before/after
+            photos = {
+                'front': [],
+                'side': [],
+                'back': []
+            }
+            
+            for assess in assessments.data[:2]:  # Get last 2 assessments for comparison
+                if assess.get('assessment_photos'):
+                    for photo in assess['assessment_photos']:
+                        if not photo.get('is_deleted'):
+                            photo_type = photo.get('photo_type', 'other')
+                            if photo_type in photos:
+                                photos[photo_type].append({
+                                    'url': photo['photo_url'],
+                                    'date': datetime.fromisoformat(assess['assessment_date']).strftime('%d %b %Y')
+                                })
+            
+            return {
+                'latest_assessment': latest,
+                'total_assessments': len(assessments.data),
+                'weight_history': list(reversed(weight_history)),
+                'bmi_history': list(reversed(bmi_history)),
+                'fitness_history': list(reversed(fitness_history)),
+                'photos': photos,
+                'has_progress': len(assessments.data) > 1
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting client dashboard data: {str(e)}")
             return None
 
 # Initialize service (will be done in main app)
@@ -598,84 +779,3 @@ def view_client_assessment(token):
         log_error(f"Error viewing client assessment: {str(e)}")
         return render_template('error.html', 
                              message="An error occurred loading your assessment."), 500
-
-def get_client_assessment_dashboard_data(self, client_id: str) -> Dict:
-    """Get comprehensive assessment data for client dashboard"""
-    try:
-        # Get all assessments for progress tracking
-        assessments = self.db.table('fitness_assessments').select(
-            '''*, 
-            physical_measurements(*),
-            fitness_goals(*),
-            fitness_test_results(*),
-            assessment_photos(*)'''
-        ).eq('client_id', client_id).eq('status', 'completed').order(
-            'assessment_date', desc=True
-        ).execute()
-        
-        if not assessments.data:
-            return None
-        
-        latest = assessments.data[0]
-        
-        # Prepare chart data for weight progress
-        weight_history = []
-        bmi_history = []
-        fitness_history = []
-        
-        for assess in assessments.data:
-            date = datetime.fromisoformat(assess['assessment_date']).strftime('%d %b')
-            
-            if assess.get('physical_measurements'):
-                m = assess['physical_measurements'][0]
-                if m.get('weight_kg'):
-                    weight_history.append({
-                        'date': date,
-                        'value': m['weight_kg']
-                    })
-                if m.get('bmi'):
-                    bmi_history.append({
-                        'date': date,
-                        'value': m['bmi']
-                    })
-            
-            if assess.get('fitness_test_results'):
-                t = assess['fitness_test_results'][0]
-                if t.get('push_ups_count') is not None:
-                    fitness_history.append({
-                        'date': date,
-                        'pushups': t['push_ups_count'],
-                        'plank': t.get('plank_hold_seconds', 0)
-                    })
-        
-        # Get photos for before/after
-        photos = {
-            'front': [],
-            'side': [],
-            'back': []
-        }
-        
-        for assess in assessments.data[:2]:  # Get last 2 assessments for comparison
-            if assess.get('assessment_photos'):
-                for photo in assess['assessment_photos']:
-                    if not photo.get('is_deleted'):
-                        photo_type = photo.get('photo_type', 'other')
-                        if photo_type in photos:
-                            photos[photo_type].append({
-                                'url': photo['photo_url'],
-                                'date': datetime.fromisoformat(assess['assessment_date']).strftime('%d %b %Y')
-                            })
-        
-        return {
-            'latest_assessment': latest,
-            'total_assessments': len(assessments.data),
-            'weight_history': list(reversed(weight_history)),
-            'bmi_history': list(reversed(bmi_history)),
-            'fitness_history': list(reversed(fitness_history)),
-            'photos': photos,
-            'has_progress': len(assessments.data) > 1
-        }
-        
-    except Exception as e:
-        log_error(f"Error getting client dashboard data: {str(e)}")
-        return None
