@@ -28,7 +28,7 @@ class PaymentIntegration:
             'upgrade_plan': r'(?i)(upgrade|professional plan|upgrade plan)',
             'set_reminder': r'(?i)(set payment reminder|payment reminder)\s+(?:day\s+)?(\d+)',
             'enable_auto': r'(?i)(enable auto payment|auto approve)\s+(?:R?(\d+))',
-            'payment_help': r'(?i)(payment help|how to pay|payment info)'
+            'payment_help': r'(?i)(payment help|how to pay|payment info)',
             'set_client_price': r'(?i)(?:set|change|update)\s+(.+?)(?:\'s)?\s+(?:rate|price|cost)\s+(?:to\s+)?R?(\d+(?:\.\d{2})?)',
             'view_client_price': r'(?i)(?:what|show|check)\s+(?:is\s+)?(.+?)(?:\'s)?\s+(?:rate|price|cost)'
         }
