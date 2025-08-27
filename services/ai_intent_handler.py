@@ -133,6 +133,7 @@ Analyze and return ONLY valid JSON with this structure:
         "exercises": ["if workout mentioned"],
         "duration": "if mentioned",
         "price": "if mentioned",
+        "custom_price": "if setting client price",
         "phone_number": "if mentioned",
         "email": "if mentioned",
         "habit_type": "if setting up habit (water/steps/sleep/veggies/etc)",
@@ -158,6 +159,8 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - thanks: Expressing gratitude
 - farewell: Saying goodbye
 - small_talk: Weather, how are you, etc.
+- set_client_price: Setting custom price for a client (e.g., "Set Sarah's rate to R450")
+- view_client_price: Checking a client's custom price (e.g., "What is John's rate?")
 - setup_habit: Setting up habit tracking for a client (water, steps, sleep, etc)
 - check_habit_compliance: Viewing client habit progress/compliance
 - modify_habit: Changing habit targets or settings
