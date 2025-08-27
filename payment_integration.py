@@ -29,6 +29,8 @@ class PaymentIntegration:
             'set_reminder': r'(?i)(set payment reminder|payment reminder)\s+(?:day\s+)?(\d+)',
             'enable_auto': r'(?i)(enable auto payment|auto approve)\s+(?:R?(\d+))',
             'payment_help': r'(?i)(payment help|how to pay|payment info)'
+            'set_client_price': r'(?i)(?:set|change|update)\s+(.+?)(?:\'s)?\s+(?:rate|price|cost)\s+(?:to\s+)?R?(\d+(?:\.\d{2})?)',
+            'view_client_price': r'(?i)(?:what|show|check)\s+(?:is\s+)?(.+?)(?:\'s)?\s+(?:rate|price|cost)'
         }
 
     def process_payment_message(self, phone: str, message: str, user_type: str, user_id: str) -> Optional[Dict]:
@@ -121,6 +123,27 @@ class PaymentIntegration:
             
             elif command == 'payment_help':
                 return self._get_payment_help(user_type)
+
+            elif command == 'set_client_price':
+                if user_type != 'trainer':
+                    return {
+                        'type': 'error',
+                        'message': 'Only trainers can set client prices.'
+                    }
+                
+                client_name = match.group(1).strip()
+                new_price = float(match.group(2))
+                return self._set_client_price(user_id, client_name, new_price)
+            
+            elif command == 'view_client_price':
+                if user_type != 'trainer':
+                    return {
+                        'type': 'error',
+                        'message': 'Only trainers can view client prices.'
+                    }
+                
+                client_name = match.group(1).strip()
+                return self._view_client_price(user_id, client_name)
             
             return {
                 'type': 'error',
@@ -619,4 +642,104 @@ class PaymentIntegration:
             return {
                 'type': 'error',
                 'message': 'Failed to process reminder response.'
+            }
+
+    def _set_client_price(self, trainer_id: str, client_name: str, new_price: float) -> Dict:
+        """
+        Set custom price for a specific client
+        """
+        try:
+            supabase = self.payment_manager.supabase
+            
+            # Find the client
+            client = supabase.table('clients').select('*').eq(
+                'trainer_id', trainer_id
+            ).ilike('name', f'%{client_name}%').limit(1).execute()
+            
+            if not client.data:
+                return {
+                    'type': 'error',
+                    'message': f'Client "{client_name}" not found.'
+                }
+            
+            # Update the custom price
+            update_result = supabase.table('clients').update({
+                'custom_price_per_session': new_price
+            }).eq('id', client.data[0]['id']).execute()
+            
+            if update_result.data:
+                return {
+                    'type': 'price_updated',
+                    'message': (
+                        f"✅ Updated pricing for {client.data[0]['name']}!\n\n"
+                        f"New rate: R{new_price} per session\n"
+                        f"This will apply to all future bookings and payments."
+                    )
+                }
+            else:
+                return {
+                    'type': 'error',
+                    'message': 'Failed to update price. Please try again.'
+                }
+                
+        except Exception as e:
+            logger.error(f"Error setting client price: {str(e)}")
+            return {
+                'type': 'error',
+                'message': 'Failed to update client price.'
+            }
+    
+    def _view_client_price(self, trainer_id: str, client_name: str) -> Dict:
+        """
+        View custom price for a specific client
+        """
+        try:
+            supabase = self.payment_manager.supabase
+            
+            # Find the client
+            client = supabase.table('clients').select('*, custom_price_per_session').eq(
+                'trainer_id', trainer_id
+            ).ilike('name', f'%{client_name}%').limit(1).execute()
+            
+            if not client.data:
+                return {
+                    'type': 'error',
+                    'message': f'Client "{client_name}" not found.'
+                }
+            
+            client_data = client.data[0]
+            
+            # Get trainer's default price for comparison
+            trainer = supabase.table('trainers').select('pricing_per_session').eq(
+                'id', trainer_id
+            ).single().execute()
+            
+            default_price = trainer.data.get('pricing_per_session', 300) if trainer.data else 300
+            
+            if client_data.get('custom_price_per_session'):
+                custom_price = client_data['custom_price_per_session']
+                return {
+                    'type': 'price_info',
+                    'message': (
+                        f"💰 Pricing for {client_data['name']}:\n\n"
+                        f"Custom rate: R{custom_price} per session\n"
+                        f"(Your default rate: R{default_price})"
+                    )
+                }
+            else:
+                return {
+                    'type': 'price_info',
+                    'message': (
+                        f"💰 Pricing for {client_data['name']}:\n\n"
+                        f"Using your default rate: R{default_price} per session\n"
+                        f"💡 Tip: You can set a custom rate with:\n"
+                        f"'Set {client_data['name']}'s rate to R[amount]'"
+                    )
+                }
+                
+        except Exception as e:
+            logger.error(f"Error viewing client price: {str(e)}")
+            return {
+                'type': 'error',
+                'message': 'Failed to get client price.'
             }
