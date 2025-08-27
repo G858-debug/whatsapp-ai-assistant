@@ -329,7 +329,7 @@ def process_data_deletion_request(deletion_request: dict):
         return False
 
 # ============================================
-# CREATE PLACEHOLDER ICONS
+# CREATE 'APP' PLACEHOLDER ICONS
 # ============================================
 
 def create_placeholder_icons():
@@ -351,6 +351,38 @@ def create_placeholder_icons():
     img_512.save('static/icon-512.png')
     
     print("✅ Placeholder icons created in static/ folder")
+
+def create_svg_icon(size, filename):
+    """Create a simple SVG icon with 'R' for Refiloe"""
+    svg_content = f"""<svg width="{size}" height="{size}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="{size}" height="{size}" fill="url(#grad)" rx="20" />
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
+        font-family="Arial, sans-serif" font-size="{size//2}" font-weight="bold" fill="white">R</text>
+</svg>"""
+    
+    with open(filename, 'w') as f:
+        f.write(svg_content)
+    print(f"✅ Created {filename}")
+
+# Create static directory if it doesn't exist
+os.makedirs('static', exist_ok=True)
+
+# Create SVG icons (these work without any image library!)
+create_svg_icon(192, 'static/icon-192.svg')
+create_svg_icon(512, 'static/icon-512.svg')
+
+# If you want PNG icons instead, you can use an online converter:
+print("\n📝 To convert to PNG:")
+print("1. Go to: https://svgtopng.com/")
+print("2. Upload the SVG files from the static folder")
+print("3. Download as PNG and save with same names but .png extension")
+print("\nOr use the SVG files directly by updating manifest.json to use .svg extensions")
 
 # ============================================
 # ROUTES
