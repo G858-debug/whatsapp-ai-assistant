@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify, render_template_string
 from flask import redirect
+from flask import send_from_directory
+from PIL import Image, ImageDraw, ImageFont
 import os
 from datetime import datetime, timedelta
 import pytz
@@ -325,6 +327,30 @@ def process_data_deletion_request(deletion_request: dict):
             'error': str(e)
         }).eq('id', deletion_request['id']).execute()
         return False
+
+# ============================================
+# CREATE PLACEHOLDER ICONS
+# ============================================
+
+def create_placeholder_icons():
+    """Create placeholder PWA icons"""
+    
+    # Create static directory if it doesn't exist
+    os.makedirs('static', exist_ok=True)
+    
+    # Create 192x192 icon
+    img_192 = Image.new('RGB', (192, 192), color='#667eea')
+    draw_192 = ImageDraw.Draw(img_192)
+    draw_192.text((96, 96), "R", fill='white', anchor="mm")
+    img_192.save('static/icon-192.png')
+    
+    # Create 512x512 icon
+    img_512 = Image.new('RGB', (512, 512), color='#667eea')
+    draw_512 = ImageDraw.Draw(img_512)
+    draw_512.text((256, 256), "R", fill='white', anchor="mm")
+    img_512.save('static/icon-512.png')
+    
+    print("✅ Placeholder icons created in static/ folder")
 
 # ============================================
 # ROUTES
@@ -765,6 +791,21 @@ def short_dashboard(short_code):
     """Short URL redirect to dashboard"""
     # Redirect to the full dashboard route
     return redirect(f'/dashboard/{short_code}')
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files"""
+    return send_from_directory('static', filename)
+
+@app.route('/sw.js')
+def service_worker():
+    """Serve service worker from root (required for scope)"""
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+
+@app.route('/manifest.json')
+def manifest():
+    """Serve manifest from root"""
+    return send_from_directory('static', 'manifest.json', mimetype='application/manifest+json')
 
 # ============================================
 # ADMIN ENDPOINTS
