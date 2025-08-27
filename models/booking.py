@@ -35,6 +35,18 @@ class BookingModel:
             # Step 3: Calculate end time
             end_time = session_datetime + timedelta(minutes=duration_minutes)
             
+            try:
+                client_result = self.db.table('clients').select('custom_price_per_session').eq(
+                    'id', client_id
+                ).single().execute()
+                
+                if client_result.data and client_result.data.get('custom_price_per_session'):
+                    price = float(client_result.data['custom_price_per_session'])
+                    log_info(f"Using custom price R{price} for client {client_id}")
+            except Exception as e:
+                log_error(f"Error fetching custom price, using provided price: {str(e)}")
+                # Continue with the price parameter passed to the function
+            
             # Step 4: Insert booking with all details
             booking_data = {
                 'id': booking_id,
