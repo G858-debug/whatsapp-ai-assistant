@@ -182,9 +182,9 @@ class PaymentIntegration:
         Request payment from a client
         """
         try:
-            # Find client
+            # Find client AND get their custom price
             supabase = self.payment_manager.supabase
-            client = supabase.table('clients').select('*').eq(
+            client = supabase.table('clients').select('*, custom_price_per_session').eq(
                 'trainer_id', trainer_id
             ).ilike('name', f'%{client_name}%').limit(1).execute()
             
@@ -193,6 +193,11 @@ class PaymentIntegration:
                     'type': 'error',
                     'message': f'Client "{client_name}" not found.'
                 }
+            
+            # Use custom price if available, otherwise use the amount passed
+            client_data = client.data[0]
+            if client_data.get('custom_price_per_session'):
+                amount = float(client_data['custom_price_per_session'])
             
             # Create payment request
             description = f"Training sessions - {datetime.now().strftime('%B %Y')}"
@@ -568,8 +573,11 @@ class PaymentIntegration:
                 
                 for client in clients.data:
                     if client.get('client_payment_tokens'):
-                        # Client has payment method
-                        amount = trainer.data.get('pricing_per_session', 500)
+                        # Client has payment method - use custom price if available
+                        if client.get('custom_price_per_session'):
+                            amount = float(client['custom_price_per_session'])
+                        else:
+                            amount = trainer.data.get('pricing_per_session', 500)
                         description = f"Monthly training sessions - {datetime.now().strftime('%B %Y')}"
                         
                         result = self.payment_manager.create_payment_request(
