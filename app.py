@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, render_template_string
 from flask import redirect
 from flask import send_from_directory
-from PIL import Image, ImageDraw, ImageFont
 import os
 from datetime import datetime, timedelta
 import pytz
