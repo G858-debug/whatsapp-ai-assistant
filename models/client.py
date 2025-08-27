@@ -63,6 +63,7 @@ class ClientModel:
                 'sessions_remaining': sessions,
                 'package_type': package,
                 'status': 'active',
+                'custom_price_per_session': client_details.get('price'),  # ADD THIS LINE
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
             
