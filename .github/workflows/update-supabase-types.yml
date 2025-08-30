@@ -1,0 +1,44 @@
+name: Update Supabase Types
+
+on:
+  workflow_dispatch: # lets you run it manually from GitHub
+  push:
+    branches:
+      - main # run whenever code is pushed to main
+
+jobs:
+  update-types:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Generate Supabase types
+        run: |
+          supabase gen types typescript --project-id ${{ secrets.SUPABASE_URL }} \
+            --db-url "postgresql://postgres:${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}@db.${{ secrets.SUPABASE_URL#https://}}/postgres" \
+            > src/types/supabase.ts
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update Supabase types"
+          branch: update-supabase-types
+          create_branch: true
+          push_options: --force
+
+      - name: Open Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: update-supabase-types
+          title: "Update Supabase types"
+          body: "This PR updates the generated Supabase types."
+          base: main
