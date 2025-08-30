@@ -1,10 +1,9 @@
-name: Update Supabase Types
+name: Update Supabase Types (on migration PRs)
 
 on:
-  workflow_dispatch: # lets you run it manually from GitHub
-  push:
-    branches:
-      - main # run whenever code is pushed to main
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'  # only run if a migration file changes
 
 jobs:
   update-types:
@@ -27,18 +26,9 @@ jobs:
             --db-url "postgresql://postgres:${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}@db.${{ secrets.SUPABASE_URL#https://}}/postgres" \
             > src/types/supabase.ts
 
-      - name: Commit and push changes
+      - name: Commit updated types to PR
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update Supabase types"
-          branch: update-supabase-types
-          create_branch: true
+          branch: ${{ github.head_ref }}
           push_options: --force
-
-      - name: Open Pull Request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: update-supabase-types
-          title: "Update Supabase types"
-          body: "This PR updates the generated Supabase types."
-          base: main
