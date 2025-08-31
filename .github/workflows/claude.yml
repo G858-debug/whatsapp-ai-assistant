@@ -55,122 +55,275 @@ jobs:
           import re
           from pathlib import Path
           import subprocess
+          from datetime import datetime
           
           # Read the task
           with open('comment.txt', 'r') as f:
               comment = f.read()
           task = comment.replace('@claude', '').strip()
           
-          print(f"Task: {task}")
+          print(f"📋 Task: {task}")
           
           # Check for special commands
-          auto_apply = '@apply' in task or '@commit' in task
-          create_pr = '@pr' in task
+          auto_apply = '@apply' in comment or '@commit' in comment
+          create_pr = '@pr' in comment
+          force_opus = '@opus' in comment
+          force_sonnet = '@sonnet' in comment
           
           # Remove command keywords from task
-          task = task.replace('@apply', '').replace('@commit', '').replace('@pr', '').strip()
+          clean_task = task.replace('@apply', '').replace('@commit', '').replace('@pr', '')\
+                           .replace('@opus', '').replace('@sonnet', '').strip()
           
-          # CRITICAL FIX: Read ALL project files properly
-          print("Reading all project files...")
+          # =====================================
+          # SMART MODEL SELECTION
+          # =====================================
+          def select_model_and_context(task, comment):
+              """Intelligently select model based on task complexity"""
+              
+              task_lower = task.lower()
+              
+              # Force model if specified
+              if force_opus:
+                  print("🎯 Force flag: Using Opus 4.1")
+                  return 'claude-opus-4-1-20250805', 8000, True, "Opus 4.1 (forced)"
+              
+              if force_sonnet:
+                  print("🎯 Force flag: Using Sonnet 3.5")
+                  return 'claude-3-5-sonnet-20241022', 4000, False, "Sonnet 3.5 (forced)"
+              
+              # OPUS 4.1 TRIGGERS (Complex tasks - $15/million tokens)
+              opus_triggers = [
+                  # Strategic/Architecture
+                  'architect', 'strategy', 'strategize', 'design system', 'redesign',
+                  'refactor entire', 'complete overhaul', 'restructure', 'plan',
+                  
+                  # Complex Analysis
+                  'analyze entire', 'comprehensive', 'deep dive', 'audit',
+                  'optimize performance', 'security audit', 'code review',
+                  'review all', 'analyze all', 'investigate',
+                  
+                  # Multi-file Operations  
+                  'entire codebase', 'all files', 'multiple services', 'full system',
+                  'complete all', 'fix everything', 'update all', 'every file',
+                  
+                  # Complex Features
+                  'build complete', 'implement full', 'create system', 
+                  'complex', 'advanced', 'sophisticated', 'integration',
+                  
+                  # Chain-of-thought
+                  'chain of thought', 'multi-agent', 'step by step analysis',
+                  'systematic', 'thorough analysis',
+                  
+                  # Testing & Documentation
+                  'comprehensive tests', 'full documentation', 'test suite',
+                  'complete documentation', 'all tests',
+                  
+                  # Debugging complex issues
+                  'debug why', 'trace bug', 'find root cause', 'not working'
+              ]
+              
+              # SONNET 3.5 TASKS (Simple edits - $3/million tokens)
+              sonnet_triggers = [
+                  # Simple fixes
+                  'fix typo', 'update comment', 'add docstring', 'rename',
+                  'fix indentation', 'fix syntax', 'fix import', 'indentationerror',
+                  
+                  # Simple additions
+                  'add log', 'add print', 'add comment', 'add todo',
+                  'single file', 'one file', 'simple', 'quick',
+                  
+                  # Specific single-file tasks
+                  'update config', 'change constant', 'update variable',
+                  
+                  # Information queries
+                  'list files', 'show structure', 'what files', 'explain',
+                  'how many', 'count', 'check'
+              ]
+              
+              # Check triggers
+              use_opus = any(trigger in task_lower for trigger in opus_triggers)
+              use_sonnet = any(trigger in task_lower for trigger in sonnet_triggers)
+              
+              # Decision logic
+              if use_opus and not use_sonnet:
+                  return 'claude-opus-4-1-20250805', 8000, True, "Complex task (Opus 4.1)"
+              elif use_sonnet and not use_opus:
+                  return 'claude-3-5-sonnet-20241022', 4000, False, "Simple task (Sonnet 3.5)"
+              elif len(task) > 200 or task.count('\n') > 3:
+                  return 'claude-opus-4-1-20250805', 8000, True, "Long request (Opus 4.1)"
+              elif auto_apply and 'all' in task_lower:
+                  return 'claude-opus-4-1-20250805', 8000, True, "Multi-file changes (Opus 4.1)"
+              else:
+                  return 'claude-3-5-sonnet-20241022', 4000, False, "Standard task (Sonnet 3.5)"
+          
+          # Select model
+          selected_model, max_tokens, use_full_context, model_reason = select_model_and_context(task, comment)
+          model_name = "Opus 4.1" if "opus" in selected_model else "Sonnet 3.5"
+          
+          print(f"🤖 Model: {model_name}")
+          print(f"📝 Reason: {model_reason}")
+          
+          # =====================================
+          # SMART CONTEXT BUILDING
+          # =====================================
+          def build_smart_context(task, all_files, use_full_context):
+              """Build context with only relevant files to save tokens/money"""
+              
+              task_lower = task.lower()
+              
+              # Start with file structure (always include - it's cheap)
+              context = "=== PROJECT STRUCTURE ===\n"
+              for file_path in sorted(all_files.keys()):
+                  context += f"- {file_path}\n"
+              
+              # Full context for Opus complex tasks
+              if use_full_context and ('entire' in task_lower or 'all' in task_lower or 'complete' in task_lower):
+                  context += "\n\n=== COMPLETE CODEBASE ===\n"
+                  total_size = len(context)
+                  for file_path, content in sorted(all_files.items()):
+                      if total_size + len(content) < 400000:  # ~100k tokens max
+                          context += f"\n{'='*60}\nFILE: {file_path}\n{'='*60}\n"
+                          context += content
+                          context += f"\n{'='*60}\n"
+                          total_size += len(content)
+                  return context
+              
+              # Smart selection for specific tasks
+              relevant_files = set()
+              
+              # Core files (always include if small)
+              core_files = ['config.py', 'requirements.txt', 'claude.md', 'README.md']
+              for f in core_files:
+                  if f in all_files and len(all_files[f]) < 5000:
+                      relevant_files.add(f)
+              
+              # Keyword-based file selection
+              keyword_mappings = {
+                  'payment': ['payment_manager.py', 'services/payment.py', 'payfast_webhook.py'],
+                  'assessment': ['services/assessment.py'],
+                  'booking': ['services/booking.py'],
+                  'whatsapp': ['app.py', 'services/refiloe.py'],
+                  'message': ['app.py', 'services/refiloe.py'],
+                  'workout': ['services/workout.py'],
+                  'dashboard': ['routes/dashboard.py'],
+                  'database': ['supabase/migrations'],
+                  'migration': ['supabase/migrations'],
+                  'error': ['app.py', 'utils/logger.py'],
+                  'indentation': ['services/assessment.py'],  # Known problem file
+              }
+              
+              # Check keywords and add relevant files
+              for keyword, paths in keyword_mappings.items():
+                  if keyword in task_lower:
+                      for path in paths:
+                          if isinstance(path, str):
+                              # Check if it's a directory pattern
+                              if '/' in path and not path.endswith('.py'):
+                                  # Add all files in that directory
+                                  for file_path in all_files.keys():
+                                      if path in file_path:
+                                          relevant_files.add(file_path)
+                              else:
+                                  # Direct file
+                                  if path in all_files:
+                                      relevant_files.add(path)
+              
+              # Check if specific files are mentioned
+              for file_path in all_files.keys():
+                  file_name = Path(file_path).stem
+                  if file_name in task_lower:
+                      relevant_files.add(file_path)
+              
+              # Default files if nothing specific found
+              if len(relevant_files) <= len(core_files):
+                  relevant_files.update(['app.py', 'services/refiloe.py'])
+              
+              # Build context with selected files
+              context += f"\n\n=== RELEVANT FILES ({len(relevant_files)} of {len(all_files)}) ===\n"
+              
+              total_size = len(context)
+              max_size = 100000 if "sonnet" in selected_model else 300000
+              
+              for file_path in sorted(relevant_files):
+                  if file_path in all_files:
+                      content = all_files[file_path]
+                      if total_size + len(content) > max_size:
+                          print(f"⚠️ Skipping {file_path} - would exceed context limit")
+                          continue
+                      context += f"\n{'='*60}\nFILE: {file_path}\n{'='*60}\n"
+                      context += content
+                      context += f"\n{'='*60}\n"
+                      total_size += len(content)
+                      print(f"✓ Including: {file_path}")
+              
+              return context
+          
+          # Read all project files
+          print("\n📂 Reading project files...")
           all_project_files = {}
           
-          # Get ALL Python files (not just truncated ones)
+          # Get Python files
           for py_file in Path('.').rglob('*.py'):
               if not str(py_file).startswith('.git'):
                   try:
                       with open(py_file, 'r', encoding='utf-8') as f:
-                          full_content = f.read()
-                          all_project_files[str(py_file)] = full_content
-                          print(f"✓ Read: {py_file} ({len(full_content)} chars)")
+                          all_project_files[str(py_file)] = f.read()
                   except Exception as e:
                       print(f"✗ Could not read {py_file}: {e}")
           
-          # Add configuration and other important files
-          important_files = [
-              'requirements.txt', 
-              'README.md', 
-              '.env.example',
-              'railway.json',
-              'Procfile',
-              'runtime.txt',
-              'claude.md',
-              '.github/workflows/claude.yml'
-          ]
+          # Add other important files
+          patterns = ['*.txt', '*.md', '*.yml', '*.yaml', '*.sql', '*.json', '*.toml']
+          for pattern in patterns:
+              for file in Path('.').rglob(pattern):
+                  if not str(file).startswith('.git') and str(file) not in all_project_files:
+                      try:
+                          with open(file, 'r', encoding='utf-8') as f:
+                              all_project_files[str(file)] = f.read()
+                      except:
+                          pass
           
-          for file_path in important_files:
-              if Path(file_path).exists():
-                  try:
-                      with open(file_path, 'r', encoding='utf-8') as f:
-                          all_project_files[file_path] = f.read()
-                          print(f"✓ Read: {file_path}")
-                  except Exception as e:
-                      print(f"✗ Could not read {file_path}: {e}")
+          print(f"📚 Found {len(all_project_files)} files")
           
-          # Add SQL migration files
-          if Path('supabase/migrations').exists():
-              for sql_file in Path('supabase/migrations').glob('*.sql'):
-                  try:
-                      with open(sql_file, 'r', encoding='utf-8') as f:
-                          all_project_files[str(sql_file)] = f.read()
-                          print(f"✓ Read: {sql_file}")
-                  except:
-                      pass
+          # Build context based on model selection
+          context = build_smart_context(clean_task, all_project_files, use_full_context)
           
-          print(f"\nTotal files read: {len(all_project_files)}")
+          # Calculate costs
+          estimated_tokens = len(context) / 4
+          cost_per_million = 15 if "opus" in selected_model else 3
+          estimated_cost = (estimated_tokens / 1_000_000) * cost_per_million
           
-          # Build comprehensive context
-          context = "=== COMPLETE PROJECT STRUCTURE ===\n"
-          for file_path in sorted(all_project_files.keys()):
-              file_size = len(all_project_files[file_path])
-              context += f"- {file_path} ({file_size} chars)\n"
+          print(f"\n📊 Context size: {len(context):,} chars")
+          print(f"🪙 Estimated tokens: {estimated_tokens:,.0f}")
+          print(f"💰 Estimated cost: ${estimated_cost:.4f} ({model_name})")
           
-          context += "\n\n=== COMPLETE FILE CONTENTS ===\n"
-          
-          # Include ALL file contents for Claude
-          for file_path in sorted(all_project_files.keys()):
-              content = all_project_files[file_path]
-              # Only truncate individual files if they're massive (>50k chars)
-              if len(content) > 50000:
-                  content = content[:50000] + f"\n\n[... truncated from {len(content)} chars ...]"
-              context += f"\n\n{'='*60}\n"
-              context += f"FILE: {file_path}\n"
-              context += f"{'='*60}\n"
-              context += content
-              context += f"\n{'='*60}\n"
-          
-          # Ensure context isn't too large for API (Claude has ~200k token context)
-          if len(context) > 500000:  # Roughly 125k tokens
-              print(f"Context too large ({len(context)} chars), truncating...")
-              context = context[:500000] + "\n\n[... context truncated due to size ...]"
+          # Cost warning for expensive requests
+          if estimated_cost > 0.50:
+              print(f"⚠️ WARNING: This request will cost ~${estimated_cost:.2f}")
+              if not force_opus:
+                  print(f"💡 Tip: Add @sonnet to force Sonnet 3.5 if this isn't complex")
           
           try:
               client = anthropic.Anthropic()
               
-              # Prepare the prompt with FULL context
+              # Build prompt
               prompt = f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
               
               Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
               Context: South African (Rand currency, +27 phones)
+              Model: You are {model_name}
               
-              IMPORTANT: You have access to the COMPLETE codebase below. Every file in the project is included.
-              
-              TASK: {task}
+              TASK: {clean_task}
               
               {context}
               
-              You can see ALL files above. Please provide your response in this EXACT format:
+              Provide your response in this EXACT format:
               
               ## ANALYSIS
-              [Brief analysis of what needs to be done based on the actual code you can see above]
+              [Brief analysis of what needs to be done]
               
               ## FILES TO CHANGE
               
               ### FILE: path/to/file.py
-              ```python
-              [Complete updated file content - the ENTIRE file, not snippets]
-              ```
-              
-              ### FILE: path/to/another_file.py
               ```python
               [Complete updated file content - the ENTIRE file]
               ```
@@ -188,40 +341,37 @@ jobs:
               ## SUMMARY
               [Brief summary of changes made]
               
-              IMPORTANT RULES:
-              - You CAN see all the files - they are provided above
+              IMPORTANT:
               - Provide COMPLETE file contents, not snippets
-              - Fix any IndentationErrors or syntax errors you find
-              - Follow the rules in claude.md (which you can see above)
-              - Mark new files with "NEW FILE:"
-              - Mark SQL migrations with "MIGRATION:"
-              - Use exact file paths as shown in the structure above
+              - Fix any IndentationErrors or syntax errors found
+              - Follow the rules in claude.md
+              - Use exact file paths as shown in the structure
               '''
               
-              print(f"Sending request to Claude Opus 4.1...")
-              print(f"Context size: {len(context)} chars")
-              print(f"Using model: claude-opus-4-1-20250805")
-              
+              print(f"\n🤖 Calling {model_name}...")
               response = client.messages.create(
-                  model='claude-opus-4-1-20250805',  # Using Opus 4.1 as requested
-                  max_tokens=8000,
+                  model=selected_model,
+                  max_tokens=max_tokens,
                   messages=[{'role': 'user', 'content': prompt}]
               )
               
               response_text = response.content[0].text
-              print(f"Received response: {len(response_text)} chars")
+              print(f"✓ Received response: {len(response_text)} chars")
               
-              # Save full response
+              # Save full response with metadata
               with open('claude_response.md', 'w', encoding='utf-8') as f:
+                  f.write(f"<!-- Model: {model_name} -->\n")
+                  f.write(f"<!-- Cost: ${estimated_cost:.4f} -->\n")
+                  f.write(f"<!-- Tokens: ~{estimated_tokens:,.0f} -->\n\n")
                   f.write(response_text)
               
               # Parse and apply changes if requested
               changes_applied = []
               
               if auto_apply:
-                  print("\nApplying changes...")
+                  print("\n📝 Applying changes...")
                   
-                  # Extract file changes with improved regex
+                  # Extract file changes
                   file_pattern = r'###\s*(NEW\s+)?FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json)?\n(.*?)\n```'
                   migration_pattern = r'##\s*MIGRATION:\s*(.+?)\n```sql\n(.*?)\n```'
                   
@@ -232,10 +382,7 @@ jobs:
                       content = match.group(3)
                       
                       try:
-                          # Create directories if needed
                           Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-                          
-                          # Write file
                           with open(file_path, 'w', encoding='utf-8') as f:
                               f.write(content)
                           
@@ -254,11 +401,7 @@ jobs:
                       content = match.group(2)
                       
                       try:
-                          # Create migrations directory
                           Path('supabase/migrations').mkdir(parents=True, exist_ok=True)
-                          
-                          # Generate migration filename with timestamp
-                          from datetime import datetime
                           timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                           migration_file = f"supabase/migrations/{timestamp}_{migration_name}"
                           
@@ -276,14 +419,17 @@ jobs:
                   for change in changes_applied:
                       summary += f"- {change}\n"
                   summary += f"\n📝 **Full Details:** See claude_response.md\n"
-                  summary += f"🤖 **Model Used:** Claude Opus 4.1\n"
               else:
                   summary = "📋 **Analysis Complete** (no changes applied)\n"
-                  summary += f"🤖 **Model Used:** Claude Opus 4.1\n"
-                  if '@apply' not in comment and '@commit' not in comment:
-                      summary += "💡 Add `@apply` to your command to automatically apply changes\n"
+                  if not auto_apply:
+                      summary += "💡 Add `@apply` to automatically apply changes\n"
               
-              # Save summary for posting
+              # Add model and cost info
+              summary += f"\n🤖 **Model:** {model_name} ({model_reason})\n"
+              summary += f"💰 **Cost:** ${estimated_cost:.4f}\n"
+              summary += f"📊 **Tokens:** ~{estimated_tokens:,.0f}\n"
+              
+              # Save summary
               with open('summary.txt', 'w', encoding='utf-8') as f:
                   f.write(summary)
               
@@ -292,30 +438,27 @@ jobs:
                   try:
                       subprocess.run(['git', 'add', '.'], check=True)
                       
-                      commit_msg = f"🤖 Claude Opus 4.1: {task[:50]}..."
+                      commit_msg = f"🤖 {model_name}: {clean_task[:50]}..."
                       subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
                       
                       if create_pr:
-                          # Create a new branch with timestamp to avoid conflicts
-                          from datetime import datetime
                           timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-                          branch_name = f"claude-{task[:20].replace(' ', '-').lower()}-{timestamp}"
+                          branch_name = f"claude-{clean_task[:20].replace(' ', '-').lower()}-{timestamp}"
                           subprocess.run(['git', 'checkout', '-b', branch_name], check=True)
                           subprocess.run(['git', 'push', 'origin', branch_name], check=True)
                           
                           with open('pr_created.txt', 'w') as f:
                               f.write(branch_name)
                       else:
-                          # Push to main
                           subprocess.run(['git', 'push'], check=True)
                       
                       print("✓ Changes committed and pushed!")
                   except Exception as e:
                       print(f"✗ Git error: {e}")
               
-              # Save a truncated response for the comment
+              # Save truncated response for comment
               if len(response_text) > 50000:
-                  response_text = response_text[:50000] + "\n\n[... truncated - see claude_response.md for full response]"
+                  response_text = response_text[:50000] + "\n\n[... truncated - see claude_response.md]"
               
               with open('response.txt', 'w', encoding='utf-8') as f:
                   f.write(response_text)
@@ -324,14 +467,10 @@ jobs:
               error_msg = str(e)
               print(f"✗ Error: {error_msg}")
               
-              # Check if it's a model error
-              if "model" in error_msg.lower():
-                  error_msg = "❌ Model Error: Claude Opus 4.1 may not be available. The correct model string is 'claude-opus-4-1-20250805'. Please verify your API access includes Opus 4.1."
-              
               with open('summary.txt', 'w', encoding='utf-8') as f:
                   f.write(f"❌ Error: {error_msg}")
               with open('response.txt', 'w', encoding='utf-8') as f:
-                  f.write(f"Error occurred: {error_msg}\n\nPlease check:\n1. Your ANTHROPIC_API_KEY is valid\n2. You have access to Claude Opus 4.1\n3. The model string is correct")
+                  f.write(f"Error: {error_msg}")
           PYTHON_SCRIPT
       
       - name: Post Response
@@ -359,7 +498,7 @@ jobs:
               console.log('Error reading files:', e);
             }
             
-            let comment = `🤖 **Claude Opus 4.1 Response:**\n\n${summary}\n`;
+            let comment = `🤖 **Claude Response:**\n\n${summary}\n`;
             
             if (prBranch) {
               comment += `\n🔗 **Pull Request:** Create a PR from branch \`${prBranch}\`\n`;
