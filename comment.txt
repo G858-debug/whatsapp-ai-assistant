@@ -1,6 +1,7 @@
-@claude @apply the deploy failed again. Here are the logs: 
-ImportError: cannot import name 'Trainer' from 'models.trainer' (/app/models/trainer.py)
+@claude @apply the deploy failed again. Here is the logs: 
 Traceback (most recent call last):
-  File "/app/app.py", line 24, in <module>
-    from models.trainer import Trainer
-ImportError: cannot import name 'Trainer' from 'models.trainer' (/app/models/trainer.py)
+  File "/app/app.py", line 27, in <module>
+    from utils.logger import setup_logger, log_error, log_info, log_warning
+ImportError: cannot import name 'setup_logger' from 'utils.logger' (/app/utils/logger.py)
+
+

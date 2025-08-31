@@ -165,6 +165,13 @@ def get_logger():
         _logger = ErrorLogger()
     return _logger
 
+def setup_logger():
+    """Initialize the logger system"""
+    global _logger
+    if _logger is None:
+        _logger = ErrorLogger()
+    return _logger
+
 # Convenience functions
 def log_error(message, exc_info=False, context=None):
     """Log error message"""
