@@ -1,0 +1,11 @@
+name: Basic Test
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo test
+        run: echo "Workflow triggered by comment - ${{ github.event.comment.body }}"
