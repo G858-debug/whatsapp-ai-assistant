@@ -1,6 +1,7 @@
 import os
 import requests
 from typing import Dict, Optional, List
+from datetime import datetime, timedelta
 from utils.logger import log_error, log_info
 
 class RailwayAPI:
@@ -29,19 +30,24 @@ class RailwayAPI:
             
             return response.json()
             
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             log_error(f"Railway API request failed: {str(e)}")
             return {"errors": [{"message": str(e)}]}
+        except Exception as e:
+            log_error(f"Unexpected error in Railway API request: {str(e)}")
+            return {"errors": [{"message": "Internal error"}]}
     
-    def get_logs(self, project_id: str, service_id: str, limit: int = 100) -> List[Dict]:
-        """Get logs for a service"""
+    def get_logs(self, project_id: str, service_id: str, limit: int = 100, 
+                 start_time: Optional[datetime] = None) -> List[Dict]:
+        """Get logs for a service with optional time filtering"""
         try:
             query = """
-            query ServiceLogs($projectId: String!, $serviceId: String!, $limit: Int!) {
-                logs(projectId: $projectId, serviceId: $serviceId, limit: $limit) {
+            query ServiceLogs($projectId: String!, $serviceId: String!, $limit: Int!, $startTime: String) {
+                logs(projectId: $projectId, serviceId: $serviceId, limit: $limit, startTime: $startTime) {
                     timestamp
                     message
                     severity
+                    source
                 }
             }
             """
@@ -49,7 +55,8 @@ class RailwayAPI:
             variables = {
                 "projectId": project_id,
                 "serviceId": service_id,
-                "limit": limit
+                "limit": limit,
+                "startTime": start_time.isoformat() if start_time else None
             }
             
             result = self._make_request(query, variables)
@@ -75,6 +82,13 @@ class RailwayAPI:
                     services {
                         id
                         name
+                        status
+                        healthcheckUrl
+                        domain
+                    }
+                    environments {
+                        id
+                        name
                     }
                 }
             }
@@ -92,22 +106,39 @@ class RailwayAPI:
             log_error(f"Failed to get project info: {str(e)}")
             return {}
     
-    def get_service_metrics(self, project_id: str, service_id: str) -> Dict:
-        """Get metrics for a service"""
+    def get_service_metrics(self, project_id: str, service_id: str, 
+                          duration: str = "1h") -> Dict:
+        """Get detailed metrics for a service"""
         try:
             query = """
-            query ServiceMetrics($projectId: String!, $serviceId: String!) {
-                metrics(projectId: $projectId, serviceId: $serviceId) {
-                    cpu
-                    memory
-                    requests
+            query ServiceMetrics($projectId: String!, $serviceId: String!, $duration: String!) {
+                metrics(projectId: $projectId, serviceId: $serviceId, duration: $duration) {
+                    cpu {
+                        usage
+                        limit
+                    }
+                    memory {
+                        usage
+                        limit
+                    }
+                    requests {
+                        total
+                        success
+                        failed
+                    }
+                    latency {
+                        p50
+                        p95
+                        p99
+                    }
                 }
             }
             """
             
             variables = {
                 "projectId": project_id,
-                "serviceId": service_id
+                "serviceId": service_id,
+                "duration": duration
             }
             
             result = self._make_request(query, variables)
@@ -131,6 +162,15 @@ class RailwayAPI:
                     id
                     status
                     createdAt
+                    creator
+                    commit {
+                        hash
+                        message
+                    }
+                    logs {
+                        message
+                        timestamp
+                    }
                 }
             }
             """
@@ -152,3 +192,74 @@ class RailwayAPI:
         except Exception as e:
             log_error(f"Failed to get deployments: {str(e)}")
             return []
+
+    def get_service_health(self, project_id: str, service_id: str) -> Dict:
+        """Get health status for a service"""
+        try:
+            query = """
+            query ServiceHealth($projectId: String!, $serviceId: String!) {
+                service(projectId: $projectId, id: $serviceId) {
+                    id
+                    name
+                    status
+                    healthcheck {
+                        status
+                        lastCheck
+                        uptime
+                    }
+                }
+            }
+            """
+            
+            variables = {
+                "projectId": project_id,
+                "serviceId": service_id
+            }
+            
+            result = self._make_request(query, variables)
+            
+            if "errors" in result:
+                log_error(f"Error fetching service health: {result['errors']}")
+                return {}
+                
+            return result.get("data", {}).get("service", {})
+            
+        except Exception as e:
+            log_error(f"Failed to get service health: {str(e)}")
+            return {}
+
+    def get_environment_variables(self, project_id: str, service_id: str) -> Dict:
+        """Get environment variables for a service"""
+        try:
+            query = """
+            query ServiceEnvVars($projectId: String!, $serviceId: String!) {
+                variables(projectId: $projectId, serviceId: $serviceId) {
+                    name
+                    value
+                    isSecret
+                }
+            }
+            """
+            
+            variables = {
+                "projectId": project_id,
+                "serviceId": service_id
+            }
+            
+            result = self._make_request(query, variables)
+            
+            if "errors" in result:
+                log_error(f"Error fetching environment variables: {result['errors']}")
+                return {}
+                
+            # Filter out sensitive data from logs
+            env_vars = result.get("data", {}).get("variables", [])
+            for var in env_vars:
+                if var.get("isSecret"):
+                    var["value"] = "******"
+            
+            return env_vars
+            
+        except Exception as e:
+            log_error(f"Failed to get environment variables: {str(e)}")
+            return {}
