@@ -1,514 +1,419 @@
-name: Claude Code Assistant
+name: Claude AI Assistant
+
 on:
   issue_comment:
     types: [created]
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-
 jobs:
-  claude:
-    if: contains(github.event.comment.body, '@claude')
+  process-comment:
+    # Only run on PR comments that mention @claude
+    if: |
+      github.event.issue.pull_request && 
+      contains(github.event.comment.body, '@claude')
+    
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Get PR branch
+        id: pr-branch
+        uses: actions/github-script@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          result-encoding: string
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            return pr.data.head.ref;
       
-      - name: Setup Python
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.pr-branch.outputs.result }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
       
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
-          pip install anthropic
-          pip install supabase
-          pip install gitpython
+          python -m pip install --upgrade pip
+          pip install anthropic requests
       
-      - name: Configure Git
+      - name: Check for Railway logs requirement
+        id: check-logs
         run: |
-          git config --global user.name "Claude Assistant"
-          git config --global user.email "claude@github-actions.bot"
+          # Check if the comment contains keywords that require Railway logs
+          COMMENT="${{ github.event.comment.body }}"
+          if echo "$COMMENT" | grep -iE "error|bug|crash|debug|logs|deployment|railway|not working|broken|failed|issue|problem|fix|investigate|trace|stack|500|502|503|timeout|exception"; then
+            echo "fetch_logs=true" >> $GITHUB_OUTPUT
+            echo "Railway logs will be fetched for this task"
+          else
+            echo "fetch_logs=false" >> $GITHUB_OUTPUT
+            echo "No Railway logs needed for this task"
+          fi
       
-      - name: Save comment to file
+      - name: Fetch Railway logs (if needed)
+        if: steps.check-logs.outputs.fetch_logs == 'true'
+        id: railway-logs
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
-          cat > comment.txt << 'ENDOFCOMMENT'
-          ${{ github.event.comment.body }}
-          ENDOFCOMMENT
+          python -c "
+import sys
+import os
+import json
+
+# Add project root to path
+sys.path.insert(0, '.')
+
+# Check if Railway credentials are configured
+if not all([os.getenv('RAILWAY_API_TOKEN'), os.getenv('RAILWAY_PROJECT_ID'), os.getenv('RAILWAY_SERVICE_ID')]):
+    print('Railway API credentials not configured - skipping log fetch')
+    print('logs_context=')
+    sys.exit(0)
+
+try:
+    from utils.railway_api import fetch_railway_logs, format_logs_for_context
+    
+    # Fetch logs
+    result = fetch_railway_logs(limit=100)
+    
+    if result['success']:
+        logs = result['logs']
+        formatted = format_logs_for_context(logs, max_lines=50)
+        
+        # Save to file for next step (GitHub Actions has limits on output size)
+        with open('railway_logs.txt', 'w') as f:
+            f.write(formatted)
+        
+        print(f'Successfully fetched {len(logs)} Railway log entries')
+        if result.get('deployment_status'):
+            print(f'Deployment status: {result[\"deployment_status\"]}')
+    else:
+        print(f'Failed to fetch Railway logs: {result.get(\"error\", \"Unknown error\")}')
+        with open('railway_logs.txt', 'w') as f:
+            f.write('Railway logs unavailable')
+            
+except Exception as e:
+    print(f'Error in Railway log fetch: {str(e)}')
+    with open('railway_logs.txt', 'w') as f:
+        f.write('Railway logs unavailable due to error')
+"
       
-      - name: Process with Claude and Apply Changes
+      - name: Determine model based on comment
+        id: model-select
+        run: |
+          COMMENT_LOWER=$(echo "${{ github.event.comment.body }}" | tr '[:upper:]' '[:lower:]')
+          
+          # Check for explicit model flags
+          if [[ "$COMMENT_LOWER" == *"@opus"* ]]; then
+            echo "model=opus" >> $GITHUB_OUTPUT
+            echo "Using Opus 4.1 (explicitly requested)"
+          elif [[ "$COMMENT_LOWER" == *"@sonnet"* ]]; then
+            echo "model=sonnet" >> $GITHUB_OUTPUT
+            echo "Using Sonnet 3.5 (explicitly requested)"
+          # Check for @apply flag (suggests changes will be made)
+          elif [[ "$COMMENT_LOWER" == *"@apply"* ]]; then
+            # Check for complex indicators
+            if [[ "$COMMENT_LOWER" == *"refactor"* ]] || 
+               [[ "$COMMENT_LOWER" == *"redesign"* ]] || 
+               [[ "$COMMENT_LOWER" == *"optimize"* ]] || 
+               [[ "$COMMENT_LOWER" == *"multiple"* ]] || 
+               [[ "$COMMENT_LOWER" == *"system"* ]] || 
+               [[ "$COMMENT_LOWER" == *"architecture"* ]]; then
+              echo "model=opus" >> $GITHUB_OUTPUT
+              echo "Using Opus 4.1 (complex changes detected)"
+            else
+              echo "model=sonnet" >> $GITHUB_OUTPUT
+              echo "Using Sonnet 3.5 (simple changes)"
+            fi
+          else
+            # Analysis only - use Sonnet to save costs
+            echo "model=sonnet" >> $GITHUB_OUTPUT
+            echo "Using Sonnet 3.5 (analysis/read-only task)"
+          fi
+      
+      - name: Process with Claude
+        id: claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required GitHub secrets for Railway API integration:
+          # - RAILWAY_API_TOKEN: Your Railway API token (get from Railway dashboard > Account Settings > Tokens)
+          # - RAILWAY_PROJECT_ID: Your Railway project ID (get from Railway project URL)
+          # - RAILWAY_SERVICE_ID: Your Railway service ID (get from Railway service settings)
         run: |
-          python - <<'PYTHON_SCRIPT'
+          # Read Railway logs if they were fetched
+          RAILWAY_LOGS=""
+          if [ -f "railway_logs.txt" ]; then
+            RAILWAY_LOGS=$(cat railway_logs.txt)
+          fi
+          
+          python -c "
           import anthropic
           import os
+          import sys
           import json
-          import re
           from pathlib import Path
-          import subprocess
-          from datetime import datetime
           
-          # Read the task
-          with open('comment.txt', 'r') as f:
-              comment = f.read()
-          task = comment.replace('@claude', '').strip()
+          # Get the comment
+          comment = '''${{ github.event.comment.body }}'''
           
-          print(f"📋 Task: {task}")
+          # Determine which model to use
+          model_choice = '${{ steps.model-select.outputs.model }}'
           
-          # Check for special commands
-          auto_apply = '@apply' in comment or '@commit' in comment
-          create_pr = '@pr' in comment
-          force_opus = '@opus' in comment
-          force_sonnet = '@sonnet' in comment
+          if model_choice == 'opus':
+              model = 'claude-3-opus-20240229'
+              print('🤖 Using Claude Opus 4.1 for complex analysis')
+          else:
+              model = 'claude-3-5-sonnet-20241022'
+              print('🤖 Using Claude Sonnet 3.5 for this task')
           
-          # Remove command keywords from task
-          clean_task = task.replace('@apply', '').replace('@commit', '').replace('@pr', '')\
-                           .replace('@opus', '').replace('@sonnet', '').strip()
-          
-          # =====================================
-          # SMART MODEL SELECTION
-          # =====================================
-          def select_model_and_context(task, comment):
-              """Intelligently select model based on task complexity"""
-              
-              task_lower = task.lower()
-              
-              # Force model if specified
-              if force_opus:
-                  print("🎯 Force flag: Using Opus 4.1")
-                  return 'claude-opus-4-1-20250805', 8000, True, "Opus 4.1 (forced)"
-              
-              if force_sonnet:
-                  print("🎯 Force flag: Using Sonnet 3.5")
-                  return 'claude-3-5-sonnet-20241022', 4000, False, "Sonnet 3.5 (forced)"
-              
-              # OPUS 4.1 TRIGGERS (Complex tasks - $15/million tokens)
-              opus_triggers = [
-                  # Strategic/Architecture
-                  'architect', 'strategy', 'strategize', 'design system', 'redesign',
-                  'refactor entire', 'complete overhaul', 'restructure', 'plan',
-                  
-                  # Complex Analysis
-                  'analyze entire', 'comprehensive', 'deep dive', 'audit',
-                  'optimize performance', 'security audit', 'code review',
-                  'review all', 'analyze all', 'investigate',
-                  
-                  # Multi-file Operations  
-                  'entire codebase', 'all files', 'multiple services', 'full system',
-                  'complete all', 'fix everything', 'update all', 'every file',
-                  
-                  # Complex Features
-                  'build complete', 'implement full', 'create system', 
-                  'complex', 'advanced', 'sophisticated', 'integration',
-                  
-                  # Chain-of-thought
-                  'chain of thought', 'multi-agent', 'step by step analysis',
-                  'systematic', 'thorough analysis',
-                  
-                  # Testing & Documentation
-                  'comprehensive tests', 'full documentation', 'test suite',
-                  'complete documentation', 'all tests',
-                  
-                  # Debugging complex issues
-                  'debug why', 'trace bug', 'find root cause', 'not working'
-              ]
-              
-              # SONNET 3.5 TASKS (Simple edits - $3/million tokens)
-              sonnet_triggers = [
-                  # Simple fixes
-                  'fix typo', 'update comment', 'add docstring', 'rename',
-                  'fix indentation', 'fix syntax', 'fix import', 'indentationerror',
-                  
-                  # Simple additions
-                  'add log', 'add print', 'add comment', 'add todo',
-                  'single file', 'one file', 'simple', 'quick',
-                  
-                  # Specific single-file tasks
-                  'update config', 'change constant', 'update variable',
-                  
-                  # Information queries
-                  'list files', 'show structure', 'what files', 'explain',
-                  'how many', 'count', 'check'
-              ]
-              
-              # Check triggers
-              use_opus = any(trigger in task_lower for trigger in opus_triggers)
-              use_sonnet = any(trigger in task_lower for trigger in sonnet_triggers)
-              
-              # Decision logic
-              if use_opus and not use_sonnet:
-                  return 'claude-opus-4-1-20250805', 8000, True, "Complex task (Opus 4.1)"
-              elif use_sonnet and not use_opus:
-                  return 'claude-3-5-sonnet-20241022', 4000, False, "Simple task (Sonnet 3.5)"
-              elif len(task) > 200 or task.count('\n') > 3:
-                  return 'claude-opus-4-1-20250805', 8000, True, "Long request (Opus 4.1)"
-              elif auto_apply and 'all' in task_lower:
-                  return 'claude-opus-4-1-20250805', 8000, True, "Multi-file changes (Opus 4.1)"
-              else:
-                  return 'claude-3-5-sonnet-20241022', 4000, False, "Standard task (Sonnet 3.5)"
-          
-          # Select model
-          selected_model, max_tokens, use_full_context, model_reason = select_model_and_context(task, comment)
-          model_name = "Opus 4.1" if "opus" in selected_model else "Sonnet 3.5"
-          
-          print(f"🤖 Model: {model_name}")
-          print(f"📝 Reason: {model_reason}")
-          
-          # =====================================
-          # SMART CONTEXT BUILDING
-          # =====================================
-          def build_smart_context(task, all_files, use_full_context):
-              """Build context with only relevant files to save tokens/money"""
-              
-              task_lower = task.lower()
-              
-              # Start with file structure (always include - it's cheap)
-              context = "=== PROJECT STRUCTURE ===\n"
-              for file_path in sorted(all_files.keys()):
-                  context += f"- {file_path}\n"
-              
-              # Full context for Opus complex tasks
-              if use_full_context and ('entire' in task_lower or 'all' in task_lower or 'complete' in task_lower):
-                  context += "\n\n=== COMPLETE CODEBASE ===\n"
-                  total_size = len(context)
-                  for file_path, content in sorted(all_files.items()):
-                      if total_size + len(content) < 400000:  # ~100k tokens max
-                          context += f"\n{'='*60}\nFILE: {file_path}\n{'='*60}\n"
-                          context += content
-                          context += f"\n{'='*60}\n"
-                          total_size += len(content)
-                  return context
-              
-              # Smart selection for specific tasks
-              relevant_files = set()
-              
-              # Core files (always include if small)
-              core_files = ['config.py', 'requirements.txt', 'claude.md', 'README.md']
-              for f in core_files:
-                  if f in all_files and len(all_files[f]) < 5000:
-                      relevant_files.add(f)
-              
-              # Keyword-based file selection
-              keyword_mappings = {
-                  'payment': ['payment_manager.py', 'services/payment.py', 'payfast_webhook.py'],
-                  'assessment': ['services/assessment.py'],
-                  'booking': ['services/booking.py'],
-                  'whatsapp': ['app.py', 'services/refiloe.py'],
-                  'message': ['app.py', 'services/refiloe.py'],
-                  'workout': ['services/workout.py'],
-                  'dashboard': ['routes/dashboard.py'],
-                  'database': ['supabase/migrations'],
-                  'migration': ['supabase/migrations'],
-                  'error': ['app.py', 'utils/logger.py'],
-                  'indentation': ['services/assessment.py'],  # Known problem file
-              }
-              
-              # Check keywords and add relevant files
-              for keyword, paths in keyword_mappings.items():
-                  if keyword in task_lower:
-                      for path in paths:
-                          if isinstance(path, str):
-                              # Check if it's a directory pattern
-                              if '/' in path and not path.endswith('.py'):
-                                  # Add all files in that directory
-                                  for file_path in all_files.keys():
-                                      if path in file_path:
-                                          relevant_files.add(file_path)
-                              else:
-                                  # Direct file
-                                  if path in all_files:
-                                      relevant_files.add(path)
-              
-              # Check if specific files are mentioned
-              for file_path in all_files.keys():
-                  file_name = Path(file_path).stem
-                  if file_name in task_lower:
-                      relevant_files.add(file_path)
-              
-              # Default files if nothing specific found
-              if len(relevant_files) <= len(core_files):
-                  relevant_files.update(['app.py', 'services/refiloe.py'])
-              
-              # Build context with selected files
-              context += f"\n\n=== RELEVANT FILES ({len(relevant_files)} of {len(all_files)}) ===\n"
-              
-              total_size = len(context)
-              max_size = 100000 if "sonnet" in selected_model else 300000
-              
-              for file_path in sorted(relevant_files):
-                  if file_path in all_files:
-                      content = all_files[file_path]
-                      if total_size + len(content) > max_size:
-                          print(f"⚠️ Skipping {file_path} - would exceed context limit")
-                          continue
-                      context += f"\n{'='*60}\nFILE: {file_path}\n{'='*60}\n"
-                      context += content
-                      context += f"\n{'='*60}\n"
-                      total_size += len(content)
-                      print(f"✓ Including: {file_path}")
-              
-              return context
+          # Read Railway logs if available
+          railway_logs = ''
+          if Path('railway_logs.txt').exists():
+              with open('railway_logs.txt', 'r') as f:
+                  railway_logs = f.read()
           
           # Read all project files
-          print("\n📂 Reading project files...")
-          all_project_files = {}
-          
-          # Get Python files
-          for py_file in Path('.').rglob('*.py'):
-              if not str(py_file).startswith('.git'):
-                  try:
-                      with open(py_file, 'r', encoding='utf-8') as f:
-                          all_project_files[str(py_file)] = f.read()
-                  except Exception as e:
-                      print(f"✗ Could not read {py_file}: {e}")
-          
-          # Add other important files
-          patterns = ['*.txt', '*.md', '*.yml', '*.yaml', '*.sql', '*.json', '*.toml']
-          for pattern in patterns:
-              for file in Path('.').rglob(pattern):
-                  if not str(file).startswith('.git') and str(file) not in all_project_files:
+          def read_project_files():
+              files_content = []
+              skip_dirs = {'.git', '__pycache__', 'node_modules', '.github', 'logs', 'venv', '.env'}
+              skip_extensions = {'.pyc', '.log', '.tmp', '.cache'}
+              
+              for root, dirs, files in os.walk('.'):
+                  dirs[:] = [d for d in dirs if d not in skip_dirs]
+                  for file in files:
+                      if any(file.endswith(ext) for ext in skip_extensions):
+                          continue
+                      filepath = os.path.join(root, file)
                       try:
-                          with open(file, 'r', encoding='utf-8') as f:
-                              all_project_files[str(file)] = f.read()
+                          with open(filepath, 'r', encoding='utf-8') as f:
+                              content = f.read()
+                              files_content.append(f'\\n============\\nFILE: {filepath}\\n============\\n{content}')
                       except:
-                          pass
+                          continue
+              return '\\n'.join(files_content)
           
-          print(f"📚 Found {len(all_project_files)} files")
+          # Build the context
+          project_context = read_project_files()
           
-          # Build context based on model selection
-          context = build_smart_context(clean_task, all_project_files, use_full_context)
+          # Include Railway logs in context if available
+          if railway_logs:
+              project_context = railway_logs + '\\n\\n' + project_context
           
-          # Calculate costs
-          estimated_tokens = len(context) / 4
-          cost_per_million = 15 if "opus" in selected_model else 3
-          estimated_cost = (estimated_tokens / 1_000_000) * cost_per_million
+          # Create the prompt
+          prompt = f'''You are a senior software engineer helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
           
-          print(f"\n📊 Context size: {len(context):,} chars")
-          print(f"🪙 Estimated tokens: {estimated_tokens:,.0f}")
-          print(f"💰 Estimated cost: ${estimated_cost:.4f} ({model_name})")
+          Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
+          Context: South African (Rand currency, +27 phones)
+          Model: You are {model}
           
-          # Cost warning for expensive requests
-          if estimated_cost > 0.50:
-              print(f"⚠️ WARNING: This request will cost ~${estimated_cost:.2f}")
-              if not force_opus:
-                  print(f"💡 Tip: Add @sonnet to force Sonnet 3.5 if this isn't complex")
+          TASK: {comment}
           
-          try:
-              client = anthropic.Anthropic()
+          === PROJECT STRUCTURE ===
+          {chr(10).join([str(p) for p in Path('.').rglob('*') if p.is_file() and '.git' not in str(p)][:100])}
+          
+          === COMPLETE CODEBASE ===
+          {project_context}
+          
+          Provide your response in this EXACT format:
+          
+          ## ANALYSIS
+          [Brief analysis of what needs to be done]
+          
+          ## FILES TO CHANGE
+          
+          ### FILE: path/to/file.py
+          \`\`\`python
+          [Complete updated file content - the ENTIRE file]
+          \`\`\`
+          
+          ### NEW FILE: path/to/new_file.py
+          \`\`\`python
+          [Complete new file content]
+          \`\`\`
+          
+          ## MIGRATION: optional_migration_name.sql
+          \`\`\`sql
+          [SQL migration if needed]
+          \`\`\`
+          
+          ## SUMMARY
+          [Brief summary of changes made]
+          
+          IMPORTANT:
+          - Provide COMPLETE file contents, not snippets
+          - Fix any IndentationErrors or syntax errors found
+          - Follow the rules in claude.md
+          - Use exact file paths as shown in the structure
+          '''
+          
+          # Call Claude
+          client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+          
+          message = client.messages.create(
+              model=model,
+              max_tokens=8000,
+              temperature=0.2,
+              messages=[
+                  {
+                      'role': 'user',
+                      'content': prompt
+                  }
+              ]
+          )
+          
+          response = message.content[0].text
+          
+          # Save response
+          with open('claude_response.md', 'w') as f:
+              f.write(response)
+          
+          # Extract changes to apply
+          import re
+          
+          apply_changes = '@apply' in comment.lower()
+          
+          if apply_changes:
+              # Parse files to change
+              file_blocks = re.findall(r'### (?:FILE|NEW FILE): (.*?)\\n\`\`\`(?:python|javascript|sql|json|yaml|txt|md)\\n(.*?)\`\`\`', response, re.DOTALL)
               
-              # Build prompt
-              prompt = f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
-              
-              Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
-              Context: South African (Rand currency, +27 phones)
-              Model: You are {model_name}
-              
-              TASK: {clean_task}
-              
-              {context}
-              
-              Provide your response in this EXACT format:
-              
-              ## ANALYSIS
-              [Brief analysis of what needs to be done]
-              
-              ## FILES TO CHANGE
-              
-              ### FILE: path/to/file.py
-              ```python
-              [Complete updated file content - the ENTIRE file]
-              ```
-              
-              ### NEW FILE: path/to/new_file.py
-              ```python
-              [Complete new file content]
-              ```
-              
-              ## MIGRATION: optional_migration_name.sql
-              ```sql
-              [SQL migration if needed]
-              ```
-              
-              ## SUMMARY
-              [Brief summary of changes made]
-              
-              IMPORTANT:
-              - Provide COMPLETE file contents, not snippets
-              - Fix any IndentationErrors or syntax errors found
-              - Follow the rules in claude.md
-              - Use exact file paths as shown in the structure
-              '''
-              
-              print(f"\n🤖 Calling {model_name}...")
-              response = client.messages.create(
-                  model=selected_model,
-                  max_tokens=max_tokens,
-                  messages=[{'role': 'user', 'content': prompt}]
-              )
-              
-              response_text = response.content[0].text
-              print(f"✓ Received response: {len(response_text)} chars")
-              
-              # Save full response with metadata
-              with open('claude_response.md', 'w', encoding='utf-8') as f:
-                  f.write(f"<!-- Model: {model_name} -->\n")
-                  f.write(f"<!-- Cost: ${estimated_cost:.4f} -->\n")
-                  f.write(f"<!-- Tokens: ~{estimated_tokens:,.0f} -->\n\n")
-                  f.write(response_text)
-              
-              # Parse and apply changes if requested
-              changes_applied = []
-              
-              if auto_apply:
-                  print("\n📝 Applying changes...")
+              changes_made = []
+              for filepath, content in file_blocks:
+                  filepath = filepath.strip()
+                  # Create directories if needed
+                  os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
                   
-                  # Extract file changes
-                  file_pattern = r'###\s*(NEW\s+)?FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json)?\n(.*?)\n```'
-                  migration_pattern = r'##\s*MIGRATION:\s*(.+?)\n```sql\n(.*?)\n```'
-                  
-                  # Apply file changes
-                  for match in re.finditer(file_pattern, response_text, re.DOTALL):
-                      is_new = match.group(1) is not None
-                      file_path = match.group(2).strip()
-                      content = match.group(3)
-                      
-                      try:
-                          Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-                          with open(file_path, 'w', encoding='utf-8') as f:
-                              f.write(content)
-                          
-                          action = "Created" if is_new else "Updated"
-                          changes_applied.append(f"{action} {file_path}")
-                          print(f"✓ {action}: {file_path}")
-                      except Exception as e:
-                          print(f"✗ Error writing {file_path}: {e}")
-                  
-                  # Apply migrations
-                  for match in re.finditer(migration_pattern, response_text, re.DOTALL):
-                      migration_name = match.group(1).strip()
-                      if not migration_name.endswith('.sql'):
-                          migration_name += '.sql'
-                      
-                      content = match.group(2)
-                      
-                      try:
-                          Path('supabase/migrations').mkdir(parents=True, exist_ok=True)
-                          timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-                          migration_file = f"supabase/migrations/{timestamp}_{migration_name}"
-                          
-                          with open(migration_file, 'w', encoding='utf-8') as f:
-                              f.write(content)
-                          
-                          changes_applied.append(f"Created migration {migration_file}")
-                          print(f"✓ Created migration: {migration_file}")
-                      except Exception as e:
-                          print(f"✗ Error creating migration: {e}")
+                  # Write file
+                  with open(filepath, 'w') as f:
+                      f.write(content)
+                  changes_made.append(filepath)
+                  print(f'✅ Updated: {filepath}')
               
-              # Prepare response summary
-              if changes_applied:
-                  summary = f"✅ **Changes Applied Successfully:**\n"
-                  for change in changes_applied:
-                      summary += f"- {change}\n"
-                  summary += f"\n📝 **Full Details:** See claude_response.md\n"
-              else:
-                  summary = "📋 **Analysis Complete** (no changes applied)\n"
-                  if not auto_apply:
-                      summary += "💡 Add `@apply` to automatically apply changes\n"
-              
-              # Add model and cost info
-              summary += f"\n🤖 **Model:** {model_name} ({model_reason})\n"
-              summary += f"💰 **Cost:** ${estimated_cost:.4f}\n"
-              summary += f"📊 **Tokens:** ~{estimated_tokens:,.0f}\n"
+              # Handle SQL migrations
+              migration_blocks = re.findall(r'## MIGRATION: (.*?)\\n\`\`\`sql\\n(.*?)\`\`\`', response, re.DOTALL)
+              for migration_name, sql_content in migration_blocks:
+                  migration_name = migration_name.strip()
+                  if migration_name and migration_name != 'optional_migration_name.sql':
+                      migration_path = f'supabase/migrations/{migration_name}'
+                      os.makedirs(os.path.dirname(migration_path), exist_ok=True)
+                      with open(migration_path, 'w') as f:
+                          f.write(sql_content)
+                      changes_made.append(migration_path)
+                      print(f'✅ Created migration: {migration_path}')
               
               # Save summary
-              with open('summary.txt', 'w', encoding='utf-8') as f:
-                  f.write(summary)
-              
-              # If auto-apply, commit changes
-              if auto_apply and changes_applied:
-                  try:
-                      subprocess.run(['git', 'add', '.'], check=True)
-                      
-                      commit_msg = f"🤖 {model_name}: {clean_task[:50]}..."
-                      subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
-                      
-                      if create_pr:
-                          timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-                          branch_name = f"claude-{clean_task[:20].replace(' ', '-').lower()}-{timestamp}"
-                          subprocess.run(['git', 'checkout', '-b', branch_name], check=True)
-                          subprocess.run(['git', 'push', 'origin', branch_name], check=True)
-                          
-                          with open('pr_created.txt', 'w') as f:
-                              f.write(branch_name)
-                      else:
-                          subprocess.run(['git', 'push'], check=True)
-                      
-                      print("✓ Changes committed and pushed!")
-                  except Exception as e:
-                      print(f"✗ Git error: {e}")
-              
-              # Save truncated response for comment
-              if len(response_text) > 50000:
-                  response_text = response_text[:50000] + "\n\n[... truncated - see claude_response.md]"
-              
-              with open('response.txt', 'w', encoding='utf-8') as f:
-                  f.write(response_text)
-                  
-          except Exception as e:
-              error_msg = str(e)
-              print(f"✗ Error: {error_msg}")
-              
-              with open('summary.txt', 'w', encoding='utf-8') as f:
-                  f.write(f"❌ Error: {error_msg}")
-              with open('response.txt', 'w', encoding='utf-8') as f:
-                  f.write(f"Error: {error_msg}")
-          PYTHON_SCRIPT
+              with open('summary.txt', 'w') as f:
+                  if changes_made:
+                      f.write(f'✅ **Changes Applied Successfully:**\\n')
+                      for file in changes_made:
+                          f.write(f'- Updated {file}\\n')
+                  else:
+                      f.write('ℹ️ **No file changes detected in response**\\n')
+                  f.write(f'\\n📝 **Full Details:** See claude_response.md')
+                  f.write(f'\\n🤖 **Model Used:** Claude {\"Opus 4.1\" if model_choice == \"opus\" else \"Sonnet 3.5\"}')
+          else:
+              with open('summary.txt', 'w') as f:
+                  f.write('📋 **Analysis Complete**\\n')
+                  f.write('No changes applied (use @apply to make changes)\\n')
+                  f.write(f'\\n📝 **Full Details:** See claude_response.md')
+                  f.write(f'\\n🤖 **Model Used:** Claude {\"Opus 4.1\" if model_choice == \"opus\" else \"Sonnet 3.5\"}')
+          
+          print('✅ Claude processing complete!')
+          "
       
-      - name: Post Response
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git diff --name-only
+          fi
+      
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.has_changes == 'true' && contains(github.event.comment.body, '@apply')
+        run: |
+          git config --global user.name "Claude AI Assistant"
+          git config --global user.email "claude@ai.assistant"
+          
+          # Stage all changes
+          git add -A
+          
+          # Create commit message
+          COMMIT_MSG="Apply Claude AI suggestions from PR comment"
+          if [ -f summary.txt ]; then
+            COMMIT_MSG="$COMMIT_MSG
+
+$(cat summary.txt)"
+          fi
+          
+          git commit -m "$COMMIT_MSG"
+          
+          # Push to the PR branch
+          git push origin HEAD
+          
+          echo "✅ Changes committed and pushed!"
+      
+      - name: Post response comment
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             
-            let summary = '';
-            let response = '';
-            let prBranch = '';
+            let comment = '## 🤖 Claude AI Response\n\n';
             
-            try {
-              if (fs.existsSync('summary.txt')) {
-                summary = fs.readFileSync('summary.txt', 'utf8');
-              }
-              if (fs.existsSync('response.txt')) {
-                response = fs.readFileSync('response.txt', 'utf8');
-              }
-              if (fs.existsSync('pr_created.txt')) {
-                prBranch = fs.readFileSync('pr_created.txt', 'utf8');
-              }
-            } catch (e) {
-              console.log('Error reading files:', e);
+            // Add summary
+            if (fs.existsSync('summary.txt')) {
+              const summary = fs.readFileSync('summary.txt', 'utf8');
+              comment += summary + '\n\n';
             }
             
-            let comment = `🤖 **Claude Response:**\n\n${summary}\n`;
-            
-            if (prBranch) {
-              comment += `\n🔗 **Pull Request:** Create a PR from branch \`${prBranch}\`\n`;
+            // Add response preview (first 500 chars)
+            if (fs.existsSync('claude_response.md')) {
+              const response = fs.readFileSync('claude_response.md', 'utf8');
+              if (response.length > 500) {
+                comment += '<details>\n<summary>📄 Full Response (click to expand)</summary>\n\n';
+                comment += '```markdown\n' + response + '\n```\n';
+                comment += '</details>\n';
+              } else {
+                comment += '### Response:\n' + response + '\n';
+              }
             }
             
-            comment += `\n<details>\n<summary>📄 Full Analysis (click to expand)</summary>\n\n${response}\n</details>`;
+            // Add Railway logs status if they were fetched
+            if ('${{ steps.check-logs.outputs.fetch_logs }}' === 'true') {
+              comment += '\n\n📊 **Railway Logs**: ';
+              if (fs.existsSync('railway_logs.txt')) {
+                const logs = fs.readFileSync('railway_logs.txt', 'utf8');
+                if (logs && logs !== 'Railway logs unavailable') {
+                  comment += 'Included in analysis';
+                } else {
+                  comment += 'Not available';
+                }
+              } else {
+                comment += 'Not fetched';
+              }
+            }
             
+            // Add changes status
+            if ('${{ steps.check-changes.outputs.has_changes }}' === 'true') {
+              comment += '\n\n✅ **Changes have been applied to the PR branch**';
+            } else if ('${{ github.event.comment.body }}'.includes('@apply')) {
+              comment += '\n\n⚠️ **No changes were needed**';
+            }
+            
+            // Post the comment
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
+              issue_number: context.issue.number,
               body: comment
-            })
+            });
