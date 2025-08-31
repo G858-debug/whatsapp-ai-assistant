@@ -14,7 +14,7 @@ class RailwayAPI:
                  rate_limit: int = 100):
         """Initialize with optional API token and retry settings"""
         self.api_token = api_token or os.getenv('RAILWAY_API_TOKEN')
-        self.base_url = "https://backboard.railway.app/graphql"
+        self.api_url = "https://api.railway.app/graphql/v2"
         self.rate_limit = rate_limit
         self.request_count = 0
         self.last_reset = datetime.now()
