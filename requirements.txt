@@ -1,8 +1,8 @@
-# Core Framework
+# Core dependencies
 Flask==2.3.3
 flask-cors==4.0.0
 
-# WhatsApp Integration
+# External APIs
 requests==2.31.0
 
 # AI/ML
@@ -15,45 +15,8 @@ supabase==2.5.0
 python-dotenv==1.0.0
 pytz==2024.1
 
-# Payment Processing
-hashlib
-urllib3
-
-# Authentication & Security
-PyJWT==2.8.0
-
-# Logging
-colorama==0.4.6
-
-# Rate Limiting
-redis==5.0.1
-
-# Dashboard & Web
-Werkzeug==2.3.7
-
-# Voice Processing
+# Audio processing
 pydub==0.25.1
-speech_recognition==3.10.0
 
-# Data Processing
-pandas==2.0.3
-numpy==1.24.3
-
-# Image Processing (for assessment photos)
-Pillow==10.0.0
-
-# Async Support
-aiohttp==3.8.5
-
-# Validation
-pydantic==2.3.0
-
-# Date/Time
-python-dateutil==2.8.2
-
-# Testing (optional, for development)
-pytest==7.4.0
-pytest-asyncio==0.21.1
-
-# Production Server
+# Web server
 gunicorn==21.2.0

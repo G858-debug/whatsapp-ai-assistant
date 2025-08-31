@@ -1,14 +1,41 @@
-@claude @apply the deployment crashed again: here are the logs: 
-ModuleNotFoundError: No module named 'jwt'
-Traceback (most recent call last):
-  File "/app/app.py", line 29, in <module>
-    from routes.dashboard import dashboard_bp, DashboardService
-  File "/app/routes/dashboard.py", line 4, in <module>
-    import jwt
-ModuleNotFoundError: No module named 'jwt'
-Traceback (most recent call last):
-ModuleNotFoundError: No module named 'jwt'
-  File "/app/app.py", line 29, in <module>
-    from routes.dashboard import dashboard_bp, DashboardService
-  File "/app/routes/dashboard.py", line 4, in <module>
-    import jwt
+@claude @apply the deployment crashed again. The build logs as follows: 
+stage-0
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+22s
+Processing triggers for libc-bin (2.39-0ubuntu8.4) ...
+
+stage-0
+COPY . /app/.
+83ms
+
+stage-0
+RUN python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+3s
+Collecting Flask==2.3.3 (from -r requirements.txt (line 2))
+  Downloading flask-2.3.3-py3-none-any.whl.metadata (3.6 kB)
+Collecting flask-cors==4.0.0 (from -r requirements.txt (line 3))
+  Downloading Flask_Cors-4.0.0-py2.py3-none-any.whl.metadata (5.4 kB)
+Collecting requests==2.31.0 (from -r requirements.txt (line 6))
+  Downloading requests-2.31.0-py3-none-any.whl.metadata (4.6 kB)
+Collecting anthropic==0.34.2 (from -r requirements.txt (line 9))
+  Downloading anthropic-0.34.2-py3-none-any.whl.metadata (18 kB)
+Collecting supabase==2.5.0 (from -r requirements.txt (line 12))
+  Downloading supabase-2.5.0-py3-none-any.whl.metadata (9.3 kB)
+Collecting python-dotenv==1.0.0 (from -r requirements.txt (line 15))
+  Downloading python_dotenv-1.0.0-py3-none-any.whl.metadata (21 kB)
+Collecting pytz==2024.1 (from -r requirements.txt (line 16))
+  Downloading pytz-2024.1-py2.py3-none-any.whl.metadata (22 kB)
+ERROR: Ignored the following yanked versions: 20081119
+ERROR: Could not find a version that satisfies the requirement hashlib (from versions: none)
+ERROR: No matching distribution found for hashlib
+Dockerfile:20
+-------------------
+18 |     ENV NIXPACKS_PATH=/opt/venv/bin:$NIXPACKS_PATH
+19 |     COPY . /app/.
+20 | >>> RUN --mount=type=cache,id=s/5b602cd7-bfd4-4706-9dd0-8a4294b51d10-/root/cache/pip,target=/root/.cache/pip python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+21 |
+22 |     # build phase
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt" did not complete successfully: exit code: 1
+Error: Docker build failed
+
