@@ -24,7 +24,6 @@ jobs:
         id: extract
         run: |
           # Extract project ID from SUPABASE_URL
-          # Example: https://mqemiteirxwscxtamdtj.supabase.co becomes mqemiteirxwscxtamdtj
           PROJECT_ID=$(echo "${{ secrets.SUPABASE_URL }}" | sed 's/https:\/\/\([^.]*\).*/\1/')
           echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
 
@@ -40,7 +39,4 @@ jobs:
         with:
           commit_message: "chore: update Supabase types"
           branch: ${{ github.head_ref }}
-          push_options: --force
-          commit_message: "chore: update Supabase types"
-          branch: ${{ github.head_ref }}
-          push_options: --force
+          push_options: "--force"
