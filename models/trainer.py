@@ -133,3 +133,6 @@ class TrainerModel:
                 'completed_sessions': 0,
                 'monthly_revenue': 0
             }
+
+# Create an alias for backward compatibility
+Trainer = TrainerModel

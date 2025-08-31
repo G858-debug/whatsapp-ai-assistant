@@ -1,5 +1,5 @@
 from typing import Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 
 from utils.logger import log_error, log_info
@@ -177,3 +177,6 @@ class ClientModel:
         except Exception as e:
             log_error(f"Error getting clients needing reminders: {str(e)}")
             return []
+
+# Create an alias for backward compatibility
+Client = ClientModel

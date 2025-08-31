@@ -298,3 +298,6 @@ class BookingModel:
                 
         except Exception as e:
             log_error(f"Error refunding session: {str(e)}")
+
+# Create an alias for backward compatibility
+Booking = BookingModel
