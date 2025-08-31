@@ -1,5 +1,5 @@
 ✅ **Changes Applied:**
 - Updated requirements.txt
-- Updated payment_manager.py
+- Updated app.py
 
 📝 **Full Details:** See claude_response.md

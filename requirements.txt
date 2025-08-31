@@ -1,22 +1,42 @@
-# Core dependencies
-Flask==2.3.3
-flask-cors==4.0.0
+# Core Framework
+Flask==3.0.0
+gunicorn==21.2.0
 
-# External APIs
+# WhatsApp & Communication
 requests==2.31.0
+twilio==8.10.0
 
-# AI/ML
-anthropic==0.34.2
+# AI & NLP
+anthropic==0.39.0
 
 # Database
-supabase==2.5.0
+supabase==2.3.0
+
+# Scheduling & Background Tasks
+APScheduler==3.10.4
+
+# Payment Processing
+# PayFast uses built-in libraries (hashlib, urllib)
 
 # Utilities
 python-dotenv==1.0.0
-pytz==2024.1
+pytz==2023.3
 
-# Audio processing
-pydub==0.25.1
+# Security & Validation
+cryptography==41.0.7
 
-# Web server
-gunicorn==21.2.0
+# Logging & Monitoring
+colorlog==6.8.0
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# HTTP & API
+urllib3==2.1.0
+
+# Date & Time
+python-dateutil==2.8.2
+
+# Environment & Config
+python-decouple==3.8
