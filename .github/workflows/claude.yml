@@ -68,43 +68,43 @@ jobs:
           import sys
           import os
           import json
-
-# Add project root to path
-sys.path.insert(0, '.')
-
-# Check if Railway credentials are configured
-if not all([os.getenv('RAILWAY_API_TOKEN'), os.getenv('RAILWAY_PROJECT_ID'), os.getenv('RAILWAY_SERVICE_ID')]):
-    print('Railway API credentials not configured - skipping log fetch')
-    print('logs_context=')
-    sys.exit(0)
-
-try:
-    from utils.railway_api import fetch_railway_logs, format_logs_for_context
-    
-    # Fetch logs
-    result = fetch_railway_logs(limit=100)
-    
-    if result['success']:
-        logs = result['logs']
-        formatted = format_logs_for_context(logs, max_lines=50)
-        
-        # Save to file for next step (GitHub Actions has limits on output size)
-        with open('railway_logs.txt', 'w') as f:
-            f.write(formatted)
-        
-        print(f'Successfully fetched {len(logs)} Railway log entries')
-        if result.get('deployment_status'):
-            print(f'Deployment status: {result[\"deployment_status\"]}')
-    else:
-        print(f'Failed to fetch Railway logs: {result.get(\"error\", \"Unknown error\")}')
-        with open('railway_logs.txt', 'w') as f:
-            f.write('Railway logs unavailable')
-            
-except Exception as e:
-    print(f'Error in Railway log fetch: {str(e)}')
-    with open('railway_logs.txt', 'w') as f:
-        f.write('Railway logs unavailable due to error')
-"
+          
+          # Add project root to path
+          sys.path.insert(0, '.')
+          
+          # Check if Railway credentials are configured
+          if not all([os.getenv('RAILWAY_API_TOKEN'), os.getenv('RAILWAY_PROJECT_ID'), os.getenv('RAILWAY_SERVICE_ID')]):
+              print('Railway API credentials not configured - skipping log fetch')
+              print('logs_context=')
+              sys.exit(0)
+          
+          try:
+              from utils.railway_api import fetch_railway_logs, format_logs_for_context
+              
+              # Fetch logs
+              result = fetch_railway_logs(limit=100)
+              
+              if result['success']:
+                  logs = result['logs']
+                  formatted = format_logs_for_context(logs, max_lines=50)
+                  
+                  # Save to file for next step (GitHub Actions has limits on output size)
+                  with open('railway_logs.txt', 'w') as f:
+                      f.write(formatted)
+                  
+                  print(f'Successfully fetched {len(logs)} Railway log entries')
+                  if result.get('deployment_status'):
+                      print(f'Deployment status: {result[\"deployment_status\"]}')
+              else:
+                  print(f'Failed to fetch Railway logs: {result.get(\"error\", \"Unknown error\")}')
+                  with open('railway_logs.txt', 'w') as f:
+                      f.write('Railway logs unavailable')
+                      
+          except Exception as e:
+              print(f'Error in Railway log fetch: {str(e)}')
+              with open('railway_logs.txt', 'w') as f:
+                  f.write('Railway logs unavailable due to error')
+          "
       
       - name: Determine model based on comment
         id: model-select
@@ -351,8 +351,8 @@ except Exception as e:
           COMMIT_MSG="Apply Claude AI suggestions from PR comment"
           if [ -f summary.txt ]; then
             COMMIT_MSG="$COMMIT_MSG
-
-$(cat summary.txt)"
+          
+          $(cat summary.txt)"
           fi
           
           git commit -m "$COMMIT_MSG"
