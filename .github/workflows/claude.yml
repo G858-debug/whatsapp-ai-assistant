@@ -70,70 +70,109 @@ jobs:
           # Remove command keywords from task
           task = task.replace('@apply', '').replace('@commit', '').replace('@pr', '').strip()
           
-          # Read project files
-          project_files = {}
+          # CRITICAL FIX: Read ALL project files properly
+          print("Reading all project files...")
+          all_project_files = {}
           
-          # Get all Python files
+          # Get ALL Python files (not just truncated ones)
           for py_file in Path('.').rglob('*.py'):
-              if not str(py_file).startswith('.'):
+              if not str(py_file).startswith('.git'):
                   try:
-                      with open(py_file, 'r') as f:
-                          content = f.read()
-                          if len(content) > 10000:
-                              content = content[:10000] + "\n\n[... truncated ...]"
-                          project_files[str(py_file)] = content
-                  except:
-                      pass
+                      with open(py_file, 'r', encoding='utf-8') as f:
+                          full_content = f.read()
+                          all_project_files[str(py_file)] = full_content
+                          print(f"✓ Read: {py_file} ({len(full_content)} chars)")
+                  except Exception as e:
+                      print(f"✗ Could not read {py_file}: {e}")
           
-          # Add other important files
-          for file_path in ['requirements.txt', 'README.md', '.env.example']:
+          # Add configuration and other important files
+          important_files = [
+              'requirements.txt', 
+              'README.md', 
+              '.env.example',
+              'railway.json',
+              'Procfile',
+              'runtime.txt',
+              'claude.md',
+              '.github/workflows/claude.yml'
+          ]
+          
+          for file_path in important_files:
               if Path(file_path).exists():
                   try:
-                      with open(file_path, 'r') as f:
-                          project_files[file_path] = f.read()
+                      with open(file_path, 'r', encoding='utf-8') as f:
+                          all_project_files[file_path] = f.read()
+                          print(f"✓ Read: {file_path}")
+                  except Exception as e:
+                      print(f"✗ Could not read {file_path}: {e}")
+          
+          # Add SQL migration files
+          if Path('supabase/migrations').exists():
+              for sql_file in Path('supabase/migrations').glob('*.sql'):
+                  try:
+                      with open(sql_file, 'r', encoding='utf-8') as f:
+                          all_project_files[str(sql_file)] = f.read()
+                          print(f"✓ Read: {sql_file}")
                   except:
                       pass
           
-          # Build context
-          context = "PROJECT STRUCTURE:\n"
-          for file_path in sorted(project_files.keys()):
-              context += f"- {file_path}\n"
+          print(f"\nTotal files read: {len(all_project_files)}")
           
-          context += "\n\nKEY FILES CONTENT:\n"
-          # Include important files
-          key_files = ['config.py', 'services/assessment.py', 'payment_manager.py']
-          for file_path in key_files:
-              if file_path in project_files:
-                  context += f"\n=== {file_path} ===\n{project_files[file_path]}\n"
+          # Build comprehensive context
+          context = "=== COMPLETE PROJECT STRUCTURE ===\n"
+          for file_path in sorted(all_project_files.keys()):
+              file_size = len(all_project_files[file_path])
+              context += f"- {file_path} ({file_size} chars)\n"
+          
+          context += "\n\n=== COMPLETE FILE CONTENTS ===\n"
+          
+          # Include ALL file contents for Claude
+          for file_path in sorted(all_project_files.keys()):
+              content = all_project_files[file_path]
+              # Only truncate individual files if they're massive (>50k chars)
+              if len(content) > 50000:
+                  content = content[:50000] + f"\n\n[... truncated from {len(content)} chars ...]"
+              context += f"\n\n{'='*60}\n"
+              context += f"FILE: {file_path}\n"
+              context += f"{'='*60}\n"
+              context += content
+              context += f"\n{'='*60}\n"
+          
+          # Ensure context isn't too large for API (Claude has ~200k token context)
+          if len(context) > 500000:  # Roughly 125k tokens
+              print(f"Context too large ({len(context)} chars), truncating...")
+              context = context[:500000] + "\n\n[... context truncated due to size ...]"
           
           try:
               client = anthropic.Anthropic()
               
-              # Ask Claude for specific code changes
+              # Prepare the prompt with FULL context
               prompt = f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
               
               Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
               Context: South African (Rand currency, +27 phones)
               
+              IMPORTANT: You have access to the COMPLETE codebase below. Every file in the project is included.
+              
               TASK: {task}
               
               {context}
               
-              Provide your response in this EXACT format:
+              You can see ALL files above. Please provide your response in this EXACT format:
               
               ## ANALYSIS
-              [Brief analysis of what needs to be done]
+              [Brief analysis of what needs to be done based on the actual code you can see above]
               
               ## FILES TO CHANGE
               
               ### FILE: path/to/file.py
               ```python
-              [Complete updated file content]
+              [Complete updated file content - the ENTIRE file, not snippets]
               ```
               
               ### FILE: path/to/another_file.py
               ```python
-              [Complete updated file content]
+              [Complete updated file content - the ENTIRE file]
               ```
               
               ### NEW FILE: path/to/new_file.py
@@ -149,31 +188,41 @@ jobs:
               ## SUMMARY
               [Brief summary of changes made]
               
-              IMPORTANT: 
+              IMPORTANT RULES:
+              - You CAN see all the files - they are provided above
               - Provide COMPLETE file contents, not snippets
+              - Fix any IndentationErrors or syntax errors you find
+              - Follow the rules in claude.md (which you can see above)
               - Mark new files with "NEW FILE:"
               - Mark SQL migrations with "MIGRATION:"
-              - Use exact file paths
+              - Use exact file paths as shown in the structure above
               '''
               
+              print(f"Sending request to Claude Opus 4.1...")
+              print(f"Context size: {len(context)} chars")
+              print(f"Using model: claude-opus-4-1-20250805")
+              
               response = client.messages.create(
-                  model='claude-opus-4-1-20250805',
+                  model='claude-opus-4-1-20250805',  # Using Opus 4.1 as requested
                   max_tokens=8000,
                   messages=[{'role': 'user', 'content': prompt}]
               )
               
               response_text = response.content[0].text
+              print(f"Received response: {len(response_text)} chars")
               
               # Save full response
-              with open('claude_response.md', 'w') as f:
+              with open('claude_response.md', 'w', encoding='utf-8') as f:
                   f.write(response_text)
               
               # Parse and apply changes if requested
               changes_applied = []
               
               if auto_apply:
-                  # Extract file changes
-                  file_pattern = r'###\s*(NEW\s+)?FILE:\s*(.+?)\n```(?:python|sql|txt|md)?\n(.*?)\n```'
+                  print("\nApplying changes...")
+                  
+                  # Extract file changes with improved regex
+                  file_pattern = r'###\s*(NEW\s+)?FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json)?\n(.*?)\n```'
                   migration_pattern = r'##\s*MIGRATION:\s*(.+?)\n```sql\n(.*?)\n```'
                   
                   # Apply file changes
@@ -187,14 +236,14 @@ jobs:
                           Path(file_path).parent.mkdir(parents=True, exist_ok=True)
                           
                           # Write file
-                          with open(file_path, 'w') as f:
+                          with open(file_path, 'w', encoding='utf-8') as f:
                               f.write(content)
                           
                           action = "Created" if is_new else "Updated"
                           changes_applied.append(f"{action} {file_path}")
-                          print(f"{action}: {file_path}")
+                          print(f"✓ {action}: {file_path}")
                       except Exception as e:
-                          print(f"Error writing {file_path}: {e}")
+                          print(f"✗ Error writing {file_path}: {e}")
                   
                   # Apply migrations
                   for match in re.finditer(migration_pattern, response_text, re.DOTALL):
@@ -213,27 +262,29 @@ jobs:
                           timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                           migration_file = f"supabase/migrations/{timestamp}_{migration_name}"
                           
-                          with open(migration_file, 'w') as f:
+                          with open(migration_file, 'w', encoding='utf-8') as f:
                               f.write(content)
                           
                           changes_applied.append(f"Created migration {migration_file}")
-                          print(f"Created migration: {migration_file}")
+                          print(f"✓ Created migration: {migration_file}")
                       except Exception as e:
-                          print(f"Error creating migration: {e}")
+                          print(f"✗ Error creating migration: {e}")
               
               # Prepare response summary
               if changes_applied:
-                  summary = f"✅ **Changes Applied:**\n"
+                  summary = f"✅ **Changes Applied Successfully:**\n"
                   for change in changes_applied:
                       summary += f"- {change}\n"
                   summary += f"\n📝 **Full Details:** See claude_response.md\n"
+                  summary += f"🤖 **Model Used:** Claude Opus 4.1\n"
               else:
                   summary = "📋 **Analysis Complete** (no changes applied)\n"
+                  summary += f"🤖 **Model Used:** Claude Opus 4.1\n"
                   if '@apply' not in comment and '@commit' not in comment:
                       summary += "💡 Add `@apply` to your command to automatically apply changes\n"
               
               # Save summary for posting
-              with open('summary.txt', 'w') as f:
+              with open('summary.txt', 'w', encoding='utf-8') as f:
                   f.write(summary)
               
               # If auto-apply, commit changes
@@ -241,12 +292,14 @@ jobs:
                   try:
                       subprocess.run(['git', 'add', '.'], check=True)
                       
-                      commit_msg = f"🤖 Claude: {task[:50]}..."
+                      commit_msg = f"🤖 Claude Opus 4.1: {task[:50]}..."
                       subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
                       
                       if create_pr:
-                          # Create a new branch
-                          branch_name = f"claude-{task[:20].replace(' ', '-').lower()}"
+                          # Create a new branch with timestamp to avoid conflicts
+                          from datetime import datetime
+                          timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+                          branch_name = f"claude-{task[:20].replace(' ', '-').lower()}-{timestamp}"
                           subprocess.run(['git', 'checkout', '-b', branch_name], check=True)
                           subprocess.run(['git', 'push', 'origin', branch_name], check=True)
                           
@@ -256,23 +309,29 @@ jobs:
                           # Push to main
                           subprocess.run(['git', 'push'], check=True)
                       
-                      print("Changes committed and pushed!")
+                      print("✓ Changes committed and pushed!")
                   except Exception as e:
-                      print(f"Git error: {e}")
+                      print(f"✗ Git error: {e}")
               
-              # Also save a truncated response for the comment
+              # Save a truncated response for the comment
               if len(response_text) > 50000:
                   response_text = response_text[:50000] + "\n\n[... truncated - see claude_response.md for full response]"
               
-              with open('response.txt', 'w') as f:
+              with open('response.txt', 'w', encoding='utf-8') as f:
                   f.write(response_text)
                   
           except Exception as e:
-              print(f"Error: {e}")
-              with open('summary.txt', 'w') as f:
-                  f.write(f"❌ Error: {str(e)}")
-              with open('response.txt', 'w') as f:
-                  f.write(f"Error occurred: {str(e)}")
+              error_msg = str(e)
+              print(f"✗ Error: {error_msg}")
+              
+              # Check if it's a model error
+              if "model" in error_msg.lower():
+                  error_msg = "❌ Model Error: Claude Opus 4.1 may not be available. The correct model string is 'claude-opus-4-1-20250805'. Please verify your API access includes Opus 4.1."
+              
+              with open('summary.txt', 'w', encoding='utf-8') as f:
+                  f.write(f"❌ Error: {error_msg}")
+              with open('response.txt', 'w', encoding='utf-8') as f:
+                  f.write(f"Error occurred: {error_msg}\n\nPlease check:\n1. Your ANTHROPIC_API_KEY is valid\n2. You have access to Claude Opus 4.1\n3. The model string is correct")
           PYTHON_SCRIPT
       
       - name: Post Response
@@ -300,7 +359,7 @@ jobs:
               console.log('Error reading files:', e);
             }
             
-            let comment = `🤖 **Claude Response:**\n\n${summary}\n`;
+            let comment = `🤖 **Claude Opus 4.1 Response:**\n\n${summary}\n`;
             
             if (prBranch) {
               comment += `\n🔗 **Pull Request:** Create a PR from branch \`${prBranch}\`\n`;
