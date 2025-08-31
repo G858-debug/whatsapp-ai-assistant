@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import pytz
-from utils.logger import log_error, log_info
+from utils.logger import log_error, log_info, log_warning
 from config import Config
 
 class SchedulerService:
@@ -11,10 +11,14 @@ class SchedulerService:
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.timezone = pytz.timezone(Config.TIMEZONE)
-        
-        # Import here to avoid circular imports
-        from services.habits import HabitTrackingService  # FIXED: Changed from HabitService to HabitTrackingService
-        self.habits = HabitTrackingService(supabase_client)
+        self.habits = None  # Will be initialized when needed
+    
+    def _get_habits_service(self):
+        """Lazy load habits service to avoid circular import"""
+        if self.habits is None:
+            from services.habits import HabitTrackingService
+            self.habits = HabitTrackingService(self.db)
+        return self.habits
     
     def check_and_send_reminders(self) -> Dict:
         """Check for and send any pending reminders"""
@@ -66,7 +70,7 @@ class SchedulerService:
             ).execute()
             
             count = 0
-            for session in sessions.data:
+            for session in (sessions.data or []):
                 # Check if reminder already sent
                 if session.get('reminder_sent'):
                     continue
@@ -122,7 +126,7 @@ class SchedulerService:
             ).execute()
             
             count = 0
-            for payment in payments.data:
+            for payment in (payments.data or []):
                 # Check if reminder was sent recently (within 3 days)
                 if payment.get('last_reminder_sent'):
                     last_reminder = datetime.fromisoformat(payment['last_reminder_sent'])
@@ -168,7 +172,7 @@ class SchedulerService:
             ).execute()
             
             count = 0
-            for assessment in assessments.data:
+            for assessment in (assessments.data or []):
                 # Check if reminder sent
                 if assessment.get('reminder_sent'):
                     continue
@@ -206,16 +210,17 @@ class SchedulerService:
             if current_hour not in [8, 20]:
                 return 0
             
-            # Get active clients who haven't logged habits today
-            today = now.date().isoformat()
+            # Get habits service
+            habits_service = self._get_habits_service()
             
             # Get all active clients
+            today = now.date().isoformat()
             clients = self.db.table('clients').select('*').eq(
                 'status', 'active'
             ).execute()
             
             count = 0
-            for client in clients.data:
+            for client in (clients.data or []):
                 # Check if they've logged any habits today
                 habits_today = self.db.table('habit_tracking').select('id').eq(
                     'client_id', client['id']
@@ -223,7 +228,7 @@ class SchedulerService:
                 
                 if not habits_today.data:
                     # Check their current streak
-                    streak = self.habits.get_current_streak(client['id'])
+                    streak = habits_service.get_current_streak(client['id'])
                     
                     if current_hour == 8:
                         message = (
@@ -307,7 +312,7 @@ class SchedulerService:
             sent_count = 0
             failed_count = 0
             
-            for msg in messages.data:
+            for msg in (messages.data or []):
                 result = self.whatsapp.send_message(
                     msg['recipient'],
                     msg['message']
@@ -377,7 +382,7 @@ class SchedulerService:
             sent_count = 0
             failed_count = 0
             
-            for client in clients.data:
+            for client in (clients.data or []):
                 result = self.whatsapp.send_message(
                     client['phone_number'],
                     message
@@ -392,7 +397,7 @@ class SchedulerService:
                 'success': True,
                 'sent': sent_count,
                 'failed': failed_count,
-                'total': len(clients.data)
+                'total': len(clients.data) if clients.data else 0
             }
             
         except Exception as e:

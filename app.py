@@ -21,9 +21,9 @@ from services.habits import HabitTrackingService
 from services.workout import WorkoutService
 from services.subscription_manager import SubscriptionManager
 from services.analytics import AnalyticsService
-from models.trainer import Trainer
-from models.client import Client
-from models.booking import Booking
+from models.trainer import TrainerModel
+from models.client import ClientModel
+from models.booking import BookingModel
 from utils.logger import setup_logger, log_error, log_info, log_warning
 from utils.rate_limiter import RateLimiter
 from utils.input_sanitizer import InputSanitizer
@@ -39,7 +39,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Setup logger
-setup_logger()
+logger = setup_logger()
 
 # Validate configuration
 try:
@@ -53,19 +53,26 @@ except ValueError as e:
 supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
 
 # Initialize services with proper parameters
-whatsapp_service = WhatsAppService(supabase)
-refiloe_service = RefiloeService(supabase)
-ai_handler = AIIntentHandler(supabase)
-scheduler_service = SchedulerService(supabase)
+whatsapp_service = WhatsAppService(Config, supabase, logger)
+ai_handler = AIIntentHandler(Config, supabase)
+scheduler_service = SchedulerService(supabase, whatsapp_service)
 assessment_service = EnhancedAssessmentService(supabase)
 habit_service = HabitTrackingService(supabase)
-workout_service = WorkoutService(supabase)
+workout_service = WorkoutService(Config, supabase)
 subscription_manager = SubscriptionManager(supabase)
 analytics_service = AnalyticsService(supabase)
 payment_manager = PaymentManager(supabase)
-payfast_handler = PayFastWebhookHandler(supabase)
-rate_limiter = RateLimiter(supabase)
-input_sanitizer = InputSanitizer()
+payfast_handler = PayFastWebhookHandler()  # Already has its own init
+rate_limiter = RateLimiter(Config, supabase)
+input_sanitizer = InputSanitizer(Config)
+
+# Initialize Refiloe service after other services
+refiloe_service = RefiloeService(supabase)
+
+# Initialize models with proper parameters
+trainer_model = TrainerModel(supabase, Config)
+client_model = ClientModel(supabase, Config)
+booking_model = BookingModel(supabase, Config)
 
 # Initialize background scheduler
 scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
@@ -75,34 +82,10 @@ def send_daily_reminders():
     try:
         log_info("Running daily reminders task")
         
-        # Get today's bookings
-        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
-        bookings = scheduler_service.get_bookings_for_date(today)
+        # Use scheduler_service for reminders
+        results = scheduler_service.check_and_send_reminders()
         
-        for booking in bookings:
-            # Send reminder 1 hour before session
-            session_time = datetime.fromisoformat(booking['session_time'])
-            reminder_time = session_time - timedelta(hours=1)
-            
-            if datetime.now(pytz.timezone(Config.TIMEZONE)) >= reminder_time:
-                client_phone = booking['client']['phone_number']
-                trainer_name = booking['trainer']['name']
-                time_str = session_time.strftime('%I:%M %p')
-                
-                message = f"🏋️ Reminder: You have a training session with {trainer_name} at {time_str} today!"
-                whatsapp_service.send_message(client_phone, message)
-        
-        # Check for overdue payments
-        overdue_payments = payment_manager.get_overdue_payments()
-        for payment in overdue_payments:
-            client_phone = payment['client']['phone_number']
-            amount = payment['amount']
-            days_overdue = payment['days_overdue']
-            
-            message = f"💳 Payment reminder: R{amount} is {days_overdue} days overdue. Please settle your account."
-            whatsapp_service.send_message(client_phone, message)
-            
-        log_info(f"Sent reminders for {len(bookings)} bookings and {len(overdue_payments)} overdue payments")
+        log_info(f"Daily reminders completed: {results}")
         
     except Exception as e:
         log_error(f"Error in daily reminders task: {str(e)}")
@@ -111,10 +94,25 @@ def check_subscription_status():
     """Check and update subscription statuses"""
     try:
         log_info("Checking subscription statuses")
-        expired_count = subscription_manager.check_expired_subscriptions()
-        trial_ending_count = subscription_manager.send_trial_ending_reminders()
         
-        log_info(f"Processed {expired_count} expired subscriptions and {trial_ending_count} trial endings")
+        # Get all active subscriptions
+        active_subs = supabase.table('trainer_subscriptions').select('*').eq(
+            'status', 'active'
+        ).execute()
+        
+        expired_count = 0
+        for sub in (active_subs.data or []):
+            # Check if expired
+            if sub.get('end_date'):
+                end_date = datetime.fromisoformat(sub['end_date'])
+                if end_date < datetime.now(pytz.timezone(Config.TIMEZONE)):
+                    # Mark as expired
+                    supabase.table('trainer_subscriptions').update({
+                        'status': 'expired'
+                    }).eq('id', sub['id']).execute()
+                    expired_count += 1
+        
+        log_info(f"Processed {expired_count} expired subscriptions")
         
     except Exception as e:
         log_error(f"Error checking subscriptions: {str(e)}")
@@ -185,7 +183,7 @@ def webhook():
             # Check rate limits
             if Config.ENABLE_RATE_LIMITING:
                 ip_address = request.remote_addr
-                if not rate_limiter.check_webhook_rate_limit(ip_address):
+                if not rate_limiter.check_webhook_rate(ip_address):
                     log_warning(f"Rate limit exceeded for IP: {ip_address}")
                     return jsonify({"error": "Rate limit exceeded"}), 429
             
@@ -218,8 +216,10 @@ def process_message(message: dict, contacts: list):
         
         # Check user rate limits
         if Config.ENABLE_RATE_LIMITING:
-            if not rate_limiter.check_message_rate_limit(from_number):
-                whatsapp_service.send_message(from_number, Config.RATE_LIMIT_MESSAGE)
+            allowed, error_msg = rate_limiter.check_message_rate(from_number, message_type)
+            if not allowed:
+                if error_msg:
+                    whatsapp_service.send_message(from_number, error_msg)
                 return
         
         # Get contact name
@@ -238,7 +238,13 @@ def process_message(message: dict, contacts: list):
         
         # Add message content based on type
         if message_type == 'text':
-            message_data['text'] = {'body': message.get('text', {}).get('body', '')}
+            text_body = message.get('text', {}).get('body', '')
+            # Sanitize input
+            sanitized, is_safe, warnings = input_sanitizer.sanitize_message(text_body, from_number)
+            if not is_safe:
+                whatsapp_service.send_message(from_number, "Sorry, your message contained invalid content.")
+                return
+            message_data['text'] = {'body': sanitized}
         elif message_type == 'audio':
             message_data['audio'] = message.get('audio', {})
         elif message_type == 'image':
@@ -257,14 +263,13 @@ def process_message(message: dict, contacts: list):
             
             # Send media if included
             if response.get('media_url'):
-                whatsapp_service.send_media(from_number, response['media_url'], 'image')
+                whatsapp_service.send_media_message(from_number, response['media_url'], 'image')
             
             # Send buttons if included
             if response.get('buttons'):
-                whatsapp_service.send_interactive_buttons(
+                whatsapp_service.send_message_with_buttons(
                     from_number,
                     response.get('header', 'Options'),
-                    response.get('body', 'Please select:'),
                     response['buttons']
                 )
             
@@ -317,7 +322,7 @@ def payfast_webhook():
             return 'Invalid signature', 403
         
         # Process webhook
-        result = payfast_handler.process_webhook(data)
+        result = payfast_handler.process_payment_notification(data)
         
         if result['success']:
             return 'OK', 200

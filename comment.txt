@@ -1,7 +1,1 @@
-@claude @apply the deploy failed again. Here are the logs: 
-Traceback (most recent call last):
-  File "/app/app.py", line 33, in <module>
-    from voice_helpers import process_voice_note
-  File "/app/voice_helpers.py", line 7, in <module>
-    from pydub import AudioSegment
-ModuleNotFoundError: No module named 'pydub'
+@claude @apply could you go through the entire codebase and try to find parts that could cause errors
