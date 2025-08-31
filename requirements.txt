@@ -36,9 +36,9 @@ cryptography==41.0.4
 # Analytics
 user-agents==2.2.0
 
-# Voice Processing (optional, for voice note support)
-# pydub==0.25.1
-# speech_recognition==3.10.0
+# Voice Processing
+pydub==0.25.1
+# speech_recognition==3.10.0  # Optional, not currently used
 
 # Testing (dev only)
 pytest==7.4.2

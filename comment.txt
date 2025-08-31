@@ -1,7 +1,7 @@
-@claude @apply the deploy failed again. Here is the logs: 
+@claude @apply the deploy failed again. Here are the logs: 
 Traceback (most recent call last):
-  File "/app/app.py", line 27, in <module>
-    from utils.logger import setup_logger, log_error, log_info, log_warning
-ImportError: cannot import name 'setup_logger' from 'utils.logger' (/app/utils/logger.py)
-
-
+  File "/app/app.py", line 33, in <module>
+    from voice_helpers import process_voice_note
+  File "/app/voice_helpers.py", line 7, in <module>
+    from pydub import AudioSegment
+ModuleNotFoundError: No module named 'pydub'
