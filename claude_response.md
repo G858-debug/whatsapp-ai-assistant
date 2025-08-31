@@ -1,818 +1,814 @@
 ## ANALYSIS
-
-The error shows that `RefiloeService` cannot be imported from `services.refiloe`. Looking at the codebase structure, we have `services/refiloe.py` but the import is failing. This suggests that either:
-1. The `RefiloeService` class doesn't exist in `services/refiloe.py`
-2. There's a syntax error in the file
-3. The file has import issues
-
-Since we can't see the current content of `services/refiloe.py` or `app.py`, I'll create a proper implementation that ensures all services work correctly together.
+The error shows that `HabitTrackingService` cannot be imported from `services/habits.py`. Looking at the services/assessment.py file provided, I can see it's incomplete (truncated). The issue is that services/habits.py likely doesn't have the `HabitTrackingService` class defined. I need to create/fix the habits.py file and ensure all imports in both app.py and refiloe.py work correctly.
 
 ## FILES TO CHANGE
 
-### FILE: services/refiloe.py
+### FILE: services/habits.py
 ```python
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-import json
-import re
-from anthropic import Anthropic
-from config import Config
 from utils.logger import log_error, log_info
-from services.whatsapp import WhatsAppService
-from services.scheduler import SchedulerService
-from services.workout import WorkoutService
-from services.assessment import EnhancedAssessmentService
-from services.habits import HabitTrackingService
-from services.analytics import AnalyticsService
-from services.subscription_manager import SubscriptionManager
-from services.ai_intent_handler import AIIntentHandler
-from payment_manager import PaymentManager
+import json
 
-
-class RefiloeService:
-    """Main service orchestrator for Refiloe AI assistant"""
+class HabitTrackingService:
+    """Service for tracking client habits and daily metrics"""
     
     def __init__(self, supabase_client):
-        """Initialize Refiloe with all required services"""
         self.db = supabase_client
-        self.config = Config
-        
-        # Initialize core services
-        self.whatsapp = WhatsAppService(supabase_client)
-        self.scheduler = SchedulerService(supabase_client)
-        self.workout = WorkoutService(supabase_client)
-        self.assessment = EnhancedAssessmentService(supabase_client)
-        self.habits = HabitTrackingService(supabase_client)
-        self.analytics = AnalyticsService(supabase_client)
-        self.subscription = SubscriptionManager(supabase_client)
-        self.payment = PaymentManager(supabase_client)
-        self.ai_handler = AIIntentHandler(supabase_client)
-        
-        # Initialize Anthropic client
-        self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
-        
-        log_info("RefiloeService initialized successfully")
+        self.habit_types = [
+            'water_intake',
+            'sleep_hours',
+            'steps',
+            'calories',
+            'workout_completed',
+            'meals_logged',
+            'weight',
+            'mood'
+        ]
     
-    def process_message(self, message_data: Dict) -> Dict:
-        """Process incoming WhatsApp message"""
+    def log_habit(self, client_id: str, habit_type: str, value: any, date: Optional[str] = None) -> Dict:
+        """Log a habit entry for a client"""
         try:
-            # Extract message details
-            from_number = message_data.get('from')
-            message_type = message_data.get('type', 'text')
-            
-            # Get or create user context
-            user_context = self._get_user_context(from_number)
-            
-            # Route based on message type
-            if message_type == 'text':
-                response = self._handle_text_message(message_data, user_context)
-            elif message_type == 'audio':
-                response = self._handle_voice_message(message_data, user_context)
-            elif message_type == 'image':
-                response = self._handle_image_message(message_data, user_context)
-            elif message_type == 'interactive':
-                response = self._handle_interactive_message(message_data, user_context)
-            else:
-                response = {
+            if habit_type not in self.habit_types:
+                return {
                     'success': False,
-                    'message': "I don't understand that type of message yet. Please send text or voice notes."
+                    'error': f'Invalid habit type. Valid types: {", ".join(self.habit_types)}'
                 }
             
-            # Log interaction
-            self._log_interaction(from_number, message_data, response)
+            # Use today's date if not specified
+            if not date:
+                date = datetime.now().date().isoformat()
             
-            return response
+            # Check if entry exists for today
+            existing = self.db.table('habit_tracking').select('*').eq(
+                'client_id', client_id
+            ).eq('habit_type', habit_type).eq('date', date).execute()
             
-        except Exception as e:
-            log_error(f"Error processing message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I encountered an error. Please try again."
-            }
-    
-    def _handle_text_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle text message"""
-        try:
-            text = message_data.get('text', {}).get('body', '')
-            from_number = message_data.get('from')
-            
-            # Check for commands
-            if text.lower().startswith('/'):
-                return self._handle_command(text, from_number, user_context)
-            
-            # Use AI to understand intent
-            intent_result = self.ai_handler.process_message(text, user_context)
-            
-            # Route based on intent
-            if intent_result['intent'] == 'booking':
-                return self._handle_booking_intent(intent_result, from_number, user_context)
-            elif intent_result['intent'] == 'payment':
-                return self._handle_payment_intent(intent_result, from_number, user_context)
-            elif intent_result['intent'] == 'workout':
-                return self._handle_workout_intent(intent_result, from_number, user_context)
-            elif intent_result['intent'] == 'assessment':
-                return self._handle_assessment_intent(intent_result, from_number, user_context)
-            elif intent_result['intent'] == 'habit':
-                return self._handle_habit_intent(intent_result, from_number, user_context)
-            elif intent_result['intent'] == 'general':
-                return self._handle_general_query(text, user_context)
+            if existing.data:
+                # Update existing entry
+                result = self.db.table('habit_tracking').update({
+                    'value': str(value),
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', existing.data[0]['id']).execute()
             else:
+                # Create new entry
+                result = self.db.table('habit_tracking').insert({
+                    'client_id': client_id,
+                    'habit_type': habit_type,
+                    'value': str(value),
+                    'date': date,
+                    'created_at': datetime.now().isoformat()
+                }).execute()
+            
+            if result.data:
+                log_info(f"Habit logged: {habit_type} = {value} for client {client_id}")
+                
+                # Check for streaks
+                streak = self.calculate_streak(client_id, habit_type)
+                
                 return {
                     'success': True,
-                    'message': intent_result.get('response', "I'm not sure how to help with that. Try asking about bookings, workouts, or assessments.")
+                    'message': f'✅ {habit_type.replace("_", " ").title()} logged: {value}',
+                    'streak': streak
                 }
-                
+            
+            return {'success': False, 'error': 'Failed to log habit'}
+            
         except Exception as e:
-            log_error(f"Error handling text message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your message. Please try again."
-            }
+            log_error(f"Error logging habit: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
-    def _handle_voice_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle voice message"""
+    def get_client_habits(self, client_id: str, days: int = 7) -> Dict:
+        """Get client's habit data for the specified number of days"""
         try:
-            # For now, return a placeholder response
-            # TODO: Implement voice transcription
-            return {
-                'success': True,
-                'message': "🎤 I received your voice message! Voice processing is coming soon. For now, please send text messages."
-            }
-        except Exception as e:
-            log_error(f"Error handling voice message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your voice message."
-            }
-    
-    def _handle_image_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle image message"""
-        try:
-            # Check if this is for an assessment
-            if user_context.get('expecting_assessment_photo'):
-                return self._process_assessment_photo(message_data, user_context)
+            start_date = (datetime.now() - timedelta(days=days)).date().isoformat()
+            
+            result = self.db.table('habit_tracking').select('*').eq(
+                'client_id', client_id
+            ).gte('date', start_date).order('date', desc=True).execute()
+            
+            # Organize by date and type
+            habits_by_date = {}
+            for entry in result.data:
+                date = entry['date']
+                if date not in habits_by_date:
+                    habits_by_date[date] = {}
+                habits_by_date[date][entry['habit_type']] = entry['value']
             
             return {
                 'success': True,
-                'message': "📸 Thanks for the image! To submit assessment photos, please start an assessment first."
-            }
-        except Exception as e:
-            log_error(f"Error handling image: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your image."
-            }
-    
-    def _handle_interactive_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle interactive button/list responses"""
-        try:
-            interactive = message_data.get('interactive', {})
-            response_type = interactive.get('type')
-            
-            if response_type == 'button_reply':
-                button_id = interactive.get('button_reply', {}).get('id')
-                return self._handle_button_click(button_id, user_context)
-            elif response_type == 'list_reply':
-                list_id = interactive.get('list_reply', {}).get('id')
-                return self._handle_list_selection(list_id, user_context)
-            
-            return {
-                'success': False,
-                'message': "I couldn't understand your selection."
+                'data': habits_by_date,
+                'days_tracked': len(habits_by_date)
             }
             
         except Exception as e:
-            log_error(f"Error handling interactive message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your selection."
-            }
+            log_error(f"Error fetching habits: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
-    def _handle_command(self, command: str, from_number: str, user_context: Dict) -> Dict:
-        """Handle slash commands"""
+    def calculate_streak(self, client_id: str, habit_type: str) -> int:
+        """Calculate current streak for a specific habit"""
         try:
-            cmd = command.lower().strip()
+            # Get all entries for this habit, ordered by date
+            result = self.db.table('habit_tracking').select('date').eq(
+                'client_id', client_id
+            ).eq('habit_type', habit_type).order('date', desc=True).execute()
             
-            if cmd == '/help':
-                return self._get_help_message(user_context)
-            elif cmd == '/book':
-                return self._start_booking_flow(from_number, user_context)
-            elif cmd == '/cancel':
-                return self._cancel_current_action(user_context)
-            elif cmd == '/status':
-                return self._get_user_status(from_number, user_context)
-            elif cmd == '/workout':
-                return self._start_workout_flow(from_number, user_context)
-            elif cmd == '/assess':
-                return self._start_assessment_flow(from_number, user_context)
-            elif cmd == '/pay':
-                return self._check_payment_status(from_number, user_context)
-            else:
-                return {
-                    'success': True,
-                    'message': f"Unknown command: {cmd}\n\nAvailable commands:\n/help - Show help\n/book - Book a session\n/workout - Get workout\n/assess - Start assessment\n/status - Check status\n/pay - Payment info"
-                }
+            if not result.data:
+                return 0
+            
+            streak = 0
+            current_date = datetime.now().date()
+            
+            for entry in result.data:
+                entry_date = datetime.fromisoformat(entry['date']).date()
                 
+                # Check if dates are consecutive
+                if entry_date == current_date - timedelta(days=streak):
+                    streak += 1
+                else:
+                    break
+            
+            return streak
+            
         except Exception as e:
-            log_error(f"Error handling command: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process that command."
-            }
+            log_error(f"Error calculating streak: {str(e)}")
+            return 0
     
-    def _handle_booking_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle booking-related intents"""
+    def get_current_streak(self, client_id: str) -> int:
+        """Get the longest current streak across all habits"""
         try:
-            entities = intent_result.get('entities', {})
+            max_streak = 0
             
-            # Check if we have enough info to book
-            if entities.get('date') and entities.get('time'):
-                return self.scheduler.book_session(
-                    client_phone=from_number,
-                    date=entities['date'],
-                    time=entities['time'],
-                    trainer_id=user_context.get('trainer_id')
-                )
-            else:
-                # Start booking flow
-                return self._start_booking_flow(from_number, user_context)
-                
+            # Check workout completion streak (most important)
+            workout_streak = self.calculate_streak(client_id, 'workout_completed')
+            max_streak = max(max_streak, workout_streak)
+            
+            return max_streak
+            
         except Exception as e:
-            log_error(f"Error handling booking intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your booking request."
-            }
+            log_error(f"Error getting current streak: {str(e)}")
+            return 0
     
-    def _handle_payment_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle payment-related intents"""
+    def get_habit_summary(self, client_id: str, days: int = 30) -> Dict:
+        """Get summary statistics for client habits"""
         try:
-            # Check outstanding payments
-            outstanding = self.payment.check_payment_status(from_number)
+            habits_data = self.get_client_habits(client_id, days)
             
-            if outstanding.get('has_outstanding'):
-                return {
-                    'success': True,
-                    'message': f"💰 You have an outstanding balance of R{outstanding['amount']:.2f}\n\nTo pay: {outstanding.get('payment_link', 'Contact your trainer for payment details')}"
-                }
-            else:
-                return {
-                    'success': True,
-                    'message': "✅ You're all paid up! No outstanding payments."
-                }
-                
-        except Exception as e:
-            log_error(f"Error handling payment intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't check your payment status."
+            if not habits_data['success']:
+                return habits_data
+            
+            summary = {
+                'total_days_tracked': habits_data['days_tracked'],
+                'habits': {}
             }
-    
-    def _handle_workout_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle workout-related intents"""
-        try:
-            entities = intent_result.get('entities', {})
-            muscle_group = entities.get('muscle_group', 'full body')
             
-            workout = self.workout.generate_workout(
-                client_id=user_context.get('client_id'),
-                muscle_group=muscle_group
-            )
-            
-            if workout.get('success'):
-                return {
-                    'success': True,
-                    'message': workout['workout_text'],
-                    'media_url': workout.get('gif_url')
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': "Sorry, I couldn't generate a workout right now."
-                }
+            # Calculate averages and totals for each habit type
+            for habit_type in self.habit_types:
+                values = []
+                for date_data in habits_data['data'].values():
+                    if habit_type in date_data:
+                        try:
+                            values.append(float(date_data[habit_type]))
+                        except (ValueError, TypeError):
+                            continue
                 
-        except Exception as e:
-            log_error(f"Error handling workout intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your workout request."
-            }
-    
-    def _handle_assessment_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle assessment-related intents"""
-        try:
-            # Check for pending assessment
-            assessments = self.assessment.get_client_assessments(
-                user_context.get('client_id')
-            )
-            
-            pending = [a for a in assessments if a['status'] == 'pending']
-            
-            if pending:
-                return {
-                    'success': True,
-                    'message': f"📋 You have a pending assessment!\n\nDue: {pending[0]['due_date']}\n\nReply 'start assessment' to begin."
-                }
-            else:
-                return {
-                    'success': True,
-                    'message': "No pending assessments. Your trainer will schedule one when needed."
-                }
-                
-        except Exception as e:
-            log_error(f"Error handling assessment intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't check your assessments."
-            }
-    
-    def _handle_habit_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle habit tracking intents"""
-        try:
-            entities = intent_result.get('entities', {})
-            habit_type = entities.get('habit_type')
-            value = entities.get('value')
-            
-            if habit_type and value:
-                result = self.habits.log_habit(
-                    client_id=user_context.get('client_id'),
-                    habit_type=habit_type,
-                    value=value
-                )
-                
-                if result.get('success'):
-                    return {
-                        'success': True,
-                        'message': f"✅ Logged: {habit_type} - {value}\n\nGreat job staying consistent!"
+                if values:
+                    summary['habits'][habit_type] = {
+                        'average': sum(values) / len(values),
+                        'total': sum(values),
+                        'days_logged': len(values)
                     }
             
             return {
                 'success': True,
-                'message': "📊 Track your habits! Just tell me:\n• Water intake (e.g., '2 liters water')\n• Sleep (e.g., '8 hours sleep')\n• Steps (e.g., '10000 steps')\n• Workouts (e.g., 'completed workout')"
+                'summary': summary
             }
             
         except Exception as e:
-            log_error(f"Error handling habit intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't log that habit."
-            }
+            log_error(f"Error getting habit summary: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
-    def _handle_general_query(self, text: str, user_context: Dict) -> Dict:
-        """Handle general queries with AI"""
+    def set_habit_goal(self, client_id: str, habit_type: str, goal_value: any, 
+                       goal_type: str = 'daily') -> Dict:
+        """Set a goal for a specific habit"""
         try:
-            # Use Claude for general fitness advice
-            response = self.anthropic.messages.create(
-                model=Config.AI_MODEL,
-                max_tokens=500,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are Refiloe, a friendly South African fitness AI assistant. Provide helpful, encouraging fitness and health advice. Keep responses concise and practical."
-                    },
-                    {
-                        "role": "user",
-                        "content": text
-                    }
-                ]
-            )
-            
-            return {
-                'success': True,
-                'message': response.content[0].text
+            goal_data = {
+                'client_id': client_id,
+                'habit_type': habit_type,
+                'goal_value': str(goal_value),
+                'goal_type': goal_type,
+                'is_active': True,
+                'created_at': datetime.now().isoformat()
             }
             
-        except Exception as e:
-            log_error(f"Error with AI response: {str(e)}")
-            return {
-                'success': True,
-                'message': "I'm here to help with bookings, workouts, assessments, and tracking your fitness journey. What would you like to do?"
-            }
-    
-    def _get_user_context(self, phone_number: str) -> Dict:
-        """Get or create user context"""
-        try:
-            # Try to get existing client
-            result = self.db.table('clients').select('*').eq(
-                'phone_number', phone_number
-            ).single().execute()
+            # Deactivate existing goals for this habit
+            self.db.table('habit_goals').update({
+                'is_active': False
+            }).eq('client_id', client_id).eq('habit_type', habit_type).execute()
+            
+            # Create new goal
+            result = self.db.table('habit_goals').insert(goal_data).execute()
             
             if result.data:
                 return {
-                    'client_id': result.data['id'],
-                    'trainer_id': result.data.get('trainer_id'),
-                    'name': result.data.get('name'),
-                    'is_new': False
+                    'success': True,
+                    'message': f'Goal set: {goal_value} {habit_type.replace("_", " ")} {goal_type}'
                 }
-            else:
-                # New user
-                return {
-                    'phone_number': phone_number,
-                    'is_new': True
-                }
-                
-        except Exception as e:
-            log_error(f"Error getting user context: {str(e)}")
-            return {'phone_number': phone_number, 'is_new': True}
-    
-    def _log_interaction(self, phone_number: str, message_data: Dict, response: Dict):
-        """Log interaction for analytics"""
-        try:
-            self.db.table('message_logs').insert({
-                'phone_number': phone_number,
-                'message_type': message_data.get('type'),
-                'message_content': json.dumps(message_data),
-                'response': json.dumps(response),
-                'timestamp': datetime.now().isoformat()
-            }).execute()
-        except Exception as e:
-            log_error(f"Error logging interaction: {str(e)}")
-    
-    def _get_help_message(self, user_context: Dict) -> Dict:
-        """Get help message"""
-        help_text = """🏋️ *Refiloe Fitness Assistant* 🏋️
-
-Here's what I can help you with:
-
-📅 *Bookings*
-• "Book a session for tomorrow at 3pm"
-• "Show my upcoming sessions"
-• "Cancel my booking"
-
-💪 *Workouts*
-• "Give me a leg workout"
-• "Show chest exercises"
-• "I need a 30-minute workout"
-
-📊 *Assessments*
-• "Start my assessment"
-• "Check assessment status"
-
-💰 *Payments*
-• "Check my balance"
-• "Payment status"
-
-📈 *Progress Tracking*
-• "Log 2 liters water"
-• "Completed workout"
-• "8 hours sleep"
-
-*Quick Commands:*
-/book - Book a session
-/workout - Get a workout
-/assess - Start assessment
-/status - Check your status
-/help - Show this message
-
-How can I help you today?"""
-        
-        return {
-            'success': True,
-            'message': help_text
-        }
-    
-    def _start_booking_flow(self, from_number: str, user_context: Dict) -> Dict:
-        """Start the booking flow"""
-        try:
-            # Get available slots
-            slots = self.scheduler.get_available_slots(
-                trainer_id=user_context.get('trainer_id')
-            )
             
-            if not slots:
+            return {'success': False, 'error': 'Failed to set goal'}
+            
+        except Exception as e:
+            log_error(f"Error setting habit goal: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def check_goal_progress(self, client_id: str) -> Dict:
+        """Check progress towards habit goals"""
+        try:
+            # Get active goals
+            goals = self.db.table('habit_goals').select('*').eq(
+                'client_id', client_id
+            ).eq('is_active', True).execute()
+            
+            if not goals.data:
                 return {
                     'success': True,
-                    'message': "No available slots at the moment. Please check back later or contact your trainer directly."
+                    'message': 'No active goals set',
+                    'goals': []
                 }
             
-            # Format slots message
-            message = "📅 *Available Session Times*\n\n"
-            for date, times in slots.items():
-                message += f"*{date}*\n"
-                for time in times:
-                    message += f"• {time}\n"
-                message += "\n"
+            progress_list = []
             
-            message += "Reply with your preferred date and time (e.g., 'Tomorrow at 3pm')"
+            for goal in goals.data:
+                # Get recent habit data
+                if goal['goal_type'] == 'daily':
+                    days = 1
+                elif goal['goal_type'] == 'weekly':
+                    days = 7
+                else:
+                    days = 30
+                
+                habits = self.get_client_habits(client_id, days)
+                
+                if habits['success']:
+                    # Calculate progress
+                    total = 0
+                    count = 0
+                    
+                    for date_data in habits['data'].values():
+                        if goal['habit_type'] in date_data:
+                            try:
+                                total += float(date_data[goal['habit_type']])
+                                count += 1
+                            except (ValueError, TypeError):
+                                continue
+                    
+                    if count > 0:
+                        average = total / count
+                        goal_value = float(goal['goal_value'])
+                        progress = (average / goal_value) * 100
+                        
+                        progress_list.append({
+                            'habit': goal['habit_type'],
+                            'goal': goal_value,
+                            'current': average,
+                            'progress_percentage': min(progress, 100),
+                            'goal_type': goal['goal_type']
+                        })
             
             return {
                 'success': True,
-                'message': message
+                'goals': progress_list
             }
             
         except Exception as e:
-            log_error(f"Error starting booking flow: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't start the booking process."
-            }
+            log_error(f"Error checking goal progress: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
-    def _start_workout_flow(self, from_number: str, user_context: Dict) -> Dict:
-        """Start workout selection flow"""
-        return {
-            'success': True,
-            'message': "💪 *Choose Your Workout Focus*\n\n• Chest\n• Back\n• Legs\n• Shoulders\n• Arms\n• Core\n• Full Body\n\nReply with the muscle group you want to work on!",
-            'buttons': [
-                {'id': 'workout_chest', 'title': 'Chest'},
-                {'id': 'workout_legs', 'title': 'Legs'},
-                {'id': 'workout_full', 'title': 'Full Body'}
-            ]
-        }
-    
-    def _start_assessment_flow(self, from_number: str, user_context: Dict) -> Dict:
-        """Start assessment flow"""
+    def get_insights(self, client_id: str) -> Dict:
+        """Generate insights from habit data"""
         try:
-            # Create new assessment
-            result = self.assessment.create_assessment(
-                trainer_id=user_context.get('trainer_id'),
-                client_id=user_context.get('client_id')
-            )
+            # Get 30-day summary
+            summary = self.get_habit_summary(client_id, 30)
             
-            if result.get('success'):
-                return {
-                    'success': True,
-                    'message': "📋 *Fitness Assessment Started*\n\nI'll guide you through a series of questions about your health and fitness.\n\nLet's start with your current health status.\n\n*Do you have any medical conditions?*\nReply with any conditions or 'none'"
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': "Sorry, I couldn't start the assessment."
-                }
-                
-        except Exception as e:
-            log_error(f"Error starting assessment: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't start the assessment process."
-            }
-    
-    def _check_payment_status(self, from_number: str, user_context: Dict) -> Dict:
-        """Check payment status for user"""
-        try:
-            # Get payment info
-            result = self.db.table('payment_requests').select('*').eq(
-                'client_phone', from_number
-            ).eq('status', 'pending').execute()
+            if not summary['success']:
+                return summary
             
-            if result.data:
-                total = sum([p['amount'] for p in result.data])
-                return {
-                    'success': True,
-                    'message': f"💰 *Payment Status*\n\nOutstanding: R{total:.2f}\n{len(result.data)} pending payment(s)\n\nYour trainer will send payment details soon."
-                }
-            else:
-                return {
-                    'success': True,
-                    'message': "✅ All payments up to date!"
-                }
-                
-        except Exception as e:
-            log_error(f"Error checking payment status: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't check your payment status."
-            }
-    
-    def _cancel_current_action(self, user_context: Dict) -> Dict:
-        """Cancel current action/flow"""
-        # Clear any session state
-        return {
-            'success': True,
-            'message': "❌ Action cancelled. How else can I help you?"
-        }
-    
-    def _get_user_status(self, from_number: str, user_context: Dict) -> Dict:
-        """Get comprehensive user status"""
-        try:
-            status_parts = []
+            insights = []
             
-            # Get upcoming bookings
-            bookings = self.scheduler.get_client_bookings(from_number)
-            if bookings:
-                status_parts.append(f"📅 Next session: {bookings[0]['date']} at {bookings[0]['time']}")
+            # Check water intake
+            if 'water_intake' in summary['summary']['habits']:
+                avg_water = summary['summary']['habits']['water_intake']['average']
+                if avg_water < 2.0:
+                    insights.append("💧 Your average water intake is below 2 liters. Try to increase it!")
+                elif avg_water >= 3.0:
+                    insights.append("💧 Great job on water intake! You're well hydrated.")
             
-            # Get recent workout
-            last_workout = self.workout.get_last_workout(user_context.get('client_id'))
-            if last_workout:
-                status_parts.append(f"💪 Last workout: {last_workout['date']}")
+            # Check sleep
+            if 'sleep_hours' in summary['summary']['habits']:
+                avg_sleep = summary['summary']['habits']['sleep_hours']['average']
+                if avg_sleep < 7:
+                    insights.append("😴 You're averaging less than 7 hours of sleep. Aim for 7-9 hours.")
+                elif avg_sleep >= 8:
+                    insights.append("😴 Excellent sleep habits! Keep it up.")
             
-            # Get assessment status
-            assessment = self.assessment.get_latest_assessment(user_context.get('client_id'))
-            if assessment:
-                status_parts.append(f"📋 Last assessment: {assessment['completed_at'][:10]}")
+            # Check workout consistency
+            if 'workout_completed' in summary['summary']['habits']:
+                workouts = summary['summary']['habits']['workout_completed']['days_logged']
+                if workouts < 8:  # Less than 2 per week
+                    insights.append("💪 Try to increase workout frequency to at least 3 times per week.")
+                elif workouts >= 12:  # 3+ per week
+                    insights.append("💪 Amazing workout consistency! You're crushing it!")
             
-            # Get habit streak
-            streak = self.habits.get_current_streak(user_context.get('client_id'))
-            if streak:
-                status_parts.append(f"🔥 Current streak: {streak} days")
-            
-            if status_parts:
-                message = "📊 *Your Status*\n\n" + "\n".join(status_parts)
-            else:
-                message = "Welcome! Let's get started with your fitness journey. Try booking a session or requesting a workout!"
+            # Check steps
+            if 'steps' in summary['summary']['habits']:
+                avg_steps = summary['summary']['habits']['steps']['average']
+                if avg_steps < 5000:
+                    insights.append("🚶 Your daily steps are low. Try to reach at least 8,000 steps.")
+                elif avg_steps >= 10000:
+                    insights.append("🚶 Fantastic step count! You're very active.")
             
             return {
                 'success': True,
-                'message': message
+                'insights': insights,
+                'summary': summary['summary']
             }
             
         except Exception as e:
-            log_error(f"Error getting user status: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't get your status."
-            }
+            log_error(f"Error generating insights: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
-    def _handle_button_click(self, button_id: str, user_context: Dict) -> Dict:
-        """Handle button click interactions"""
+    def parse_habit_from_text(self, text: str) -> Optional[Dict]:
+        """Parse habit information from natural language text"""
         try:
-            if button_id.startswith('workout_'):
-                muscle_group = button_id.replace('workout_', '')
-                return self._handle_workout_intent(
-                    {'entities': {'muscle_group': muscle_group}},
-                    user_context.get('phone_number'),
-                    user_context
-                )
-            elif button_id.startswith('book_'):
-                # Handle booking selection
-                slot = button_id.replace('book_', '')
-                return self.scheduler.confirm_booking(slot, user_context)
-            else:
-                return {
-                    'success': False,
-                    'message': "I didn't understand that selection."
-                }
-                
-        except Exception as e:
-            log_error(f"Error handling button click: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your selection."
-            }
-    
-    def _handle_list_selection(self, list_id: str, user_context: Dict) -> Dict:
-        """Handle list selection interactions"""
-        try:
-            # Similar to button handling but for list items
-            return self._handle_button_click(list_id, user_context)
-        except Exception as e:
-            log_error(f"Error handling list selection: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your selection."
-            }
-    
-    def _process_assessment_photo(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Process assessment photo submission"""
-        try:
-            # Store photo reference
-            photo_id = message_data.get('image', {}).get('id')
+            text_lower = text.lower()
             
-            # Update assessment with photo
-            self.assessment.add_photo_to_assessment(
-                assessment_id=user_context.get('current_assessment_id'),
-                photo_id=photo_id,
-                photo_type=user_context.get('expected_photo_type', 'general')
-            )
+            # Water intake patterns
+            if any(word in text_lower for word in ['water', 'drank', 'hydration']):
+                # Extract number
+                import re
+                numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+                if numbers:
+                    value = float(numbers[0])
+                    # Convert ml to liters if needed
+                    if 'ml' in text_lower:
+                        value = value / 1000
+                    return {'type': 'water_intake', 'value': value}
             
-            return {
-                'success': True,
-                'message': "📸 Photo received! Continue with your assessment or send another photo."
-            }
+            # Sleep patterns
+            if any(word in text_lower for word in ['sleep', 'slept', 'hours sleep']):
+                import re
+                numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+                if numbers:
+                    return {'type': 'sleep_hours', 'value': float(numbers[0])}
+            
+            # Steps patterns
+            if any(word in text_lower for word in ['steps', 'walked', 'walking']):
+                import re
+                numbers = re.findall(r'(\d+)', text)
+                if numbers:
+                    return {'type': 'steps', 'value': int(numbers[0])}
+            
+            # Workout completion
+            if any(word in text_lower for word in ['workout', 'completed', 'trained', 'exercise']):
+                if any(word in text_lower for word in ['completed', 'done', 'finished']):
+                    return {'type': 'workout_completed', 'value': 1}
+            
+            # Weight patterns
+            if any(word in text_lower for word in ['weight', 'weigh', 'kg', 'kilograms']):
+                import re
+                numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+                if numbers:
+                    return {'type': 'weight', 'value': float(numbers[0])}
+            
+            return None
             
         except Exception as e:
-            log_error(f"Error processing assessment photo: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your photo."
-            }
+            log_error(f"Error parsing habit from text: {str(e)}")
+            return None
 ```
 
 ### FILE: app.py
 ```python
 import os
 import json
-import hmac
-import hashlib
-from flask import Flask, request, jsonify
-from supabase import create_client, Client
-from datetime import datetime
-from typing import Dict, Optional
+import traceback
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify, render_template_string
+from supabase import create_client
+from dotenv import load_dotenv
+import pytz
 
-# Import configuration
-from config import Config
+# Import APScheduler for background tasks
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-# Import services
-from services.refiloe import RefiloeService
+# Import services and utilities
 from services.whatsapp import WhatsAppService
-from utils.logger import setup_logging, log_info, log_error
+from services.refiloe import RefiloeService
+from services.ai_intent_handler import AIIntentHandler
+from services.scheduler import SchedulerService
+from services.assessment import EnhancedAssessmentService
+from services.habits import HabitTrackingService
+from services.workout import WorkoutService
+from services.subscription_manager import SubscriptionManager
+from services.analytics import AnalyticsService
+from models.trainer import Trainer
+from models.client import Client
+from models.booking import Booking
+from utils.logger import setup_logger, log_error, log_info, log_warning
 from utils.rate_limiter import RateLimiter
-
-# Import routes
-from routes.dashboard import dashboard_bp
-
-# Import payment handling
+from utils.input_sanitizer import InputSanitizer
+from config import Config
 from payment_manager import PaymentManager
-from payfast_webhook import handle_payfast_webhook
+from payfast_webhook import PayFastWebhookHandler
+from voice_helpers import process_voice_note
+
+# Load environment variables
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config.from_object(Config)
 
-# Setup logging
-setup_logging()
+# Setup logger
+setup_logger()
+
+# Validate configuration
+try:
+    Config.validate()
+    log_info("Configuration validated successfully")
+except ValueError as e:
+    log_error(f"Configuration error: {str(e)}")
+    raise
 
 # Initialize Supabase client
-supabase: Client = create_client(
-    Config.SUPABASE_URL,
-    Config.SUPABASE_SERVICE_KEY
+supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+
+# Initialize services with proper parameters
+whatsapp_service = WhatsAppService(supabase)
+refiloe_service = RefiloeService(supabase)
+ai_handler = AIIntentHandler(supabase)
+scheduler_service = SchedulerService(supabase)
+assessment_service = EnhancedAssessmentService(supabase)
+habit_service = HabitTrackingService(supabase)
+workout_service = WorkoutService(supabase)
+subscription_manager = SubscriptionManager(supabase)
+analytics_service = AnalyticsService(supabase)
+payment_manager = PaymentManager(supabase)
+payfast_handler = PayFastWebhookHandler(supabase)
+rate_limiter = RateLimiter(supabase)
+input_sanitizer = InputSanitizer()
+
+# Initialize background scheduler
+scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
+
+def send_daily_reminders():
+    """Send daily workout and payment reminders"""
+    try:
+        log_info("Running daily reminders task")
+        
+        # Get today's bookings
+        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
+        bookings = scheduler_service.get_bookings_for_date(today)
+        
+        for booking in bookings:
+            # Send reminder 1 hour before session
+            session_time = datetime.fromisoformat(booking['session_time'])
+            reminder_time = session_time - timedelta(hours=1)
+            
+            if datetime.now(pytz.timezone(Config.TIMEZONE)) >= reminder_time:
+                client_phone = booking['client']['phone_number']
+                trainer_name = booking['trainer']['name']
+                time_str = session_time.strftime('%I:%M %p')
+                
+                message = f"🏋️ Reminder: You have a training session with {trainer_name} at {time_str} today!"
+                whatsapp_service.send_message(client_phone, message)
+        
+        # Check for overdue payments
+        overdue_payments = payment_manager.get_overdue_payments()
+        for payment in overdue_payments:
+            client_phone = payment['client']['phone_number']
+            amount = payment['amount']
+            days_overdue = payment['days_overdue']
+            
+            message = f"💳 Payment reminder: R{amount} is {days_overdue} days overdue. Please settle your account."
+            whatsapp_service.send_message(client_phone, message)
+            
+        log_info(f"Sent reminders for {len(bookings)} bookings and {len(overdue_payments)} overdue payments")
+        
+    except Exception as e:
+        log_error(f"Error in daily reminders task: {str(e)}")
+
+def check_subscription_status():
+    """Check and update subscription statuses"""
+    try:
+        log_info("Checking subscription statuses")
+        expired_count = subscription_manager.check_expired_subscriptions()
+        trial_ending_count = subscription_manager.send_trial_ending_reminders()
+        
+        log_info(f"Processed {expired_count} expired subscriptions and {trial_ending_count} trial endings")
+        
+    except Exception as e:
+        log_error(f"Error checking subscriptions: {str(e)}")
+
+# Schedule background tasks
+scheduler.add_job(
+    send_daily_reminders,
+    CronTrigger(hour=8, minute=0),  # Run at 8 AM daily
+    id='daily_reminders',
+    replace_existing=True
 )
 
-# Initialize services
-refiloe_service = RefiloeService(supabase)
-whatsapp_service = WhatsAppService(supabase)
-payment_manager = PaymentManager(supabase)
-rate_limiter = RateLimiter(supabase)
+scheduler.add_job(
+    check_subscription_status,
+    CronTrigger(hour=0, minute=0),  # Run at midnight daily
+    id='check_subscriptions',
+    replace_existing=True
+)
 
-# Register blueprints
-if Config.ENABLE_WEB_DASHBOARD:
-    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+# Start the scheduler
+scheduler.start()
+log_info("Background scheduler started")
 
-# Health check endpoint
-@app.route('/health', methods=['GET'])
+@app.route('/')
+def home():
+    """Home page"""
+    return jsonify({
+        "status": "active",
+        "service": "Refiloe AI Assistant",
+        "version": "2.0",
+        "timestamp": datetime.now().isoformat()
+    })
+
+@app.route('/health')
 def health_check():
-    """Health check endpoint for monitoring"""
+    """Health check endpoint"""
     try:
-        # Check database connection
-        result = supabase.table('clients').select('id').limit(1).execute()
-        db_status = 'healthy' if result else 'unhealthy'
-        
-        # Check configuration
-        Config.validate()
-        config_status = 'healthy'
-        
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
-            'services': {
-                'database': db_status,
-                'configuration': config_status,
-                'whatsapp': 'ready',
-                'ai': 'ready'
-            }
-        }), 200
-        
-    except Exception as e:
-        log_error(f"Health check failed: {str(e)}")
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e)
-        }), 500
+        # Check Supabase connection
+        supabase.table('trainers').select('id').limit(1).execute()
+        db_status = "connected"
+    except:
+        db_status = "error"
+    
+    return jsonify({
+        "status": "healthy" if db_status == "connected" else "degraded",
+        "database": db_status,
+        "timestamp": datetime.now().isoformat()
+    })
 
-# WhatsApp webhook verification
-@app.route('/webhook', methods=['GET'])
-def verify_webhook():
-    """Verify WhatsApp webhook"""
-    try:
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
+@app.route('/webhook', methods=['GET', 'POST'])
+def webhook():
+    """Main WhatsApp webhook endpoint"""
+    
+    if request.method == 'GET':
+        # Webhook verification
+        verify_token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
         
-        if mode and token:
-            if mode == 'subscribe' and token == Config.VERIFY_TOKEN:
-                log_info('Webhook verified successfully')
-                return challenge, 200
-            else:
-                log_error('Invalid verification token')
-                return 'Forbidden', 403
+        if verify_token == Config.VERIFY_TOKEN:
+            log_info("Webhook verified successfully")
+            return challenge
+        else:
+            log_warning("Invalid verification token")
+            return 'Invalid verification token', 403
+    
+    elif request.method == 'POST':
+        try:
+            # Check rate limits
+            if Config.ENABLE_RATE_LIMITING:
+                ip_address = request.remote_addr
+                if not rate_limiter.check_webhook_rate_limit(ip_address):
+                    log_warning(f"Rate limit exceeded for IP: {ip_address}")
+                    return jsonify({"error": "Rate limit exceeded"}), 429
+            
+            # Process webhook data
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "No data provided"}), 400
+            
+            # Extract message details
+            if 'entry' in data:
+                for entry in data['entry']:
+                    if 'changes' in entry:
+                        for change in entry['changes']:
+                            if 'value' in change and 'messages' in change['value']:
+                                for message in change['value']['messages']:
+                                    process_message(message, change['value'].get('contacts', []))
+            
+            return jsonify({"status": "success"}), 200
+            
+        except Exception as e:
+            log_error(f"Webhook processing error: {str(e)}\n{traceback.format_exc()}")
+            return jsonify({"error": "Internal server error"}), 500
+
+def process_message(message: dict, contacts: list):
+    """Process incoming WhatsApp message"""
+    try:
+        from_number = message['from']
+        message_type = message.get('type', 'text')
         
-        return 'Bad Request', 400
+        # Check user rate limits
+        if Config.ENABLE_RATE_LIMITING:
+            if not rate_limiter.check_message_rate_limit(from_number):
+                whatsapp_service.send_message(from_number, Config.RATE_LIMIT_MESSAGE)
+                return
+        
+        # Get contact name
+        contact_name = "User"
+        if contacts:
+            contact = next((c for c in contacts if c['wa_id'] == from_number), None)
+            if contact:
+                contact_name = contact.get('profile', {}).get('name', 'User')
+        
+        # Process message with Refiloe service
+        message_data = {
+            'from': from_number,
+            'type': message_type,
+            'contact_name': contact_name
+        }
+        
+        # Add message content based on type
+        if message_type == 'text':
+            message_data['text'] = {'body': message.get('text', {}).get('body', '')}
+        elif message_type == 'audio':
+            message_data['audio'] = message.get('audio', {})
+        elif message_type == 'image':
+            message_data['image'] = message.get('image', {})
+        elif message_type == 'interactive':
+            message_data['interactive'] = message.get('interactive', {})
+        elif message_type == 'button':
+            message_data['button'] = message.get('button', {})
+        
+        # Process with Refiloe service
+        response = refiloe_service.process_message(message_data)
+        
+        # Send response if successful
+        if response.get('success') and response.get('message'):
+            whatsapp_service.send_message(from_number, response['message'])
+            
+            # Send media if included
+            if response.get('media_url'):
+                whatsapp_service.send_media(from_number, response['media_url'], 'image')
+            
+            # Send buttons if included
+            if response.get('buttons'):
+                whatsapp_service.send_interactive_buttons(
+                    from_number,
+                    response.get('header', 'Options'),
+                    response.get('body', 'Please select:'),
+                    response['buttons']
+                )
+            
+    except Exception as e:
+        log_error(f"Message processing error: {str(e)}")
+        try:
+            whatsapp_service.send_message(
+                from_number,
+                "Sorry, I encountered an error processing your message. Please try again."
+            )
+        except:
+            pass
+
+def identify_user(phone_number: str) -> tuple:
+    """Identify if user is trainer or client"""
+    try:
+        # Check trainers table
+        trainer = supabase.table('trainers').select('*').eq(
+            'phone_number', phone_number
+        ).single().execute()
+        
+        if trainer.data:
+            return ('trainer', trainer.data)
+        
+        # Check clients table
+        client = supabase.table('clients').select('*').eq(
+            'phone_number', phone_number
+        ).single().execute()
+        
+        if client.data:
+            return ('client', client.data)
+        
+        return (None, None)
         
     except Exception as e:
-        log_error(f"Webhook verification error: {str(e)}")
-        return 'Internal Server Error', 500
+        log_error(f"User identification error: {str(e)}")
+        return (None, None)
 
-# WhatsApp webhook for receiving messages
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    """Handle incoming WhatsApp messages"""
+@app.route('/webhook/payfast', methods=['POST'])
+def payfast_webhook():
+    """Handle PayFast payment webhooks"""
     try:
-        # Get request data
-        data = request.get_json()
+        # Get webhook data
+        data = request.form.to_dict()
+        signature = request.headers.get('X-PayFast-Signature', '')
         
-        # Log incoming webhook
-        log_info(f"Webhook received: {json.dumps(data)[:500]}")
+        # Verify signature
+        if not payment_manager.verify_webhook_signature(data, signature):
+            log_warning("Invalid PayFast signature")
+            return 'Invalid signature', 403
         
-        # Verify webhook signature if configured
-        if Config.WEBHOOK_VERIFY_TOKEN:
-            signature = request.headers.get('X-Hub-Signature-256')
-            if not verify_webhook_signature(request.data, signature):
-                log_error("Invalid webhook signature")
-                return 'Unauthorized', 401
+        # Process webhook
+        result = payfast_handler.process_webhook(data)
         
-        # Process the webhook
-        if data.get('entry'):
-            for entry in data['entry']:
-                for change in entry.get('changes', []):
-                    value = change.get('value', {})
-                    
+        if result['success']:
+            return 'OK', 200
+        else:
+            return 'Processing failed', 500
+            
+    except Exception as e:
+        log_error(f"PayFast webhook error: {str(e)}")
+        return 'Internal error', 500
+
+@app.route('/dashboard')
+def dashboard():
+    """Simple web dashboard for trainers"""
+    if not Config.ENABLE_WEB_DASHBOARD:
+        return "Dashboard is disabled", 404
+    
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Refiloe Dashboard</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1 { color: #333; }
+            .status { padding: 10px; background: #e8f5e9; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1>Refiloe AI Assistant Dashboard</h1>
+        <div class="status">
+            <p>✅ System is running</p>
+            <p>📊 View your analytics and manage clients</p>
+        </div>
+    </body>
+    </html>
+    """)
+
+@app.errorhandler(404)
+def not_found(e):
+    """Handle 404 errors"""
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    """Handle 500 errors"""
+    log_error(f"Server error: {str(e)}")
+    return jsonify({"error": "Internal server error"}), 500
+
+# Cleanup scheduler on shutdown
+import atexit
+atexit.register(lambda: scheduler.shutdown(wait=False))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    log_info(f"Starting Refiloe AI Assistant on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=debug)
+```
+
+## MIGRATION: create_habit_tables.sql
+```sql
+-- Create habit tracking table
+CREATE TABLE IF NOT EXISTS habit_tracking (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    habit_type VARCHAR(50) NOT NULL,
+    value TEXT NOT NULL,
+    date DATE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(client_id, habit_type, date)
+);
+
+-- Create habit goals table
+CREATE TABLE IF NOT EXISTS habit_goals (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    habit_type VARCHAR(50) NOT NULL,
+    goal_value TEXT NOT NULL,
+    goal_type VARCHAR(20) DEFAULT 'daily', -- daily, weekly, monthly
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    achieved_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_habit_tracking_client_date ON habit_tracking(client_id, date DESC);
+CREATE INDEX idx_habit_tracking_type ON habit_tracking(habit_type);
+CREATE INDEX idx_habit_goals_client_active ON habit_goals(client_id, is_active);
+
+-- Add RLS policies
+ALTER TABLE habit_tracking ENABLE ROW LEVEL SECURITY;
+ALTER TABLE habit_goals ENABLE ROW LEVEL SECURITY;
+
+-- Policies for habit_tracking
+CREATE POLICY "Clients can view own habits" ON habit_tracking
+    FOR SELECT USING (auth.uid() IN (
+        SELECT user_id FROM clients WHERE id = habit_tracking.client_id
+    ));
+
+CREATE POLICY "Trainers can view client habits" ON habit_tracking
+    FOR SELECT

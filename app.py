@@ -52,10 +52,10 @@ except ValueError as e:
 # Initialize Supabase client
 supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
 
-# Initialize services
-whatsapp_service = WhatsAppService(Config.ACCESS_TOKEN, Config.PHONE_NUMBER_ID)
-refiloe_service = RefiloeService(supabase, Config.ANTHROPIC_API_KEY)
-ai_handler = AIIntentHandler(supabase, Config.ANTHROPIC_API_KEY)
+# Initialize services with proper parameters
+whatsapp_service = WhatsAppService(supabase)
+refiloe_service = RefiloeService(supabase)
+ai_handler = AIIntentHandler(supabase)
 scheduler_service = SchedulerService(supabase)
 assessment_service = EnhancedAssessmentService(supabase)
 habit_service = HabitTrackingService(supabase)
@@ -229,185 +229,54 @@ def process_message(message: dict, contacts: list):
             if contact:
                 contact_name = contact.get('profile', {}).get('name', 'User')
         
-        # Handle different message types
-        if message_type == 'text':
-            text = input_sanitizer.sanitize_text(message['text']['body'])
-            handle_text_message(from_number, text, contact_name)
-            
-        elif message_type == 'audio':
-            audio_id = message['audio']['id']
-            handle_voice_message(from_number, audio_id, contact_name)
-            
-        elif message_type == 'interactive':
-            handle_interactive_message(from_number, message['interactive'])
-            
-        elif message_type == 'button':
-            handle_button_response(from_number, message['button'])
-            
-        else:
-            whatsapp_service.send_message(
-                from_number,
-                "I can only process text and voice messages at the moment. Please send me a text or voice note! 😊"
-            )
-            
-    except Exception as e:
-        log_error(f"Message processing error: {str(e)}")
-        whatsapp_service.send_message(
-            from_number,
-            "Sorry, I encountered an error processing your message. Please try again."
-        )
-
-def handle_text_message(phone_number: str, text: str, contact_name: str):
-    """Handle text message"""
-    try:
-        # Check if user is trainer or client
-        user_type, user_data = identify_user(phone_number)
+        # Process message with Refiloe service
+        message_data = {
+            'from': from_number,
+            'type': message_type,
+            'contact_name': contact_name
+        }
         
-        if not user_type:
-            # New user - start onboarding
-            handle_new_user(phone_number, text, contact_name)
-        else:
-            # Process message based on user type
-            response = ai_handler.process_message(text, phone_number, user_type, user_data)
+        # Add message content based on type
+        if message_type == 'text':
+            message_data['text'] = {'body': message.get('text', {}).get('body', '')}
+        elif message_type == 'audio':
+            message_data['audio'] = message.get('audio', {})
+        elif message_type == 'image':
+            message_data['image'] = message.get('image', {})
+        elif message_type == 'interactive':
+            message_data['interactive'] = message.get('interactive', {})
+        elif message_type == 'button':
+            message_data['button'] = message.get('button', {})
+        
+        # Process with Refiloe service
+        response = refiloe_service.process_message(message_data)
+        
+        # Send response if successful
+        if response.get('success') and response.get('message'):
+            whatsapp_service.send_message(from_number, response['message'])
             
-            # Send response
-            if response.get('message'):
-                whatsapp_service.send_message(phone_number, response['message'])
+            # Send media if included
+            if response.get('media_url'):
+                whatsapp_service.send_media(from_number, response['media_url'], 'image')
             
-            # Send interactive elements if any
+            # Send buttons if included
             if response.get('buttons'):
                 whatsapp_service.send_interactive_buttons(
-                    phone_number,
+                    from_number,
                     response.get('header', 'Options'),
                     response.get('body', 'Please select:'),
                     response['buttons']
                 )
-                
+            
     except Exception as e:
-        log_error(f"Text message handling error: {str(e)}")
-        whatsapp_service.send_message(
-            phone_number,
-            "Sorry, I couldn't process your message. Please try again."
-        )
-
-def handle_voice_message(phone_number: str, audio_id: str, contact_name: str):
-    """Handle voice message"""
-    try:
-        # Check voice note rate limits
-        if Config.ENABLE_RATE_LIMITING:
-            if not rate_limiter.check_voice_note_rate_limit(phone_number):
-                whatsapp_service.send_message(
-                    phone_number,
-                    "🎤 You're sending voice notes too quickly. Please wait a moment before sending another."
-                )
-                return
-        
-        # Process voice note
-        transcribed_text = process_voice_note(audio_id, Config.ACCESS_TOKEN)
-        
-        if transcribed_text:
-            # Process as text message
-            handle_text_message(phone_number, transcribed_text, contact_name)
-        else:
+        log_error(f"Message processing error: {str(e)}")
+        try:
             whatsapp_service.send_message(
-                phone_number,
-                "Sorry, I couldn't understand your voice message. Please try speaking clearly or send a text message instead."
+                from_number,
+                "Sorry, I encountered an error processing your message. Please try again."
             )
-            
-    except Exception as e:
-        log_error(f"Voice message handling error: {str(e)}")
-        whatsapp_service.send_message(
-            phone_number,
-            "Sorry, I couldn't process your voice message. Please try again or send a text message."
-        )
-
-def handle_interactive_message(phone_number: str, interactive_data: dict):
-    """Handle interactive message responses"""
-    try:
-        response_type = interactive_data.get('type')
-        
-        if response_type == 'button_reply':
-            button_id = interactive_data['button_reply']['id']
-            handle_button_click(phone_number, button_id)
-            
-        elif response_type == 'list_reply':
-            list_id = interactive_data['list_reply']['id']
-            handle_list_selection(phone_number, list_id)
-            
-    except Exception as e:
-        log_error(f"Interactive message handling error: {str(e)}")
-
-def handle_button_click(phone_number: str, button_id: str):
-    """Handle button click from interactive message"""
-    try:
-        # Process based on button ID
-        response = ai_handler.handle_button_action(phone_number, button_id)
-        
-        if response.get('message'):
-            whatsapp_service.send_message(phone_number, response['message'])
-            
-    except Exception as e:
-        log_error(f"Button click handling error: {str(e)}")
-
-def handle_list_selection(phone_number: str, list_id: str):
-    """Handle list selection from interactive message"""
-    try:
-        # Process based on list ID
-        response = ai_handler.handle_list_selection(phone_number, list_id)
-        
-        if response.get('message'):
-            whatsapp_service.send_message(phone_number, response['message'])
-            
-    except Exception as e:
-        log_error(f"List selection handling error: {str(e)}")
-
-def handle_button_response(phone_number: str, button_data: dict):
-    """Handle button response"""
-    try:
-        button_text = button_data.get('text', '')
-        button_payload = button_data.get('payload', '')
-        
-        # Process button response
-        response = ai_handler.process_button_response(phone_number, button_text, button_payload)
-        
-        if response.get('message'):
-            whatsapp_service.send_message(phone_number, response['message'])
-            
-    except Exception as e:
-        log_error(f"Button response handling error: {str(e)}")
-
-def handle_new_user(phone_number: str, text: str, contact_name: str):
-    """Handle new user onboarding"""
-    try:
-        # Send welcome message
-        welcome_message = f"""
-👋 Hi {contact_name}! Welcome to Refiloe - your AI fitness assistant!
-
-I help personal trainers and their clients with:
-• 📅 Booking sessions
-• 💪 Tracking workouts
-• 📊 Monitoring progress
-• 💳 Managing payments
-• 🎯 Setting and achieving goals
-
-Are you a:
-1️⃣ Personal Trainer
-2️⃣ Client
-
-Please reply with 1 or 2 to get started!
-"""
-        whatsapp_service.send_message(phone_number, welcome_message)
-        
-        # Store pending onboarding
-        supabase.table('pending_onboarding').insert({
-            'phone_number': phone_number,
-            'contact_name': contact_name,
-            'initial_message': text,
-            'created_at': datetime.now().isoformat()
-        }).execute()
-        
-    except Exception as e:
-        log_error(f"New user handling error: {str(e)}")
+        except:
+            pass
 
 def identify_user(phone_number: str) -> tuple:
     """Identify if user is trainer or client"""
@@ -464,10 +333,6 @@ def dashboard():
     """Simple web dashboard for trainers"""
     if not Config.ENABLE_WEB_DASHBOARD:
         return "Dashboard is disabled", 404
-    
-    # Import dashboard routes
-    from routes.dashboard import dashboard_bp
-    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     
     return render_template_string("""
     <!DOCTYPE html>
