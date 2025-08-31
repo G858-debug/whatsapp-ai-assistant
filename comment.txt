@@ -1,391 +1,151 @@
-@claude @apply the deploy crashed again. here are the logs: 
-ModuleNotFoundError: No module named 'user_agents'
+@claude @apply the build failed. Have a look at the logs and the code and fix so that we can have a successful deploy. Here are the logs: 
+stage-0
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+17s
+Processing triggers for libc-bin (2.39-0ubuntu8.4) ...
+
+stage-0
+COPY . /app/.
+34ms
+
+stage-0
+RUN python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+7s
+Collecting Flask==2.3.3 (from -r requirements.txt (line 2))
+  Downloading flask-2.3.3-py3-none-any.whl.metadata (3.6 kB)
+Collecting python-dotenv==1.0.0 (from -r requirements.txt (line 3))
+  Downloading python_dotenv-1.0.0-py3-none-any.whl.metadata (21 kB)
+Collecting requests==2.31.0 (from -r requirements.txt (line 6))
+  Downloading requests-2.31.0-py3-none-any.whl.metadata (4.6 kB)
+Collecting twilio==8.9.0 (from -r requirements.txt (line 7))
+  Downloading twilio-8.9.0-py2.py3-none-any.whl.metadata (12 kB)
+Collecting supabase==1.2.0 (from -r requirements.txt (line 10))
+  Downloading supabase-1.2.0-py3-none-any.whl.metadata (11 kB)
+Collecting anthropic==0.7.0 (from -r requirements.txt (line 13))
+  Downloading anthropic-0.7.0-py3-none-any.whl.metadata (13 kB)
+Collecting APScheduler==3.10.4 (from -r requirements.txt (line 16))
+  Downloading APScheduler-3.10.4-py3-none-any.whl.metadata (5.7 kB)
+Collecting pytz==2023.3 (from -r requirements.txt (line 19))
+  Downloading pytz-2023.3-py2.py3-none-any.whl.metadata (22 kB)
+Collecting python-dateutil==2.8.2 (from -r requirements.txt (line 20))
+  Downloading python_dateutil-2.8.2-py2.py3-none-any.whl.metadata (8.2 kB)
+Collecting colorlog==6.7.0 (from -r requirements.txt (line 23))
+  Downloading colorlog-6.7.0-py2.py3-none-any.whl.metadata (10 kB)
+Collecting pandas==2.1.1 (from -r requirements.txt (line 30))
+  Downloading pandas-2.1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (18 kB)
+Collecting numpy==1.24.3 (from -r requirements.txt (line 31))
+  Downloading numpy-1.24.3.tar.gz (10.9 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.9/10.9 MB 74.9 MB/s eta 0:00:00
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+ERROR: Exception:
 Traceback (most recent call last):
-  File "/app/app.py", line 16, in <module>
-    from services.refiloe import RefiloeService
-  File "/app/services/refiloe.py", line 13, in <module>
-    from services.analytics import AnalyticsService
-  File "/app/services/analytics.py", line 9, in <module>
-    import user_agents
-ModuleNotFoundError: No module named 'user_agents'
-
-Here's the complete app.py: 
-import os
-import json
-import traceback
-from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template_string
-from supabase import create_client
-from dotenv import load_dotenv
-import pytz
-
-# Import APScheduler for background tasks
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-
-# Import services and utilities
-from services.whatsapp import WhatsAppService
-from services.refiloe import RefiloeService
-from services.ai_intent_handler import AIIntentHandler
-from services.scheduler import SchedulerService
-from services.assessment import EnhancedAssessmentService
-from services.habits import HabitTrackingService
-from services.workout import WorkoutService
-from services.subscription_manager import SubscriptionManager
-from services.analytics import AnalyticsService
-from models.trainer import Trainer
-from models.client import Client
-from models.booking import Booking
-from utils.logger import setup_logger, log_error, log_info, log_warning
-from utils.rate_limiter import RateLimiter
-from utils.input_sanitizer import InputSanitizer
-from config import Config
-from payment_manager import PaymentManager
-from payfast_webhook import PayFastWebhookHandler
-from voice_helpers import process_voice_note
-
-# Load environment variables
-load_dotenv()
-
-# Initialize Flask app
-app = Flask(__name__)
-
-# Setup logger
-setup_logger()
-
-# Validate configuration
-try:
-    Config.validate()
-    log_info("Configuration validated successfully")
-except ValueError as e:
-    log_error(f"Configuration error: {str(e)}")
-    raise
-
-# Initialize Supabase client
-supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
-
-# Initialize services with proper parameters
-whatsapp_service = WhatsAppService(supabase)
-refiloe_service = RefiloeService(supabase)
-ai_handler = AIIntentHandler(supabase)
-scheduler_service = SchedulerService(supabase)
-assessment_service = EnhancedAssessmentService(supabase)
-habit_service = HabitTrackingService(supabase)
-workout_service = WorkoutService(supabase)
-subscription_manager = SubscriptionManager(supabase)
-analytics_service = AnalyticsService(supabase)
-payment_manager = PaymentManager(supabase)
-payfast_handler = PayFastWebhookHandler(supabase)
-rate_limiter = RateLimiter(supabase)
-input_sanitizer = InputSanitizer()
-
-# Initialize background scheduler
-scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
-
-def send_daily_reminders():
-    """Send daily workout and payment reminders"""
-    try:
-        log_info("Running daily reminders task")
-        
-        # Get today's bookings
-        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
-        bookings = scheduler_service.get_bookings_for_date(today)
-        
-        for booking in bookings:
-            # Send reminder 1 hour before session
-            session_time = datetime.fromisoformat(booking['session_time'])
-            reminder_time = session_time - timedelta(hours=1)
-            
-            if datetime.now(pytz.timezone(Config.TIMEZONE)) >= reminder_time:
-                client_phone = booking['client']['phone_number']
-                trainer_name = booking['trainer']['name']
-                time_str = session_time.strftime('%I:%M %p')
-                
-                message = f"🏋️ Reminder: You have a training session with {trainer_name} at {time_str} today!"
-                whatsapp_service.send_message(client_phone, message)
-        
-        # Check for overdue payments
-        overdue_payments = payment_manager.get_overdue_payments()
-        for payment in overdue_payments:
-            client_phone = payment['client']['phone_number']
-            amount = payment['amount']
-            days_overdue = payment['days_overdue']
-            
-            message = f"💳 Payment reminder: R{amount} is {days_overdue} days overdue. Please settle your account."
-            whatsapp_service.send_message(client_phone, message)
-            
-        log_info(f"Sent reminders for {len(bookings)} bookings and {len(overdue_payments)} overdue payments")
-        
-    except Exception as e:
-        log_error(f"Error in daily reminders task: {str(e)}")
-
-def check_subscription_status():
-    """Check and update subscription statuses"""
-    try:
-        log_info("Checking subscription statuses")
-        expired_count = subscription_manager.check_expired_subscriptions()
-        trial_ending_count = subscription_manager.send_trial_ending_reminders()
-        
-        log_info(f"Processed {expired_count} expired subscriptions and {trial_ending_count} trial endings")
-        
-    except Exception as e:
-        log_error(f"Error checking subscriptions: {str(e)}")
-
-# Schedule background tasks
-scheduler.add_job(
-    send_daily_reminders,
-    CronTrigger(hour=8, minute=0),  # Run at 8 AM daily
-    id='daily_reminders',
-    replace_existing=True
-)
-
-scheduler.add_job(
-    check_subscription_status,
-    CronTrigger(hour=0, minute=0),  # Run at midnight daily
-    id='check_subscriptions',
-    replace_existing=True
-)
-
-# Start the scheduler
-scheduler.start()
-log_info("Background scheduler started")
-
-@app.route('/')
-def home():
-    """Home page"""
-    return jsonify({
-        "status": "active",
-        "service": "Refiloe AI Assistant",
-        "version": "2.0",
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint"""
-    try:
-        # Check Supabase connection
-        supabase.table('trainers').select('id').limit(1).execute()
-        db_status = "connected"
-    except:
-        db_status = "error"
-    
-    return jsonify({
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "database": db_status,
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/webhook', methods=['GET', 'POST'])
-def webhook():
-    """Main WhatsApp webhook endpoint"""
-    
-    if request.method == 'GET':
-        # Webhook verification
-        verify_token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-        
-        if verify_token == Config.VERIFY_TOKEN:
-            log_info("Webhook verified successfully")
-            return challenge
-        else:
-            log_warning("Invalid verification token")
-            return 'Invalid verification token', 403
-    
-    elif request.method == 'POST':
-        try:
-            # Check rate limits
-            if Config.ENABLE_RATE_LIMITING:
-                ip_address = request.remote_addr
-                if not rate_limiter.check_webhook_rate_limit(ip_address):
-                    log_warning(f"Rate limit exceeded for IP: {ip_address}")
-                    return jsonify({"error": "Rate limit exceeded"}), 429
-            
-            # Process webhook data
-            data = request.get_json()
-            
-            if not data:
-                return jsonify({"error": "No data provided"}), 400
-            
-            # Extract message details
-            if 'entry' in data:
-                for entry in data['entry']:
-                    if 'changes' in entry:
-                        for change in entry['changes']:
-                            if 'value' in change and 'messages' in change['value']:
-                                for message in change['value']['messages']:
-                                    process_message(message, change['value'].get('contacts', []))
-            
-            return jsonify({"status": "success"}), 200
-            
-        except Exception as e:
-            log_error(f"Webhook processing error: {str(e)}\n{traceback.format_exc()}")
-            return jsonify({"error": "Internal server error"}), 500
-
-def process_message(message: dict, contacts: list):
-    """Process incoming WhatsApp message"""
-    try:
-        from_number = message['from']
-        message_type = message.get('type', 'text')
-        
-        # Check user rate limits
-        if Config.ENABLE_RATE_LIMITING:
-            if not rate_limiter.check_message_rate_limit(from_number):
-                whatsapp_service.send_message(from_number, Config.RATE_LIMIT_MESSAGE)
-                return
-        
-        # Get contact name
-        contact_name = "User"
-        if contacts:
-            contact = next((c for c in contacts if c['wa_id'] == from_number), None)
-            if contact:
-                contact_name = contact.get('profile', {}).get('name', 'User')
-        
-        # Process message with Refiloe service
-        message_data = {
-            'from': from_number,
-            'type': message_type,
-            'contact_name': contact_name
-        }
-        
-        # Add message content based on type
-        if message_type == 'text':
-            message_data['text'] = {'body': message.get('text', {}).get('body', '')}
-        elif message_type == 'audio':
-            message_data['audio'] = message.get('audio', {})
-        elif message_type == 'image':
-            message_data['image'] = message.get('image', {})
-        elif message_type == 'interactive':
-            message_data['interactive'] = message.get('interactive', {})
-        elif message_type == 'button':
-            message_data['button'] = message.get('button', {})
-        
-        # Process with Refiloe service
-        response = refiloe_service.process_message(message_data)
-        
-        # Send response if successful
-        if response.get('success') and response.get('message'):
-            whatsapp_service.send_message(from_number, response['message'])
-            
-            # Send media if included
-            if response.get('media_url'):
-                whatsapp_service.send_media(from_number, response['media_url'], 'image')
-            
-            # Send buttons if included
-            if response.get('buttons'):
-                whatsapp_service.send_interactive_buttons(
-                    from_number,
-                    response.get('header', 'Options'),
-                    response.get('body', 'Please select:'),
-                    response['buttons']
-                )
-            
-    except Exception as e:
-        log_error(f"Message processing error: {str(e)}")
-        try:
-            whatsapp_service.send_message(
-                from_number,
-                "Sorry, I encountered an error processing your message. Please try again."
-            )
-        except:
-            pass
-
-def identify_user(phone_number: str) -> tuple:
-    """Identify if user is trainer or client"""
-    try:
-        # Check trainers table
-        trainer = supabase.table('trainers').select('*').eq(
-            'phone_number', phone_number
-        ).single().execute()
-        
-        if trainer.data:
-            return ('trainer', trainer.data)
-        
-        # Check clients table
-        client = supabase.table('clients').select('*').eq(
-            'phone_number', phone_number
-        ).single().execute()
-        
-        if client.data:
-            return ('client', client.data)
-        
-        return (None, None)
-        
-    except Exception as e:
-        log_error(f"User identification error: {str(e)}")
-        return (None, None)
-
-@app.route('/webhook/payfast', methods=['POST'])
-def payfast_webhook():
-    """Handle PayFast payment webhooks"""
-    try:
-        # Get webhook data
-        data = request.form.to_dict()
-        signature = request.headers.get('X-PayFast-Signature', '')
-        
-        # Verify signature
-        if not payment_manager.verify_webhook_signature(data, signature):
-            log_warning("Invalid PayFast signature")
-            return 'Invalid signature', 403
-        
-        # Process webhook
-        result = payfast_handler.process_webhook(data)
-        
-        if result['success']:
-            return 'OK', 200
-        else:
-            return 'Processing failed', 500
-            
-    except Exception as e:
-        log_error(f"PayFast webhook error: {str(e)}")
-        return 'Internal error', 500
-
-@app.route('/dashboard')
-def dashboard():
-    """Simple web dashboard for trainers"""
-    if not Config.ENABLE_WEB_DASHBOARD:
-        return "Dashboard is disabled", 404
-    
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Refiloe Dashboard</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #333; }
-            .status { padding: 10px; background: #e8f5e9; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <h1>Refiloe AI Assistant Dashboard</h1>
-        <div class="status">
-            <p>✅ System is running</p>
-            <p>📊 View your analytics and manage clients</p>
-        </div>
-    </body>
-    </html>
-    """)
-
-@app.errorhandler(404)
-def not_found(e):
-    """Handle 404 errors"""
-    return jsonify({"error": "Endpoint not found"}), 404
-
-@app.errorhandler(500)
-def server_error(e):
-    """Handle 500 errors"""
-    log_error(f"Server error: {str(e)}")
-    return jsonify({"error": "Internal server error"}), 500
-
-# Cleanup scheduler on shutdown
-import atexit
-atexit.register(lambda: scheduler.shutdown(wait=False))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
-    
-    log_info(f"Starting Refiloe AI Assistant on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/cli/base_command.py", line 105, in _run_wrapper
+    status = _inner_run()
+             ^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/cli/base_command.py", line 96, in _inner_run
+    return self.run(options, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/cli/req_command.py", line 67, in wrapper
+    return func(self, options, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/commands/install.py", line 379, in run
+    requirement_set = resolver.resolve(
+                      ^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/resolver.py", line 95, in resolve
+    result = self._result = resolver.resolve(
+                            ^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/resolvelib/resolvers.py", line 546, in resolve
+    state = resolution.resolve(requirements, max_rounds=max_rounds)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/resolvelib/resolvers.py", line 397, in resolve
+    self._add_to_criteria(self.state.criteria, r, parent=None)
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/resolvelib/resolvers.py", line 173, in _add_to_criteria
+    if not criterion.candidates:
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/resolvelib/structs.py", line 156, in __bool__
+    return bool(self._sequence)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/found_candidates.py", line 174, in __bool__
+    return any(self)
+           ^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/found_candidates.py", line 162, in <genexpr>
+    return (c for c in iterator if id(c) not in self._incompatible_ids)
+                       ^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/found_candidates.py", line 53, in _iter_built
+    candidate = func()
+                ^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/factory.py", line 186, in _make_candidate_from_link
+    base: Optional[BaseCandidate] = self._make_base_candidate_from_link(
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/factory.py", line 232, in _make_base_candidate_from_link
+    self._link_candidate_cache[link] = LinkCandidate(
+                                       ^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/candidates.py", line 303, in __init__
+    super().__init__(
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/candidates.py", line 158, in __init__
+    self.dist = self._prepare()
+                ^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/candidates.py", line 235, in _prepare
+    dist = self._prepare_distribution()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/resolution/resolvelib/candidates.py", line 314, in _prepare_distribution
+    return preparer.prepare_linked_requirement(self._ireq, parallel_builds=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/operations/prepare.py", line 527, in prepare_linked_requirement
+    return self._prepare_linked_requirement(req, parallel_builds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/operations/prepare.py", line 642, in _prepare_linked_requirement
+    dist = _get_prepared_distribution(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/operations/prepare.py", line 72, in _get_prepared_distribution
+    abstract_dist.prepare_distribution_metadata(
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/distributions/sdist.py", line 56, in prepare_distribution_metadata
+    self._install_build_reqs(finder)
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/distributions/sdist.py", line 126, in _install_build_reqs
+    build_reqs = self._get_build_requires_wheel()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/distributions/sdist.py", line 103, in _get_build_requires_wheel
+    return backend.get_requires_for_build_wheel()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_internal/utils/misc.py", line 706, in get_requires_for_build_wheel
+    return super().get_requires_for_build_wheel(config_settings=cs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_impl.py", line 166, in get_requires_for_build_wheel
+    return self._call_hook('get_requires_for_build_wheel', {
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_impl.py", line 321, in _call_hook
+    raise BackendUnavailable(data.get('traceback', ''))
+pip._vendor.pyproject_hooks._impl.BackendUnavailable: Traceback (most recent call last):
+  File "/opt/venv/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 77, in _build_backend
+    obj = import_module(mod_path)
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/tmp/pip-build-env-24abbdgh/overlay/lib/python3.12/site-packages/setuptools/__init__.py", line 10, in <module>
+    import distutils.core
+ModuleNotFoundError: No module named 'distutils'
+Dockerfile:20
+-------------------
+18 |     ENV NIXPACKS_PATH=/opt/venv/bin:$NIXPACKS_PATH
+19 |     COPY . /app/.
+20 | >>> RUN --mount=type=cache,id=s/5b602cd7-bfd4-4706-9dd0-8a4294b51d10-/root/cache/pip,target=/root/.cache/pip python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt
+21 |
+22 |     # build phase
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt" did not complete successfully: exit code: 2
+Error: Docker build failed
 
