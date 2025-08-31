@@ -1,15 +1,67 @@
-name: Claude Code (basic)
+name: Claude Code Assistant
 on:
   issue_comment:
     types: [created]
   pull_request:
     types: [opened, synchronize]
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   claude:
     runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch'
+    
     steps:
       - uses: actions/checkout@v4
-      - uses: anthropics/claude-code-action@v1
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install supabase
+      
+      - name: Setup Supabase CLI
+        run: |
+          wget -qO- https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar xvz
+          sudo mv supabase /usr/local/bin
+      
+      - name: Claude Code Action
+        uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          instructions: |
+            You are working on Refiloe, a WhatsApp AI assistant for South African personal trainers.
+            
+            Tech Stack:
+            - Python Flask on Railway
+            - Supabase for database
+            - WhatsApp Business API
+            
+            Rules:
+            - Read claude.md for guidelines
+            - Never commit secrets
+            - Create new migration files for DB changes
+            - Keep WhatsApp messages under 1600 chars with emojis
+            - Use South African context (Rand, +27 phones)
+            
+            Available via environment:
+            - SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+            - Can create migrations in supabase/migrations/
+      
+      - name: Run Supabase Migrations (if any)
+        if: hashFiles('supabase/migrations/*.sql') != ''
+        run: |
+          supabase db push --db-url "postgresql://postgres:${{ secrets.SUPABASE_SERVICE_KEY }}@db.mqemiteirxwscxtamdtj.supabase.co:5432/postgres"
+      
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Claude Code: ${{ github.event.comment.body || 'Auto-update' }}"
+          
