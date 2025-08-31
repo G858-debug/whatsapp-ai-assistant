@@ -130,8 +130,7 @@ Ensure tests work with Railway deployment
 - Use environment variables for all configuration
 - Document any new environment variables needed:
 python# When adding new env vars, include comment:
-# Add to Railway: VARIABLE_NAME = "description of purpose"
-
+- Add to Railway: VARIABLE_NAME = "description of purpose"
 - Don't use local file storage - use Supabase storage
 - Ensure no hardcoded ports (use PORT env variable)
 
