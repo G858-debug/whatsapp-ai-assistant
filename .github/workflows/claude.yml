@@ -65,9 +65,9 @@ jobs:
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
           python -c "
-import sys
-import os
-import json
+          import sys
+          import os
+          import json
 
 # Add project root to path
 sys.path.insert(0, '.')
