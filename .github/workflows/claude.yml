@@ -3,6 +3,11 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
   claude:
     if: contains(github.event.comment.body, '@claude')
@@ -16,21 +21,21 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Process with Claude
+      - name: Test Claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "Claude is processing: ${{ github.event.comment.body }}"
-          # For now, just echo to test
-          echo "Workflow is running successfully!"
+          echo "Claude workflow is working!"
+          echo "Processing comment: ${{ github.event.comment.body }}"
       
-      - name: Comment on issue
+      - name: Respond to Issue
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            github.rest.issues.createComment({
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '✅ Claude workflow triggered successfully! Working on your request...'
+              body: '✅ Claude is processing your request: "${{ github.event.comment.body }}"'
             })
