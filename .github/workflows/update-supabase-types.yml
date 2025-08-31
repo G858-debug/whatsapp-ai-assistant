@@ -3,7 +3,7 @@ name: Update Supabase Types (on migration PRs)
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/**'  # only run if a migration file changes
+      - 'supabase/migrations/**'
 
 jobs:
   update-types:
@@ -20,15 +20,27 @@ jobs:
       - name: Install Supabase CLI
         run: npm install -g supabase
 
+      - name: Extract Supabase Project ID
+        id: extract
+        run: |
+          # Extract project ID from SUPABASE_URL
+          # Example: https://mqemiteirxwscxtamdtj.supabase.co becomes mqemiteirxwscxtamdtj
+          PROJECT_ID=$(echo "${{ secrets.SUPABASE_URL }}" | sed 's/https:\/\/\([^.]*\).*/\1/')
+          echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
+
       - name: Generate Supabase types
         run: |
-          supabase gen types typescript --project-id ${{ secrets.SUPABASE_URL }} \
-            --db-url "postgresql://postgres:${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}@db.${{ secrets.SUPABASE_URL#https://}}/postgres" \
+          supabase gen types typescript \
+            --project-id ${{ steps.extract.outputs.project_id }} \
+            --db-url "postgresql://postgres:${{ secrets.SUPABASE_SERVICE_KEY }}@db.${{ steps.extract.outputs.project_id }}.supabase.co:5432/postgres" \
             > src/types/supabase.ts
 
       - name: Commit updated types to PR
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
+          commit_message: "chore: update Supabase types"
+          branch: ${{ github.head_ref }}
+          push_options: --force
           commit_message: "chore: update Supabase types"
           branch: ${{ github.head_ref }}
           push_options: --force
