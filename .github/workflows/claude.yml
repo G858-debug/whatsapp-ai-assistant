@@ -21,8 +21,10 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Install Anthropic
-        run: pip install anthropic
+      - name: Install Dependencies
+        run: |
+          pip install anthropic
+          pip install supabase
       
       - name: Save comment to file
         run: |
@@ -33,44 +35,98 @@ jobs:
       - name: Process with Claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python - <<'PYTHON_SCRIPT'
           import anthropic
           import os
+          import json
+          from pathlib import Path
           
-          # Read comment from file (safer than embedding in script)
+          # Read the task
           with open('comment.txt', 'r') as f:
               comment = f.read()
-          
-          # Remove @claude from comment
           task = comment.replace('@claude', '').strip()
           
-          print(f"Processing task: {task}")
+          print(f"Task: {task}")
+          
+          # Read project files
+          project_files = {}
+          important_files = [
+              'config.py',
+              'requirements.txt',
+              'services/assessment.py',
+              'services/workout.py',
+              'payment_manager.py',
+              'routes/dashboard.py'
+          ]
+          
+          for file_path in important_files:
+              if Path(file_path).exists():
+                  try:
+                      with open(file_path, 'r') as f:
+                          content = f.read()
+                          # Truncate very long files
+                          if len(content) > 5000:
+                              content = content[:5000] + "\n\n[... file truncated ...]"
+                          project_files[file_path] = content
+                  except Exception as e:
+                      print(f"Could not read {file_path}: {e}")
+          
+          # Prepare context for Claude
+          context = "PROJECT FILES:\n\n"
+          for file_path, content in project_files.items():
+              context += f"=== {file_path} ===\n{content}\n\n"
           
           try:
               client = anthropic.Anthropic()
               
-              # Simple test message
+              # Ask Claude to analyze and suggest changes
               response = client.messages.create(
                   model='claude-3-5-sonnet-20241022',
-                  max_tokens=500,
+                  max_tokens=4000,
                   messages=[{
                       'role': 'user',
-                      'content': f'Reply briefly to this: {task}'
+                      'content': f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
+                      
+                      Tech Stack:
+                      - Python Flask deployed on Railway
+                      - Supabase for database
+                      - WhatsApp Business API
+                      - South African context (Rand currency, +27 phone numbers)
+                      
+                      TASK: {task}
+                      
+                      {context}
+                      
+                      Based on the code above, provide:
+                      1. Analysis of what needs to be done
+                      2. Specific code changes (show the complete updated code)
+                      3. Any new files that need to be created
+                      4. Database migrations if needed
+                      
+                      Be specific and provide complete, working code.'''
                   }]
               )
               
               response_text = response.content[0].text
-              print(f"Claude responded: {response_text}")
               
               # Save response
+              with open('claude_response.md', 'w') as f:
+                  f.write(response_text)
+                  
+              # If response is too long for GitHub comment, truncate
+              if len(response_text) > 60000:
+                  response_text = response_text[:60000] + "\n\n[... response truncated - full response in claude_response.md]"
+              
               with open('response.txt', 'w') as f:
                   f.write(response_text)
                   
           except Exception as e:
               print(f"Error: {e}")
               with open('response.txt', 'w') as f:
-                  f.write(f"Error connecting to Claude: {str(e)}")
+                  f.write(f"❌ Error: {str(e)}")
           PYTHON_SCRIPT
       
       - name: Post Response
@@ -93,5 +149,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🤖 **Claude says:**\n\n${response}`
+              body: `🤖 **Claude's Analysis:**\n\n${response}`
             })
