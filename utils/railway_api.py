@@ -62,7 +62,7 @@ class RailwayAPI:
             }
             
             start_time = time.time()
-            response = self.session.post(self.base_url, json=data, headers=headers)
+            response = self.session.post(self.api_url, json=data, headers=headers)
             elapsed = time.time() - start_time
             
             log_info(f"Railway API request completed in {elapsed:.2f}s")
