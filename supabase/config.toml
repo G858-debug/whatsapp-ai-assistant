@@ -1,0 +1,11 @@
+[project]
+id = "mqemiteirxwscxtamdtj"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+schemas = ["public", "storage"]
