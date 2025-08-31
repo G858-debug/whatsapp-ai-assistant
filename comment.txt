@@ -1,24 +1,14 @@
-@claude @apply my railway deployment crashed. Here are the logs: 
-File "/app/services/refiloe.py", line 9, in <module>
-    from services.assessment import EnhancedAssessmentService
-  File "/app/services/assessment.py", line 3
-    def create_default_template(self, trainer_id: str) -> str:
-IndentationError: unexpected indent
+@claude @apply the deployment crashed again: here are the logs: 
+ModuleNotFoundError: No module named 'jwt'
 Traceback (most recent call last):
-  File "/app/app.py", line 24, in <module>
-    from services.refiloe import RefiloeAssistant
-  File "/app/services/refiloe.py", line 9, in <module>
-    from services.assessment import EnhancedAssessmentService
-  File "/app/services/assessment.py", line 3
-    def create_default_template(self, trainer_id: str) -> str:
-IndentationError: unexpected indent
+  File "/app/app.py", line 29, in <module>
+    from routes.dashboard import dashboard_bp, DashboardService
+  File "/app/routes/dashboard.py", line 4, in <module>
+    import jwt
+ModuleNotFoundError: No module named 'jwt'
 Traceback (most recent call last):
-  File "/app/app.py", line 24, in <module>
-    from services.refiloe import RefiloeAssistant
-  File "/app/services/refiloe.py", line 9, in <module>
-    from services.assessment import EnhancedAssessmentService
-  File "/app/services/assessment.py", line 3
-    def create_default_template(self, trainer_id: str) -> str:
-IndentationError: unexpected indent
-
-Suggest and implement a fix
+ModuleNotFoundError: No module named 'jwt'
+  File "/app/app.py", line 29, in <module>
+    from routes.dashboard import dashboard_bp, DashboardService
+  File "/app/routes/dashboard.py", line 4, in <module>
+    import jwt

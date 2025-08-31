@@ -1,4 +1,6 @@
 ✅ **Changes Applied:**
-- Updated services/assessment.py
+- Updated requirements.txt
+- Updated routes/dashboard.py
+- Created migration supabase/migrations/20250831093527_add_dashboard_tokens_table.sql
 
 📝 **Full Details:** See claude_response.md

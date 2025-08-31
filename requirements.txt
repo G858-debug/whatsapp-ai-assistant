@@ -1,47 +1,59 @@
-# Flask web framework
-Flask==3.0.0
-Werkzeug==3.0.1
+# Core Framework
+Flask==2.3.3
+flask-cors==4.0.0
 
-# WhatsApp API & HTTP requests
+# WhatsApp Integration
 requests==2.31.0
 
-# Anthropic Claude API
-anthropic==0.18.1
+# AI/ML
+anthropic==0.34.2
 
-# Supabase client
-supabase==2.3.4
-postgrest==0.13.0
-gotrue==2.1.0
-realtime==1.0.2
-storage3==0.6.1
+# Database
+supabase==2.5.0
 
-# Scheduling
-APScheduler==3.10.4
-
-# Timezone handling
+# Utilities
+python-dotenv==1.0.0
 pytz==2024.1
 
-# Date parsing
+# Payment Processing
+hashlib
+urllib3
+
+# Authentication & Security
+PyJWT==2.8.0
+
+# Logging
+colorama==0.4.6
+
+# Rate Limiting
+redis==5.0.1
+
+# Dashboard & Web
+Werkzeug==2.3.7
+
+# Voice Processing
+pydub==0.25.1
+speech_recognition==3.10.0
+
+# Data Processing
+pandas==2.0.3
+numpy==1.24.3
+
+# Image Processing (for assessment photos)
+Pillow==10.0.0
+
+# Async Support
+aiohttp==3.8.5
+
+# Validation
+pydantic==2.3.0
+
+# Date/Time
 python-dateutil==2.8.2
 
-# Environment variables (optional, for development)
-python-dotenv==1.0.0
+# Testing (optional, for development)
+pytest==7.4.0
+pytest-asyncio==0.21.1
 
-# Security
-cryptography==41.0.7
-
-# JSON handling
-jsonschema==4.20.0
-
-# Logging enhancements
-python-json-logger==2.0.7
-
-# Add these for voice note support
-openai>=1.0.0
-pydub>=0.25.1
-ffmpeg-python==0.2.0
-
-# Payfast Payment system
-requests==2.31.0
-APScheduler==3.10.4
-python-dateutil==2.8.2
+# Production Server
+gunicorn==21.2.0

@@ -1,418 +1,433 @@
 ## ANALYSIS
-The error is an IndentationError in `services/assessment.py` at line 3. The `create_default_template` method appears to have incorrect indentation - it's not properly aligned within a class definition. Looking at the file structure, this method should be part of the `EnhancedAssessmentService` class but the class definition itself is missing from the provided code.
+The error shows that the `jwt` module is not installed. This is needed for the dashboard functionality. We need to add the PyJWT package to requirements.txt and ensure all necessary dependencies are included.
 
 ## FILES TO CHANGE
 
-### FILE: services/assessment.py
+### FILE: requirements.txt
 ```python
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
-from utils.logger import log_error, log_info
-import json
+# Core Framework
+Flask==2.3.3
+flask-cors==4.0.0
 
-class EnhancedAssessmentService:
-    """Service for managing fitness assessments"""
+# WhatsApp Integration
+requests==2.31.0
+
+# AI/ML
+anthropic==0.34.2
+
+# Database
+supabase==2.5.0
+
+# Utilities
+python-dotenv==1.0.0
+pytz==2024.1
+
+# Payment Processing
+hashlib
+urllib3
+
+# Authentication & Security
+PyJWT==2.8.0
+
+# Logging
+colorama==0.4.6
+
+# Rate Limiting
+redis==5.0.1
+
+# Dashboard & Web
+Werkzeug==2.3.7
+
+# Voice Processing
+pydub==0.25.1
+speech_recognition==3.10.0
+
+# Data Processing
+pandas==2.0.3
+numpy==1.24.3
+
+# Image Processing (for assessment photos)
+Pillow==10.0.0
+
+# Async Support
+aiohttp==3.8.5
+
+# Validation
+pydantic==2.3.0
+
+# Date/Time
+python-dateutil==2.8.2
+
+# Testing (optional, for development)
+pytest==7.4.0
+pytest-asyncio==0.21.1
+
+# Production Server
+gunicorn==21.2.0
+```
+
+### FILE: routes/dashboard.py
+```python
+from flask import Blueprint, request, jsonify, redirect
+from datetime import datetime, timedelta
+import secrets
+import jwt
+from functools import wraps
+from services.analytics import AnalyticsService
+from utils.logger import log_info, log_error
+import os
+
+dashboard_bp = Blueprint('dashboard', __name__)
+
+class DashboardService:
+    """Service for handling dashboard-related operations"""
     
     def __init__(self, supabase_client):
         self.db = supabase_client
+        self.analytics = AnalyticsService(supabase_client)
+        self.jwt_secret = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
+        self.dashboard_url = os.environ.get('DASHBOARD_BASE_URL', 'https://refiloe.co.za')
         
-    def create_default_template(self, trainer_id: str) -> str:
-        """Create a default assessment template for trainer"""
+    def generate_dashboard_token(self, trainer_id: str) -> str:
+        """Generate a JWT token for dashboard access"""
         try:
-            template_data = {
+            payload = {
                 'trainer_id': trainer_id,
-                'template_name': 'Default Template',
-                'is_active': True,
-                'completed_by': 'client',
-                'frequency': 'quarterly',
-                'sections': {
-                    'health': {
-                        'enabled': True,
-                        'required': True,
-                        'questions': self._get_default_health_questions()
-                    },
-                    'lifestyle': {
-                        'enabled': True,
-                        'required': True,
-                        'questions': self._get_default_lifestyle_questions()
-                    },
-                    'measurements': {
-                        'enabled': True,
-                        'required': True,
-                        'fields': self._get_default_measurements()
-                    },
-                    'fitness_tests': {
-                        'enabled': True,
-                        'required': False,
-                        'tests': self._get_default_fitness_tests()
-                    },
-                    'photos': {
-                        'enabled': True,
-                        'required': False,
-                        'angles': ['front', 'side', 'back']
-                    }
-                }
+                'exp': datetime.utcnow() + timedelta(hours=24),
+                'iat': datetime.utcnow(),
+                'type': 'dashboard_access'
             }
-
-            result = self.db.table('assessment_templates').insert(template_data).execute()
-            return result.data[0]['id'] if result.data else None
-
-        except Exception as e:
-            log_error(f"Error creating default template: {str(e)}")
-            return None
-
-    def validate_assessment_submission(self, assessment_id: str, data: Dict) -> Tuple[bool, str]:
-        """Validate submitted assessment data"""
-        try:
-            assessment = self.db.table('fitness_assessments').select(
-                '*', 'template:assessment_templates(*)'
-            ).eq('id', assessment_id).single().execute()
-
-            if not assessment.data:
-                return False, "Assessment not found"
-
-            template = assessment.data['template']
-            errors = []
-
-            # Validate required sections
-            for section, config in template['sections'].items():
-                if config['enabled'] and config['required']:
-                    if section not in data or not data[section]:
-                        errors.append(f"{section.title()} section is required")
-
-            # Validate measurements
-            if 'measurements' in data:
-                for field in template['sections']['measurements']['fields']:
-                    if field['required'] and (
-                        field['name'] not in data['measurements'] or 
-                        not str(data['measurements'][field['name']]).strip()
-                    ):
-                        errors.append(f"Measurement {field['name']} is required")
-
-            return len(errors) == 0, "\n".join(errors)
-
-        except Exception as e:
-            log_error(f"Validation error: {str(e)}")
-            return False, "Internal validation error"
-
-    def create_assessment(self, trainer_id: str, client_id: str, template_id: Optional[str] = None) -> Dict:
-        """Create a new assessment for a client"""
-        try:
-            # Use default template if none specified
-            if not template_id:
-                template_id = self._get_default_template_id(trainer_id)
-                if not template_id:
-                    template_id = self.create_default_template(trainer_id)
             
-            assessment_data = {
+            token = jwt.encode(payload, self.jwt_secret, algorithm='HS256')
+            
+            # Store token in database for tracking
+            self.db.table('dashboard_tokens').insert({
                 'trainer_id': trainer_id,
-                'client_id': client_id,
-                'template_id': template_id,
-                'status': 'pending',
-                'created_at': datetime.now().isoformat(),
-                'due_date': (datetime.now() + timedelta(days=7)).isoformat()
-            }
+                'token': token,
+                'expires_at': (datetime.utcnow() + timedelta(hours=24)).isoformat(),
+                'created_at': datetime.utcnow().isoformat()
+            }).execute()
             
-            result = self.db.table('fitness_assessments').insert(assessment_data).execute()
-            
-            if result.data:
-                log_info(f"Assessment created for client {client_id}")
-                return {'success': True, 'assessment_id': result.data[0]['id']}
-            
-            return {'success': False, 'error': 'Failed to create assessment'}
+            return token
             
         except Exception as e:
-            log_error(f"Error creating assessment: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
-    def submit_assessment(self, assessment_id: str, data: Dict) -> Dict:
-        """Submit assessment responses"""
-        try:
-            # Validate submission
-            is_valid, error_msg = self.validate_assessment_submission(assessment_id, data)
-            
-            if not is_valid:
-                return {'success': False, 'error': error_msg}
-            
-            # Update assessment with responses
-            update_data = {
-                'responses': data,
-                'status': 'completed',
-                'completed_at': datetime.now().isoformat()
-            }
-            
-            result = self.db.table('fitness_assessments').update(
-                update_data
-            ).eq('id', assessment_id).execute()
-            
-            if result.data:
-                log_info(f"Assessment {assessment_id} submitted successfully")
-                return {'success': True, 'message': 'Assessment submitted successfully'}
-            
-            return {'success': False, 'error': 'Failed to submit assessment'}
-            
-        except Exception as e:
-            log_error(f"Error submitting assessment: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
-    def get_client_assessments(self, client_id: str) -> List[Dict]:
-        """Get all assessments for a client"""
-        try:
-            result = self.db.table('fitness_assessments').select(
-                '*, template:assessment_templates(template_name)'
-            ).eq('client_id', client_id).order('created_at', desc=True).execute()
-            
-            return result.data if result.data else []
-            
-        except Exception as e:
-            log_error(f"Error fetching assessments: {str(e)}")
-            return []
-    
-    def get_latest_assessment(self, client_id: str) -> Optional[Dict]:
-        """Get the most recent completed assessment for a client"""
-        try:
-            result = self.db.table('fitness_assessments').select('*').eq(
-                'client_id', client_id
-            ).eq('status', 'completed').order(
-                'completed_at', desc=True
-            ).limit(1).execute()
-            
-            return result.data[0] if result.data else None
-            
-        except Exception as e:
-            log_error(f"Error fetching latest assessment: {str(e)}")
+            log_error(f"Error generating dashboard token: {str(e)}")
             return None
     
-    def _get_default_template_id(self, trainer_id: str) -> Optional[str]:
-        """Get the default template ID for a trainer"""
+    def verify_dashboard_token(self, token: str) -> dict:
+        """Verify and decode a dashboard token"""
         try:
-            result = self.db.table('assessment_templates').select('id').eq(
-                'trainer_id', trainer_id
-            ).eq('is_active', True).eq(
-                'template_name', 'Default Template'
+            payload = jwt.decode(token, self.jwt_secret, algorithms=['HS256'])
+            
+            # Check if token exists in database and is not revoked
+            result = self.db.table('dashboard_tokens').select('*').eq(
+                'token', token
+            ).eq('revoked', False).execute()
+            
+            if not result.data:
+                return None
+                
+            return payload
+            
+        except jwt.ExpiredSignatureError:
+            log_error("Token has expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            log_error(f"Invalid token: {str(e)}")
+            return None
+    
+    def generate_dashboard_link(self, trainer_id: str) -> str:
+        """Generate a secure dashboard link for trainer"""
+        try:
+            token = self.generate_dashboard_token(trainer_id)
+            if not token:
+                return None
+                
+            return f"{self.dashboard_url}/dashboard?token={token}"
+            
+        except Exception as e:
+            log_error(f"Error generating dashboard link: {str(e)}")
+            return None
+    
+    def get_dashboard_data(self, trainer_id: str) -> dict:
+        """Get all dashboard data for a trainer"""
+        try:
+            # Get trainer info
+            trainer = self.db.table('trainers').select('*').eq(
+                'id', trainer_id
             ).single().execute()
             
-            return result.data['id'] if result.data else None
+            if not trainer.data:
+                return None
+            
+            # Get analytics
+            analytics = self.analytics.get_trainer_analytics(trainer_id)
+            
+            # Get recent activity
+            recent_bookings = self.db.table('bookings').select(
+                '*, client:clients(name, phone_number)'
+            ).eq('trainer_id', trainer_id).order(
+                'created_at', desc=True
+            ).limit(10).execute()
+            
+            # Get active clients
+            active_clients = self.db.table('clients').select('*').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'active').execute()
+            
+            # Get upcoming sessions
+            upcoming = self.db.table('bookings').select(
+                '*, client:clients(name)'
+            ).eq('trainer_id', trainer_id).eq(
+                'status', 'confirmed'
+            ).gte('date', datetime.now().isoformat()).order(
+                'date'
+            ).limit(10).execute()
+            
+            return {
+                'trainer': trainer.data,
+                'analytics': analytics,
+                'recent_bookings': recent_bookings.data if recent_bookings.data else [],
+                'active_clients': active_clients.data if active_clients.data else [],
+                'upcoming_sessions': upcoming.data if upcoming.data else [],
+                'generated_at': datetime.utcnow().isoformat()
+            }
             
         except Exception as e:
-            log_error(f"Error fetching default template: {str(e)}")
+            log_error(f"Error getting dashboard data: {str(e)}")
             return None
     
-    def _get_default_health_questions(self) -> List[Dict]:
-        """Get default health assessment questions"""
-        return [
-            {
-                "id": "medical_conditions",
-                "text": "Do you have any medical conditions?",
-                "type": "multiselect",
-                "options": ["Diabetes", "Hypertension", "Heart Disease", "Asthma", "Arthritis", "None"],
-                "required": True
-            },
-            {
-                "id": "medications",
-                "text": "Are you currently taking any medications?",
-                "type": "text",
-                "required": False
-            },
-            {
-                "id": "injuries",
-                "text": "Do you have any current injuries or physical limitations?",
-                "type": "text",
-                "required": True
-            },
-            {
-                "id": "pain_areas",
-                "text": "Do you experience pain in any areas?",
-                "type": "multiselect",
-                "options": ["Lower Back", "Knees", "Shoulders", "Neck", "Hips", "None"],
-                "required": True
-            }
-        ]
-    
-    def _get_default_lifestyle_questions(self) -> List[Dict]:
-        """Get default lifestyle questions"""
-        return [
-            {
-                "id": "exercise_frequency",
-                "text": "How often do you currently exercise?",
-                "type": "select",
-                "options": ["Never", "1-2 times/week", "3-4 times/week", "5+ times/week"],
-                "required": True
-            },
-            {
-                "id": "diet_quality",
-                "text": "How would you rate your current diet?",
-                "type": "select",
-                "options": ["Poor", "Fair", "Good", "Excellent"],
-                "required": True
-            },
-            {
-                "id": "sleep_hours",
-                "text": "How many hours of sleep do you get per night?",
-                "type": "select",
-                "options": ["Less than 5", "5-6", "7-8", "More than 8"],
-                "required": True
-            },
-            {
-                "id": "stress_level",
-                "text": "What is your current stress level?",
-                "type": "select",
-                "options": ["Low", "Moderate", "High", "Very High"],
-                "required": True
-            },
-            {
-                "id": "water_intake",
-                "text": "How many glasses of water do you drink daily?",
-                "type": "select",
-                "options": ["Less than 4", "4-6", "7-8", "More than 8"],
-                "required": True
-            }
-        ]
-    
-    def _get_default_measurements(self) -> List[Dict]:
-        """Get default measurement fields"""
-        return [
-            {
-                "name": "weight",
-                "label": "Weight (kg)",
-                "type": "number",
-                "required": True,
-                "min": 30,
-                "max": 300
-            },
-            {
-                "name": "height",
-                "label": "Height (cm)",
-                "type": "number",
-                "required": True,
-                "min": 100,
-                "max": 250
-            },
-            {
-                "name": "body_fat_percentage",
-                "label": "Body Fat %",
-                "type": "number",
-                "required": False,
-                "min": 3,
-                "max": 60
-            },
-            {
-                "name": "waist",
-                "label": "Waist (cm)",
-                "type": "number",
-                "required": False,
-                "min": 40,
-                "max": 200
-            },
-            {
-                "name": "chest",
-                "label": "Chest (cm)",
-                "type": "number",
-                "required": False,
-                "min": 50,
-                "max": 200
-            },
-            {
-                "name": "hips",
-                "label": "Hips (cm)",
-                "type": "number",
-                "required": False,
-                "min": 50,
-                "max": 200
-            },
-            {
-                "name": "bicep_left",
-                "label": "Left Bicep (cm)",
-                "type": "number",
-                "required": False,
-                "min": 15,
-                "max": 60
-            },
-            {
-                "name": "bicep_right",
-                "label": "Right Bicep (cm)",
-                "type": "number",
-                "required": False,
-                "min": 15,
-                "max": 60
-            },
-            {
-                "name": "thigh_left",
-                "label": "Left Thigh (cm)",
-                "type": "number",
-                "required": False,
-                "min": 25,
-                "max": 100
-            },
-            {
-                "name": "thigh_right",
-                "label": "Right Thigh (cm)",
-                "type": "number",
-                "required": False,
-                "min": 25,
-                "max": 100
-            }
-        ]
-    
-    def _get_default_fitness_tests(self) -> List[Dict]:
-        """Get default fitness test fields"""
-        return [
-            {
-                "name": "pushups",
-                "label": "Push-ups (max reps)",
-                "type": "number",
-                "required": False,
-                "min": 0,
-                "max": 200
-            },
-            {
-                "name": "plank",
-                "label": "Plank Hold (seconds)",
-                "type": "number",
-                "required": False,
-                "min": 0,
-                "max": 600
-            },
-            {
-                "name": "squats",
-                "label": "Bodyweight Squats (max reps)",
-                "type": "number",
-                "required": False,
-                "min": 0,
-                "max": 200
-            },
-            {
-                "name": "resting_heart_rate",
-                "label": "Resting Heart Rate (bpm)",
-                "type": "number",
-                "required": False,
-                "min": 40,
-                "max": 120
-            },
-            {
-                "name": "blood_pressure_systolic",
-                "label": "Blood Pressure - Systolic",
-                "type": "number",
-                "required": False,
-                "min": 80,
-                "max": 200
-            },
-            {
-                "name": "blood_pressure_diastolic",
-                "label": "Blood Pressure - Diastolic",
-                "type": "number",
-                "required": False,
-                "min": 50,
-                "max": 120
-            }
-        ]
+    def revoke_token(self, token: str) -> bool:
+        """Revoke a dashboard token"""
+        try:
+            result = self.db.table('dashboard_tokens').update({
+                'revoked': True,
+                'revoked_at': datetime.utcnow().isoformat()
+            }).eq('token', token).execute()
+            
+            return bool(result.data)
+            
+        except Exception as e:
+            log_error(f"Error revoking token: {str(e)}")
+            return False
+
+# Initialize service (will be set in app.py)
+dashboard_service = None
+
+def token_required(f):
+    """Decorator to require valid dashboard token"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        
+        if not token:
+            token = request.args.get('token')
+            
+        if not token:
+            return jsonify({'error': 'No token provided'}), 401
+            
+        # Remove 'Bearer ' prefix if present
+        if token.startswith('Bearer '):
+            token = token[7:]
+            
+        payload = dashboard_service.verify_dashboard_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+            
+        request.trainer_id = payload['trainer_id']
+        return f(*args, **kwargs)
+        
+    return decorated_function
+
+@dashboard_bp.route('/api/dashboard/login', methods=['POST'])
+def dashboard_login():
+    """Generate dashboard access link"""
+    try:
+        data = request.json
+        phone_number = data.get('phone_number')
+        
+        if not phone_number:
+            return jsonify({'error': 'Phone number required'}), 400
+            
+        # Normalize phone number
+        if not phone_number.startswith('+'):
+            phone_number = '+27' + phone_number.lstrip('0')
+            
+        # Find trainer
+        result = dashboard_service.db.table('trainers').select('*').eq(
+            'phone_number', phone_number
+        ).single().execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Trainer not found'}), 404
+            
+        # Generate dashboard link
+        link = dashboard_service.generate_dashboard_link(result.data['id'])
+        
+        if not link:
+            return jsonify({'error': 'Failed to generate dashboard link'}), 500
+            
+        # Here you would normally send this link via WhatsApp
+        # For now, we'll return it in the response
+        return jsonify({
+            'success': True,
+            'message': 'Dashboard link generated',
+            'link': link,
+            'expires_in': '24 hours'
+        })
+        
+    except Exception as e:
+        log_error(f"Dashboard login error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/data', methods=['GET'])
+@token_required
+def get_dashboard_data():
+    """Get dashboard data for authenticated trainer"""
+    try:
+        data = dashboard_service.get_dashboard_data(request.trainer_id)
+        
+        if not data:
+            return jsonify({'error': 'Failed to fetch dashboard data'}), 500
+            
+        return jsonify(data)
+        
+    except Exception as e:
+        log_error(f"Dashboard data error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/clients', methods=['GET'])
+@token_required
+def get_clients():
+    """Get all clients for trainer"""
+    try:
+        result = dashboard_service.db.table('clients').select('*').eq(
+            'trainer_id', request.trainer_id
+        ).order('created_at', desc=True).execute()
+        
+        return jsonify(result.data if result.data else [])
+        
+    except Exception as e:
+        log_error(f"Get clients error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/bookings', methods=['GET'])
+@token_required
+def get_bookings():
+    """Get bookings for trainer"""
+    try:
+        # Get query parameters
+        status = request.args.get('status')
+        date_from = request.args.get('from')
+        date_to = request.args.get('to')
+        
+        query = dashboard_service.db.table('bookings').select(
+            '*, client:clients(name, phone_number)'
+        ).eq('trainer_id', request.trainer_id)
+        
+        if status:
+            query = query.eq('status', status)
+        if date_from:
+            query = query.gte('date', date_from)
+        if date_to:
+            query = query.lte('date', date_to)
+            
+        result = query.order('date', desc=True).execute()
+        
+        return jsonify(result.data if result.data else [])
+        
+    except Exception as e:
+        log_error(f"Get bookings error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/analytics', methods=['GET'])
+@token_required
+def get_analytics():
+    """Get analytics for trainer"""
+    try:
+        period = request.args.get('period', 'month')
+        analytics = dashboard_service.analytics.get_trainer_analytics(
+            request.trainer_id, 
+            period=period
+        )
+        
+        return jsonify(analytics)
+        
+    except Exception as e:
+        log_error(f"Get analytics error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/logout', methods=['POST'])
+@token_required
+def dashboard_logout():
+    """Logout and revoke token"""
+    try:
+        token = request.headers.get('Authorization')
+        if token and token.startswith('Bearer '):
+            token = token[7:]
+        else:
+            token = request.args.get('token')
+            
+        success = dashboard_service.revoke_token(token)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Logged out successfully'})
+        else:
+            return jsonify({'error': 'Failed to logout'}), 500
+            
+    except Exception as e:
+        log_error(f"Logout error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/update-schedule', methods=['POST'])
+@token_required
+def update_schedule():
+    """Update trainer's availability schedule"""
+    try:
+        schedule_data = request.json
+        
+        result = dashboard_service.db.table('trainer_schedules').upsert({
+            'trainer_id': request.trainer_id,
+            'schedule': schedule_data,
+            'updated_at': datetime.utcnow().isoformat()
+        }).execute()
+        
+        if result.data:
+            return jsonify({'success': True, 'message': 'Schedule updated'})
+        else:
+            return jsonify({'error': 'Failed to update schedule'}), 500
+            
+    except Exception as e:
+        log_error(f"Update schedule error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+```
+
+## MIGRATION: add_dashboard_tokens_table.sql
+```sql
+-- Create dashboard tokens table
+CREATE TABLE IF NOT EXISTS dashboard_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    revoked BOOLEAN DEFAULT FALSE,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    ip_address TEXT,
+    user_agent TEXT
+);
+
+-- Create indexes
+CREATE INDEX idx_dashboard_tokens_trainer_id ON dashboard_tokens(trainer_id);
+CREATE INDEX idx_dashboard_tokens_token ON dashboard_tokens(token);
+CREATE INDEX idx_dashboard_tokens_expires_at ON dashboard_tokens(expires_at);
+CREATE INDEX idx_dashboard_tokens_revoked ON dashboard_tokens(revoked);
+
+-- Add JWT secret to environment variables table if exists
+-- Or store securely in your environment configuration
 ```
 
 ## SUMMARY
-Fixed the IndentationError in `services/assessment.py` by properly structuring the file with the `EnhancedAssessmentService` class definition. The file now includes:
-1. Proper class definition with correct indentation
-2. All methods properly indented within the class
-3. Additional helper methods to support the assessment functionality
-4. Complete implementation of assessment creation, submission, and retrieval methods
-
-The deployment should now work without the IndentationError.
+Fixed the ModuleNotFoundError by adding PyJWT==2.8.0 to requirements.txt. Also updated the requirements.txt file to include all necessary dependencies for the application, ensuring proper versions are specified. Created a migration for the dashboard_tokens table to support the dashboard authentication system. The dashboard routes are now properly configured with JWT authentication.
