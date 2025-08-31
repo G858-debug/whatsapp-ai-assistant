@@ -1,0 +1,21 @@
+@claude @apply Act as multiple specialized agents to apply the changes and additions as identified:
+
+Payment Integration Agent - fix
+- Complet PayFast webhook handling
+- Add error handling to token management
+- Add missing subscription plan management
+
+Assessment Module Agent - fix 
+- complete AI intent analysis 
+- add missing Progress tracking visualization
+- add Missing template management UI
+
+Dashboard Features Agent - fix
+- implement Web dashboard routes
+- Missing trainer analytics views
+- Client progress visualization
+
+Error Handling & Validation Agent - fix and enhance
+- Input sanitization needs enhancement
+- Webhook signature verification incomplete
+- Missing rate limit persistence
