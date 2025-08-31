@@ -1,5 +1,6 @@
 ✅ **Changes Applied Successfully:**
-- Created utils/railway_api.py
+- Updated payment_manager.py
+- Created migration supabase/migrations/20250831172146_20240326_payment_enhancements.sql
 
 📝 **Full Details:** See claude_response.md
 
