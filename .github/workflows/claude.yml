@@ -21,21 +21,77 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Test Claude
+      - name: Install Anthropic
+        run: pip install anthropic
+      
+      - name: Save comment to file
+        run: |
+          cat > comment.txt << 'ENDOFCOMMENT'
+          ${{ github.event.comment.body }}
+          ENDOFCOMMENT
+      
+      - name: Process with Claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "Claude workflow is working!"
-          echo "Processing comment: ${{ github.event.comment.body }}"
+          python - <<'PYTHON_SCRIPT'
+          import anthropic
+          import os
+          
+          # Read comment from file (safer than embedding in script)
+          with open('comment.txt', 'r') as f:
+              comment = f.read()
+          
+          # Remove @claude from comment
+          task = comment.replace('@claude', '').strip()
+          
+          print(f"Processing task: {task}")
+          
+          try:
+              client = anthropic.Anthropic()
+              
+              # Simple test message
+              response = client.messages.create(
+                  model='claude-3-5-sonnet-20241022',
+                  max_tokens=500,
+                  messages=[{
+                      'role': 'user',
+                      'content': f'Reply briefly to this: {task}'
+                  }]
+              )
+              
+              response_text = response.content[0].text
+              print(f"Claude responded: {response_text}")
+              
+              # Save response
+              with open('response.txt', 'w') as f:
+                  f.write(response_text)
+                  
+          except Exception as e:
+              print(f"Error: {e}")
+              with open('response.txt', 'w') as f:
+                  f.write(f"Error connecting to Claude: {str(e)}")
+          PYTHON_SCRIPT
       
-      - name: Respond to Issue
+      - name: Post Response
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            let response = '⚠️ Could not process request';
+            
+            try {
+              if (fs.existsSync('response.txt')) {
+                response = fs.readFileSync('response.txt', 'utf8');
+              }
+            } catch (e) {
+              console.log('Error reading response:', e);
+            }
+            
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '✅ Claude is processing your request: "${{ github.event.comment.body }}"'
+              body: `🤖 **Claude says:**\n\n${response}`
             })
