@@ -1,6 +1,38 @@
 @claude @apply deploy crashed again. Here are the logs: 
-ImportError: cannot import name 'process_voice_note' from 'voice_helpers' (/app/voice_helpers.py)
+ File "/app/services/refiloe.py", line 28, in __init__
+    self.whatsapp = WhatsAppService(supabase_client)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: WhatsAppService.__init__() missing 2 required positional arguments: 'supabase_client' and 'logger'
+2025-08-31 12:51:16 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:16.222593+02:00", "message": "Configuration validated successfully", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:16.222593+02:00", "message": "Configuration validated successfully", "context": {}}
+2025-08-31 12:51:16 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:16.240689+02:00", "message": "AI Intent Handler initialized with Claude", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:16.240689+02:00", "message": "AI Intent Handler initialized with Claude", "context": {}}
+2025-08-31 12:51:16 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:16.248213+02:00", "message": "Rate limiter initialized", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:16.248213+02:00", "message": "Rate limiter initialized", "context": {}}
 Traceback (most recent call last):
-  File "/app/app.py", line 33, in <module>
-    from voice_helpers import process_voice_note
-ImportError: cannot import name 'process_voice_note' from 'voice_helpers' (/app/voice_helpers.py)
+  File "/app/app.py", line 70, in <module>
+    refiloe_service = RefiloeService(supabase)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/services/refiloe.py", line 28, in __init__
+    self.whatsapp = WhatsAppService(supabase_client)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^
+TypeError: WhatsAppService.__init__() missing 2 required positional arguments: 'supabase_client' and 'logger'
+2025-08-31 12:51:18 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:18.264049+02:00", "message": "Configuration validated successfully", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:18.264049+02:00", "message": "Configuration validated successfully", "context": {}}
+2025-08-31 12:51:18 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:18.278718+02:00", "message": "AI Intent Handler initialized with Claude", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:18.278718+02:00", "message": "AI Intent Handler initialized with Claude", "context": {}}
+2025-08-31 12:51:18 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:18.286096+02:00", "message": "Rate limiter initialized", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:18.286096+02:00", "message": "Rate limiter initialized", "context": {}}
+Traceback (most recent call last):
+  File "/app/app.py", line 70, in <module>
+    refiloe_service = RefiloeService(supabase)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/services/refiloe.py", line 28, in __init__
+    self.whatsapp = WhatsAppService(supabase_client)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: WhatsAppService.__init__() missing 2 required positional arguments: 'supabase_client' and 'logger'
+2025-08-31 12:51:20 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:20.370237+02:00", "message": "Configuration validated successfully", "context": {}}
+INFO:refiloe:{"timestamp": "2025-08-31T14:51:20.370237+02:00", "message": "Configuration validated successfully", "context": {}}
+2025-08-31 12:51:20 - refiloe - INFO - {"timestamp": "2025-08-31T14:51:20.388330+02:00", "message": "AI Intent Handler initialized with Claude", "context": {}}
+

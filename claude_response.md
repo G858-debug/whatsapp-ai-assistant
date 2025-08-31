@@ -1,406 +1,724 @@
 ## ANALYSIS
 
-Looking at the error `ImportError: cannot import name 'process_voice_note' from 'voice_helpers'`, I can see that:
+Looking at the error logs, there's a clear issue in `services/refiloe.py` at line 28. The `WhatsAppService` class is being instantiated with only one argument (`supabase_client`), but according to the `WhatsAppService.__init__` method in `services/whatsapp.py`, it requires three arguments: `config`, `supabase_client`, and `logger`.
 
-1. In `app.py` line 33, it's trying to import `process_voice_note` from `voice_helpers`
-2. Looking at `voice_helpers.py`, there is NO function called `process_voice_note` - instead there's a `VoiceProcessor` class with methods like `handle_voice_note_with_fallback`
-3. The import is incorrect and needs to be fixed
-
-The `voice_helpers.py` file contains a `VoiceProcessor` class but no standalone `process_voice_note` function. We need to either:
-- Remove the unused import from `app.py` (since it's not used anywhere in the file)
-- Or import the correct class/function
-
-Looking through `app.py`, I don't see `process_voice_note` being used anywhere, so we can simply remove this import.
+The problem is in the `RefiloeService.__init__` method where it's trying to create a WhatsAppService instance with incorrect parameters.
 
 ## FILES TO CHANGE
 
-### FILE: app.py
+### FILE: services/refiloe.py
 ```python
-import os
-import json
-import traceback
+from typing import Dict, Optional, List, Tuple
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template_string
-from supabase import create_client
-from dotenv import load_dotenv
-import pytz
-
-# Import APScheduler for background tasks
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-
-# Import services and utilities
+import json
+import re
+from anthropic import Anthropic
+from config import Config
+from utils.logger import log_error, log_info, setup_logger
 from services.whatsapp import WhatsAppService
-from services.refiloe import RefiloeService
-from services.ai_intent_handler import AIIntentHandler
 from services.scheduler import SchedulerService
+from services.workout import WorkoutService
 from services.assessment import EnhancedAssessmentService
 from services.habits import HabitTrackingService
-from services.workout import WorkoutService
-from services.subscription_manager import SubscriptionManager
 from services.analytics import AnalyticsService
-from models.trainer import TrainerModel
-from models.client import ClientModel
-from models.booking import BookingModel
-from utils.logger import setup_logger, log_error, log_info, log_warning
-from utils.rate_limiter import RateLimiter
-from utils.input_sanitizer import InputSanitizer
-from config import Config
+from services.subscription_manager import SubscriptionManager
+from services.ai_intent_handler import AIIntentHandler
 from payment_manager import PaymentManager
-from payfast_webhook import PayFastWebhookHandler
-# Removed the problematic import: from voice_helpers import process_voice_note
 
-# Load environment variables
-load_dotenv()
 
-# Initialize Flask app
-app = Flask(__name__)
-
-# Setup logger
-logger = setup_logger()
-
-# Validate configuration
-try:
-    Config.validate()
-    log_info("Configuration validated successfully")
-except ValueError as e:
-    log_error(f"Configuration error: {str(e)}")
-    raise
-
-# Initialize Supabase client
-supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
-
-# Initialize services with proper parameters
-whatsapp_service = WhatsAppService(Config, supabase, logger)
-ai_handler = AIIntentHandler(Config, supabase)
-scheduler_service = SchedulerService(supabase, whatsapp_service)
-assessment_service = EnhancedAssessmentService(supabase)
-habit_service = HabitTrackingService(supabase)
-workout_service = WorkoutService(Config, supabase)
-subscription_manager = SubscriptionManager(supabase)
-analytics_service = AnalyticsService(supabase)
-payment_manager = PaymentManager(supabase)
-payfast_handler = PayFastWebhookHandler()  # Already has its own init
-rate_limiter = RateLimiter(Config, supabase)
-input_sanitizer = InputSanitizer(Config)
-
-# Initialize Refiloe service after other services
-refiloe_service = RefiloeService(supabase)
-
-# Initialize models with proper parameters
-trainer_model = TrainerModel(supabase, Config)
-client_model = ClientModel(supabase, Config)
-booking_model = BookingModel(supabase, Config)
-
-# Initialize background scheduler
-scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
-
-def send_daily_reminders():
-    """Send daily workout and payment reminders"""
-    try:
-        log_info("Running daily reminders task")
-        
-        # Use scheduler_service for reminders
-        results = scheduler_service.check_and_send_reminders()
-        
-        log_info(f"Daily reminders completed: {results}")
-        
-    except Exception as e:
-        log_error(f"Error in daily reminders task: {str(e)}")
-
-def check_subscription_status():
-    """Check and update subscription statuses"""
-    try:
-        log_info("Checking subscription statuses")
-        
-        # Get all active subscriptions
-        active_subs = supabase.table('trainer_subscriptions').select('*').eq(
-            'status', 'active'
-        ).execute()
-        
-        expired_count = 0
-        for sub in (active_subs.data or []):
-            # Check if expired
-            if sub.get('end_date'):
-                end_date = datetime.fromisoformat(sub['end_date'])
-                if end_date < datetime.now(pytz.timezone(Config.TIMEZONE)):
-                    # Mark as expired
-                    supabase.table('trainer_subscriptions').update({
-                        'status': 'expired'
-                    }).eq('id', sub['id']).execute()
-                    expired_count += 1
-        
-        log_info(f"Processed {expired_count} expired subscriptions")
-        
-    except Exception as e:
-        log_error(f"Error checking subscriptions: {str(e)}")
-
-# Schedule background tasks
-scheduler.add_job(
-    send_daily_reminders,
-    CronTrigger(hour=8, minute=0),  # Run at 8 AM daily
-    id='daily_reminders',
-    replace_existing=True
-)
-
-scheduler.add_job(
-    check_subscription_status,
-    CronTrigger(hour=0, minute=0),  # Run at midnight daily
-    id='check_subscriptions',
-    replace_existing=True
-)
-
-# Start the scheduler
-scheduler.start()
-log_info("Background scheduler started")
-
-@app.route('/')
-def home():
-    """Home page"""
-    return jsonify({
-        "status": "active",
-        "service": "Refiloe AI Assistant",
-        "version": "2.0",
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint"""
-    try:
-        # Check Supabase connection
-        supabase.table('trainers').select('id').limit(1).execute()
-        db_status = "connected"
-    except:
-        db_status = "error"
+class RefiloeService:
+    """Main service orchestrator for Refiloe AI assistant"""
     
-    return jsonify({
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "database": db_status,
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/webhook', methods=['GET', 'POST'])
-def webhook():
-    """Main WhatsApp webhook endpoint"""
-    
-    if request.method == 'GET':
-        # Webhook verification
-        verify_token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
+    def __init__(self, supabase_client):
+        """Initialize Refiloe with all required services"""
+        self.db = supabase_client
+        self.config = Config
         
-        if verify_token == Config.VERIFY_TOKEN:
-            log_info("Webhook verified successfully")
-            return challenge
-        else:
-            log_warning("Invalid verification token")
-            return 'Invalid verification token', 403
+        # Setup logger
+        self.logger = setup_logger()
+        
+        # Initialize core services with proper parameters
+        self.whatsapp = WhatsAppService(self.config, supabase_client, self.logger)
+        self.scheduler = SchedulerService(supabase_client, self.whatsapp)
+        self.workout = WorkoutService(self.config, supabase_client)
+        self.assessment = EnhancedAssessmentService(supabase_client)
+        self.habits = HabitTrackingService(supabase_client)
+        self.analytics = AnalyticsService(supabase_client)
+        self.subscription = SubscriptionManager(supabase_client)
+        self.payment = PaymentManager(supabase_client)
+        self.ai_handler = AIIntentHandler(self.config, supabase_client)
+        
+        # Initialize Anthropic client
+        self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+        
+        log_info("RefiloeService initialized successfully")
     
-    elif request.method == 'POST':
+    def process_message(self, message_data: Dict) -> Dict:
+        """Process incoming WhatsApp message"""
         try:
-            # Check rate limits
-            if Config.ENABLE_RATE_LIMITING:
-                ip_address = request.remote_addr
-                if not rate_limiter.check_webhook_rate(ip_address):
-                    log_warning(f"Rate limit exceeded for IP: {ip_address}")
-                    return jsonify({"error": "Rate limit exceeded"}), 429
-            
-            # Process webhook data
-            data = request.get_json()
-            
-            if not data:
-                return jsonify({"error": "No data provided"}), 400
-            
             # Extract message details
-            if 'entry' in data:
-                for entry in data['entry']:
-                    if 'changes' in entry:
-                        for change in entry['changes']:
-                            if 'value' in change and 'messages' in change['value']:
-                                for message in change['value']['messages']:
-                                    process_message(message, change['value'].get('contacts', []))
+            from_number = message_data.get('from')
+            message_type = message_data.get('type', 'text')
             
-            return jsonify({"status": "success"}), 200
+            # Get or create user context
+            user_context = self._get_user_context(from_number)
+            
+            # Route based on message type
+            if message_type == 'text':
+                response = self._handle_text_message(message_data, user_context)
+            elif message_type == 'audio':
+                response = self._handle_voice_message(message_data, user_context)
+            elif message_type == 'image':
+                response = self._handle_image_message(message_data, user_context)
+            elif message_type == 'interactive':
+                response = self._handle_interactive_message(message_data, user_context)
+            else:
+                response = {
+                    'success': False,
+                    'message': "I don't understand that type of message yet. Please send text or voice notes."
+                }
+            
+            # Log interaction
+            self._log_interaction(from_number, message_data, response)
+            
+            return response
             
         except Exception as e:
-            log_error(f"Webhook processing error: {str(e)}\n{traceback.format_exc()}")
-            return jsonify({"error": "Internal server error"}), 500
-
-def process_message(message: dict, contacts: list):
-    """Process incoming WhatsApp message"""
-    try:
-        from_number = message['from']
-        message_type = message.get('type', 'text')
-        
-        # Check user rate limits
-        if Config.ENABLE_RATE_LIMITING:
-            allowed, error_msg = rate_limiter.check_message_rate(from_number, message_type)
-            if not allowed:
-                if error_msg:
-                    whatsapp_service.send_message(from_number, error_msg)
-                return
-        
-        # Get contact name
-        contact_name = "User"
-        if contacts:
-            contact = next((c for c in contacts if c['wa_id'] == from_number), None)
-            if contact:
-                contact_name = contact.get('profile', {}).get('name', 'User')
-        
-        # Process message with Refiloe service
-        message_data = {
-            'from': from_number,
-            'type': message_type,
-            'contact_name': contact_name
-        }
-        
-        # Add message content based on type
-        if message_type == 'text':
-            text_body = message.get('text', {}).get('body', '')
-            # Sanitize input
-            sanitized, is_safe, warnings = input_sanitizer.sanitize_message(text_body, from_number)
-            if not is_safe:
-                whatsapp_service.send_message(from_number, "Sorry, your message contained invalid content.")
-                return
-            message_data['text'] = {'body': sanitized}
-        elif message_type == 'audio':
-            message_data['audio'] = message.get('audio', {})
-        elif message_type == 'image':
-            message_data['image'] = message.get('image', {})
-        elif message_type == 'interactive':
-            message_data['interactive'] = message.get('interactive', {})
-        elif message_type == 'button':
-            message_data['button'] = message.get('button', {})
-        
-        # Process with Refiloe service
-        response = refiloe_service.process_message(message_data)
-        
-        # Send response if successful
-        if response.get('success') and response.get('message'):
-            whatsapp_service.send_message(from_number, response['message'])
-            
-            # Send media if included
-            if response.get('media_url'):
-                whatsapp_service.send_media_message(from_number, response['media_url'], 'image')
-            
-            # Send buttons if included
-            if response.get('buttons'):
-                whatsapp_service.send_message_with_buttons(
-                    from_number,
-                    response.get('header', 'Options'),
-                    response['buttons']
-                )
-            
-    except Exception as e:
-        log_error(f"Message processing error: {str(e)}")
+            log_error(f"Error processing message: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I encountered an error. Please try again."
+            }
+    
+    def _handle_text_message(self, message_data: Dict, user_context: Dict) -> Dict:
+        """Handle text message"""
         try:
-            whatsapp_service.send_message(
-                from_number,
-                "Sorry, I encountered an error processing your message. Please try again."
-            )
-        except:
-            pass
-
-def identify_user(phone_number: str) -> tuple:
-    """Identify if user is trainer or client"""
-    try:
-        # Check trainers table
-        trainer = supabase.table('trainers').select('*').eq(
-            'phone_number', phone_number
-        ).single().execute()
-        
-        if trainer.data:
-            return ('trainer', trainer.data)
-        
-        # Check clients table
-        client = supabase.table('clients').select('*').eq(
-            'phone_number', phone_number
-        ).single().execute()
-        
-        if client.data:
-            return ('client', client.data)
-        
-        return (None, None)
-        
-    except Exception as e:
-        log_error(f"User identification error: {str(e)}")
-        return (None, None)
-
-@app.route('/webhook/payfast', methods=['POST'])
-def payfast_webhook():
-    """Handle PayFast payment webhooks"""
-    try:
-        # Get webhook data
-        data = request.form.to_dict()
-        signature = request.headers.get('X-PayFast-Signature', '')
-        
-        # Verify signature
-        if not payment_manager.verify_webhook_signature(data, signature):
-            log_warning("Invalid PayFast signature")
-            return 'Invalid signature', 403
-        
-        # Process webhook
-        result = payfast_handler.process_payment_notification(data)
-        
-        if result['success']:
-            return 'OK', 200
-        else:
-            return 'Processing failed', 500
+            text = message_data.get('text', {}).get('body', '')
+            from_number = message_data.get('from')
             
-    except Exception as e:
-        log_error(f"PayFast webhook error: {str(e)}")
-        return 'Internal error', 500
-
-@app.route('/dashboard')
-def dashboard():
-    """Simple web dashboard for trainers"""
-    if not Config.ENABLE_WEB_DASHBOARD:
-        return "Dashboard is disabled", 404
+            # Check for commands
+            if text.lower().startswith('/'):
+                return self._handle_command(text, from_number, user_context)
+            
+            # Use AI to understand intent - fixed method name
+            intent_result = self.ai_handler.understand_message(
+                text, 
+                'client' if user_context.get('client_id') else 'trainer',
+                user_context,
+                []  # Empty conversation history for now
+            )
+            
+            # Route based on intent
+            primary_intent = intent_result.get('primary_intent', 'general_question')
+            
+            if 'booking' in primary_intent.lower():
+                return self._handle_booking_intent(intent_result, from_number, user_context)
+            elif 'payment' in primary_intent.lower():
+                return self._handle_payment_intent(intent_result, from_number, user_context)
+            elif 'workout' in primary_intent.lower():
+                return self._handle_workout_intent(intent_result, from_number, user_context)
+            elif 'assessment' in primary_intent.lower():
+                return self._handle_assessment_intent(intent_result, from_number, user_context)
+            elif 'habit' in primary_intent.lower():
+                return self._handle_habit_intent(intent_result, from_number, user_context)
+            elif primary_intent in ['greeting', 'casual_chat', 'thanks', 'farewell', 'status_check']:
+                # Handle conversational intents
+                return {
+                    'success': True,
+                    'message': self.ai_handler.generate_smart_response(
+                        intent_result, 
+                        'client' if user_context.get('client_id') else 'trainer',
+                        user_context
+                    )
+                }
+            else:
+                return self._handle_general_query(text, user_context)
+                
+        except Exception as e:
+            log_error(f"Error handling text message: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your message. Please try again."
+            }
     
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Refiloe Dashboard</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #333; }
-            .status { padding: 10px; background: #e8f5e9; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <h1>Refiloe AI Assistant Dashboard</h1>
-        <div class="status">
-            <p>✅ System is running</p>
-            <p>📊 View your analytics and manage clients</p>
-        </div>
-    </body>
-    </html>
-    """)
-
-@app.errorhandler(404)
-def not_found(e):
-    """Handle 404 errors"""
-    return jsonify({"error": "Endpoint not found"}), 404
-
-@app.errorhandler(500)
-def server_error(e):
-    """Handle 500 errors"""
-    log_error(f"Server error: {str(e)}")
-    return jsonify({"error": "Internal server error"}), 500
-
-# Cleanup scheduler on shutdown
-import atexit
-atexit.register(lambda: scheduler.shutdown(wait=False))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
+    def _handle_voice_message(self, message_data: Dict, user_context: Dict) -> Dict:
+        """Handle voice message"""
+        try:
+            # For now, return a placeholder response
+            # TODO: Implement voice transcription
+            return {
+                'success': True,
+                'message': "🎤 I received your voice message! Voice processing is coming soon. For now, please send text messages."
+            }
+        except Exception as e:
+            log_error(f"Error handling voice message: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your voice message."
+            }
     
-    log_info(f"Starting Refiloe AI Assistant on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    def _handle_image_message(self, message_data: Dict, user_context: Dict) -> Dict:
+        """Handle image message"""
+        try:
+            # Check if this is for an assessment
+            if user_context.get('expecting_assessment_photo'):
+                return self._process_assessment_photo(message_data, user_context)
+            
+            return {
+                'success': True,
+                'message': "📸 Thanks for the image! To submit assessment photos, please start an assessment first."
+            }
+        except Exception as e:
+            log_error(f"Error handling image: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your image."
+            }
+    
+    def _handle_interactive_message(self, message_data: Dict, user_context: Dict) -> Dict:
+        """Handle interactive button/list responses"""
+        try:
+            interactive = message_data.get('interactive', {})
+            response_type = interactive.get('type')
+            
+            if response_type == 'button_reply':
+                button_id = interactive.get('button_reply', {}).get('id')
+                return self._handle_button_click(button_id, user_context)
+            elif response_type == 'list_reply':
+                list_id = interactive.get('list_reply', {}).get('id')
+                return self._handle_list_selection(list_id, user_context)
+            
+            return {
+                'success': False,
+                'message': "I couldn't understand your selection."
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling interactive message: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your selection."
+            }
+    
+    def _handle_command(self, command: str, from_number: str, user_context: Dict) -> Dict:
+        """Handle slash commands"""
+        try:
+            cmd = command.lower().strip()
+            
+            if cmd == '/help':
+                return self._get_help_message(user_context)
+            elif cmd == '/book':
+                return self._start_booking_flow(from_number, user_context)
+            elif cmd == '/cancel':
+                return self._cancel_current_action(user_context)
+            elif cmd == '/status':
+                return self._get_user_status(from_number, user_context)
+            elif cmd == '/workout':
+                return self._start_workout_flow(from_number, user_context)
+            elif cmd == '/assess':
+                return self._start_assessment_flow(from_number, user_context)
+            elif cmd == '/pay':
+                return self._check_payment_status(from_number, user_context)
+            else:
+                return {
+                    'success': True,
+                    'message': f"Unknown command: {cmd}\n\nAvailable commands:\n/help - Show help\n/book - Book a session\n/workout - Get workout\n/assess - Start assessment\n/status - Check status\n/pay - Payment info"
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling command: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process that command."
+            }
+    
+    def _handle_booking_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
+        """Handle booking-related intents"""
+        try:
+            extracted_data = intent_result.get('extracted_data', {})
+            
+            # Check if we have enough info to book
+            if extracted_data.get('parsed_datetime'):
+                # We have a parsed datetime, try to book
+                return {
+                    'success': True,
+                    'message': f"📅 Let me check availability for {extracted_data.get('parsed_datetime')}..."
+                }
+            else:
+                # Start booking flow
+                return self._start_booking_flow(from_number, user_context)
+                
+        except Exception as e:
+            log_error(f"Error handling booking intent: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your booking request."
+            }
+    
+    def _handle_payment_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
+        """Handle payment-related intents"""
+        try:
+            # Check outstanding payments
+            outstanding = {'has_outstanding': False, 'amount': 0}  # Default values
+            
+            # Try to get payment status
+            result = self.db.table('payment_requests').select('amount').eq(
+                'client_phone', from_number
+            ).eq('status', 'pending').execute()
+            
+            if result.data:
+                total_amount = sum(p.get('amount', 0) for p in result.data)
+                outstanding = {
+                    'has_outstanding': True,
+                    'amount': total_amount
+                }
+            
+            if outstanding.get('has_outstanding'):
+                return {
+                    'success': True,
+                    'message': f"💰 You have an outstanding balance of R{outstanding['amount']:.2f}\n\nTo pay: Contact your trainer for payment details"
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "✅ You're all paid up! No outstanding payments."
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling payment intent: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't check your payment status."
+            }
+    
+    def _handle_workout_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
+        """Handle workout-related intents"""
+        try:
+            extracted_data = intent_result.get('extracted_data', {})
+            exercises = extracted_data.get('exercises', [])
+            muscle_group = exercises[0] if exercises else 'full body'
+            
+            # Simple workout template
+            workout_text = f"""💪 *Workout Program*
+
+Here's your {muscle_group} workout:
+
+1. Warm-up - 5 minutes
+2. Main exercises - 30-40 minutes
+3. Cool down - 5 minutes
+
+Stay hydrated and focus on form! 💦
+
+Need a specific workout? Just ask!"""
+            
+            return {
+                'success': True,
+                'message': workout_text
+            }
+                
+        except Exception as e:
+            log_error(f"Error handling workout intent: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your workout request."
+            }
+    
+    def _handle_assessment_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
+        """Handle assessment-related intents"""
+        try:
+            # Check for pending assessment
+            assessments = self.assessment.get_client_assessments(
+                user_context.get('client_id')
+            )
+            
+            pending = [a for a in assessments if a['status'] == 'pending']
+            
+            if pending:
+                return {
+                    'success': True,
+                    'message': f"📋 You have a pending assessment!\n\nDue: {pending[0]['due_date']}\n\nReply 'start assessment' to begin."
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "No pending assessments. Your trainer will schedule one when needed."
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling assessment intent: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't check your assessments."
+            }
+    
+    def _handle_habit_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
+        """Handle habit tracking intents"""
+        try:
+            extracted_data = intent_result.get('extracted_data', {})
+            habit_type = extracted_data.get('habit_type')
+            habit_values = extracted_data.get('habit_values', [])
+            
+            if habit_type and habit_values:
+                value = habit_values[0] if habit_values else None
+                if value:
+                    result = self.habits.log_habit(
+                        client_id=user_context.get('client_id'),
+                        habit_type=habit_type,
+                        value=value
+                    )
+                    
+                    if result.get('success'):
+                        return {
+                            'success': True,
+                            'message': f"✅ Logged: {habit_type} - {value}\n\nGreat job staying consistent!"
+                        }
+            
+            return {
+                'success': True,
+                'message': "📊 Track your habits! Just tell me:\n• Water intake (e.g., '2 liters water')\n• Sleep (e.g., '8 hours sleep')\n• Steps (e.g., '10000 steps')\n• Workouts (e.g., 'completed workout')"
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling habit intent: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't log that habit."
+            }
+    
+    def _handle_general_query(self, text: str, user_context: Dict) -> Dict:
+        """Handle general queries with AI"""
+        try:
+            # Use Claude for general fitness advice
+            response = self.anthropic.messages.create(
+                model=Config.AI_MODEL,
+                max_tokens=500,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are Refiloe, a friendly South African fitness AI assistant. Provide helpful, encouraging fitness and health advice. Keep responses concise and practical."
+                    },
+                    {
+                        "role": "user",
+                        "content": text
+                    }
+                ]
+            )
+            
+            return {
+                'success': True,
+                'message': response.content[0].text
+            }
+            
+        except Exception as e:
+            log_error(f"Error with AI response: {str(e)}")
+            return {
+                'success': True,
+                'message': "I'm here to help with bookings, workouts, assessments, and tracking your fitness journey. What would you like to do?"
+            }
+    
+    def _get_user_context(self, phone_number: str) -> Dict:
+        """Get or create user context"""
+        try:
+            # Try to get existing client
+            result = self.db.table('clients').select('*').eq(
+                'whatsapp', phone_number
+            ).execute()
+            
+            if result.data and len(result.data) > 0:
+                client = result.data[0]
+                return {
+                    'client_id': client['id'],
+                    'trainer_id': client.get('trainer_id'),
+                    'name': client.get('name'),
+                    'is_new': False,
+                    'phone_number': phone_number
+                }
+            else:
+                # Check if it's a trainer
+                trainer_result = self.db.table('trainers').select('*').eq(
+                    'whatsapp', phone_number
+                ).execute()
+                
+                if trainer_result.data and len(trainer_result.data) > 0:
+                    trainer = trainer_result.data[0]
+                    return {
+                        'trainer_id': trainer['id'],
+                        'name': trainer.get('name'),
+                        'is_new': False,
+                        'phone_number': phone_number,
+                        'is_trainer': True
+                    }
+                
+                # New user
+                return {
+                    'phone_number': phone_number,
+                    'is_new': True
+                }
+                
+        except Exception as e:
+            log_error(f"Error getting user context: {str(e)}")
+            return {'phone_number': phone_number, 'is_new': True}
+    
+    def _log_interaction(self, phone_number: str, message_data: Dict, response: Dict):
+        """Log interaction for analytics"""
+        try:
+            self.db.table('message_logs').insert({
+                'phone_number': phone_number,
+                'message_type': message_data.get('type'),
+                'message_content': json.dumps(message_data),
+                'response': json.dumps(response),
+                'timestamp': datetime.now().isoformat()
+            }).execute()
+        except Exception as e:
+            log_error(f"Error logging interaction: {str(e)}")
+    
+    def _get_help_message(self, user_context: Dict) -> Dict:
+        """Get help message"""
+        help_text = """🏋️ *Refiloe Fitness Assistant* 🏋️
+
+Here's what I can help you with:
+
+📅 *Bookings*
+• "Book a session for tomorrow at 3pm"
+• "Show my upcoming sessions"
+• "Cancel my booking"
+
+💪 *Workouts*
+• "Give me a leg workout"
+• "Show chest exercises"
+• "I need a 30-minute workout"
+
+📊 *Assessments*
+• "Start my assessment"
+• "Check assessment status"
+
+💰 *Payments*
+• "Check my balance"
+• "Payment status"
+
+📈 *Progress Tracking*
+• "Log 2 liters water"
+• "Completed workout"
+• "8 hours sleep"
+
+*Quick Commands:*
+/book - Book a session
+/workout - Get a workout
+/assess - Start assessment
+/status - Check your status
+/help - Show this message
+
+How can I help you today?"""
+        
+        return {
+            'success': True,
+            'message': help_text
+        }
+    
+    def _start_booking_flow(self, from_number: str, user_context: Dict) -> Dict:
+        """Start the booking flow"""
+        try:
+            # Simple booking flow start
+            message = """📅 *Book a Session*
+
+When would you like to book your session?
+
+Please tell me the date and time, for example:
+• "Tomorrow at 3pm"
+• "Monday at 10am"
+• "Next Tuesday at 5pm"
+
+What works best for you?"""
+            
+            return {
+                'success': True,
+                'message': message
+            }
+            
+        except Exception as e:
+            log_error(f"Error starting booking flow: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't start the booking process."
+            }
+    
+    def _start_workout_flow(self, from_number: str, user_context: Dict) -> Dict:
+        """Start workout selection flow"""
+        return {
+            'success': True,
+            'message': "💪 *Choose Your Workout Focus*\n\n• Chest\n• Back\n• Legs\n• Shoulders\n• Arms\n• Core\n• Full Body\n\nReply with the muscle group you want to work on!",
+            'buttons': [
+                {'id': 'workout_chest', 'title': 'Chest'},
+                {'id': 'workout_legs', 'title': 'Legs'},
+                {'id': 'workout_full', 'title': 'Full Body'}
+            ]
+        }
+    
+    def _start_assessment_flow(self, from_number: str, user_context: Dict) -> Dict:
+        """Start assessment flow"""
+        try:
+            # Create new assessment
+            result = self.assessment.create_assessment(
+                trainer_id=user_context.get('trainer_id'),
+                client_id=user_context.get('client_id')
+            )
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': "📋 *Fitness Assessment Started*\n\nI'll guide you through a series of questions about your health and fitness.\n\nLet's start with your current health status.\n\n*Do you have any medical conditions?*\nReply with any conditions or 'none'"
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': "Sorry, I couldn't start the assessment."
+                }
+                
+        except Exception as e:
+            log_error(f"Error starting assessment: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't start the assessment process."
+            }
+    
+    def _check_payment_status(self, from_number: str, user_context: Dict) -> Dict:
+        """Check payment status for user"""
+        try:
+            # Get payment info
+            result = self.db.table('payment_requests').select('*').eq(
+                'client_phone', from_number
+            ).eq('status', 'pending').execute()
+            
+            if result.data:
+                total = sum([p['amount'] for p in result.data])
+                return {
+                    'success': True,
+                    'message': f"💰 *Payment Status*\n\nOutstanding: R{total:.2f}\n{len(result.data)} pending payment(s)\n\nYour trainer will send payment details soon."
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "✅ All payments up to date!"
+                }
+                
+        except Exception as e:
+            log_error(f"Error checking payment status: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't check your payment status."
+            }
+    
+    def _cancel_current_action(self, user_context: Dict) -> Dict:
+        """Cancel current action/flow"""
+        # Clear any session state
+        return {
+            'success': True,
+            'message': "❌ Action cancelled. How else can I help you?"
+        }
+    
+    def _get_user_status(self, from_number: str, user_context: Dict) -> Dict:
+        """Get comprehensive user status"""
+        try:
+            status_parts = []
+            
+            # Basic status message
+            if user_context.get('name'):
+                status_parts.append(f"Hi {user_context['name']}! 👋")
+            
+            # Get recent workout
+            if user_context.get('client_id'):
+                # Get habit streak
+                streak = self.habits.get_current_streak(user_context.get('client_id'))
+                if streak:
+                    status_parts.append(f"🔥 Current streak: {streak} days")
+            
+            if status_parts:
+                message = "📊 *Your Status*\n\n" + "\n".join(status_parts)
+            else:
+                message = "Welcome! Let's get started with your fitness journey. Try booking a session or requesting a workout!"
+            
+            return {
+                'success': True,
+                'message': message
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting user status: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't get your status."
+            }
+    
+    def _handle_button_click(self, button_id: str, user_context: Dict) -> Dict:
+        """Handle button click interactions"""
+        try:
+            if button_id.startswith('workout_'):
+                muscle_group = button_id.replace('workout_', '')
+                return self._handle_workout_intent(
+                    {'extracted_data': {'exercises': [muscle_group]}},
+                    user_context.get('phone_number'),
+                    user_context
+                )
+            elif button_id.startswith('book_'):
+                # Handle booking selection
+                slot = button_id.replace('book_', '')
+                return {
+                    'success': True,
+                    'message': f"Great! I'll book that slot for you: {slot}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': "I didn't understand that selection."
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling button click: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your selection."
+            }
+    
+    def _handle_list_selection(self, list_id: str, user_context: Dict) -> Dict:
+        """Handle list selection interactions"""
+        try:
+            # Similar to button handling but for list items
+            return self._handle_button_click(list_id, user_context)
+        except Exception as e:
+            log_error(f"Error handling list selection: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your selection."
+            }
+    
+    def _process_assessment_photo(self, message_data: Dict, user_context: Dict) -> Dict:
+        """Process assessment photo submission"""
+        try:
+            # Store photo reference
+            photo_id = message_data.get('image', {}).get('id')
+            
+            # For now, just acknowledge receipt
+            return {
+                'success': True,
+                'message': "📸 Photo received! Continue with your assessment or send another photo."
+            }
+            
+        except Exception as e:
+            log_error(f"Error processing assessment photo: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't process your photo."
+            }
 ```
 
 ## SUMMARY
 
-Fixed the import error by removing the unused `from voice_helpers import process_voice_note` import from `app.py`. The `voice_helpers.py` file contains a `VoiceProcessor` class but no `process_voice_note` function. Since this function is not used anywhere in `app.py`, the simplest fix is to remove the import statement entirely. The application should now start without the ImportError.
+Fixed the initialization error in `RefiloeService` by:
+1. Importing `setup_logger` from utils.logger
+2. Creating a logger instance in the `__init__` method
+3. Passing the correct three parameters (config, supabase_client, logger) to WhatsAppService
+4. Fixed the AI intent handler method call from `process_message` to `understand_message`
+5. Improved error handling and context extraction for both trainers and clients
+6. Fixed several other minor issues with proper parameter passing
+
+The main issue was that WhatsAppService requires three parameters but was only being given one. This has been corrected and the service should now initialize properly.
