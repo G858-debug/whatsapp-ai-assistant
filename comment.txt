@@ -1,8 +1,24 @@
-@claude @apply the remaining components. Act as multiple specialised agents to update: 
+@claude @apply my railway deployment crashed. Here are the logs: 
+File "/app/services/refiloe.py", line 9, in <module>
+    from services.assessment import EnhancedAssessmentService
+  File "/app/services/assessment.py", line 3
+    def create_default_template(self, trainer_id: str) -> str:
+IndentationError: unexpected indent
+Traceback (most recent call last):
+  File "/app/app.py", line 24, in <module>
+    from services.refiloe import RefiloeAssistant
+  File "/app/services/refiloe.py", line 9, in <module>
+    from services.assessment import EnhancedAssessmentService
+  File "/app/services/assessment.py", line 3
+    def create_default_template(self, trainer_id: str) -> str:
+IndentationError: unexpected indent
+Traceback (most recent call last):
+  File "/app/app.py", line 24, in <module>
+    from services.refiloe import RefiloeAssistant
+  File "/app/services/refiloe.py", line 9, in <module>
+    from services.assessment import EnhancedAssessmentService
+  File "/app/services/assessment.py", line 3
+    def create_default_template(self, trainer_id: str) -> str:
+IndentationError: unexpected indent
 
-Assessment module agent to: 
-- Implement assessment module fixes
-Dashboard agent to:
-- Complete dashboard features
-Error handling Agent:
-- Enhance error handling & validation
+Suggest and implement a fix

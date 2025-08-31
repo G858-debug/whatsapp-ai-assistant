@@ -1,6 +1,4 @@
 ✅ **Changes Applied:**
 - Updated services/assessment.py
-- Created routes/dashboard.py
-- Created migration supabase/migrations/20250831085302_add_dashboard_tables.sql
 
 📝 **Full Details:** See claude_response.md

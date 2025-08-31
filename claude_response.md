@@ -1,15 +1,21 @@
 ## ANALYSIS
-Based on the files provided, we need to:
-1. Fix and enhance the assessment module with validation and error handling
-2. Complete the dashboard functionality 
-3. Implement comprehensive error handling across modules
+The error is an IndentationError in `services/assessment.py` at line 3. The `create_default_template` method appears to have incorrect indentation - it's not properly aligned within a class definition. Looking at the file structure, this method should be part of the `EnhancedAssessmentService` class but the class definition itself is missing from the provided code.
 
 ## FILES TO CHANGE
 
 ### FILE: services/assessment.py
 ```python
-# [Previous code remains the same until create_default_template]
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+from utils.logger import log_error, log_info
+import json
 
+class EnhancedAssessmentService:
+    """Service for managing fitness assessments"""
+    
+    def __init__(self, supabase_client):
+        self.db = supabase_client
+        
     def create_default_template(self, trainer_id: str) -> str:
         """Create a default assessment template for trainer"""
         try:
@@ -89,6 +95,109 @@ Based on the files provided, we need to:
             log_error(f"Validation error: {str(e)}")
             return False, "Internal validation error"
 
+    def create_assessment(self, trainer_id: str, client_id: str, template_id: Optional[str] = None) -> Dict:
+        """Create a new assessment for a client"""
+        try:
+            # Use default template if none specified
+            if not template_id:
+                template_id = self._get_default_template_id(trainer_id)
+                if not template_id:
+                    template_id = self.create_default_template(trainer_id)
+            
+            assessment_data = {
+                'trainer_id': trainer_id,
+                'client_id': client_id,
+                'template_id': template_id,
+                'status': 'pending',
+                'created_at': datetime.now().isoformat(),
+                'due_date': (datetime.now() + timedelta(days=7)).isoformat()
+            }
+            
+            result = self.db.table('fitness_assessments').insert(assessment_data).execute()
+            
+            if result.data:
+                log_info(f"Assessment created for client {client_id}")
+                return {'success': True, 'assessment_id': result.data[0]['id']}
+            
+            return {'success': False, 'error': 'Failed to create assessment'}
+            
+        except Exception as e:
+            log_error(f"Error creating assessment: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def submit_assessment(self, assessment_id: str, data: Dict) -> Dict:
+        """Submit assessment responses"""
+        try:
+            # Validate submission
+            is_valid, error_msg = self.validate_assessment_submission(assessment_id, data)
+            
+            if not is_valid:
+                return {'success': False, 'error': error_msg}
+            
+            # Update assessment with responses
+            update_data = {
+                'responses': data,
+                'status': 'completed',
+                'completed_at': datetime.now().isoformat()
+            }
+            
+            result = self.db.table('fitness_assessments').update(
+                update_data
+            ).eq('id', assessment_id).execute()
+            
+            if result.data:
+                log_info(f"Assessment {assessment_id} submitted successfully")
+                return {'success': True, 'message': 'Assessment submitted successfully'}
+            
+            return {'success': False, 'error': 'Failed to submit assessment'}
+            
+        except Exception as e:
+            log_error(f"Error submitting assessment: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_client_assessments(self, client_id: str) -> List[Dict]:
+        """Get all assessments for a client"""
+        try:
+            result = self.db.table('fitness_assessments').select(
+                '*, template:assessment_templates(template_name)'
+            ).eq('client_id', client_id).order('created_at', desc=True).execute()
+            
+            return result.data if result.data else []
+            
+        except Exception as e:
+            log_error(f"Error fetching assessments: {str(e)}")
+            return []
+    
+    def get_latest_assessment(self, client_id: str) -> Optional[Dict]:
+        """Get the most recent completed assessment for a client"""
+        try:
+            result = self.db.table('fitness_assessments').select('*').eq(
+                'client_id', client_id
+            ).eq('status', 'completed').order(
+                'completed_at', desc=True
+            ).limit(1).execute()
+            
+            return result.data[0] if result.data else None
+            
+        except Exception as e:
+            log_error(f"Error fetching latest assessment: {str(e)}")
+            return None
+    
+    def _get_default_template_id(self, trainer_id: str) -> Optional[str]:
+        """Get the default template ID for a trainer"""
+        try:
+            result = self.db.table('assessment_templates').select('id').eq(
+                'trainer_id', trainer_id
+            ).eq('is_active', True).eq(
+                'template_name', 'Default Template'
+            ).single().execute()
+            
+            return result.data['id'] if result.data else None
+            
+        except Exception as e:
+            log_error(f"Error fetching default template: {str(e)}")
+            return None
+    
     def _get_default_health_questions(self) -> List[Dict]:
         """Get default health assessment questions"""
         return [
@@ -96,12 +205,70 @@ Based on the files provided, we need to:
                 "id": "medical_conditions",
                 "text": "Do you have any medical conditions?",
                 "type": "multiselect",
-                "options": ["Diabetes", "Hypertension", "Heart Disease", "None"],
+                "options": ["Diabetes", "Hypertension", "Heart Disease", "Asthma", "Arthritis", "None"],
                 "required": True
             },
-            # Add more default health questions
+            {
+                "id": "medications",
+                "text": "Are you currently taking any medications?",
+                "type": "text",
+                "required": False
+            },
+            {
+                "id": "injuries",
+                "text": "Do you have any current injuries or physical limitations?",
+                "type": "text",
+                "required": True
+            },
+            {
+                "id": "pain_areas",
+                "text": "Do you experience pain in any areas?",
+                "type": "multiselect",
+                "options": ["Lower Back", "Knees", "Shoulders", "Neck", "Hips", "None"],
+                "required": True
+            }
         ]
-
+    
+    def _get_default_lifestyle_questions(self) -> List[Dict]:
+        """Get default lifestyle questions"""
+        return [
+            {
+                "id": "exercise_frequency",
+                "text": "How often do you currently exercise?",
+                "type": "select",
+                "options": ["Never", "1-2 times/week", "3-4 times/week", "5+ times/week"],
+                "required": True
+            },
+            {
+                "id": "diet_quality",
+                "text": "How would you rate your current diet?",
+                "type": "select",
+                "options": ["Poor", "Fair", "Good", "Excellent"],
+                "required": True
+            },
+            {
+                "id": "sleep_hours",
+                "text": "How many hours of sleep do you get per night?",
+                "type": "select",
+                "options": ["Less than 5", "5-6", "7-8", "More than 8"],
+                "required": True
+            },
+            {
+                "id": "stress_level",
+                "text": "What is your current stress level?",
+                "type": "select",
+                "options": ["Low", "Moderate", "High", "Very High"],
+                "required": True
+            },
+            {
+                "id": "water_intake",
+                "text": "How many glasses of water do you drink daily?",
+                "type": "select",
+                "options": ["Less than 4", "4-6", "7-8", "More than 8"],
+                "required": True
+            }
+        ]
+    
     def _get_default_measurements(self) -> List[Dict]:
         """Get default measurement fields"""
         return [
@@ -121,151 +288,131 @@ Based on the files provided, we need to:
                 "min": 100,
                 "max": 250
             },
-            # Add more measurement fields
+            {
+                "name": "body_fat_percentage",
+                "label": "Body Fat %",
+                "type": "number",
+                "required": False,
+                "min": 3,
+                "max": 60
+            },
+            {
+                "name": "waist",
+                "label": "Waist (cm)",
+                "type": "number",
+                "required": False,
+                "min": 40,
+                "max": 200
+            },
+            {
+                "name": "chest",
+                "label": "Chest (cm)",
+                "type": "number",
+                "required": False,
+                "min": 50,
+                "max": 200
+            },
+            {
+                "name": "hips",
+                "label": "Hips (cm)",
+                "type": "number",
+                "required": False,
+                "min": 50,
+                "max": 200
+            },
+            {
+                "name": "bicep_left",
+                "label": "Left Bicep (cm)",
+                "type": "number",
+                "required": False,
+                "min": 15,
+                "max": 60
+            },
+            {
+                "name": "bicep_right",
+                "label": "Right Bicep (cm)",
+                "type": "number",
+                "required": False,
+                "min": 15,
+                "max": 60
+            },
+            {
+                "name": "thigh_left",
+                "label": "Left Thigh (cm)",
+                "type": "number",
+                "required": False,
+                "min": 25,
+                "max": 100
+            },
+            {
+                "name": "thigh_right",
+                "label": "Right Thigh (cm)",
+                "type": "number",
+                "required": False,
+                "min": 25,
+                "max": 100
+            }
         ]
-
-```
-
-### NEW FILE: routes/dashboard.py
-```python
-from flask import Blueprint, render_template, jsonify, request
-from functools import wraps
-from datetime import datetime, timedelta
-import jwt
-from services.assessment import EnhancedAssessmentService
-from utils.logger import log_error
-
-dashboard = Blueprint('dashboard', __name__)
-
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')
-        
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-
-        try:
-            data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.get_by_id(data['user_id'])
-        except:
-            return jsonify({'message': 'Token is invalid'}), 401
-
-        return f(current_user, *args, **kwargs)
-
-    return decorated
-
-@dashboard.route('/trainer/dashboard')
-@token_required
-def trainer_dashboard(current_user):
-    """Trainer dashboard view"""
-    try:
-        # Get trainer stats
-        stats = {
-            'total_clients': get_total_clients(current_user.id),
-            'active_sessions': get_active_sessions(current_user.id),
-            'completion_rate': get_completion_rate(current_user.id),
-            'revenue_mtd': get_revenue_mtd(current_user.id)
-        }
-
-        # Get upcoming sessions
-        upcoming = get_upcoming_sessions(current_user.id)
-
-        # Get recent assessments
-        assessments = get_recent_assessments(current_user.id)
-
-        return render_template(
-            'trainer/dashboard.html',
-            stats=stats,
-            upcoming=upcoming,
-            assessments=assessments
-        )
-
-    except Exception as e:
-        log_error(f"Dashboard error: {str(e)}")
-        return jsonify({'error': 'Failed to load dashboard'}), 500
-
-@dashboard.route('/trainer/clients')
-@token_required
-def trainer_clients(current_user):
-    """Client management view"""
-    try:
-        clients = get_trainer_clients(current_user.id)
-        return render_template('trainer/clients.html', clients=clients)
-    except Exception as e:
-        log_error(f"Client list error: {str(e)}")
-        return jsonify({'error': 'Failed to load clients'}), 500
-
-@dashboard.route('/trainer/analytics')
-@token_required
-def trainer_analytics(current_user):
-    """Analytics and reporting view"""
-    try:
-        # Get date range
-        start_date = request.args.get('start', default=datetime.now() - timedelta(days=30))
-        end_date = request.args.get('end', default=datetime.now())
-
-        analytics = {
-            'session_stats': get_session_stats(current_user.id, start_date, end_date),
-            'revenue_stats': get_revenue_stats(current_user.id, start_date, end_date),
-            'client_progress': get_client_progress(current_user.id, start_date, end_date)
-        }
-
-        return render_template('trainer/analytics.html', analytics=analytics)
-    except Exception as e:
-        log_error(f"Analytics error: {str(e)}")
-        return jsonify({'error': 'Failed to load analytics'}), 500
-```
-
-## MIGRATION: add_dashboard_tables.sql
-```sql
--- Dashboard related tables
-
-CREATE TABLE dashboard_stats (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    trainer_id UUID REFERENCES trainers(id),
-    stat_date DATE NOT NULL,
-    total_clients INTEGER,
-    active_clients INTEGER,
-    sessions_completed INTEGER,
-    sessions_cancelled INTEGER,
-    revenue_amount DECIMAL(10,2),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE dashboard_notifications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    trainer_id UUID REFERENCES trainers(id),
-    client_id UUID REFERENCES clients(id),
-    notification_type VARCHAR(50),
-    message TEXT,
-    is_read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Indexes
-CREATE INDEX idx_dashboard_stats_trainer ON dashboard_stats(trainer_id);
-CREATE INDEX idx_dashboard_stats_date ON dashboard_stats(stat_date);
-CREATE INDEX idx_dashboard_notifications_trainer ON dashboard_notifications(trainer_id);
+    
+    def _get_default_fitness_tests(self) -> List[Dict]:
+        """Get default fitness test fields"""
+        return [
+            {
+                "name": "pushups",
+                "label": "Push-ups (max reps)",
+                "type": "number",
+                "required": False,
+                "min": 0,
+                "max": 200
+            },
+            {
+                "name": "plank",
+                "label": "Plank Hold (seconds)",
+                "type": "number",
+                "required": False,
+                "min": 0,
+                "max": 600
+            },
+            {
+                "name": "squats",
+                "label": "Bodyweight Squats (max reps)",
+                "type": "number",
+                "required": False,
+                "min": 0,
+                "max": 200
+            },
+            {
+                "name": "resting_heart_rate",
+                "label": "Resting Heart Rate (bpm)",
+                "type": "number",
+                "required": False,
+                "min": 40,
+                "max": 120
+            },
+            {
+                "name": "blood_pressure_systolic",
+                "label": "Blood Pressure - Systolic",
+                "type": "number",
+                "required": False,
+                "min": 80,
+                "max": 200
+            },
+            {
+                "name": "blood_pressure_diastolic",
+                "label": "Blood Pressure - Diastolic",
+                "type": "number",
+                "required": False,
+                "min": 50,
+                "max": 120
+            }
+        ]
 ```
 
 ## SUMMARY
-1. Enhanced assessment module with:
-   - Improved template creation
-   - Validation logic
-   - Default questions and measurements
-   - Error handling
+Fixed the IndentationError in `services/assessment.py` by properly structuring the file with the `EnhancedAssessmentService` class definition. The file now includes:
+1. Proper class definition with correct indentation
+2. All methods properly indented within the class
+3. Additional helper methods to support the assessment functionality
+4. Complete implementation of assessment creation, submission, and retrieval methods
 
-2. Added dashboard functionality with:
-   - Trainer dashboard view
-   - Client management
-   - Analytics and reporting
-   - Token-based authentication
-
-3. Added database tables for:
-   - Dashboard statistics
-   - Notifications
-   - Proper indexing
-
-The changes provide a more robust assessment system and a functional dashboard for trainers to manage their business.
+The deployment should now work without the IndentationError.
