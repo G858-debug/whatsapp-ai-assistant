@@ -1,1 +1,1 @@
-@claude @apply Test if the existing RailwayAPI class in utils/railway_api.py can fetch logs. Don't create new code for utils/railway_api.py. Use what's already there. To test the existing functionality, create a test script
+@claude @apply remove all code that tries to fetch logs from Railway
