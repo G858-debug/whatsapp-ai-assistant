@@ -3,7 +3,7 @@ import requests
 import time
 from typing import Dict, Optional, List
 from datetime import datetime, timedelta
-from utils.logger import log_error, log_info
+from utils.logger import log_error, log_info, log_warning
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
