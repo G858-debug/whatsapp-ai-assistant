@@ -1,1 +1,6 @@
-@claude @apply could you go through the entire codebase and try to find parts that could cause errors
+@claude @apply deploy crashed again. Here are the logs: 
+ImportError: cannot import name 'process_voice_note' from 'voice_helpers' (/app/voice_helpers.py)
+Traceback (most recent call last):
+  File "/app/app.py", line 33, in <module>
+    from voice_helpers import process_voice_note
+ImportError: cannot import name 'process_voice_note' from 'voice_helpers' (/app/voice_helpers.py)

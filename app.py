@@ -30,7 +30,7 @@ from utils.input_sanitizer import InputSanitizer
 from config import Config
 from payment_manager import PaymentManager
 from payfast_webhook import PayFastWebhookHandler
-from voice_helpers import process_voice_note
+# Removed the problematic import: from voice_helpers import process_voice_note
 
 # Load environment variables
 load_dotenv()
