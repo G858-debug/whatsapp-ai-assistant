@@ -1,42 +1,48 @@
 # Core Framework
-Flask==3.0.0
-gunicorn==21.2.0
+Flask==2.3.3
+python-dotenv==1.0.0
 
 # WhatsApp & Communication
 requests==2.31.0
-twilio==8.10.0
-
-# AI & NLP
-anthropic==0.39.0
+twilio==8.9.0
 
 # Database
-supabase==2.3.0
+supabase==1.2.0
 
-# Scheduling & Background Tasks
+# AI & NLP
+anthropic==0.7.0
+
+# Scheduling
 APScheduler==3.10.4
 
-# Payment Processing
-# PayFast uses built-in libraries (hashlib, urllib)
-
 # Utilities
-python-dotenv==1.0.0
 pytz==2023.3
-
-# Security & Validation
-cryptography==41.0.7
-
-# Logging & Monitoring
-colorlog==6.8.0
-
-# Data Processing
-pandas==2.1.4
-numpy==1.26.2
-
-# HTTP & API
-urllib3==2.1.0
-
-# Date & Time
 python-dateutil==2.8.2
 
-# Environment & Config
-python-decouple==3.8
+# Logging & Monitoring
+colorlog==6.7.0
+
+# Payment Processing
+# Note: PayFast doesn't have an official Python SDK
+# Using requests for API calls
+
+# Data Processing
+pandas==2.1.1
+numpy==1.24.3
+
+# Security
+cryptography==41.0.4
+
+# Analytics
+user-agents==2.2.0
+
+# Voice Processing (optional, for voice note support)
+# pydub==0.25.1
+# speech_recognition==3.10.0
+
+# Testing (dev only)
+pytest==7.4.2
+pytest-cov==4.1.0
+
+# Production Server
+gunicorn==21.2.0

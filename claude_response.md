@@ -1,411 +1,562 @@
 ## ANALYSIS
-The error shows that `scheduler.py` is trying to import `HabitService` from `services.habits`, but the actual class name in `habits.py` is `HabitTrackingService`. This is a simple naming mismatch that needs to be fixed in the import statement.
+The error shows that the `user_agents` module is not installed. This module is being imported in `services/analytics.py` but is not listed in the requirements file. We need to add this dependency to the requirements.txt file.
 
 ## FILES TO CHANGE
 
-### FILE: services/scheduler.py
+### FILE: requirements.txt
 ```python
-from typing import Dict, List, Optional
-from datetime import datetime, timedelta
-import pytz
-from utils.logger import log_error, log_info
-from config import Config
+# Core Framework
+Flask==2.3.3
+python-dotenv==1.0.0
 
-class SchedulerService:
-    """Service for handling scheduled tasks and reminders"""
+# WhatsApp & Communication
+requests==2.31.0
+twilio==8.9.0
+
+# Database
+supabase==1.2.0
+
+# AI & NLP
+anthropic==0.7.0
+
+# Scheduling
+APScheduler==3.10.4
+
+# Utilities
+pytz==2023.3
+python-dateutil==2.8.2
+
+# Logging & Monitoring
+colorlog==6.7.0
+
+# Payment Processing
+# Note: PayFast doesn't have an official Python SDK
+# Using requests for API calls
+
+# Data Processing
+pandas==2.1.1
+numpy==1.24.3
+
+# Security
+cryptography==41.0.4
+
+# Analytics
+user-agents==2.2.0
+
+# Voice Processing (optional, for voice note support)
+# pydub==0.25.1
+# speech_recognition==3.10.0
+
+# Testing (dev only)
+pytest==7.4.2
+pytest-cov==4.1.0
+
+# Production Server
+gunicorn==21.2.0
+```
+
+### FILE: services/analytics.py
+```python
+from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+from utils.logger import log_error, log_info
+import json
+import pytz
+from collections import defaultdict, Counter
+import pandas as pd
+import numpy as np
+import user_agents
+
+class AnalyticsService:
+    """Service for tracking and analyzing user behavior and system performance"""
     
-    def __init__(self, supabase_client, whatsapp_service):
+    def __init__(self, supabase_client):
         self.db = supabase_client
-        self.whatsapp = whatsapp_service
-        self.timezone = pytz.timezone(Config.TIMEZONE)
+        self.timezone = pytz.timezone('Africa/Johannesburg')
         
-        # Import here to avoid circular imports
-        from services.habits import HabitTrackingService  # FIXED: Changed from HabitService to HabitTrackingService
-        self.habits = HabitTrackingService(supabase_client)
-    
-    def check_and_send_reminders(self) -> Dict:
-        """Check for and send any pending reminders"""
+    def track_event(self, event_type: str, user_id: str, user_type: str, 
+                   metadata: Dict = None, user_agent_string: str = None) -> bool:
+        """Track a user event for analytics"""
         try:
-            now = datetime.now(self.timezone)
-            results = {
-                'session_reminders': 0,
-                'payment_reminders': 0,
-                'assessment_reminders': 0,
-                'habit_reminders': 0,
-                'errors': []
-            }
+            # Parse user agent if provided
+            device_info = {}
+            if user_agent_string:
+                ua = user_agents.parse(user_agent_string)
+                device_info = {
+                    'is_mobile': ua.is_mobile,
+                    'is_tablet': ua.is_tablet,
+                    'is_pc': ua.is_pc,
+                    'is_bot': ua.is_bot,
+                    'browser': ua.browser.family if ua.browser else None,
+                    'os': ua.os.family if ua.os else None,
+                    'device': ua.device.family if ua.device else None
+                }
             
-            # Session reminders (24 hours before)
-            session_count = self._send_session_reminders(now)
-            results['session_reminders'] = session_count
-            
-            # Payment reminders (overdue payments)
-            payment_count = self._send_payment_reminders(now)
-            results['payment_reminders'] = payment_count
-            
-            # Assessment reminders
-            assessment_count = self._send_assessment_reminders(now)
-            results['assessment_reminders'] = assessment_count
-            
-            # Habit tracking reminders
-            habit_count = self._send_habit_reminders(now)
-            results['habit_reminders'] = habit_count
-            
-            log_info(f"Reminders sent: {results}")
-            return results
-            
-        except Exception as e:
-            log_error(f"Error in check_and_send_reminders: {str(e)}")
-            return {'error': str(e)}
-    
-    def _send_session_reminders(self, now: datetime) -> int:
-        """Send reminders for upcoming sessions"""
-        try:
-            # Find sessions happening in the next 24 hours
-            tomorrow = now + timedelta(days=1)
-            
-            sessions = self.db.table('bookings').select(
-                '*, client:clients(name, phone_number)'
-            ).eq('status', 'confirmed').gte(
-                'session_date', now.date().isoformat()
-            ).lte(
-                'session_date', tomorrow.date().isoformat()
-            ).execute()
-            
-            count = 0
-            for session in sessions.data:
-                # Check if reminder already sent
-                if session.get('reminder_sent'):
-                    continue
-                
-                # Parse session time
-                session_datetime = datetime.fromisoformat(
-                    f"{session['session_date']}T{session['session_time']}"
-                ).replace(tzinfo=self.timezone)
-                
-                # Check if within 24-hour window
-                hours_until = (session_datetime - now).total_seconds() / 3600
-                
-                if 20 <= hours_until <= 24:
-                    # Send reminder
-                    client = session['client']
-                    message = (
-                        f"🏋️ Reminder: You have a training session tomorrow!\n\n"
-                        f"📅 Date: {session['session_date']}\n"
-                        f"⏰ Time: {session['session_time']}\n\n"
-                        f"Reply CANCEL if you need to reschedule.\n"
-                        f"Looking forward to seeing you! 💪"
-                    )
-                    
-                    result = self.whatsapp.send_message(
-                        client['phone_number'],
-                        message
-                    )
-                    
-                    if result['success']:
-                        # Mark reminder as sent
-                        self.db.table('bookings').update({
-                            'reminder_sent': True,
-                            'reminder_sent_at': now.isoformat()
-                        }).eq('id', session['id']).execute()
-                        count += 1
-            
-            return count
-            
-        except Exception as e:
-            log_error(f"Error sending session reminders: {str(e)}")
-            return 0
-    
-    def _send_payment_reminders(self, now: datetime) -> int:
-        """Send reminders for overdue payments"""
-        try:
-            # Find overdue payments
-            overdue_date = (now - timedelta(days=Config.PAYMENT_OVERDUE_DAYS)).date()
-            
-            payments = self.db.table('payments').select(
-                '*, client:clients(name, phone_number)'
-            ).eq('status', 'pending').lte(
-                'due_date', overdue_date.isoformat()
-            ).execute()
-            
-            count = 0
-            for payment in payments.data:
-                # Check if reminder was sent recently (within 3 days)
-                if payment.get('last_reminder_sent'):
-                    last_reminder = datetime.fromisoformat(payment['last_reminder_sent'])
-                    if (now - last_reminder).days < 3:
-                        continue
-                
-                client = payment['client']
-                message = (
-                    f"💳 Payment Reminder\n\n"
-                    f"Hi {client['name']}, you have an outstanding payment:\n\n"
-                    f"Amount: R{payment['amount']:.2f}\n"
-                    f"Due Date: {payment['due_date']}\n\n"
-                    f"Please make payment at your earliest convenience.\n"
-                    f"Reply PAID once payment is complete."
-                )
-                
-                result = self.whatsapp.send_message(
-                    client['phone_number'],
-                    message
-                )
-                
-                if result['success']:
-                    # Update last reminder sent
-                    self.db.table('payments').update({
-                        'last_reminder_sent': now.isoformat()
-                    }).eq('id', payment['id']).execute()
-                    count += 1
-            
-            return count
-            
-        except Exception as e:
-            log_error(f"Error sending payment reminders: {str(e)}")
-            return 0
-    
-    def _send_assessment_reminders(self, now: datetime) -> int:
-        """Send reminders for pending assessments"""
-        try:
-            # Find assessments due soon
-            assessments = self.db.table('fitness_assessments').select(
-                '*, client:clients(name, phone_number)'
-            ).eq('status', 'pending').lte(
-                'due_date', (now + timedelta(days=2)).date().isoformat()
-            ).execute()
-            
-            count = 0
-            for assessment in assessments.data:
-                # Check if reminder sent
-                if assessment.get('reminder_sent'):
-                    continue
-                
-                client = assessment['client']
-                message = (
-                    f"📋 Assessment Reminder\n\n"
-                    f"Hi {client['name']}, please complete your fitness assessment.\n\n"
-                    f"Due: {assessment['due_date']}\n\n"
-                    f"Reply ASSESSMENT to start or visit your dashboard."
-                )
-                
-                result = self.whatsapp.send_message(
-                    client['phone_number'],
-                    message
-                )
-                
-                if result['success']:
-                    self.db.table('fitness_assessments').update({
-                        'reminder_sent': True
-                    }).eq('id', assessment['id']).execute()
-                    count += 1
-            
-            return count
-            
-        except Exception as e:
-            log_error(f"Error sending assessment reminders: {str(e)}")
-            return 0
-    
-    def _send_habit_reminders(self, now: datetime) -> int:
-        """Send daily habit tracking reminders"""
-        try:
-            # Only send at specific times (e.g., 8 AM and 8 PM)
-            current_hour = now.hour
-            if current_hour not in [8, 20]:
-                return 0
-            
-            # Get active clients who haven't logged habits today
-            today = now.date().isoformat()
-            
-            # Get all active clients
-            clients = self.db.table('clients').select('*').eq(
-                'status', 'active'
-            ).execute()
-            
-            count = 0
-            for client in clients.data:
-                # Check if they've logged any habits today
-                habits_today = self.db.table('habit_tracking').select('id').eq(
-                    'client_id', client['id']
-                ).eq('date', today).execute()
-                
-                if not habits_today.data:
-                    # Check their current streak
-                    streak = self.habits.get_current_streak(client['id'])
-                    
-                    if current_hour == 8:
-                        message = (
-                            f"🌅 Good morning {client['name']}!\n\n"
-                            f"Start your day strong! Remember to:\n"
-                            f"💧 Stay hydrated\n"
-                            f"🏃 Get your steps in\n"
-                            f"💪 Complete your workout\n\n"
-                        )
-                    else:  # 8 PM
-                        message = (
-                            f"🌙 Evening check-in!\n\n"
-                            f"Don't forget to log your habits for today:\n"
-                            f"💧 Water intake\n"
-                            f"😴 Sleep hours\n"
-                            f"🏃 Steps\n"
-                            f"💪 Workout status\n\n"
-                            f"Reply with your updates!\n"
-                        )
-                    
-                    if streak > 0:
-                        message += f"\n🔥 Current streak: {streak} days! Keep it up!"
-                    
-                    result = self.whatsapp.send_message(
-                        client['phone_number'],
-                        message
-                    )
-                    
-                    if result['success']:
-                        count += 1
-                        
-                        # Log that reminder was sent
-                        self.db.table('reminder_log').insert({
-                            'client_id': client['id'],
-                            'reminder_type': 'habit_tracking',
-                            'sent_at': now.isoformat()
-                        }).execute()
-            
-            return count
-            
-        except Exception as e:
-            log_error(f"Error sending habit reminders: {str(e)}")
-            return 0
-    
-    def schedule_message(self, recipient: str, message: str, send_at: datetime) -> Dict:
-        """Schedule a message to be sent at a specific time"""
-        try:
-            scheduled_data = {
-                'recipient': recipient,
-                'message': message,
-                'scheduled_for': send_at.isoformat(),
-                'status': 'pending',
+            event_data = {
+                'event_type': event_type,
+                'user_id': user_id,
+                'user_type': user_type,
+                'metadata': metadata or {},
+                'device_info': device_info,
+                'timestamp': datetime.now(self.timezone).isoformat(),
                 'created_at': datetime.now().isoformat()
             }
             
-            result = self.db.table('scheduled_messages').insert(scheduled_data).execute()
-            
-            if result.data:
-                return {
-                    'success': True,
-                    'scheduled_id': result.data[0]['id'],
-                    'send_at': send_at.isoformat()
-                }
-            
-            return {'success': False, 'error': 'Failed to schedule message'}
+            result = self.db.table('analytics_events').insert(event_data).execute()
+            return bool(result.data)
             
         except Exception as e:
-            log_error(f"Error scheduling message: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            log_error(f"Error tracking event: {str(e)}")
+            return False
     
-    def process_scheduled_messages(self) -> Dict:
-        """Process and send any scheduled messages that are due"""
+    def get_trainer_dashboard_metrics(self, trainer_id: str, 
+                                     period_days: int = 30) -> Dict:
+        """Get comprehensive dashboard metrics for a trainer"""
         try:
-            now = datetime.now(self.timezone)
+            end_date = datetime.now(self.timezone)
+            start_date = end_date - timedelta(days=period_days)
             
-            # Get pending messages scheduled for now or earlier
-            messages = self.db.table('scheduled_messages').select('*').eq(
-                'status', 'pending'
-            ).lte('scheduled_for', now.isoformat()).execute()
-            
-            sent_count = 0
-            failed_count = 0
-            
-            for msg in messages.data:
-                result = self.whatsapp.send_message(
-                    msg['recipient'],
-                    msg['message']
-                )
-                
-                if result['success']:
-                    # Mark as sent
-                    self.db.table('scheduled_messages').update({
-                        'status': 'sent',
-                        'sent_at': now.isoformat()
-                    }).eq('id', msg['id']).execute()
-                    sent_count += 1
-                else:
-                    # Mark as failed
-                    self.db.table('scheduled_messages').update({
-                        'status': 'failed',
-                        'error': result.get('error', 'Unknown error')
-                    }).eq('id', msg['id']).execute()
-                    failed_count += 1
-            
-            return {
-                'success': True,
-                'sent': sent_count,
-                'failed': failed_count
+            metrics = {
+                'overview': self._get_overview_metrics(trainer_id, start_date, end_date),
+                'revenue': self._get_revenue_metrics(trainer_id, start_date, end_date),
+                'clients': self._get_client_metrics(trainer_id, start_date, end_date),
+                'sessions': self._get_session_metrics(trainer_id, start_date, end_date),
+                'engagement': self._get_engagement_metrics(trainer_id, start_date, end_date),
+                'trends': self._get_trend_data(trainer_id, start_date, end_date)
             }
             
-        except Exception as e:
-            log_error(f"Error processing scheduled messages: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
-    def get_upcoming_sessions(self, trainer_id: str, days: int = 7) -> List[Dict]:
-        """Get upcoming sessions for a trainer"""
-        try:
-            start_date = datetime.now(self.timezone).date()
-            end_date = start_date + timedelta(days=days)
+            return metrics
             
-            sessions = self.db.table('bookings').select(
-                '*, client:clients(name, phone_number)'
-            ).eq('trainer_id', trainer_id).eq(
-                'status', 'confirmed'
-            ).gte('session_date', start_date.isoformat()).lte(
-                'session_date', end_date.isoformat()
-            ).order('session_date', desc=False).order(
-                'session_time', desc=False
+        except Exception as e:
+            log_error(f"Error getting dashboard metrics: {str(e)}")
+            return {}
+    
+    def _get_overview_metrics(self, trainer_id: str, start_date: datetime, 
+                             end_date: datetime) -> Dict:
+        """Get overview metrics"""
+        try:
+            # Total active clients
+            active_clients = self.db.table('clients').select('id').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'active').execute()
+            
+            # Sessions this period
+            sessions = self.db.table('bookings').select('*').eq(
+                'trainer_id', trainer_id
+            ).gte('session_date', start_date.date().isoformat()).lte(
+                'session_date', end_date.date().isoformat()
             ).execute()
             
-            return sessions.data if sessions.data else []
+            completed_sessions = [s for s in sessions.data if s.get('status') == 'completed']
             
-        except Exception as e:
-            log_error(f"Error getting upcoming sessions: {str(e)}")
-            return []
-    
-    def send_bulk_message(self, trainer_id: str, message: str, client_filter: Optional[Dict] = None) -> Dict:
-        """Send a bulk message to multiple clients"""
-        try:
-            # Get clients based on filter
-            query = self.db.table('clients').select('*').eq('trainer_id', trainer_id)
+            # Revenue this period
+            payments = self.db.table('payments').select('amount').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'completed').gte(
+                'payment_date', start_date.isoformat()
+            ).lte('payment_date', end_date.isoformat()).execute()
             
-            if client_filter:
-                if 'status' in client_filter:
-                    query = query.eq('status', client_filter['status'])
-                if 'package_type' in client_filter:
-                    query = query.eq('package_type', client_filter['package_type'])
-            
-            clients = query.execute()
-            
-            sent_count = 0
-            failed_count = 0
-            
-            for client in clients.data:
-                result = self.whatsapp.send_message(
-                    client['phone_number'],
-                    message
-                )
-                
-                if result['success']:
-                    sent_count += 1
-                else:
-                    failed_count += 1
+            total_revenue = sum(p['amount'] for p in payments.data) if payments.data else 0
             
             return {
-                'success': True,
-                'sent': sent_count,
-                'failed': failed_count,
-                'total': len(clients.data)
+                'active_clients': len(active_clients.data) if active_clients.data else 0,
+                'total_sessions': len(sessions.data) if sessions.data else 0,
+                'completed_sessions': len(completed_sessions),
+                'completion_rate': (len(completed_sessions) / len(sessions.data) * 100) if sessions.data else 0,
+                'total_revenue': total_revenue,
+                'average_session_value': total_revenue / len(completed_sessions) if completed_sessions else 0
             }
             
         except Exception as e:
-            log_error(f"Error sending bulk message: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            log_error(f"Error getting overview metrics: {str(e)}")
+            return {}
+    
+    def _get_revenue_metrics(self, trainer_id: str, start_date: datetime, 
+                            end_date: datetime) -> Dict:
+        """Get revenue metrics"""
+        try:
+            # Get all payments
+            payments = self.db.table('payments').select('*').eq(
+                'trainer_id', trainer_id
+            ).gte('payment_date', start_date.isoformat()).lte(
+                'payment_date', end_date.isoformat()
+            ).execute()
+            
+            if not payments.data:
+                return {
+                    'total': 0,
+                    'by_status': {},
+                    'by_type': {},
+                    'outstanding': 0,
+                    'growth_rate': 0
+                }
+            
+            # Group by status
+            by_status = defaultdict(float)
+            by_type = defaultdict(float)
+            
+            for payment in payments.data:
+                by_status[payment.get('status', 'unknown')] += payment.get('amount', 0)
+                by_type[payment.get('payment_type', 'unknown')] += payment.get('amount', 0)
+            
+            # Calculate growth rate
+            mid_date = start_date + (end_date - start_date) / 2
+            first_half = sum(p['amount'] for p in payments.data 
+                           if datetime.fromisoformat(p['payment_date']) < mid_date)
+            second_half = sum(p['amount'] for p in payments.data 
+                            if datetime.fromisoformat(p['payment_date']) >= mid_date)
+            
+            growth_rate = ((second_half - first_half) / first_half * 100) if first_half > 0 else 0
+            
+            return {
+                'total': sum(p['amount'] for p in payments.data if p.get('status') == 'completed'),
+                'by_status': dict(by_status),
+                'by_type': dict(by_type),
+                'outstanding': by_status.get('pending', 0) + by_status.get('overdue', 0),
+                'growth_rate': round(growth_rate, 2)
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting revenue metrics: {str(e)}")
+            return {}
+    
+    def _get_client_metrics(self, trainer_id: str, start_date: datetime, 
+                           end_date: datetime) -> Dict:
+        """Get client metrics"""
+        try:
+            # Get all clients
+            clients = self.db.table('clients').select('*').eq(
+                'trainer_id', trainer_id
+            ).execute()
+            
+            if not clients.data:
+                return {
+                    'total': 0,
+                    'new_this_period': 0,
+                    'retention_rate': 0,
+                    'by_status': {},
+                    'by_package': {}
+                }
+            
+            # New clients this period
+            new_clients = [c for c in clients.data 
+                          if datetime.fromisoformat(c['created_at']) >= start_date]
+            
+            # Group by status
+            by_status = Counter(c.get('status', 'unknown') for c in clients.data)
+            
+            # Group by package
+            by_package = Counter(c.get('current_package', 'none') for c in clients.data)
+            
+            # Calculate retention (clients with bookings in both halves of period)
+            mid_date = start_date + (end_date - start_date) / 2
+            
+            bookings = self.db.table('bookings').select('client_id', 'session_date').eq(
+                'trainer_id', trainer_id
+            ).gte('session_date', start_date.date().isoformat()).lte(
+                'session_date', end_date.date().isoformat()
+            ).execute()
+            
+            if bookings.data:
+                first_half_clients = set(b['client_id'] for b in bookings.data 
+                                        if datetime.fromisoformat(b['session_date']).date() < mid_date.date())
+                second_half_clients = set(b['client_id'] for b in bookings.data 
+                                         if datetime.fromisoformat(b['session_date']).date() >= mid_date.date())
+                
+                retained = len(first_half_clients & second_half_clients)
+                retention_rate = (retained / len(first_half_clients) * 100) if first_half_clients else 0
+            else:
+                retention_rate = 0
+            
+            return {
+                'total': len(clients.data),
+                'new_this_period': len(new_clients),
+                'retention_rate': round(retention_rate, 2),
+                'by_status': dict(by_status),
+                'by_package': dict(by_package)
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting client metrics: {str(e)}")
+            return {}
+    
+    def _get_session_metrics(self, trainer_id: str, start_date: datetime, 
+                            end_date: datetime) -> Dict:
+        """Get session metrics"""
+        try:
+            # Get all sessions
+            sessions = self.db.table('bookings').select('*').eq(
+                'trainer_id', trainer_id
+            ).gte('session_date', start_date.date().isoformat()).lte(
+                'session_date', end_date.date().isoformat()
+            ).execute()
+            
+            if not sessions.data:
+                return {
+                    'total': 0,
+                    'by_status': {},
+                    'by_type': {},
+                    'popular_times': [],
+                    'cancellation_rate': 0
+                }
+            
+            # Group by status
+            by_status = Counter(s.get('status', 'unknown') for s in sessions.data)
+            
+            # Group by type
+            by_type = Counter(s.get('session_type', 'unknown') for s in sessions.data)
+            
+            # Popular times
+            time_counts = Counter()
+            for session in sessions.data:
+                if 'session_time' in session:
+                    hour = datetime.fromisoformat(session['session_time']).hour
+                    time_counts[f"{hour:02d}:00"] += 1
+            
+            popular_times = [{'time': time, 'count': count} 
+                           for time, count in time_counts.most_common(5)]
+            
+            # Cancellation rate
+            cancelled = by_status.get('cancelled', 0)
+            cancellation_rate = (cancelled / len(sessions.data) * 100) if sessions.data else 0
+            
+            return {
+                'total': len(sessions.data),
+                'by_status': dict(by_status),
+                'by_type': dict(by_type),
+                'popular_times': popular_times,
+                'cancellation_rate': round(cancellation_rate, 2)
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting session metrics: {str(e)}")
+            return {}
+    
+    def _get_engagement_metrics(self, trainer_id: str, start_date: datetime, 
+                               end_date: datetime) -> Dict:
+        """Get engagement metrics"""
+        try:
+            # Get message interactions
+            events = self.db.table('analytics_events').select('*').eq(
+                'user_type', 'client'
+            ).gte('timestamp', start_date.isoformat()).lte(
+                'timestamp', end_date.isoformat()
+            ).execute()
+            
+            if not events.data:
+                return {
+                    'total_interactions': 0,
+                    'unique_users': 0,
+                    'avg_interactions_per_user': 0,
+                    'most_used_features': []
+                }
+            
+            # Filter for this trainer's clients
+            clients = self.db.table('clients').select('id').eq(
+                'trainer_id', trainer_id
+            ).execute()
+            
+            client_ids = {c['id'] for c in clients.data} if clients.data else set()
+            
+            trainer_events = [e for e in events.data if e.get('user_id') in client_ids]
+            
+            if not trainer_events:
+                return {
+                    'total_interactions': 0,
+                    'unique_users': 0,
+                    'avg_interactions_per_user': 0,
+                    'most_used_features': []
+                }
+            
+            # Calculate metrics
+            unique_users = len(set(e['user_id'] for e in trainer_events))
+            feature_counts = Counter(e.get('event_type', 'unknown') for e in trainer_events)
+            
+            return {
+                'total_interactions': len(trainer_events),
+                'unique_users': unique_users,
+                'avg_interactions_per_user': round(len(trainer_events) / unique_users, 2) if unique_users > 0 else 0,
+                'most_used_features': [
+                    {'feature': feature, 'count': count}
+                    for feature, count in feature_counts.most_common(5)
+                ]
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting engagement metrics: {str(e)}")
+            return {}
+    
+    def _get_trend_data(self, trainer_id: str, start_date: datetime, 
+                       end_date: datetime) -> Dict:
+        """Get trend data for charts"""
+        try:
+            # Daily revenue trend
+            payments = self.db.table('payments').select('amount', 'payment_date').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'completed').gte(
+                'payment_date', start_date.isoformat()
+            ).lte('payment_date', end_date.isoformat()).execute()
+            
+            # Daily sessions trend
+            sessions = self.db.table('bookings').select('session_date', 'status').eq(
+                'trainer_id', trainer_id
+            ).gte('session_date', start_date.date().isoformat()).lte(
+                'session_date', end_date.date().isoformat()
+            ).execute()
+            
+            # Create daily aggregates
+            days = pd.date_range(start=start_date.date(), end=end_date.date(), freq='D')
+            
+            revenue_by_day = defaultdict(float)
+            sessions_by_day = defaultdict(int)
+            
+            for payment in (payments.data or []):
+                day = datetime.fromisoformat(payment['payment_date']).date()
+                revenue_by_day[day.isoformat()] += payment['amount']
+            
+            for session in (sessions.data or []):
+                if session.get('status') == 'completed':
+                    sessions_by_day[session['session_date']] += 1
+            
+            # Format for charts
+            revenue_trend = [
+                {
+                    'date': day.isoformat(),
+                    'revenue': revenue_by_day.get(day.isoformat(), 0)
+                }
+                for day in days
+            ]
+            
+            session_trend = [
+                {
+                    'date': day.isoformat(),
+                    'sessions': sessions_by_day.get(day.isoformat(), 0)
+                }
+                for day in days
+            ]
+            
+            return {
+                'revenue': revenue_trend,
+                'sessions': session_trend
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting trend data: {str(e)}")
+            return {'revenue': [], 'sessions': []}
+    
+    def generate_client_report(self, client_id: str, period_days: int = 30) -> Dict:
+        """Generate a progress report for a client"""
+        try:
+            end_date = datetime.now(self.timezone)
+            start_date = end_date - timedelta(days=period_days)
+            
+            # Get client info
+            client = self.db.table('clients').select('*').eq(
+                'id', client_id
+            ).single().execute()
+            
+            if not client.data:
+                return {'error': 'Client not found'}
+            
+            # Get sessions
+            sessions = self.db.table('bookings').select('*').eq(
+                'client_id', client_id
+            ).gte('session_date', start_date.date().isoformat()).lte(
+                'session_date', end_date.date().isoformat()
+            ).execute()
+            
+            completed_sessions = [s for s in (sessions.data or []) 
+                                if s.get('status') == 'completed']
+            
+            # Get assessments
+            assessments = self.db.table('fitness_assessments').select('*').eq(
+                'client_id', client_id
+            ).gte('created_at', start_date.isoformat()).execute()
+            
+            # Get habit tracking
+            habits = self.db.table('habit_tracking').select('*').eq(
+                'client_id', client_id
+            ).gte('date', start_date.date().isoformat()).execute()
+            
+            # Calculate metrics
+            total_sessions = len(sessions.data) if sessions.data else 0
+            attendance_rate = (len(completed_sessions) / total_sessions * 100) if total_sessions > 0 else 0
+            
+            # Habit compliance
+            if habits.data:
+                total_habits = len(habits.data)
+                completed_habits = len([h for h in habits.data if h.get('completed')])
+                habit_compliance = (completed_habits / total_habits * 100) if total_habits > 0 else 0
+            else:
+                habit_compliance = 0
+            
+            return {
+                'client': {
+                    'name': client.data.get('name'),
+                    'joined_date': client.data.get('created_at')
+                },
+                'period': {
+                    'start': start_date.isoformat(),
+                    'end': end_date.isoformat(),
+                    'days': period_days
+                },
+                'sessions': {
+                    'total': total_sessions,
+                    'completed': len(completed_sessions),
+                    'attendance_rate': round(attendance_rate, 2)
+                },
+                'assessments': {
+                    'completed': len(assessments.data) if assessments.data else 0,
+                    'latest': assessments.data[0] if assessments.data else None
+                },
+                'habits': {
+                    'compliance_rate': round(habit_compliance, 2),
+                    'total_tracked': len(habits.data) if habits.data else 0
+                }
+            }
+            
+        except Exception as e:
+            log_error(f"Error generating client report: {str(e)}")
+            return {'error': str(e)}
+    
+    def track_message_interaction(self, phone_number: str, message_type: str, 
+                                 intent: str = None, response_time_ms: int = None):
+        """Track WhatsApp message interactions"""
+        try:
+            # Identify user
+            user_type = None
+            user_id = None
+            
+            # Check if trainer
+            trainer = self.db.table('trainers').select('id').eq(
+                'phone_number', phone_number
+            ).single().execute()
+            
+            if trainer.data:
+                user_type = 'trainer'
+                user_id = trainer.data['id']
+            else:
+                # Check if client
+                client = self.db.table('clients').select('id').eq(
+                    'phone_number', phone_number
+                ).single().execute()
+                
+                if client.data:
+                    user_type = 'client'
+                    user_id = client.data['id']
+            
+            if user_id:
+                metadata = {
+                    'message_type': message_type,
+                    'intent': intent,
+                    'response_time_ms': response_time_ms
+                }
+                
+                self.track_event('message_interaction', user_id, user_type, metadata)
+                
+        except Exception as e:
+            log_error(f"Error tracking message interaction: {str(e)}")
 ```
 
 ## SUMMARY
-Fixed the import error by changing `from services.habits import HabitService` to `from services.habits import HabitTrackingService` in the scheduler.py file, matching the actual class name defined in habits.py. This should resolve the deployment crash.
+Added the missing `user-agents` package (version 2.2.0) to requirements.txt. This package is used in the analytics service to parse user agent strings and extract device information for analytics tracking. The analytics.py file remains unchanged as it was already correctly importing and using the module.
