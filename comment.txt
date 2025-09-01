@@ -1,31 +1,35 @@
 @claude @apply
-Create a new Python service class for calendar management in services/calendar_service.py. This will be the base service that handles all calendar operations.
+Update the dashboard backend (routes/dashboard.py or app.py) to support calendar views.
 
 Requirements:
 
-1. Create CalendarService class that:
-   - Initializes with supabase client and config
-   - Has methods for CRUD operations on calendar events
-   - Handles session type color coding
-   - Manages calendar preferences per trainer
+1. Add new API endpoints:
+   - GET /api/dashboard/calendar/month - Get month view data
+   - GET /api/dashboard/calendar/week - Get week view data  
+   - GET /api/dashboard/calendar/day - Get day view data
+   - POST /api/dashboard/calendar/preferences - Update view preferences
+   - GET /api/dashboard/calendar/availability - Get trainer availability
 
-2. Include these core methods:
-   - get_trainer_calendar(trainer_id, start_date, end_date, view_type)
-   - get_client_calendar(client_id, start_date, end_date)
-   - format_calendar_data_for_display(bookings, view_type)
-   - get_session_color(session_type)
-   - update_calendar_preferences(trainer_id, preferences)
+2. Month view endpoint should return:
+   - All bookings for the month
+   - Formatted as: {date: [{client_abbrev, time, type, color}]}
+   - Include session counts per day
+   - Mark today's date
 
-3. Session type colors should be:
-   - one_on_one: #4CAF50 (green)
-   - online: #2196F3 (blue)
-   - group_class: #FF9800 (orange)
-   - personal_time: #9E9E9E (grey)
-   - cancelled: #F44336 (red)
+3. Week view endpoint should return:
+   - 7 days of detailed bookings
+   - Time slots from 6:00 to 20:00
+   - Available vs booked slots
 
-4. Include helper methods for:
-   - Converting bookings to calendar format
-   - Handling timezone conversions (use Africa/Johannesburg)
-   - Generating calendar event titles (abbreviated client names)
+4. Day view endpoint should return:
+   - Detailed session information
+   - Client full names and contact
+   - Session notes and history
+   - Quick action buttons data
 
-Make sure to follow the existing code patterns in the project and include proper error handling and logging.
+5. Add view preference management:
+   - Store user's preferred view
+   - Remember last viewed date
+   - Color scheme preferences
+
+Update the existing dashboard() function to include calendar data in the template context. Make sure all endpoints are secured with trainer authentication.

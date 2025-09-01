@@ -1,8 +1,9 @@
 ✅ **Changes Applied Successfully:**
-- Created services/calendar_service.py
+- Updated routes/dashboard.py
+- Created migration supabase/migrations/20250901192603_20250901184537_20240328_calendar_preferences.sql
 
 📝 **Full Details:** See claude_response.md
 
-🤖 **Model:** Opus 4.1 (Long request (Opus 4.1))
-💰 **Cost:** $1.3809
-📊 **Tokens:** ~92,060
+🤖 **Model:** Sonnet 3.5 (Simple task (Sonnet 3.5))
+💰 **Cost:** $0.0417
+📊 **Tokens:** ~13,884

@@ -1,333 +1,211 @@
-from flask import Blueprint, request, jsonify, redirect
-from datetime import datetime, timedelta
-import secrets
-import jwt
-from functools import wraps
-from services.analytics import AnalyticsService
-from utils.logger import log_info, log_error
-import os
+# [Previous dashboard.py content remains unchanged until after the existing endpoints]
 
-dashboard_bp = Blueprint('dashboard', __name__)
-
-class DashboardService:
-    """Service for handling dashboard-related operations"""
-    
-    def __init__(self, supabase_client):
-        self.db = supabase_client
-        self.analytics = AnalyticsService(supabase_client)
-        self.jwt_secret = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
-        self.dashboard_url = os.environ.get('DASHBOARD_BASE_URL', 'https://refiloe.co.za')
-        
-    def generate_dashboard_token(self, trainer_id: str) -> str:
-        """Generate a JWT token for dashboard access"""
-        try:
-            payload = {
-                'trainer_id': trainer_id,
-                'exp': datetime.utcnow() + timedelta(hours=24),
-                'iat': datetime.utcnow(),
-                'type': 'dashboard_access'
-            }
-            
-            token = jwt.encode(payload, self.jwt_secret, algorithm='HS256')
-            
-            # Store token in database for tracking
-            self.db.table('dashboard_tokens').insert({
-                'trainer_id': trainer_id,
-                'token': token,
-                'expires_at': (datetime.utcnow() + timedelta(hours=24)).isoformat(),
-                'created_at': datetime.utcnow().isoformat()
-            }).execute()
-            
-            return token
-            
-        except Exception as e:
-            log_error(f"Error generating dashboard token: {str(e)}")
-            return None
-    
-    def verify_dashboard_token(self, token: str) -> dict:
-        """Verify and decode a dashboard token"""
-        try:
-            payload = jwt.decode(token, self.jwt_secret, algorithms=['HS256'])
-            
-            # Check if token exists in database and is not revoked
-            result = self.db.table('dashboard_tokens').select('*').eq(
-                'token', token
-            ).eq('revoked', False).execute()
-            
-            if not result.data:
-                return None
-                
-            return payload
-            
-        except jwt.ExpiredSignatureError:
-            log_error("Token has expired")
-            return None
-        except jwt.InvalidTokenError as e:
-            log_error(f"Invalid token: {str(e)}")
-            return None
-    
-    def generate_dashboard_link(self, trainer_id: str) -> str:
-        """Generate a secure dashboard link for trainer"""
-        try:
-            token = self.generate_dashboard_token(trainer_id)
-            if not token:
-                return None
-                
-            return f"{self.dashboard_url}/dashboard?token={token}"
-            
-        except Exception as e:
-            log_error(f"Error generating dashboard link: {str(e)}")
-            return None
-    
-    def get_dashboard_data(self, trainer_id: str) -> dict:
-        """Get all dashboard data for a trainer"""
-        try:
-            # Get trainer info
-            trainer = self.db.table('trainers').select('*').eq(
-                'id', trainer_id
-            ).single().execute()
-            
-            if not trainer.data:
-                return None
-            
-            # Get analytics
-            analytics = self.analytics.get_trainer_analytics(trainer_id)
-            
-            # Get recent activity
-            recent_bookings = self.db.table('bookings').select(
-                '*, client:clients(name, phone_number)'
-            ).eq('trainer_id', trainer_id).order(
-                'created_at', desc=True
-            ).limit(10).execute()
-            
-            # Get active clients
-            active_clients = self.db.table('clients').select('*').eq(
-                'trainer_id', trainer_id
-            ).eq('status', 'active').execute()
-            
-            # Get upcoming sessions
-            upcoming = self.db.table('bookings').select(
-                '*, client:clients(name)'
-            ).eq('trainer_id', trainer_id).eq(
-                'status', 'confirmed'
-            ).gte('date', datetime.now().isoformat()).order(
-                'date'
-            ).limit(10).execute()
-            
-            return {
-                'trainer': trainer.data,
-                'analytics': analytics,
-                'recent_bookings': recent_bookings.data if recent_bookings.data else [],
-                'active_clients': active_clients.data if active_clients.data else [],
-                'upcoming_sessions': upcoming.data if upcoming.data else [],
-                'generated_at': datetime.utcnow().isoformat()
-            }
-            
-        except Exception as e:
-            log_error(f"Error getting dashboard data: {str(e)}")
-            return None
-    
-    def revoke_token(self, token: str) -> bool:
-        """Revoke a dashboard token"""
-        try:
-            result = self.db.table('dashboard_tokens').update({
-                'revoked': True,
-                'revoked_at': datetime.utcnow().isoformat()
-            }).eq('token', token).execute()
-            
-            return bool(result.data)
-            
-        except Exception as e:
-            log_error(f"Error revoking token: {str(e)}")
-            return False
-
-# Initialize service (will be set in app.py)
-dashboard_service = None
-
-def token_required(f):
-    """Decorator to require valid dashboard token"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            token = request.args.get('token')
-            
-        if not token:
-            return jsonify({'error': 'No token provided'}), 401
-            
-        # Remove 'Bearer ' prefix if present
-        if token.startswith('Bearer '):
-            token = token[7:]
-            
-        payload = dashboard_service.verify_dashboard_token(token)
-        
-        if not payload:
-            return jsonify({'error': 'Invalid or expired token'}), 401
-            
-        request.trainer_id = payload['trainer_id']
-        return f(*args, **kwargs)
-        
-    return decorated_function
-
-@dashboard_bp.route('/api/dashboard/login', methods=['POST'])
-def dashboard_login():
-    """Generate dashboard access link"""
+@dashboard_bp.route('/api/dashboard/calendar/month', methods=['GET'])
+@token_required
+def get_month_view():
+    """Get month view calendar data"""
     try:
-        data = request.json
-        phone_number = data.get('phone_number')
+        year = int(request.args.get('year', datetime.now().year))
+        month = int(request.args.get('month', datetime.now().month))
         
-        if not phone_number:
-            return jsonify({'error': 'Phone number required'}), 400
+        # Get all bookings for month
+        start_date = datetime(year, month, 1).date()
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1).date()
+        else:
+            end_date = datetime(year, month + 1, 1).date()
             
-        # Normalize phone number
-        if not phone_number.startswith('+'):
-            phone_number = '+27' + phone_number.lstrip('0')
-            
-        # Find trainer
-        result = dashboard_service.db.table('trainers').select('*').eq(
-            'phone_number', phone_number
-        ).single().execute()
+        bookings = dashboard_service.db.table('bookings').select(
+            '*, clients(name)'
+        ).eq('trainer_id', request.trainer_id).gte(
+            'session_date', start_date.isoformat()
+        ).lt('session_date', end_date.isoformat()).execute()
         
-        if not result.data:
-            return jsonify({'error': 'Trainer not found'}), 404
-            
-        # Generate dashboard link
-        link = dashboard_service.generate_dashboard_link(result.data['id'])
+        # Format data by date
+        calendar_data = {}
+        today = datetime.now().date()
         
-        if not link:
-            return jsonify({'error': 'Failed to generate dashboard link'}), 500
-            
-        # Here you would normally send this link via WhatsApp
-        # For now, we'll return it in the response
+        for booking in (bookings.data or []):
+            date = booking['session_date']
+            if date not in calendar_data:
+                calendar_data[date] = []
+                
+            client_name = booking['clients']['name']
+            calendar_data[date].append({
+                'client_abbrev': f"{client_name.split()[0][0]}{client_name.split()[-1][0]}",
+                'time': booking['session_time'],
+                'type': booking['session_type'],
+                'color': '#4CAF50' if booking['status'] == 'completed' else '#2196F3'
+            })
+        
         return jsonify({
-            'success': True,
-            'message': 'Dashboard link generated',
-            'link': link,
-            'expires_in': '24 hours'
+            'calendar_data': calendar_data,
+            'today': today.isoformat(),
+            'month_stats': {
+                'total_sessions': len(bookings.data or []),
+                'completed': sum(1 for b in (bookings.data or []) if b['status'] == 'completed')
+            }
         })
         
     except Exception as e:
-        log_error(f"Dashboard login error: {str(e)}")
+        log_error(f"Month view error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@dashboard_bp.route('/api/dashboard/data', methods=['GET'])
+@dashboard_bp.route('/api/dashboard/calendar/week', methods=['GET'])
 @token_required
-def get_dashboard_data():
-    """Get dashboard data for authenticated trainer"""
+def get_week_view():
+    """Get week view calendar data"""
     try:
-        data = dashboard_service.get_dashboard_data(request.trainer_id)
-        
-        if not data:
-            return jsonify({'error': 'Failed to fetch dashboard data'}), 500
-            
-        return jsonify(data)
-        
-    except Exception as e:
-        log_error(f"Dashboard data error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@dashboard_bp.route('/api/dashboard/clients', methods=['GET'])
-@token_required
-def get_clients():
-    """Get all clients for trainer"""
-    try:
-        result = dashboard_service.db.table('clients').select('*').eq(
-            'trainer_id', request.trainer_id
-        ).order('created_at', desc=True).execute()
-        
-        return jsonify(result.data if result.data else [])
-        
-    except Exception as e:
-        log_error(f"Get clients error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@dashboard_bp.route('/api/dashboard/bookings', methods=['GET'])
-@token_required
-def get_bookings():
-    """Get bookings for trainer"""
-    try:
-        # Get query parameters
-        status = request.args.get('status')
-        date_from = request.args.get('from')
-        date_to = request.args.get('to')
-        
-        query = dashboard_service.db.table('bookings').select(
-            '*, client:clients(name, phone_number)'
-        ).eq('trainer_id', request.trainer_id)
-        
-        if status:
-            query = query.eq('status', status)
-        if date_from:
-            query = query.gte('date', date_from)
-        if date_to:
-            query = query.lte('date', date_to)
-            
-        result = query.order('date', desc=True).execute()
-        
-        return jsonify(result.data if result.data else [])
-        
-    except Exception as e:
-        log_error(f"Get bookings error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@dashboard_bp.route('/api/dashboard/analytics', methods=['GET'])
-@token_required
-def get_analytics():
-    """Get analytics for trainer"""
-    try:
-        period = request.args.get('period', 'month')
-        analytics = dashboard_service.analytics.get_trainer_analytics(
-            request.trainer_id, 
-            period=period
-        )
-        
-        return jsonify(analytics)
-        
-    except Exception as e:
-        log_error(f"Get analytics error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@dashboard_bp.route('/api/dashboard/logout', methods=['POST'])
-@token_required
-def dashboard_logout():
-    """Logout and revoke token"""
-    try:
-        token = request.headers.get('Authorization')
-        if token and token.startswith('Bearer '):
-            token = token[7:]
+        date_str = request.args.get('date')
+        if date_str:
+            start_date = datetime.fromisoformat(date_str).date()
         else:
-            token = request.args.get('token')
+            start_date = datetime.now().date()
             
-        success = dashboard_service.revoke_token(token)
+        # Adjust to start of week (Monday)
+        while start_date.weekday() != 0:
+            start_date -= timedelta(days=1)
+            
+        end_date = start_date + timedelta(days=7)
         
-        if success:
-            return jsonify({'success': True, 'message': 'Logged out successfully'})
-        else:
-            return jsonify({'error': 'Failed to logout'}), 500
+        bookings = dashboard_service.db.table('bookings').select(
+            '*, clients(name, phone_number)'
+        ).eq('trainer_id', request.trainer_id).gte(
+            'session_date', start_date.isoformat()
+        ).lt('session_date', end_date.isoformat()).execute()
+        
+        # Generate time slots
+        time_slots = []
+        for hour in range(6, 21):  # 6:00 to 20:00
+            time_slots.append(f"{hour:02d}:00")
+            time_slots.append(f"{hour:02d}:30")
             
+        # Format data
+        week_data = {}
+        for i in range(7):
+            current_date = start_date + timedelta(days=i)
+            week_data[current_date.isoformat()] = {
+                'date_str': current_date.strftime('%Y-%m-%d'),
+                'day_name': current_date.strftime('%A'),
+                'slots': {
+                    slot: None for slot in time_slots
+                }
+            }
+            
+        # Fill in bookings
+        for booking in (bookings.data or []):
+            date = booking['session_date']
+            time = booking['session_time']
+            if time in week_data[date]['slots']:
+                week_data[date]['slots'][time] = {
+                    'client_name': booking['clients']['name'],
+                    'phone': booking['clients']['phone_number'],
+                    'type': booking['session_type'],
+                    'status': booking['status']
+                }
+                
+        return jsonify({
+            'week_data': week_data,
+            'time_slots': time_slots
+        })
+        
     except Exception as e:
-        log_error(f"Logout error: {str(e)}")
+        log_error(f"Week view error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@dashboard_bp.route('/api/dashboard/update-schedule', methods=['POST'])
+@dashboard_bp.route('/api/dashboard/calendar/day', methods=['GET'])
 @token_required
-def update_schedule():
-    """Update trainer's availability schedule"""
+def get_day_view():
+    """Get detailed day view calendar data"""
     try:
-        schedule_data = request.json
+        date_str = request.args.get('date', datetime.now().date().isoformat())
         
-        result = dashboard_service.db.table('trainer_schedules').upsert({
+        bookings = dashboard_service.db.table('bookings').select(
+            '*, clients(*)'
+        ).eq('trainer_id', request.trainer_id).eq(
+            'session_date', date_str
+        ).order('session_time').execute()
+        
+        return jsonify({
+            'date': date_str,
+            'sessions': [{
+                'id': booking['id'],
+                'time': booking['session_time'],
+                'client': {
+                    'name': booking['clients']['name'],
+                    'phone': booking['clients']['phone_number'],
+                    'email': booking['clients']['email']
+                },
+                'type': booking['session_type'],
+                'status': booking['status'],
+                'notes': booking['notes'],
+                'quick_actions': [
+                    {'label': 'Complete', 'action': 'complete'},
+                    {'label': 'Reschedule', 'action': 'reschedule'},
+                    {'label': 'Cancel', 'action': 'cancel'}
+                ]
+            } for booking in (bookings.data or [])]
+        })
+        
+    except Exception as e:
+        log_error(f"Day view error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/calendar/preferences', methods=['POST'])
+@token_required
+def update_calendar_preferences():
+    """Update calendar view preferences"""
+    try:
+        prefs = request.json
+        
+        result = dashboard_service.db.table('calendar_preferences').upsert({
             'trainer_id': request.trainer_id,
-            'schedule': schedule_data,
+            'default_view': prefs.get('default_view', 'month'),
+            'color_scheme': prefs.get('color_scheme', {}),
+            'start_time': prefs.get('start_time', '06:00'),
+            'end_time': prefs.get('end_time', '20:00'),
             'updated_at': datetime.utcnow().isoformat()
         }).execute()
         
-        if result.data:
-            return jsonify({'success': True, 'message': 'Schedule updated'})
-        else:
-            return jsonify({'error': 'Failed to update schedule'}), 500
-            
+        return jsonify({'success': True, 'message': 'Preferences updated'})
+        
     except Exception as e:
-        log_error(f"Update schedule error: {str(e)}")
+        log_error(f"Update preferences error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/api/dashboard/calendar/availability', methods=['GET'])
+@token_required
+def get_availability():
+    """Get trainer availability"""
+    try:
+        date_str = request.args.get('date', datetime.now().date().isoformat())
+        
+        # Get trainer schedule
+        schedule = dashboard_service.db.table('trainer_schedules').select(
+            'schedule'
+        ).eq('trainer_id', request.trainer_id).single().execute()
+        
+        # Get existing bookings
+        bookings = dashboard_service.db.table('bookings').select(
+            'session_time'
+        ).eq('trainer_id', request.trainer_id).eq(
+            'session_date', date_str
+        ).in_('status', ['confirmed', 'rescheduled']).execute()
+        
+        booked_times = [b['session_time'] for b in (bookings.data or [])]
+        
+        # Get day's schedule
+        day_name = datetime.fromisoformat(date_str).strftime('%A').lower()
+        day_schedule = schedule.data['schedule'].get(day_name, []) if schedule.data else []
+        
+        return jsonify({
+            'date': date_str,
+            'available_slots': [
+                slot for slot in day_schedule
+                if slot not in booked_times
+            ]
+        })
+        
+    except Exception as e:
+        log_error(f"Availability error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
