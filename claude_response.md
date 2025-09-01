@@ -1,577 +1,11 @@
-<!-- Model: Opus 4.1 -->
-<!-- Cost: $1.5362 -->
-<!-- Tokens: ~102,412 -->
+<!-- Model: Sonnet 3.5 -->
+<!-- Cost: $0.0736 -->
+<!-- Tokens: ~24,534 -->
 
 ## ANALYSIS
-
-I need to add comprehensive testing and error handling for the calendar system. This includes:
-1. Creating a comprehensive test file for the calendar service
-2. Adding robust error handling to existing calendar services
-3. Adding user-friendly error messages for WhatsApp responses
-4. Creating a health check endpoint for calendar system
-5. Adding logging and monitoring capabilities with rollback functionality
+The calendar_service.py file needs to be completed to handle calendar functionality for trainers and clients. It should support generating ICS files for calendar exports, managing availability, and handling calendar preferences.
 
 ## FILES TO CHANGE
-
-### NEW FILE: tests/test_calendar_service.py
-```python
-"""
-Comprehensive tests for calendar service functionality
-Tests CRUD operations, sync, conflict resolution, timezone handling, and exports
-"""
-
-import unittest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
-import pytz
-import json
-from io import BytesIO
-
-# Add parent directory to path
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from services.calendar_service import CalendarService
-from services.calendar_export_service import CalendarExportService
-from config import Config
-
-
-class TestCalendarService(unittest.TestCase):
-    """Test suite for CalendarService"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.mock_db = Mock()
-        self.mock_config = Mock(spec=Config)
-        self.mock_config.TIMEZONE = 'Africa/Johannesburg'
-        self.mock_config.get_booking_slots.return_value = {
-            'monday': ['09:00', '10:00', '11:00'],
-            'tuesday': ['09:00', '10:00', '11:00'],
-        }
-        
-        self.calendar_service = CalendarService(self.mock_db, self.mock_config)
-        self.sa_tz = pytz.timezone('Africa/Johannesburg')
-    
-    def test_get_trainer_calendar_success(self):
-        """Test successful calendar retrieval"""
-        # Mock database responses
-        self.mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value.data = [
-            {
-                'id': 'booking1',
-                'session_date': '2024-01-15',
-                'session_time': '10:00',
-                'status': 'confirmed',
-                'session_type': 'one_on_one',
-                'clients': {'id': 'client1', 'name': 'John Doe', 'whatsapp': '+27821234567'}
-            }
-        ]
-        
-        # Mock preferences
-        self.mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
-        
-        result = self.calendar_service.get_trainer_calendar(
-            'trainer1', '2024-01-15', '2024-01-20', 'week'
-        )
-        
-        self.assertIn('events', result)
-        self.assertIn('metadata', result)
-        self.assertEqual(result['metadata']['trainer_id'], 'trainer1')
-        self.assertEqual(len(result['events']), 1)
-    
-    def test_get_trainer_calendar_with_error(self):
-        """Test calendar retrieval with database error"""
-        self.mock_db.table.side_effect = Exception("Database connection error")
-        
-        result = self.calendar_service.get_trainer_calendar(
-            'trainer1', '2024-01-15', '2024-01-20', 'week'
-        )
-        
-        self.assertIn('error', result)
-        self.assertEqual(result['events'], [])
-    
-    def test_timezone_handling(self):
-        """Test proper timezone conversion"""
-        # Test date/time combination
-        test_date = '2024-01-15'
-        test_time = '14:30'
-        
-        combined = self.calendar_service._combine_date_time(test_date, test_time)
-        
-        self.assertEqual(combined.tzinfo.zone, 'Africa/Johannesburg')
-        self.assertEqual(combined.hour, 14)
-        self.assertEqual(combined.minute, 30)
-    
-    def test_timezone_handling_various_formats(self):
-        """Test timezone handling with various time formats"""
-        test_cases = [
-            ('2024-01-15', '14:30', 14, 30),
-            ('2024-01-15', '14', 14, 0),
-            ('2024-01-15', '9:15', 9, 15),
-        ]
-        
-        for date, time, expected_hour, expected_minute in test_cases:
-            with self.subTest(time=time):
-                result = self.calendar_service._combine_date_time(date, time)
-                self.assertEqual(result.hour, expected_hour)
-                self.assertEqual(result.minute, expected_minute)
-    
-    def test_get_calendar_conflicts(self):
-        """Test conflict detection"""
-        # Mock existing bookings
-        self.mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.in_.return_value.execute.return_value.data = [
-            {
-                'id': 'booking1',
-                'session_date': '2024-01-15',
-                'session_time': '10:00',
-                'session_type': 'one_on_one'
-            }
-        ]
-        
-        conflicts = self.calendar_service.get_calendar_conflicts(
-            'trainer1', '2024-01-15', '10:00', 60
-        )
-        
-        self.assertEqual(len(conflicts), 1)
-        self.assertEqual(conflicts[0]['id'], 'booking1')
-    
-    def test_conflict_detection_no_conflicts(self):
-        """Test conflict detection when no conflicts exist"""
-        self.mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.in_.return_value.execute.return_value.data = []
-        
-        conflicts = self.calendar_service.get_calendar_conflicts(
-            'trainer1', '2024-01-15', '14:00', 60
-        )
-        
-        self.assertEqual(len(conflicts), 0)
-    
-    def test_create_calendar_event_success(self):
-        """Test successful calendar event creation"""
-        self.mock_db.table.return_value.insert.return_value.execute.return_value.data = [
-            {'id': 'event1', 'session_date': '2024-01-15'}
-        ]
-        
-        result = self.calendar_service.create_calendar_event('trainer1', {
-            'date': '2024-01-15',
-            'time': '10:00',
-            'duration': 60,
-            'type': 'personal_time',
-            'notes': 'Lunch break'
-        })
-        
-        self.assertTrue(result['success'])
-        self.assertEqual(result['event_id'], 'event1')
-    
-    def test_create_calendar_event_missing_fields(self):
-        """Test calendar event creation with missing required fields"""
-        result = self.calendar_service.create_calendar_event('trainer1', {
-            'date': '2024-01-15',
-            'time': '10:00'
-            # Missing 'duration' and 'type'
-        })
-        
-        self.assertFalse(result['success'])
-        self.assertIn('Missing required field', result['error'])
-    
-    def test_update_calendar_preferences(self):
-        """Test updating calendar preferences"""
-        # Mock existing preferences
-        self.mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
-            {'trainer_id': 'trainer1'}
-        ]
-        
-        self.mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = Mock()
-        
-        result = self.calendar_service.update_calendar_preferences('trainer1', {
-            'default_view': 'month',
-            'show_client_names': False,
-            'start_hour': 7,
-            'end_hour': 20
-        })
-        
-        self.assertTrue(result['success'])
-        self.assertEqual(result['preferences']['default_view'], 'month')
-    
-    def test_preferences_validation(self):
-        """Test preference validation"""
-        preferences = self.calendar_service._validate_preferences({
-            'default_view': 'invalid_view',
-            'start_hour': 25,  # Invalid hour
-            'end_hour': -1,     # Invalid hour
-            'session_colors': {'one_on_one': '#123456'},  # Valid color
-        })
-        
-        self.assertEqual(preferences['default_view'], 'week')  # Should default
-        self.assertEqual(preferences['start_hour'], 6)  # Should default
-        self.assertEqual(preferences['end_hour'], 21)  # Should default
-        self.assertEqual(preferences['session_colors']['one_on_one'], '#123456')
-    
-    def test_hex_color_validation(self):
-        """Test hex color validation"""
-        valid_colors = ['#123456', '#abc', '#FFFFFF', '#000000']
-        invalid_colors = ['123456', '#12345', '#GGGGGG', 'red']
-        
-        for color in valid_colors:
-            with self.subTest(color=color):
-                self.assertTrue(self.calendar_service._is_valid_hex_color(color))
-        
-        for color in invalid_colors:
-            with self.subTest(color=color):
-                self.assertFalse(self.calendar_service._is_valid_hex_color(color))
-    
-    def test_format_calendar_data_day_view(self):
-        """Test formatting calendar data for day view"""
-        bookings = [
-            {
-                'id': '1',
-                'session_date': '2024-01-15',
-                'session_time': '09:00',
-                'status': 'confirmed',
-                'session_type': 'one_on_one',
-                'clients': {'name': 'John Doe'}
-            },
-            {
-                'id': '2',
-                'session_date': '2024-01-15',
-                'session_time': '14:00',
-                'status': 'confirmed',
-                'session_type': 'group_class',
-                'clients': {'name': 'Jane Smith'}
-            }
-        ]
-        
-        result = self.calendar_service.format_calendar_data_for_display(
-            bookings, 'day', {'start_hour': 6, 'end_hour': 18, 'show_client_names': True}
-        )
-        
-        self.assertIn('time_slots', result)
-        self.assertTrue(len(result['time_slots']) > 0)
-    
-    def test_format_calendar_data_week_view(self):
-        """Test formatting calendar data for week view"""
-        bookings = [
-            {
-                'id': '1',
-                'session_date': '2024-01-15',
-                'session_time': '09:00',
-                'status': 'confirmed',
-                'session_type': 'one_on_one',
-                'clients': {'name': 'John Doe'}
-            }
-        ]
-        
-        result = self.calendar_service.format_calendar_data_for_display(
-            bookings, 'week', {}
-        )
-        
-        self.assertIn('days', result)
-        self.assertTrue(len(result['days']) > 0)
-    
-    def test_format_calendar_data_month_view(self):
-        """Test formatting calendar data for month view"""
-        bookings = [
-            {
-                'id': '1',
-                'session_date': '2024-01-15',
-                'session_time': '09:00',
-                'status': 'confirmed',
-                'session_type': 'one_on_one',
-                'clients': {'name': 'John Doe'}
-            }
-        ]
-        
-        result = self.calendar_service.format_calendar_data_for_display(
-            bookings, 'month', {}
-        )
-        
-        self.assertIn('calendar_grid', result)
-        self.assertIn('month', result)
-    
-    def test_client_name_abbreviation(self):
-        """Test client name abbreviation for privacy"""
-        test_cases = [
-            ('John Doe', 'John D.'),
-            ('Jane', 'Jane'),
-            ('Mary Jane Smith', 'Mary S.'),
-            ('', 'Client'),
-        ]
-        
-        for full_name, expected in test_cases:
-            with self.subTest(name=full_name):
-                result = self.calendar_service._abbreviate_name(full_name)
-                self.assertEqual(result, expected)
-
-
-class TestCalendarExportService(unittest.TestCase):
-    """Test suite for CalendarExportService"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.mock_db = Mock()
-        self.mock_config = Mock(spec=Config)
-        self.mock_config.TIMEZONE = 'Africa/Johannesburg'
-        self.mock_config.SMTP_SERVER = 'smtp.gmail.com'
-        self.mock_config.SMTP_PORT = 587
-        self.mock_config.SMTP_USERNAME = 'test@example.com'
-        self.mock_config.SMTP_PASSWORD = 'password'
-        self.mock_config.SENDER_EMAIL = 'noreply@refiloe.ai'
-        
-        self.export_service = CalendarExportService(self.mock_db, self.mock_config)
-    
-    def test_generate_ics_file(self):
-        """Test ICS file generation"""
-        booking_data = {
-            'id': 'booking1',
-            'session_date': '2024-01-15',
-            'session_time': '10:00',
-            'session_type': 'one_on_one',
-            'status': 'confirmed',
-            'trainer': {
-                'name': 'John Trainer',
-                'email': 'trainer@example.com',
-                'gym_location': 'Main Gym'
-            },
-            'client': {
-                'name': 'Jane Client',
-                'email': 'client@example.com'
-            }
-        }
-        
-        ics_content = self.export_service.generate_ics_file(booking_data)
-        
-        self.assertIn('BEGIN:VCALENDAR', ics_content)
-        self.assertIn('END:VCALENDAR', ics_content)
-        self.assertIn('BEGIN:VEVENT', ics_content)
-        self.assertIn('Training Session - Jane Client', ics_content)
-        self.assertIn('LOCATION:Main Gym', ics_content)
-    
-    def test_generate_ics_file_multiple_sessions(self):
-        """Test ICS file generation with multiple sessions"""
-        booking_data = {
-            'sessions': [
-                {
-                    'id': 'booking1',
-                    'session_date': '2024-01-15',
-                    'session_time': '10:00',
-                    'session_type': 'one_on_one',
-                    'status': 'confirmed'
-                },
-                {
-                    'id': 'booking2',
-                    'session_date': '2024-01-16',
-                    'session_time': '14:00',
-                    'session_type': 'group_class',
-                    'status': 'confirmed'
-                }
-            ],
-            'trainer': {'name': 'John Trainer'},
-            'client': {'name': 'Jane Client'}
-        }
-        
-        ics_content = self.export_service.generate_ics_file(booking_data)
-        
-        # Count VEVENT occurrences
-        vevent_count = ics_content.count('BEGIN:VEVENT')
-        self.assertEqual(vevent_count, 2)
-    
-    def test_export_to_csv(self):
-        """Test CSV export"""
-        bookings = [
-            {
-                'session_date': '2024-01-15',
-                'session_time': '10:00',
-                'session_type': 'one_on_one',
-                'status': 'confirmed',
-                'notes': 'Test note',
-                'clients': {
-                    'name': 'John Doe',
-                    'whatsapp': '+27821234567',
-                    'email': 'john@example.com'
-                }
-            }
-        ]
-        
-        csv_bytes = self.export_service.export_to_csv(bookings)
-        csv_content = csv_bytes.decode('utf-8')
-        
-        self.assertIn('Date,Time,Client,Phone,Email,Type,Status,Notes', csv_content)
-        self.assertIn('2024-01-15', csv_content)
-        self.assertIn('John Doe', csv_content)
-    
-    def test_bulk_export_month(self):
-        """Test bulk export for a month"""
-        self.mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.order.return_value.order.return_value.execute.return_value.data = [
-            {
-                'id': 'booking1',
-                'session_date': '2024-01-15',
-                'session_time': '10:00',
-                'clients': {'name': 'John Doe'}
-            }
-        ]
-        
-        self.mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
-            'id': 'trainer1',
-            'name': 'Trainer Name'
-        }
-        
-        result = self.export_service.bulk_export_month('trainer1', 1, 2024)
-        
-        self.assertTrue(result['success'])
-        self.assertEqual(result['month'], 1)
-        self.assertEqual(result['year'], 2024)
-        self.assertEqual(result['count'], 1)
-    
-    def test_email_preferences_defaults(self):
-        """Test getting default email preferences"""
-        self.mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = None
-        
-        prefs = self.export_service.get_email_preferences('trainer1')
-        
-        self.assertTrue(prefs['send_on_booking'])
-        self.assertTrue(prefs['send_to_client'])
-        self.assertEqual(prefs['reminder_hours'], 24)
-    
-    @patch('smtplib.SMTP')
-    def test_send_calendar_email_success(self, mock_smtp):
-        """Test successful email sending"""
-        mock_server = MagicMock()
-        mock_smtp.return_value.__enter__.return_value = mock_server
-        
-        result = self.export_service.send_calendar_email(
-            ['test@example.com'],
-            'ICS_CONTENT_HERE',
-            {
-                'session_date': '2024-01-15',
-                'session_time': '10:00',
-                'trainers': {'name': 'John Trainer', 'gym_location': 'Main Gym'},
-                'clients': {'name': 'Jane Client'}
-            }
-        )
-        
-        self.assertTrue(result['success'])
-        mock_server.send_message.assert_called_once()
-    
-    def test_send_calendar_email_no_config(self):
-        """Test email sending without configuration"""
-        self.export_service.smtp_server = None
-        
-        result = self.export_service.send_calendar_email(
-            ['test@example.com'],
-            'ICS_CONTENT',
-            {}
-        )
-        
-        self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'Email not configured')
-
-
-class TestCalendarErrorHandling(unittest.TestCase):
-    """Test error handling and recovery"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.mock_db = Mock()
-        self.mock_config = Mock(spec=Config)
-        self.mock_config.TIMEZONE = 'Africa/Johannesburg'
-        self.calendar_service = CalendarService(self.mock_db, self.mock_config)
-    
-    def test_invalid_date_format_handling(self):
-        """Test handling of invalid date formats"""
-        # Should handle gracefully and return default
-        result = self.calendar_service._combine_date_time('invalid-date', '10:00')
-        self.assertIsNotNone(result)
-    
-    def test_database_connection_error_recovery(self):
-        """Test recovery from database connection errors"""
-        # First call fails
-        self.mock_db.table.side_effect = [Exception("Connection lost"), Mock()]
-        
-        # Should handle error gracefully
-        result = self.calendar_service.get_trainer_calendar(
-            'trainer1', '2024-01-15', '2024-01-20', 'week'
-        )
-        
-        self.assertIn('error', result)
-        self.assertEqual(result['events'], [])
-    
-    def test_sync_conflict_resolution(self):
-        """Test calendar sync conflict resolution"""
-        # Create mock sync manager
-        from services.scheduler import CalendarSyncManager
-        sync_manager = CalendarSyncManager(self.mock_db, Mock())
-        
-        local_booking = {
-            'id': 'booking1',
-            'status': 'confirmed',
-            'updated_at': '2024-01-15T10:00:00'
-        }
-        
-        external_event = {
-            'id': 'external1',
-            'updated': '2024-01-15T09:00:00'
-        }
-        
-        result = sync_manager.handle_sync_conflicts(local_booking, external_event)
-        
-        self.assertEqual(result['action'], 'update_external')
-    
-    def test_rollback_on_failed_sync(self):
-        """Test rollback functionality for failed syncs"""
-        # This would test the rollback mechanism
-        # In a real implementation, this would track changes and revert them
-        pass
-
-
-class TestCalendarIntegration(unittest.TestCase):
-    """Integration tests for calendar system"""
-    
-    def setUp(self):
-        """Set up test fixtures"""
-        self.mock_db = Mock()
-        self.mock_config = Mock(spec=Config)
-        self.mock_config.TIMEZONE = 'Africa/Johannesburg'
-        self.mock_config.get_booking_slots.return_value = {
-            'monday': ['09:00', '10:00', '11:00'],
-        }
-        
-        self.calendar_service = CalendarService(self.mock_db, self.mock_config)
-        self.export_service = CalendarExportService(self.mock_db, self.mock_config)
-    
-    def test_end_to_end_booking_to_export(self):
-        """Test complete flow from booking creation to export"""
-        # Create booking
-        self.mock_db.table.return_value.insert.return_value.execute.return_value.data = [
-            {'id': 'booking1', 'session_date': '2024-01-15'}
-        ]
-        
-        booking_result = self.calendar_service.create_calendar_event('trainer1', {
-            'date': '2024-01-15',
-            'time': '10:00',
-            'duration': 60,
-            'type': 'one_on_one',
-            'notes': 'Test session'
-        })
-        
-        self.assertTrue(booking_result['success'])
-        
-        # Export to ICS
-        booking_data = {
-            'id': booking_result['event_id'],
-            'session_date': '2024-01-15',
-            'session_time': '10:00',
-            'trainer': {'name': 'Trainer'},
-            'client': {'name': 'Client'}
-        }
-        
-        ics_content = self.export_service.generate_ics_file(booking_data)
-        
-        self.assertIn('BEGIN:VCALENDAR', ics_content)
-        self.assertIn('Training Session', ics_content)
-
-
-if __name__ == '__main__':
-    unittest.main()
-```
 
 ### FILE: services/calendar_service.py
 ```python
@@ -581,186 +15,206 @@ import pytz
 from utils.logger import log_error, log_info, log_warning
 from collections import defaultdict
 import json
-import traceback
-
+from icalendar import Calendar, Event, vText
 
 class CalendarService:
-    """Service for managing calendar operations and views with comprehensive error handling"""
-    
-    # Session type color definitions
-    SESSION_COLORS = {
-        'one_on_one': '#4CAF50',      # Green
-        'online': '#2196F3',           # Blue
-        'group_class': '#FF9800',      # Orange
-        'personal_time': '#9E9E9E',    # Grey
-        'cancelled': '#F44336',        # Red
-        'assessment': '#9C27B0',       # Purple (additional)
-        'consultation': '#00BCD4',    # Cyan (additional)
-    }
-    
-    # Default calendar preferences
-    DEFAULT_PREFERENCES = {
-        'default_view': 'week',
-        'show_client_names': True,
-        'show_session_types': True,
-        'start_hour': 6,
-        'end_hour': 21,
-        'time_slot_duration': 60,  # minutes
-        'first_day_of_week': 1,    # Monday
-        'show_cancelled': False,
-        'enable_notifications': True,
-        'notification_minutes': 60,  # Remind 60 minutes before
-    }
-    
-    # Error messages for user-friendly responses
-    ERROR_MESSAGES = {
-        'invalid_date': "The date format is invalid. Please use YYYY-MM-DD format.",
-        'invalid_time': "The time format is invalid. Please use HH:MM format.",
-        'db_connection': "Unable to connect to the calendar system. Please try again later.",
-        'sync_failed': "Calendar sync failed. Your local changes have been saved.",
-        'conflict': "This time slot is already booked. Please choose another time.",
-        'permission_denied': "You don't have permission to access this calendar.",
-        'invalid_credentials': "Your calendar credentials are invalid. Please reconnect your calendar.",
-        'rate_limit': "Too many calendar requests. Please wait a moment and try again.",
-        'network_timeout': "The request timed out. Please check your connection and try again.",
-        'missing_data': "Required information is missing. Please provide all necessary details."
-    }
+    """Service for managing calendar operations and views"""
     
     def __init__(self, supabase_client, config):
-        """Initialize calendar service with error handling"""
-        try:
-            self.db = supabase_client
-            self.config = config
-            self.sa_tz = pytz.timezone(config.TIMEZONE)
-            
-            # Initialize monitoring
-            self.operation_log = []
-            self.error_count = 0
-            self.last_error_time = None
-            
-            log_info("CalendarService initialized successfully")
-        except Exception as e:
-            log_error(f"Failed to initialize CalendarService: {str(e)}")
-            raise
-    
-    def get_trainer_calendar(self, trainer_id: str, start_date: str, 
-                            end_date: str, view_type: str = 'week') -> Dict:
+        """Initialize calendar service"""
+        self.db = supabase_client
+        self.config = config
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
+
+    def generate_ics_file(self, data: Dict) -> str:
         """
-        Get trainer's calendar data with comprehensive error handling
-        """
-        operation_id = self._start_operation('get_trainer_calendar')
+        Generate ICS calendar file content
         
-        try:
-            # Validate inputs
-            validation_error = self._validate_calendar_inputs(
-                trainer_id, start_date, end_date, view_type
-            )
-            if validation_error:
-                return self._handle_calendar_error(validation_error, operation_id)
-            
-            # Parse dates with error handling
-            try:
-                start = datetime.strptime(start_date, '%Y-%m-%d').date()
-                end = datetime.strptime(end_date, '%Y-%m-%d').date()
-            except ValueError as e:
-                return self._handle_calendar_error('invalid_date', operation_id)
-            
-            # Get bookings with retry logic
-            bookings = self._get_bookings_with_retry(
-                trainer_id, start_date, end_date
-            )
-            
-            # Get trainer preferences
-            preferences = self._get_trainer_preferences_safe(trainer_id)
-            
-            # Get trainer's availability
-            availability = self._get_trainer_availability_safe(
-                trainer_id, start_date, end_date
-            )
-            
-            # Format for display
-            calendar_data = self.format_calendar_data_for_display(
-                bookings, view_type, preferences
-            )
-            
-            # Add metadata
-            calendar_data['metadata'] = {
-                'trainer_id': trainer_id,
-                'start_date': start_date,
-                'end_date': end_date,
-                'view_type': view_type,
-                'total_events': len(bookings),
-                'preferences': preferences,
-                'availability': availability
-            }
-            
-            # Calculate statistics
-            stats = self._calculate_calendar_stats(bookings)
-            calendar_data['statistics'] = stats
-            
-            self._complete_operation(operation_id, True)
-            log_info(f"Retrieved calendar for trainer {trainer_id}: {len(bookings)} events")
-            
-            return calendar_data
-            
-        except Exception as e:
-            log_error(f"Error getting trainer calendar: {str(e)}\n{traceback.format_exc()}")
-            return self._handle_calendar_error('db_connection', operation_id)
-    
-    def get_client_calendar(self, client_id: str, start_date: str, 
-                          end_date: str) -> Dict:
-        """
-        Get client's calendar data with error handling
-        """
-        operation_id = self._start_operation('get_client_calendar')
+        Args:
+            data: Dictionary containing:
+                - client: Client info
+                - sessions: List of sessions
+                - trainer: Trainer info
         
+        Returns:
+            String containing ICS file content
+        """
         try:
-            # Validate dates
-            try:
-                datetime.strptime(start_date, '%Y-%m-%d')
-                datetime.strptime(end_date, '%Y-%m-%d')
-            except ValueError:
-                return self._handle_calendar_error('invalid_date', operation_id)
+            # Create calendar
+            cal = Calendar()
             
-            # Get client's bookings with retry
-            bookings = self._get_client_bookings_with_retry(
-                client_id, start_date, end_date
-            )
+            # Set properties
+            cal.add('prodid', '-//Refiloe AI Assistant//EN')
+            cal.add('version', '2.0')
+            cal.add('calscale', 'GREGORIAN')
+            cal.add('method', 'PUBLISH')
             
-            # Format events
-            events = []
-            for booking in bookings:
-                try:
-                    event = self._format_client_event(booking)
-                    if event:
-                        events.append(event)
-                except Exception as e:
-                    log_warning(f"Error formatting event {booking.get('id')}: {str(e)}")
-                    continue
-            
-            self._complete_operation(operation_id, True)
-            
-            return {
-                'events': events,
-                'metadata': {
-                    'client_id': client_id,
-                    'start_date': start_date,
-                    'end_date': end_date,
-                    'total_events': len(events)
+            # Add events for each session
+            for session in data['sessions']:
+                event = Event()
+                
+                # Combine date and time
+                session_dt = self._combine_date_time(
+                    session['session_date'],
+                    session['session_time']
+                )
+                
+                # Add an hour for end time
+                end_dt = session_dt + timedelta(hours=1)
+                
+                # Set event properties
+                event.add('summary', f"Training with {data['trainer']['name']}")
+                event.add('dtstart', session_dt)
+                event.add('dtend', end_dt)
+                
+                # Set location if available
+                if session.get('location'):
+                    event.add('location', vText(session['location']))
+                
+                # Add description
+                desc = f"Training session with {data['trainer']['name']}"
+                if session.get('notes'):
+                    desc += f"\n\nNotes: {session['notes']}"
+                event.add('description', desc)
+                
+                # Add organizer
+                event.add('organizer', f"mailto:{data['trainer'].get('email', 'trainer@refiloe.ai')}")
+                
+                # Add status
+                status_map = {
+                    'confirmed': 'CONFIRMED',
+                    'cancelled': 'CANCELLED',
+                    'rescheduled': 'CONFIRMED'
                 }
-            }
+                event.add('status', status_map.get(session['status'], 'TENTATIVE'))
+                
+                # Add reminder
+                event.add('valarm', {
+                    'trigger': timedelta(minutes=-30),  # 30 min before
+                    'action': 'DISPLAY',
+                    'description': f"Upcoming training session with {data['trainer']['name']}"
+                })
+                
+                cal.add_component(event)
+            
+            return cal.to_ical().decode('utf-8')
             
         except Exception as e:
-            log_error(f"Error getting client calendar: {str(e)}")
-            return self._handle_calendar_error('db_connection', operation_id)
-    
-    def create_calendar_event(self, trainer_id: str, event_data: Dict) -> Dict:
-        """
-        Create a calendar event with validation and rollback capability
-        """
-        operation_id = self._start_operation('create_calendar_event')
-        rollback_data = None
-        
+            log_error(f"Error generating ICS file: {str(e)}")
+            # Return minimal valid ICS
+            return """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Refiloe AI Assistant//EN
+END:VCALENDAR"""
+
+    def _combine_date_time(self, date_str: str, time_str: str) -> datetime:
+        """Combine date and time strings into datetime object"""
         try:
-            # Validate required fields
-            required = ['date', 'time', 'duration', 'type
+            # Handle various time formats
+            if ':' in time_str:
+                dt_str = f"{date_str} {time_str}"
+                dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M')
+            else:
+                # Assume it's just an hour
+                dt_str = f"{date_str} {time_str}:00"
+                dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M')
+            
+            # Localize to SA timezone
+            return self.sa_tz.localize(dt)
+            
+        except Exception as e:
+            log_error(f"Error combining date/time: {str(e)}")
+            # Return current time as fallback
+            return self.sa_tz.localize(datetime.now())
+
+    def get_trainer_availability(self, trainer_id: str, date: str) -> List[str]:
+        """
+        Get available time slots for a trainer on a specific date
+        
+        Args:
+            trainer_id: Trainer's ID
+            date: Date to check (YYYY-MM-DD)
+            
+        Returns:
+            List of available time slots
+        """
+        try:
+            # Get trainer's working hours for this day
+            day_name = datetime.strptime(date, '%Y-%m-%d').strftime('%A').lower()
+            working_hours = self.config.get_booking_slots().get(day_name, [])
+            
+            if not working_hours:
+                return []  # Not working this day
+            
+            # Get booked slots
+            booked_result = self.db.table('bookings').select('session_time').eq(
+                'trainer_id', trainer_id
+            ).eq('session_date', date).in_(
+                'status', ['confirmed', 'rescheduled']
+            ).execute()
+            
+            booked_times = set()
+            if booked_result.data:
+                booked_times = {b['session_time'] for b in booked_result.data}
+            
+            # Return available slots
+            return [slot for slot in working_hours if slot not in booked_times]
+            
+        except Exception as e:
+            log_error(f"Error getting trainer availability: {str(e)}")
+            return []
+
+    def check_slot_availability(self, trainer_id: str, date: str, time: str) -> bool:
+        """
+        Check if a specific time slot is available
+        
+        Args:
+            trainer_id: Trainer's ID
+            date: Date to check (YYYY-MM-DD)
+            time: Time to check (HH:MM)
+            
+        Returns:
+            Boolean indicating if slot is available
+        """
+        try:
+            # Check working hours
+            day_name = datetime.strptime(date, '%Y-%m-%d').strftime('%A').lower()
+            working_hours = self.config.get_booking_slots().get(day_name, [])
+            
+            if time not in working_hours:
+                return False  # Not a valid working hour
+            
+            # Check existing bookings
+            result = self.db.table('bookings').select('id').eq(
+                'trainer_id', trainer_id
+            ).eq('session_date', date).eq(
+                'session_time', time
+            ).in_('status', ['confirmed', 'rescheduled']).execute()
+            
+            return not bool(result.data)  # Available if no booking exists
+            
+        except Exception as e:
+            log_error(f"Error checking slot availability: {str(e)}")
+            return False
+```
+
+## SUMMARY
+I have updated the calendar_service.py file to include:
+
+1. A method to generate ICS calendar files for export
+2. Methods to check trainer availability and time slot conflicts 
+3. Helper method for combining date and time strings
+4. Proper timezone handling for South Africa
+5. Error logging and fallbacks
+6. Support for working hours configuration
+
+The service now handles core calendar functionality needed for booking management and calendar exports. Additional migrations were not needed since the existing schema supports these features.
+
+The key additions are:
+- ICS file generation for calendar export
+- Availability checking based on working hours
+- Time slot conflict detection
+- Proper timezone handling for South Africa
+- Error handling and logging
+
+The service integrates with the existing booking system and follows the project's patterns for error handling and logging.
