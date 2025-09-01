@@ -1,35 +1,17 @@
-@claude
+@claude the deployment crashed. Here are the logs:
 
-Create an automated calendar sync system that runs in the background.
+NameError: name 'Dict' is not defined. Did you mean: 'dict'?
+Traceback (most recent call last):
+File "/app/app.py", line 16, in
+from services.refiloe import RefiloeService
+File "/app/services/refiloe.py", line 9, in
+from services.scheduler import SchedulerService
+File "/app/services/scheduler.py", line 4, in
+class CalendarSyncManager:
+File "/app/services/scheduler.py", line 11, in CalendarSyncManager
+def sync_trainer_calendars(self, trainer_id: str) -> Dict:
 
-Requirements:
+   ^^^^
+NameError: name 'Dict' is not defined. Did you mean: 'dict'?
 
-1. Update services/scheduler.py to add:
-   - Hourly sync for trainers with 'hourly' preference
-   - Real-time sync for trainers with 'realtime' preference
-   - Daily sync at 5 AM for trainers with 'daily' preference
-
-2. Create sync management methods:
-   - sync_trainer_calendars(trainer_id)
-   - handle_sync_conflicts(local_booking, external_event)
-   - log_sync_status(trainer_id, provider, status, details)
-
-3. Implement two-way sync logic:
-   - Check for changes in Refiloe bookings
-   - Check for changes in external calendars
-   - Handle conflicts (Refiloe takes precedence)
-   - Update sync status in database
-
-4. Add WhatsApp notifications for:
-   - Sync failures (after 3 retries)
-   - Conflicting bookings detected
-   - Successful first-time sync
-
-5. Create sync monitoring:
-   - Track sync success rate
-   - Log sync duration
-   - Alert if sync hasn't run in expected timeframe
-
-Make sure sync doesn't duplicate events and handles deleted bookings properly. Include exponential backoff for failed syncs.
-
-@apply
+@apply the fix

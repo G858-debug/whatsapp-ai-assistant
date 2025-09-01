@@ -1,14 +1,18 @@
-<!-- Model: Sonnet 3.5 -->
-<!-- Cost: $0.0760 -->
-<!-- Tokens: ~25,321 -->
+<!-- Model: Opus 4.1 -->
+<!-- Cost: $1.4251 -->
+<!-- Tokens: ~95,006 -->
 
 ## ANALYSIS
-We need to implement a robust calendar sync system that supports multiple sync frequencies, handles conflicts, and provides monitoring. The system should integrate with the existing booking system and support notifications.
+The error shows that `Dict` is not imported in `services/scheduler.py`. The type hint `Dict` needs to be imported from the `typing` module. Looking at the file, I can see that `CalendarSyncManager` class is using `Dict` as a return type annotation but hasn't imported it.
 
 ## FILES TO CHANGE
 
 ### FILE: services/scheduler.py
 ```python
+from typing import Dict
+from datetime import datetime
+import pytz
+
 # Existing scheduler.py content kept for reference
 # Adding calendar sync classes at the end
 
@@ -76,6 +80,16 @@ class CalendarSyncManager:
         except Exception as e:
             return {'action': 'error', 'error': str(e)}
     
+    def _sync_google_calendar(self, trainer_id: str) -> Dict:
+        """Sync with Google Calendar"""
+        # Placeholder implementation
+        return {'status': 'not_implemented'}
+    
+    def _sync_apple_calendar(self, trainer_id: str) -> Dict:
+        """Sync with Apple Calendar"""
+        # Placeholder implementation
+        return {'status': 'not_implemented'}
+    
     def _log_sync_status(self, trainer_id: str, details: Dict):
         """Log calendar sync status"""
         try:
@@ -120,145 +134,113 @@ class CalendarSyncManager:
                 
         except Exception as e:
             print(f"Error sending sync notification: {str(e)}")
-```
 
-### NEW FILE: services/google_calendar_service.py
-```python
-from typing import Dict, List
-from datetime import datetime, timedelta
-import pytz
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
-class GoogleCalendarService:
-    """Handle Google Calendar integration"""
+class SchedulerService:
+    """Main scheduler service for managing appointments and reminders"""
     
-    def __init__(self, supabase_client, config):
+    def __init__(self, supabase_client, whatsapp_service):
         self.db = supabase_client
-        self.config = config
+        self.whatsapp = whatsapp_service
+        self.calendar_sync = CalendarSyncManager(supabase_client, whatsapp_service)
     
-    def sync_calendar(self, trainer_id: str, time_min: datetime = None, 
-                     time_max: datetime = None) -> Dict:
-        """Sync Google Calendar events"""
+    def check_and_send_reminders(self) -> Dict:
+        """Check and send workout/payment reminders"""
         try:
-            # Get trainer's Google credentials
-            creds = self._get_trainer_credentials(trainer_id)
-            if not creds:
-                return {
-                    'success': False,
-                    'error': 'No valid Google credentials'
-                }
+            results = {
+                'workout_reminders_sent': 0,
+                'payment_reminders_sent': 0,
+                'errors': []
+            }
             
-            # Build service
-            service = build('calendar', 'v3', credentials=creds)
-            
-            # Set time range
-            now = datetime.now(pytz.UTC)
-            time_min = time_min or now - timedelta(days=7)
-            time_max = time_max or now + timedelta(days=30)
-            
-            # Get Google events
-            events_result = service.events().list(
-                calendarId='primary',
-                timeMin=time_min.isoformat(),
-                timeMax=time_max.isoformat(),
-                singleEvents=True,
-                orderBy='startTime'
+            # Get all active clients who need reminders
+            clients = self.db.table('clients').select('*').eq(
+                'status', 'active'
             ).execute()
             
-            events = events_result.get('items', [])
-            
-            # Process events
-            synced = 0
-            errors = 0
-            
-            for event in events:
+            for client in (clients.data or []):
                 try:
-                    self._process_event(event, trainer_id)
-                    synced += 1
-                except Exception:
-                    errors += 1
+                    # Check if client needs a workout reminder
+                    last_workout = self._get_last_workout_date(client['id'])
+                    if self._should_send_workout_reminder(last_workout):
+                        self._send_workout_reminder(client)
+                        results['workout_reminders_sent'] += 1
+                    
+                    # Check if client needs a payment reminder
+                    if self._has_outstanding_payment(client['id']):
+                        self._send_payment_reminder(client)
+                        results['payment_reminders_sent'] += 1
+                        
+                except Exception as e:
+                    results['errors'].append(f"Error for client {client['id']}: {str(e)}")
             
-            return {
-                'success': True,
-                'synced': synced,
-                'errors': errors
-            }
+            return results
             
         except Exception as e:
             return {
-                'success': False,
-                'error': str(e)
+                'error': str(e),
+                'workout_reminders_sent': 0,
+                'payment_reminders_sent': 0
             }
     
-    def _get_trainer_credentials(self, trainer_id: str) -> Credentials:
-        """Get Google Calendar credentials for trainer"""
+    def _get_last_workout_date(self, client_id: str):
+        """Get the date of the client's last workout"""
         try:
-            result = self.db.table('google_auth').select('*').eq(
-                'trainer_id', trainer_id
-            ).single().execute()
+            result = self.db.table('bookings').select('session_date').eq(
+                'client_id', client_id
+            ).eq('status', 'completed').order(
+                'session_date', desc=True
+            ).limit(1).execute()
             
             if result.data:
-                return Credentials.from_authorized_user_info(
-                    result.data['credentials']
-                )
-            
+                return datetime.fromisoformat(result.data[0]['session_date'])
             return None
             
         except Exception:
             return None
     
-    def _process_event(self, event: Dict, trainer_id: str):
-        """Process a Google Calendar event"""
-        # Implementation depends on specific requirements
-        pass
-```
-
-## MIGRATION: 20250902000000_calendar_auth_tables.sql
-```sql
--- Add Google Calendar auth table
-CREATE TABLE google_auth (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    trainer_id UUID REFERENCES trainers(id) ON DELETE CASCADE,
-    credentials JSONB NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(trainer_id)
-);
-
--- Add sync monitoring table
-CREATE TABLE sync_monitoring (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    trainer_id UUID REFERENCES trainers(id),
-    sync_type VARCHAR(50),
-    start_time TIMESTAMPTZ,
-    end_time TIMESTAMPTZ,
-    duration INTERVAL,
-    events_synced INTEGER,
-    errors INTEGER,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Create indexes
-CREATE INDEX idx_google_auth_trainer ON google_auth(trainer_id);
-CREATE INDEX idx_sync_monitoring_trainer ON sync_monitoring(trainer_id);
-CREATE INDEX idx_sync_monitoring_type ON sync_monitoring(sync_type);
+    def _should_send_workout_reminder(self, last_workout_date) -> bool:
+        """Check if workout reminder should be sent"""
+        if not last_workout_date:
+            return True
+        
+        days_since = (datetime.now() - last_workout_date).days
+        return days_since >= 7  # Send reminder after 7 days of inactivity
+    
+    def _has_outstanding_payment(self, client_id: str) -> bool:
+        """Check if client has outstanding payments"""
+        try:
+            result = self.db.table('payment_requests').select('id').eq(
+                'client_id', client_id
+            ).eq('status', 'pending').execute()
+            
+            return bool(result.data)
+            
+        except Exception:
+            return False
+    
+    def _send_workout_reminder(self, client: Dict):
+        """Send workout reminder to client"""
+        message = (
+            f"Hi {client['name']}! 💪\n\n"
+            f"It's been a while since your last workout. "
+            f"Time to get back on track!\n\n"
+            f"Reply 'book' to schedule your next session."
+        )
+        
+        self.whatsapp.send_message(client['whatsapp'], message)
+    
+    def _send_payment_reminder(self, client: Dict):
+        """Send payment reminder to client"""
+        message = (
+            f"Hi {client['name']}! 💰\n\n"
+            f"You have an outstanding payment. "
+            f"Please settle your account to continue booking sessions.\n\n"
+            f"Reply 'pay' to view payment details."
+        )
+        
+        self.whatsapp.send_message(client['whatsapp'], message)
 ```
 
 ## SUMMARY
-1. Added CalendarSyncManager to scheduler.py to handle calendar synchronization
-2. Created new google_calendar_service.py for Google Calendar integration
-3. Added SQL migration for auth and monitoring tables
-4. Implemented sync conflict handling and status logging
-5. Added WhatsApp notifications for sync failures
-6. Created monitoring system for sync performance
-
-The system supports:
-- Multiple sync frequencies (hourly/realtime/daily)
-- Two-way sync with conflict resolution
-- Failure notifications and retry logic
-- Sync monitoring and analytics
-- Secure credential storage
-- WhatsApp notifications for key events
+Fixed the `NameError` by adding the missing import statement `from typing import Dict` at the top of `services/scheduler.py`. Also added placeholder implementations for the `_sync_google_calendar` and `_sync_apple_calendar` methods that were referenced but not implemented, and added the main `SchedulerService` class that was missing from the file.
