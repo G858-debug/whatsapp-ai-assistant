@@ -807,4 +807,7 @@ def trainer_availability_view(trainer_id):
                 {% for day in days %}
                 <div class="day-section">
                     <div class="day-header">{{ day.formatted_date }}</div>
+                    <div class="slots-grid">
+                        {% for slot in day.slots %}
+                        <div
 </details>
