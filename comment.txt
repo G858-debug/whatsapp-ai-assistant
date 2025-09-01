@@ -1,40 +1,44 @@
 @claude
 
-Add a day view to the dashboard that appears when clicking on a day in the month view.
+Convert the Refiloe dashboard into a Progressive Web App (PWA) that can be installed on phones.
 
 Requirements:
 
-1. Create a modal or slide-in panel for day view:
-   - Shows when clicking a day in month view
-   - Has a close button to return to month view
-   - Shows full date at the top
+1. Create static/manifest.json with:
+   - App name: "Refiloe Calendar"
+   - Short name: "Refiloe"
+   - Description
+   - Icons (generate from Refiloe logo - 192x192, 512x512)
+   - Start URL: /dashboard
+   - Display: standalone
+   - Theme color: Refiloe's beige (#...)
+   - Background color: white
+   - Orientation: portrait
 
-2. Day view layout:
-   - Time slots from 6:00 to 20:00 (30-min intervals)
-   - Each session shows as a card with:
-     - Time range
-     - Client full name
-     - Session type with color coding
-     - Client phone number (tap to WhatsApp)
-     - Quick actions (cancel, reschedule, notes)
+2. Create static/service-worker.js for:
+   - Cache calendar data for offline viewing
+   - Cache static assets (CSS, JS, images)
+   - Network-first strategy for API calls
+   - Cache-first strategy for static assets
+   - Show cached data when offline
 
-3. Implement these interactions:
-   - Click client name to view client details
-   - Click phone to open WhatsApp
-   - Swipe left to show quick actions (mobile)
-   - Add new session button (opens WhatsApp to Refiloe)
+3. Update templates/dashboard.html to:
+   - Link to manifest.json
+   - Register service worker
+   - Add Apple-specific meta tags for iOS
+   - Add install prompt for Android/Desktop
+   - Show offline indicator when no connection
 
-4. Visual design:
-   - Timeline view with sessions as blocks
-   - Color-coded by session type
-   - Available slots shown as "Add Session"
-   - Smooth transitions between views
+4. Add install promotion:
+   - Detect if not installed
+   - Show subtle install banner after 3 uses
+   - "Add to Home Screen" button in settings
 
-5. Data handling:
-   - Fetch from /api/dashboard/calendar/day
-   - Pass selected date as parameter
-   - Update UI without page reload
+5. Implement offline functionality:
+   - View cached calendar data offline
+   - Queue actions for when online
+   - Sync when connection restored
 
-Make it work seamlessly on mobile devices with touch gestures. Include proper loading states and error handling.
+Test that the PWA can be installed and works offline for viewing calendar data.
 
 @apply
