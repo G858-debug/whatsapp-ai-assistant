@@ -2,10 +2,13 @@ import os
 import json
 import traceback
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, Response, send_file
 from supabase import create_client
 from dotenv import load_dotenv
 import pytz
+import secrets
+import hashlib
+from io import BytesIO
 
 # Import APScheduler for background tasks
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -21,6 +24,7 @@ from services.habits import HabitTrackingService
 from services.workout import WorkoutService
 from services.subscription_manager import SubscriptionManager
 from services.analytics import AnalyticsService
+from services.calendar_service import CalendarService
 from models.trainer import TrainerModel
 from models.client import ClientModel
 from models.booking import BookingModel
@@ -30,7 +34,6 @@ from utils.input_sanitizer import InputSanitizer
 from config import Config
 from payment_manager import PaymentManager
 from payfast_webhook import PayFastWebhookHandler
-# Removed the problematic import: from voice_helpers import process_voice_note
 
 # Load environment variables
 load_dotenv()
@@ -62,9 +65,10 @@ workout_service = WorkoutService(Config, supabase)
 subscription_manager = SubscriptionManager(supabase)
 analytics_service = AnalyticsService(supabase)
 payment_manager = PaymentManager(supabase)
-payfast_handler = PayFastWebhookHandler()  # Already has its own init
+payfast_handler = PayFastWebhookHandler()
 rate_limiter = RateLimiter(Config, supabase)
 input_sanitizer = InputSanitizer(Config)
+calendar_service = CalendarService(supabase, Config)
 
 # Initialize Refiloe service after other services
 refiloe_service = RefiloeService(supabase)
@@ -81,12 +85,8 @@ def send_daily_reminders():
     """Send daily workout and payment reminders"""
     try:
         log_info("Running daily reminders task")
-        
-        # Use scheduler_service for reminders
         results = scheduler_service.check_and_send_reminders()
-        
         log_info(f"Daily reminders completed: {results}")
-        
     except Exception as e:
         log_error(f"Error in daily reminders task: {str(e)}")
 
@@ -94,40 +94,35 @@ def check_subscription_status():
     """Check and update subscription statuses"""
     try:
         log_info("Checking subscription statuses")
-        
-        # Get all active subscriptions
         active_subs = supabase.table('trainer_subscriptions').select('*').eq(
             'status', 'active'
         ).execute()
         
         expired_count = 0
         for sub in (active_subs.data or []):
-            # Check if expired
             if sub.get('end_date'):
                 end_date = datetime.fromisoformat(sub['end_date'])
                 if end_date < datetime.now(pytz.timezone(Config.TIMEZONE)):
-                    # Mark as expired
                     supabase.table('trainer_subscriptions').update({
                         'status': 'expired'
                     }).eq('id', sub['id']).execute()
                     expired_count += 1
         
         log_info(f"Processed {expired_count} expired subscriptions")
-        
     except Exception as e:
         log_error(f"Error checking subscriptions: {str(e)}")
 
 # Schedule background tasks
 scheduler.add_job(
     send_daily_reminders,
-    CronTrigger(hour=8, minute=0),  # Run at 8 AM daily
+    CronTrigger(hour=8, minute=0),
     id='daily_reminders',
     replace_existing=True
 )
 
 scheduler.add_job(
     check_subscription_status,
-    CronTrigger(hour=0, minute=0),  # Run at midnight daily
+    CronTrigger(hour=0, minute=0),
     id='check_subscriptions',
     replace_existing=True
 )
@@ -150,7 +145,6 @@ def home():
 def health_check():
     """Health check endpoint"""
     try:
-        # Check Supabase connection
         supabase.table('trainers').select('id').limit(1).execute()
         db_status = "connected"
     except:
@@ -165,9 +159,7 @@ def health_check():
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     """Main WhatsApp webhook endpoint"""
-    
     if request.method == 'GET':
-        # Webhook verification
         verify_token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
         
@@ -180,20 +172,17 @@ def webhook():
     
     elif request.method == 'POST':
         try:
-            # Check rate limits
             if Config.ENABLE_RATE_LIMITING:
                 ip_address = request.remote_addr
                 if not rate_limiter.check_webhook_rate(ip_address):
                     log_warning(f"Rate limit exceeded for IP: {ip_address}")
                     return jsonify({"error": "Rate limit exceeded"}), 429
             
-            # Process webhook data
             data = request.get_json()
             
             if not data:
                 return jsonify({"error": "No data provided"}), 400
             
-            # Extract message details
             if 'entry' in data:
                 for entry in data['entry']:
                     if 'changes' in entry:
@@ -214,7 +203,6 @@ def process_message(message: dict, contacts: list):
         from_number = message['from']
         message_type = message.get('type', 'text')
         
-        # Check user rate limits
         if Config.ENABLE_RATE_LIMITING:
             allowed, error_msg = rate_limiter.check_message_rate(from_number, message_type)
             if not allowed:
@@ -222,24 +210,20 @@ def process_message(message: dict, contacts: list):
                     whatsapp_service.send_message(from_number, error_msg)
                 return
         
-        # Get contact name
         contact_name = "User"
         if contacts:
             contact = next((c for c in contacts if c['wa_id'] == from_number), None)
             if contact:
                 contact_name = contact.get('profile', {}).get('name', 'User')
         
-        # Process message with Refiloe service
         message_data = {
             'from': from_number,
             'type': message_type,
             'contact_name': contact_name
         }
         
-        # Add message content based on type
         if message_type == 'text':
             text_body = message.get('text', {}).get('body', '')
-            # Sanitize input
             sanitized, is_safe, warnings = input_sanitizer.sanitize_message(text_body, from_number)
             if not is_safe:
                 whatsapp_service.send_message(from_number, "Sorry, your message contained invalid content.")
@@ -254,18 +238,14 @@ def process_message(message: dict, contacts: list):
         elif message_type == 'button':
             message_data['button'] = message.get('button', {})
         
-        # Process with Refiloe service
         response = refiloe_service.process_message(message_data)
         
-        # Send response if successful
         if response.get('success') and response.get('message'):
             whatsapp_service.send_message(from_number, response['message'])
             
-            # Send media if included
             if response.get('media_url'):
                 whatsapp_service.send_media_message(from_number, response['media_url'], 'image')
             
-            # Send buttons if included
             if response.get('buttons'):
                 whatsapp_service.send_message_with_buttons(
                     from_number,
@@ -286,7 +266,6 @@ def process_message(message: dict, contacts: list):
 def identify_user(phone_number: str) -> tuple:
     """Identify if user is trainer or client"""
     try:
-        # Check trainers table
         trainer = supabase.table('trainers').select('*').eq(
             'phone_number', phone_number
         ).single().execute()
@@ -294,7 +273,6 @@ def identify_user(phone_number: str) -> tuple:
         if trainer.data:
             return ('trainer', trainer.data)
         
-        # Check clients table
         client = supabase.table('clients').select('*').eq(
             'phone_number', phone_number
         ).single().execute()
@@ -312,16 +290,13 @@ def identify_user(phone_number: str) -> tuple:
 def payfast_webhook():
     """Handle PayFast payment webhooks"""
     try:
-        # Get webhook data
         data = request.form.to_dict()
         signature = request.headers.get('X-PayFast-Signature', '')
         
-        # Verify signature
         if not payment_manager.verify_webhook_signature(data, signature):
             log_warning("Invalid PayFast signature")
             return 'Invalid signature', 403
         
-        # Process webhook
         result = payfast_handler.process_payment_notification(data)
         
         if result['success']:
@@ -360,24 +335,476 @@ def dashboard():
     </html>
     """)
 
-@app.errorhandler(404)
-def not_found(e):
-    """Handle 404 errors"""
-    return jsonify({"error": "Endpoint not found"}), 404
+# ===== NEW CLIENT CALENDAR ENDPOINTS =====
 
-@app.errorhandler(500)
-def server_error(e):
-    """Handle 500 errors"""
-    log_error(f"Server error: {str(e)}")
-    return jsonify({"error": "Internal server error"}), 500
+def generate_calendar_token(client_id: str) -> str:
+    """Generate a secure token for calendar access"""
+    token_data = f"{client_id}:{datetime.now().isoformat()}:{secrets.token_hex(16)}"
+    return hashlib.sha256(token_data.encode()).hexdigest()
 
-# Cleanup scheduler on shutdown
-import atexit
-atexit.register(lambda: scheduler.shutdown(wait=False))
+def verify_calendar_token(token: str, client_id: str) -> bool:
+    """Verify calendar access token"""
+    try:
+        # Check if token exists and is valid
+        result = supabase.table('calendar_access_tokens').select('*').eq(
+            'token', token
+        ).eq('client_id', client_id).eq('is_valid', True).execute()
+        
+        if result.data:
+            # Check if token is not expired (24 hours)
+            created_at = datetime.fromisoformat(result.data[0]['created_at'])
+            if (datetime.now(pytz.UTC) - created_at).total_seconds() < 86400:
+                return True
+        return False
+    except:
+        return False
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
-    
-    log_info(f"Starting Refiloe AI Assistant on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+@app.route('/api/client/calendar/<client_id>')
+def client_calendar_view(client_id):
+    """Client calendar view endpoint"""
+    try:
+        # Verify access token
+        token = request.args.get('token')
+        if not token or not verify_calendar_token(token, client_id):
+            return "Access denied. Please request a new calendar link.", 403
+        
+        # Get client info
+        client = supabase.table('clients').select('*, trainers(*)').eq(
+            'id', client_id
+        ).single().execute()
+        
+        if not client.data:
+            return "Client not found", 404
+        
+        # Get upcoming sessions
+        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
+        end_date = today + timedelta(days=30)
+        
+        sessions = supabase.table('bookings').select('*').eq(
+            'client_id', client_id
+        ).gte('session_date', today.isoformat()).lte(
+            'session_date', end_date.isoformat()
+        ).order('session_date').order('session_time').execute()
+        
+        # Get past sessions (last 10)
+        past_sessions = supabase.table('bookings').select('*').eq(
+            'client_id', client_id
+        ).lt('session_date', today.isoformat()).order(
+            'session_date', desc=True
+        ).limit(10).execute()
+        
+        # Find next session
+        next_session = None
+        for session in (sessions.data or []):
+            if session['status'] in ['confirmed', 'rescheduled']:
+                next_session = session
+                break
+        
+        html_template = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>My Training Calendar - {{ client_name }}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 500px;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px 20px;
+                    text-align: center;
+                }
+                .header h1 {
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }
+                .header p {
+                    opacity: 0.9;
+                    font-size: 14px;
+                }
+                .next-session {
+                    background: #f0f9ff;
+                    border-left: 4px solid #3b82f6;
+                    margin: 20px;
+                    padding: 15px;
+                    border-radius: 10px;
+                }
+                .next-session h2 {
+                    color: #1e40af;
+                    font-size: 16px;
+                    margin-bottom: 10px;
+                }
+                .session-card {
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    margin: 10px 20px;
+                    padding: 15px;
+                    border-radius: 10px;
+                    position: relative;
+                }
+                .session-card.completed {
+                    opacity: 0.6;
+                    background: #f9fafb;
+                }
+                .session-date {
+                    font-weight: 600;
+                    color: #374151;
+                    margin-bottom: 5px;
+                }
+                .session-time {
+                    color: #6b7280;
+                    font-size: 14px;
+                }
+                .session-status {
+                    position: absolute;
+                    top: 15px;
+                    right: 15px;
+                    padding: 4px 8px;
+                    border-radius: 5px;
+                    font-size: 12px;
+                    font-weight: 500;
+                }
+                .status-confirmed {
+                    background: #d1fae5;
+                    color: #065f46;
+                }
+                .status-completed {
+                    background: #e0e7ff;
+                    color: #3730a3;
+                }
+                .status-cancelled {
+                    background: #fee2e2;
+                    color: #991b1b;
+                }
+                .section-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin: 30px 20px 15px;
+                    color: #1f2937;
+                }
+                .action-buttons {
+                    padding: 20px;
+                    display: flex;
+                    gap: 10px;
+                }
+                .btn {
+                    flex: 1;
+                    padding: 12px;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    text-align: center;
+                    text-decoration: none;
+                    cursor: pointer;
+                }
+                .btn-primary {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                .btn-secondary {
+                    background: #f3f4f6;
+                    color: #374151;
+                }
+                .empty-state {
+                    text-align: center;
+                    padding: 40px 20px;
+                    color: #6b7280;
+                }
+                .stats {
+                    display: flex;
+                    justify-content: space-around;
+                    padding: 20px;
+                    background: #f9fafb;
+                }
+                .stat {
+                    text-align: center;
+                }
+                .stat-value {
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: #1f2937;
+                }
+                .stat-label {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📅 My Training Calendar</h1>
+                    <p>{{ client_name }} • {{ trainer_name }}</p>
+                </div>
+                
+                {% if next_session %}
+                <div class="next-session">
+                    <h2>🎯 Next Session</h2>
+                    <div class="session-date">{{ next_session.formatted_date }}</div>
+                    <div class="session-time">{{ next_session.session_time }}</div>
+                </div>
+                {% endif %}
+                
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-value">{{ upcoming_count }}</div>
+                        <div class="stat-label">Upcoming</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ completed_count }}</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ total_count }}</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+                
+                <h2 class="section-title">📍 Upcoming Sessions</h2>
+                {% if upcoming_sessions %}
+                    {% for session in upcoming_sessions %}
+                    <div class="session-card">
+                        <div class="session-date">{{ session.formatted_date }}</div>
+                        <div class="session-time">🕐 {{ session.session_time }}</div>
+                        <span class="session-status status-{{ session.status }}">{{ session.status|upper }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No upcoming sessions scheduled</p>
+                    </div>
+                {% endif %}
+                
+                <h2 class="section-title">✅ Recent Sessions</h2>
+                {% if past_sessions %}
+                    {% for session in past_sessions %}
+                    <div class="session-card completed">
+                        <div class="session-date">{{ session.formatted_date }}</div>
+                        <div class="session-time">{{ session.session_time }}</div>
+                        <span class="session-status status-{{ session.status }}">{{ session.status|upper }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No past sessions</p>
+                    </div>
+                {% endif %}
+                
+                <div class="action-buttons">
+                    <a href="/api/client/trainer-availability/{{ trainer_id }}?client_id={{ client_id }}&token={{ token }}" class="btn btn-primary">
+                        Check Availability
+                    </a>
+                    <a href="/api/client/calendar/{{ client_id }}/ics?token={{ token }}" class="btn btn-secondary">
+                        📥 Download Calendar
+                    </a>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Format dates for display
+        def format_date(date_str):
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%A, %d %B')
+        
+        # Process sessions for template
+        upcoming_sessions = []
+        for session in (sessions.data or []):
+            session['formatted_date'] = format_date(session['session_date'])
+            upcoming_sessions.append(session)
+        
+        past_sessions_formatted = []
+        for session in (past_sessions.data or []):
+            session['formatted_date'] = format_date(session['session_date'])
+            past_sessions_formatted.append(session)
+        
+        if next_session:
+            next_session['formatted_date'] = format_date(next_session['session_date'])
+        
+        # Count statistics
+        completed_count = len([s for s in past_sessions.data if s['status'] == 'completed'])
+        upcoming_count = len([s for s in sessions.data if s['status'] in ['confirmed', 'rescheduled']])
+        
+        from jinja2 import Template
+        template = Template(html_template)
+        return template.render(
+            client_name=client.data['name'],
+            client_id=client_id,
+            trainer_name=client.data['trainers']['name'],
+            trainer_id=client.data['trainer_id'],
+            next_session=next_session,
+            upcoming_sessions=upcoming_sessions,
+            past_sessions=past_sessions_formatted,
+            upcoming_count=upcoming_count,
+            completed_count=completed_count,
+            total_count=upcoming_count + completed_count,
+            token=token
+        )
+        
+    except Exception as e:
+        log_error(f"Error in client calendar view: {str(e)}")
+        return "Error loading calendar", 500
+
+@app.route('/api/client/trainer-availability/<trainer_id>')
+def trainer_availability_view(trainer_id):
+    """View trainer availability for rescheduling"""
+    try:
+        # Verify access
+        token = request.args.get('token')
+        client_id = request.args.get('client_id')
+        
+        if not token or not client_id or not verify_calendar_token(token, client_id):
+            return "Access denied. Please request a new link.", 403
+        
+        # Get trainer info
+        trainer = supabase.table('trainers').select('*').eq(
+            'id', trainer_id
+        ).single().execute()
+        
+        if not trainer.data:
+            return "Trainer not found", 404
+        
+        # Get next 14 days of availability
+        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
+        days_data = []
+        
+        for i in range(14):
+            date = today + timedelta(days=i)
+            date_str = date.isoformat()
+            day_name = date.strftime('%A')
+            
+            # Get available slots for this day
+            available_slots = booking_model.get_available_slots(trainer_id, date_str)
+            
+            if available_slots:
+                days_data.append({
+                    'date': date_str,
+                    'formatted_date': date.strftime('%a, %d %b'),
+                    'day_name': day_name,
+                    'slots': available_slots
+                })
+        
+        html_template = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Trainer Availability - {{ trainer_name }}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 500px;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px 20px;
+                    text-align: center;
+                }
+                .header h1 {
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }
+                .day-section {
+                    margin: 20px;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #e5e7eb;
+                }
+                .day-section:last-child {
+                    border-bottom: none;
+                }
+                .day-header {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #1f2937;
+                    margin-bottom: 15px;
+                }
+                .slots-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 10px;
+                }
+                .slot {
+                    padding: 10px;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 8px;
+                    text-align: center;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .slot:hover {
+                    border-color: #667eea;
+                    background: #f0f9ff;
+                }
+                .slot.available {
+                    background: #d1fae5;
+                    border-color: #10b981;
+                    color: #065f46;
+                }
+                .back-btn {
+                    display: block;
+                    margin: 20px;
+                    padding: 12px;
+                    background: #f3f4f6;
+                    color: #374151;
+                    text-align: center;
+                    text-decoration: none;
+                    border-radius: 10px;
+                    font-weight: 500;
+                }
+                .info-box {
+                    margin: 20px;
+                    padding: 15px;
+                    background: #fef3c7;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    color: #92400e;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📅 Available Training Slots</h1>
+                    <p>{{ trainer_name }}</p>
+                </div>
+                
+                <div class="info-box">
+                    💡 Click on any available time slot to request a booking via WhatsApp
+                </div>
+                
+                {% for day in days %}
+                <div class="day-section">
+                    <div class="day-header">{{ day.formatted_date }}</div>
+</details>
