@@ -1,8 +1,10 @@
 ✅ **Changes Applied Successfully:**
-- Updated static/manifest.json
+- Updated services/scheduler.py
+- Created services/google_calendar_service.py
+- Created migration supabase/migrations/20250901200502_20250902000000_calendar_auth_tables.sql
 
 📝 **Full Details:** See claude_response.md
 
-🤖 **Model:** Opus 4.1 (Complex task (Opus 4.1))
-💰 **Cost:** $1.5274
-📊 **Tokens:** ~101,830
+🤖 **Model:** Sonnet 3.5 (Simple task (Sonnet 3.5))
+💰 **Cost:** $0.0760
+📊 **Tokens:** ~25,321
