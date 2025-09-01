@@ -809,5 +809,108 @@ def trainer_availability_view(trainer_id):
                     <div class="day-header">{{ day.formatted_date }}</div>
                     <div class="slots-grid">
                         {% for slot in day.slots %}
-                        <div
-</details>
+                        <div class="slot available" onclick="requestBooking('{{ day.date }}', '{{ slot }}')">
+                            {{ slot }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <a href="/api/client/calendar/{{ client_id }}?token={{ token }}" class="back-btn">
+                    ← Back to My Calendar
+                </a>
+            </div>
+            
+            <script>
+                function requestBooking(date, time) {
+                    const message = `Hi, I'd like to book a training session on ${date} at ${time}`;
+                    const whatsappUrl = `https://wa.me/27730564882?text=${encodeURIComponent(message)}`;
+                    window.location.href = whatsappUrl;
+                }
+            </script>
+        </body>
+        </html>
+        """
+        
+        from jinja2 import Template
+        template = Template(html_template)
+        return template.render(
+            trainer_name=trainer.data['name'],
+            trainer_id=trainer_id,
+            client_id=client_id,
+            days=days_data,
+            token=token
+        )
+        
+    except Exception as e:
+        log_error(f"Error in trainer availability view: {str(e)}")
+        return "Error loading availability", 500
+
+@app.route('/api/client/calendar/<client_id>/ics')
+def download_calendar_ics(client_id):
+    """Download client's calendar as ICS file"""
+    try:
+        # Verify access token
+        token = request.args.get('token')
+        if not token or not verify_calendar_token(token, client_id):
+            return "Access denied", 403
+        
+        # Get client and sessions
+        client = supabase.table('clients').select('*, trainers(*)').eq(
+            'id', client_id
+        ).single().execute()
+        
+        if not client.data:
+            return "Client not found", 404
+        
+        # Get all future sessions
+        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
+        sessions = supabase.table('bookings').select('*').eq(
+            'client_id', client_id
+        ).gte('session_date', today.isoformat()).execute()
+        
+        # Generate ICS content
+        ics_content = calendar_service.generate_ics_file({
+            'client': client.data,
+            'sessions': sessions.data or [],
+            'trainer': client.data['trainers']
+        })
+        
+        # Create response with ICS file
+        output = BytesIO()
+        output.write(ics_content.encode('utf-8'))
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='text/calendar',
+            as_attachment=True,
+            download_name=f'training_calendar_{client.data["name"].replace(" ", "_")}.ics'
+        )
+        
+    except Exception as e:
+        log_error(f"Error generating ICS file: {str(e)}")
+        return "Error generating calendar file", 500
+
+@app.errorhandler(404)
+def not_found(e):
+    """Handle 404 errors"""
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    """Handle 500 errors"""
+    log_error(f"Server error: {str(e)}")
+    return jsonify({"error": "Internal server error"}), 500
+
+# Cleanup scheduler on shutdown
+import atexit
+atexit.register(lambda: scheduler.shutdown(wait=False))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    log_info(f"Starting Refiloe AI Assistant on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=debug)
