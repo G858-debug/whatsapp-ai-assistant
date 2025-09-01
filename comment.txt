@@ -1,41 +1,40 @@
 @claude
-
-Add calendar export functionality supporting .ics files and email calendar invites.
+Add comprehensive testing and error handling for the calendar system.
 
 Requirements:
 
-1. Create services/calendar_export_service.py with:
-   - generate_ics_file(booking_data)
-   - create_calendar_invite(booking, attendees)
-   - send_calendar_email(recipient, ics_attachment)
-   - bulk_export_month(trainer_id, month, year)
+1. Create tests/test_calendar_service.py:
+   - Test calendar CRUD operations
+   - Test sync functionality
+   - Test conflict resolution
+   - Test timezone handling
+   - Test export functionality
 
-2. ICS file generation should include:
-   - VEVENT with proper formatting
-   - DTSTART/DTEND with timezone
-   - SUMMARY with session details
-   - LOCATION (trainer's gym/online link)
-   - DESCRIPTION with full details
-   - ORGANIZER (trainer email)
-   - ATTENDEE (client email)
+2. Add error handling for common issues:
+   - Invalid calendar credentials
+   - API rate limits exceeded
+   - Network timeouts
+   - Sync conflicts
+   - Invalid date/time inputs
+   - Missing client data
 
-3. Add export options to dashboard:
-   - Export button on month view
-   - Export formats: .ics, CSV, PDF
-   - Email calendar to self option
-   - Share calendar link option
+3. Add user-friendly error messages:
+   - WhatsApp messages for sync failures
+   - Dashboard alerts for calendar issues
+   - Helpful resolution suggestions
 
-4. Email integration for calendar invites:
-   - Send invite when booking created
-   - Send update when booking modified
-   - Send cancellation when booking cancelled
-   - Use proper iTIP/iMIP format
+4. Create calendar system health check:
+   - Endpoint: /api/health/calendar
+   - Checks all calendar integrations
+   - Verifies sync status
+   - Reports any issues
 
-5. Add settings for email preferences:
-   - Enable/disable automatic invites
-   - Choose which events to send invites for
-   - Custom email template for invites
+5. Add logging and monitoring:
+   - Log all calendar operations
+   - Track sync performance
+   - Monitor API usage
+   - Alert on repeated failures
 
-Test that .ics files work with Google Calendar, Apple Calendar, and Outlook.
+Include rollback functionality for failed syncs and data integrity checks.
 
-@apply the suggested changes to the code
+@apply changes to the code
