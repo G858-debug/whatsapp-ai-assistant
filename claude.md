@@ -46,10 +46,10 @@ These are the rules to follow when suggesting or editing code in this repository
   -- Rollback: 
   -- ALTER TABLE bookings DROP COLUMN status;
 
-Include indexes for foreign keys and commonly queried fields
+Include indexes for foreign s and commonly queried fields
 Follow Supabase security best practices:
 - Use Row Level Security (RLS) policies
-- Never expose service keys in client code
+- Never expose service s in client code
 - Do not add policies that make data public unless explicitly requested
 After making a migration, update any affected Python models/services
 
@@ -159,6 +159,15 @@ When processing requests:
 - **Opus 4.1** is used for: Complex analysis, multi-file changes, system design
 - Users can force a model with `@sonnet` or `@opus` flags
 - Consider cost implications: Opus is 5x more expensive than Sonnet
+
+## Code Organization Rules:
+**CRITICAL: Maintain clean, manageable file sizes**
+- No single file should exceed 600 lines
+- When approaching 600 lines, refactor immediately:
+  - `app.py` → Split routes into `routes/` directory blueprints
+  - Large service files → Split into focused service modules
+  - HTML templates in Python strings → Move to `templates/` directory
+  - Repeated code → Extract to `utils/` modules
 
 ## Priority Order 📊
 When improving code, prioritize:
