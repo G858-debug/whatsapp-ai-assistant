@@ -4,10 +4,14 @@ from typing import Dict, List
 class Config:
     """Application configuration"""
     
-    # WhatsApp Configuration
-    WHATSAPP_TOKEN = os.environ.get('WHATSAPP_TOKEN')
-    WHATSAPP_PHONE_ID = os.environ.get('WHATSAPP_PHONE_ID')
-    VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'refiloe_verify_token')
+    # WhatsApp Configuration - Handle both Railway and standard naming
+    WHATSAPP_TOKEN = os.environ.get('ACCESS_TOKEN') or os.environ.get('WHATSAPP_TOKEN')
+    WHATSAPP_PHONE_ID = os.environ.get('PHONE_NUMBER_ID') or os.environ.get('WHATSAPP_PHONE_ID')
+    VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'texts_to_refiloe_radebe')  # Use your actual verify token
+    
+    # Aliases for backward compatibility
+    ACCESS_TOKEN = WHATSAPP_TOKEN
+    PHONE_NUMBER_ID = WHATSAPP_PHONE_ID
     
     # Supabase Configuration
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
@@ -15,6 +19,11 @@ class Config:
     
     # AI Configuration
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
+    AI_MODEL = os.environ.get('AI_MODEL', 'claude-3-5-sonnet-20241022')
+    
+    # Google Calendar Configuration
+    GOOGLE_CALENDAR_ID = os.environ.get('GOOGLE_CALENDAR_ID')
+    GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
     
     # Payment Configuration
     PAYFAST_MERCHANT_ID = os.environ.get('PAYFAST_MERCHANT_ID')
@@ -65,7 +74,13 @@ class Config:
                 missing.append(key)
         
         if missing:
+            # Log what we actually have for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Environment variables present: {list(os.environ.keys())}")
             raise ValueError(f"Missing required configuration: {', '.join(missing)}")
+        
+        return True
     
     @classmethod
     def get_booking_slots(cls) -> Dict[str, List[str]]:
