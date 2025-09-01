@@ -64,7 +64,7 @@ Follow the existing folder structure:
 - Always validate user input before saving to database
 - Use the existing error handling pattern:
 pythontry:
-    # operation
+    operation
 except Exception as e:
     log_error(f"Context: {str(e)}")
     return friendly_error_message
