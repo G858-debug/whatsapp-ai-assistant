@@ -1,39 +1,6 @@
 @claude @apply
-Update the Supabase database schema to support calendar synchronization for Refiloe. Add the following new tables:
-
-1. Create a calendar_sync_preferences table to store trainer calendar settings
-2. Create a calendar_sync_status table to track sync status with external calendars
-3. Create a calendar_events table for managing calendar-specific data
-4. Update the existing bookings table to add calendar-related fields
-
-Here are the specific requirements:
-
-CALENDAR_SYNC_PREFERENCES table should have:
-- trainer_id (foreign key to trainers)
-- google_calendar_enabled (boolean)
-- apple_calendar_enabled (boolean) 
-- email_calendar_enabled (boolean)
-- sync_frequency (realtime/hourly/daily)
-- calendar_view_default (month/week/day)
-- show_client_names (boolean)
-- session_colors (JSONB for color preferences by session type)
-- timezone_display (for calendar display)
-
-CALENDAR_SYNC_STATUS table should have:
-- trainer_id, provider (google/apple/email)
-- last_sync timestamp
-- sync_status (success/failed/pending)
-- error_message if failed
-- events_synced count
-
-CALENDAR_EVENTS table should have:
-- Fields to store external calendar event IDs
-- Mapping between Refiloe bookings and external calendar events
-
-Update BOOKINGS table to add:
-- google_event_id
-- apple_event_id  
-- session_type (one_on_one/online/group_class/personal_time)
-- color_hex for display
-
-Create appropriate indexes for performance. Generate both the SQL migration file and update any relevant model files in the codebase.
+The deploy crashed. Here are the logs:
+Traceback (most recent call last):
+File "/app/app.py", line 26, in
+from models.booking import BookingModel
+ImportError: cannot import name 'BookingModel' from 'models.booking' (/app/models/booking.py)
