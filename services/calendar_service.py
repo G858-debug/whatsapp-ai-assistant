@@ -1,14 +1,3 @@
-<!-- Model: Opus 4.1 -->
-<!-- Cost: $1.3809 -->
-<!-- Tokens: ~92,060 -->
-
-## ANALYSIS
-I need to create a new CalendarService class in services/calendar_service.py that handles calendar operations for trainers and clients. This service will manage calendar events, handle session type color coding, manage preferences, and format calendar data for display. It should integrate with the existing booking system and follow the project's established patterns.
-
-## FILES TO CHANGE
-
-### NEW FILE: services/calendar_service.py
-```python
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta, date
 import pytz
@@ -760,15 +749,3 @@ class CalendarService:
         """Check if string is valid hex color"""
         import re
         return bool(re.match(r'^#(?:[0-9a-fA-F]{3}){1,2}$', color))
-```
-
-## SUMMARY
-Created a comprehensive CalendarService class that:
-- Manages calendar operations for trainers and clients with different views (day, week, month, list)
-- Handles session type color coding with predefined colors for different session types
-- Manages calendar preferences per trainer with proper validation
-- Formats calendar data appropriately for different display types
-- Includes helper methods for timezone conversions and name abbreviation
-- Provides conflict detection for scheduling
-- Calculates calendar statistics for analytics
-- Follows the existing project patterns with proper error handling and logging

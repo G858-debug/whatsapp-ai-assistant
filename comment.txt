@@ -1,6 +1,31 @@
 @claude @apply
-The deploy crashed. Here are the logs:
-Traceback (most recent call last):
-File "/app/app.py", line 26, in
-from models.booking import BookingModel
-ImportError: cannot import name 'BookingModel' from 'models.booking' (/app/models/booking.py)
+Create a new Python service class for calendar management in services/calendar_service.py. This will be the base service that handles all calendar operations.
+
+Requirements:
+
+1. Create CalendarService class that:
+   - Initializes with supabase client and config
+   - Has methods for CRUD operations on calendar events
+   - Handles session type color coding
+   - Manages calendar preferences per trainer
+
+2. Include these core methods:
+   - get_trainer_calendar(trainer_id, start_date, end_date, view_type)
+   - get_client_calendar(client_id, start_date, end_date)
+   - format_calendar_data_for_display(bookings, view_type)
+   - get_session_color(session_type)
+   - update_calendar_preferences(trainer_id, preferences)
+
+3. Session type colors should be:
+   - one_on_one: #4CAF50 (green)
+   - online: #2196F3 (blue)
+   - group_class: #FF9800 (orange)
+   - personal_time: #9E9E9E (grey)
+   - cancelled: #F44336 (red)
+
+4. Include helper methods for:
+   - Converting bookings to calendar format
+   - Handling timezone conversions (use Africa/Johannesburg)
+   - Generating calendar event titles (abbreviated client names)
+
+Make sure to follow the existing code patterns in the project and include proper error handling and logging.
