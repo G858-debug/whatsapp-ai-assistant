@@ -1,8 +1,9 @@
 ✅ **Changes Applied Successfully:**
-- Updated services/scheduler.py
+- Created services/calendar_export_service.py
+- Updated config.py
 
 📝 **Full Details:** See claude_response.md
 
-🤖 **Model:** Opus 4.1 (Long request (Opus 4.1))
-💰 **Cost:** $1.4251
-📊 **Tokens:** ~95,006
+🤖 **Model:** Opus 4.1 (Complex task (Opus 4.1))
+💰 **Cost:** $0.2656
+📊 **Tokens:** ~17,706

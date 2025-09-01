@@ -1,17 +1,41 @@
-@claude the deployment crashed. Here are the logs:
+@claude
 
-NameError: name 'Dict' is not defined. Did you mean: 'dict'?
-Traceback (most recent call last):
-File "/app/app.py", line 16, in
-from services.refiloe import RefiloeService
-File "/app/services/refiloe.py", line 9, in
-from services.scheduler import SchedulerService
-File "/app/services/scheduler.py", line 4, in
-class CalendarSyncManager:
-File "/app/services/scheduler.py", line 11, in CalendarSyncManager
-def sync_trainer_calendars(self, trainer_id: str) -> Dict:
+Add calendar export functionality supporting .ics files and email calendar invites.
 
-   ^^^^
-NameError: name 'Dict' is not defined. Did you mean: 'dict'?
+Requirements:
 
-@apply the fix
+1. Create services/calendar_export_service.py with:
+   - generate_ics_file(booking_data)
+   - create_calendar_invite(booking, attendees)
+   - send_calendar_email(recipient, ics_attachment)
+   - bulk_export_month(trainer_id, month, year)
+
+2. ICS file generation should include:
+   - VEVENT with proper formatting
+   - DTSTART/DTEND with timezone
+   - SUMMARY with session details
+   - LOCATION (trainer's gym/online link)
+   - DESCRIPTION with full details
+   - ORGANIZER (trainer email)
+   - ATTENDEE (client email)
+
+3. Add export options to dashboard:
+   - Export button on month view
+   - Export formats: .ics, CSV, PDF
+   - Email calendar to self option
+   - Share calendar link option
+
+4. Email integration for calendar invites:
+   - Send invite when booking created
+   - Send update when booking modified
+   - Send cancellation when booking cancelled
+   - Use proper iTIP/iMIP format
+
+5. Add settings for email preferences:
+   - Enable/disable automatic invites
+   - Choose which events to send invites for
+   - Custom email template for invites
+
+Test that .ics files work with Google Calendar, Apple Calendar, and Outlook.
+
+@apply the suggested changes to the code
