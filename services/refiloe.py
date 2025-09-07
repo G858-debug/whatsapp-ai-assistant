@@ -904,7 +904,7 @@ Just type what you need naturally! 💪"""
         """Get recent conversation history for context"""
         try:
             # Get recent messages from the database
-            messages = self.db.table('messages').select('content').eq(
+            messages = self.db.table('messages').select('message_text').eq(
                 f'{user_type}_id', user_id
             ).order('created_at', desc=True).limit(limit).execute()
             

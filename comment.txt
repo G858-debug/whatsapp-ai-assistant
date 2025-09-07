@@ -1,10 +1,1 @@
-@claude @sonnet @apply Without importing the whole code: 
-
-1. Search the entire codebase for: completions.create
-
-Replace with: messages.create (with proper parameters as shown above)
-
-
-2. Search the entire codebase for: select('content')
-
-Replace with: select('message_text')
+@claude @sonnet @continue @apply
