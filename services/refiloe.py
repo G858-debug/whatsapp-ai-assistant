@@ -137,7 +137,7 @@ class RefiloeService:
 
     def _get_user_context_dict(self, phone_number: str) -> Dict:
         """Get user context as dictionary for backward compatibility"""
-        user_type, user_data = self._get_user_context_dict(phone_number)
+        user_type, user_data = self._get_user_context(phone_number)
         
         context = {
             'phone_number': phone_number,
@@ -151,6 +151,9 @@ class RefiloeService:
             context['user_data'] = user_data
             context['user_id'] = user_data.get('id')
             context['user_name'] = user_data.get('name')
+            context['trainer_id'] = user_data.get('id') if user_type == 'trainer' else user_data.get('trainer_id')
+            context['client_id'] = user_data.get('id') if user_type == 'client' else None
+            context['name'] = user_data.get('name', 'User')
         
         return context
     
@@ -1109,81 +1112,71 @@ Just type what you need naturally! 💪"""
     def _get_help_message(self, user_type: str, user_data: Dict) -> Dict:
         """Get help message based on user type"""
         if user_type == 'trainer':
-        return {
             message = """🤖 *Refiloe AI Assistant - Trainer Commands*
-
-*Session Management:*
-- Book a session - "Book John for Tuesday 3pm"
-- View schedule - "Show my schedule"
-- Cancel booking - "Cancel tomorrow's session"
-
-*Client Management:*
-- Add client - "Add client Sarah 0821234567"
-- View clients - "Show my clients"
-- Send workout - /workout
-
-*Assessments:*
-- Start assessment - /assess
-- View results - "Show Sarah's assessment"
-
-*Gamification:* 🎮
-- View points - /points
-- Check badges - /badges
-- Game stats - /stats
-- Create challenge - "Create water challenge"
-
-*Other:*
-- Payment status - /pay
-- Analytics - "Show my stats"
-- Help - /help
-
-Just message naturally, I understand context! 💪"""
-        
-        elif user_context.get('is_client'):
+    
+    *Session Management:*
+    - Book a session - "Book John for Tuesday 3pm"
+    - View schedule - "Show my schedule"
+    - Cancel booking - "Cancel tomorrow's session"
+    
+    *Client Management:*
+    - Add client - "Add client Sarah 0821234567"
+    - View clients - "Show my clients"
+    - Send workout - /workout
+    
+    *Assessments:*
+    - Start assessment - /assess
+    - View results - "Show Sarah's assessment"
+    
+    *Gamification:* 🎮
+    - View points - /points
+    - Check badges - /badges
+    - Game stats - /stats
+    - Create challenge - "Create water challenge"
+    
+    *Other:*
+    - Payment status - /pay
+    - Analytics - "Show my stats"
+    - Help - /help
+    
+    Just message naturally, I understand context! 💪"""
+            
+        elif user_type == 'client':
             message = """🤖 *Refiloe AI Assistant - Client Commands*
-
-*Sessions:*
-- View schedule - "When is my next session?"
-- Request reschedule - "Can I move Tuesday's session?"
-
-*Progress:*
-- Track habits - "Water: 8 glasses, Steps: 10000"
-- View assessment - "Show my assessment"
-- Request workout - "Send me a workout"
-
-*Gamification:* 🎮
-- View points - /points
-- Check badges - /badges
-- Game stats - /stats
-- Join challenges - "Show challenges"
-
-*Other:*
-- Payment info - /pay
-- Help - /help
-
-Just message naturally, I understand! 💪"""
-        }
+    
+    *Sessions:*
+    - View schedule - "When is my next session?"
+    - Request reschedule - "Can I move Tuesday's session?"
+    
+    *Progress:*
+    - Track habits - "Water: 8 glasses, Steps: 10000"
+    - View assessment - "Show my assessment"
+    - Request workout - "Send me a workout"
+    
+    *Gamification:* 🎮
+    - View points - /points
+    - Check badges - /badges
+    - Game stats - /stats
+    - Join challenges - "Show challenges"
+    
+    *Other:*
+    - Payment info - /pay
+    - Help - /help
+    
+    Just message naturally, I understand! 💪"""
         
         else:
             message = """🤖 *Welcome to Refiloe AI Assistant!*
-
-I help personal trainers and clients manage fitness training.
-
-*For Trainers:*
-Register by sending: "I'm a trainer"
-
-*For Clients:*
-Your trainer will add you to the system.
-
-*Features:*
-- Session scheduling 📅
-- Workout programs 💪
-- Progress tracking 📊
-- Habit monitoring 💧
-- Gamification 🎮
-- Payment management 💰
-
-Visit refiloe.ai to learn more!"""
+    
+    I help personal trainers and clients manage fitness training.
+    
+    *For Trainers:*
+    Register by sending: "I'm a trainer"
+    
+    *For Clients:*
+    Your trainer will add you to the system.
+    
+    Visit refiloe.ai to learn more!"""
         
         return {
             'success': True,
