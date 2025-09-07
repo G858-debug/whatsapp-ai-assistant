@@ -29,6 +29,7 @@ jobs:
           pip install anthropic
           pip install supabase
           pip install gitpython
+          pip install unidiff
       
       - name: Configure Git
         run: |
@@ -69,213 +70,214 @@ jobs:
           create_pr = '@pr' in comment
           force_opus = '@opus' in comment
           force_sonnet = '@sonnet' in comment
+          force_haiku = '@haiku' in comment
           
           # Remove command keywords from task
           clean_task = task.replace('@apply', '').replace('@commit', '').replace('@pr', '')\
-                           .replace('@opus', '').replace('@sonnet', '').strip()
+                           .replace('@opus', '').replace('@sonnet', '').replace('@haiku', '').strip()
           
           # =====================================
-          # SMART MODEL SELECTION
+          # ENHANCED MODEL SELECTION WITH HAIKU
           # =====================================
           def select_model_and_context(task, comment):
-              """Intelligently select model based on task complexity"""
+              """Select model based on task complexity: Haiku < Sonnet < Opus"""
               
               task_lower = task.lower()
               
               # Force model if specified
               if force_opus:
                   print("🎯 Force flag: Using Opus 4.1")
-                  return 'claude-opus-4-1-20250805', 8000, True, "Opus 4.1 (forced)"
+                  return 'claude-opus-4-1-20250805', 8000, 'full', "Opus 4.1 (forced)"
               
               if force_sonnet:
                   print("🎯 Force flag: Using Sonnet 3.5")
-                  return 'claude-3-5-sonnet-20241022', 4000, False, "Sonnet 3.5 (forced)"
+                  return 'claude-3-5-sonnet-20241022', 4000, 'targeted', "Sonnet 3.5 (forced)"
+              
+              if force_haiku:
+                  print("🎯 Force flag: Using Haiku 3")
+                  return 'claude-3-haiku-20240307', 2000, 'minimal', "Haiku 3 (forced)"
+              
+              # HAIKU 3 TRIGGERS (Ultra-simple tasks - $0.25/million tokens)
+              haiku_triggers = [
+                  # Trivial fixes
+                  'fix typo', 'fix spelling', 'update comment', 'fix comma',
+                  'add space', 'remove space', 'fix quote', 'fix bracket',
+                  
+                  # Simple string/text changes
+                  'change text', 'update string', 'fix emoji', 'rename variable',
+                  'update version', 'change url', 'fix link',
+                  
+                  # Documentation only
+                  'add comment', 'update readme', 'fix markdown', 'add docstring',
+                  
+                  # Formatting
+                  'format code', 'fix whitespace', 'align code', 'fix tabs'
+              ]
+              
+              # SONNET 3.5 TRIGGERS (Moderate tasks - $3/million tokens)
+              sonnet_triggers = [
+                  # Single function fixes
+                  'fix function', 'update method', 'fix indentation', 'indentationerror',
+                  'syntax error', 'fix import', 'add validation', 'add check',
+                  
+                  # Simple features
+                  'add endpoint', 'simple feature', 'add field', 'update model',
+                  'single file', 'one file', 'specific function',
+                  
+                  # Small refactors
+                  'extract function', 'rename class', 'move function',
+                  'split function', 'combine functions'
+              ]
               
               # OPUS 4.1 TRIGGERS (Complex tasks - $15/million tokens)
               opus_triggers = [
-                  # Strategic/Architecture
-                  'architect', 'strategy', 'strategize', 'design system', 'redesign',
-                  'refactor entire', 'complete overhaul', 'restructure', 'plan',
+                  # Architecture & Design
+                  'architect', 'design system', 'restructure', 'refactor entire',
                   
-                  # Complex Analysis
-                  'analyze entire', 'comprehensive', 'deep dive', 'audit',
-                  'optimize performance', 'security audit', 'code review',
-                  'review all', 'analyze all', 'investigate',
+                  # Multi-file operations
+                  'all files', 'entire codebase', 'multiple services', 'full system',
                   
-                  # Multi-file Operations  
-                  'entire codebase', 'all files', 'multiple services', 'full system',
-                  'complete all', 'fix everything', 'update all', 'every file',
+                  # Complex analysis
+                  'analyze', 'investigate', 'debug complex', 'trace bug',
+                  'performance', 'security audit', 'code review',
                   
-                  # Complex Features
-                  'build complete', 'implement full', 'create system', 
-                  'complex', 'advanced', 'sophisticated', 'integration',
-                  
-                  # Chain-of-thought
-                  'chain of thought', 'multi-agent', 'step by step analysis',
-                  'systematic', 'thorough analysis',
-                  
-                  # Testing & Documentation
-                  'comprehensive tests', 'full documentation', 'test suite',
-                  'complete documentation', 'all tests',
-                  
-                  # Debugging complex issues
-                  'debug why', 'trace bug', 'find root cause', 'not working'
-              ]
-              
-              # SONNET 3.5 TASKS (Simple edits - $3/million tokens)
-              sonnet_triggers = [
-                  # Simple fixes
-                  'fix typo', 'update comment', 'add docstring', 'rename',
-                  'fix indentation', 'fix syntax', 'fix import', 'indentationerror',
-                  
-                  # Simple additions
-                  'add log', 'add print', 'add comment', 'add todo',
-                  'single file', 'one file', 'simple', 'quick',
-                  
-                  # Specific single-file tasks
-                  'update config', 'change constant', 'update variable',
-                  
-                  # Information queries
-                  'list files', 'show structure', 'what files', 'explain',
-                  'how many', 'count', 'check'
+                  # Integration & Features
+                  'integrate', 'implement full', 'build complete', 'create system'
               ]
               
               # Check triggers
-              use_opus = any(trigger in task_lower for trigger in opus_triggers)
-              use_sonnet = any(trigger in task_lower for trigger in sonnet_triggers)
+              is_haiku = any(trigger in task_lower for trigger in haiku_triggers)
+              is_sonnet = any(trigger in task_lower for trigger in sonnet_triggers)
+              is_opus = any(trigger in task_lower for trigger in opus_triggers)
               
               # Decision logic
-              if use_opus and not use_sonnet:
-                  return 'claude-opus-4-1-20250805', 8000, True, "Complex task (Opus 4.1)"
-              elif use_sonnet and not use_opus:
-                  return 'claude-3-5-sonnet-20241022', 4000, False, "Simple task (Sonnet 3.5)"
-              elif len(task) > 200 or task.count('\n') > 3:
-                  return 'claude-opus-4-1-20250805', 8000, True, "Long request (Opus 4.1)"
-              elif auto_apply and 'all' in task_lower:
-                  return 'claude-opus-4-1-20250805', 8000, True, "Multi-file changes (Opus 4.1)"
+              if is_haiku and not is_sonnet and not is_opus:
+                  return 'claude-3-haiku-20240307', 2000, 'minimal', "Trivial task (Haiku 3)"
+              elif is_sonnet and not is_opus:
+                  return 'claude-3-5-sonnet-20241022', 4000, 'targeted', "Moderate task (Sonnet 3.5)"
+              elif is_opus:
+                  return 'claude-opus-4-1-20250805', 8000, 'full', "Complex task (Opus 4.1)"
+              elif len(task) < 50:
+                  return 'claude-3-haiku-20240307', 2000, 'minimal', "Short request (Haiku 3)"
+              elif len(task) < 150:
+                  return 'claude-3-5-sonnet-20241022', 4000, 'targeted', "Standard task (Sonnet 3.5)"
               else:
-                  return 'claude-3-5-sonnet-20241022', 4000, False, "Standard task (Sonnet 3.5)"
+                  return 'claude-opus-4-1-20250805', 8000, 'full', "Long request (Opus 4.1)"
           
           # Select model
-          selected_model, max_tokens, use_full_context, model_reason = select_model_and_context(task, comment)
-          model_name = "Opus 4.1" if "opus" in selected_model else "Sonnet 3.5"
+          selected_model, max_tokens, context_level, model_reason = select_model_and_context(task, comment)
+          model_name = "Opus 4.1" if "opus" in selected_model else "Sonnet 3.5" if "sonnet" in selected_model else "Haiku 3"
           
           print(f"🤖 Model: {model_name}")
           print(f"📝 Reason: {model_reason}")
           
           # =====================================
-          # SMART CONTEXT BUILDING
+          # CONTEXT BUILDING BASED ON MODEL
           # =====================================
-          def build_smart_context(task, all_files, use_full_context):
-              """Build context with only relevant files to save tokens/money"""
+          def build_context_for_model(task, all_files, context_level):
+              """Build appropriate context based on model/task"""
               
               task_lower = task.lower()
               
-              # Start with file structure (always include - it's cheap)
+              # Always start with structure
               context = "=== PROJECT STRUCTURE ===\n"
-              for file_path in sorted(all_files.keys()):
+              for file_path in sorted(all_files.keys())[:50]:  # Limit structure list
                   context += f"- {file_path}\n"
               
-              # Full context for Opus complex tasks
-              if use_full_context and ('entire' in task_lower or 'all' in task_lower or 'complete' in task_lower):
-                  context += "\n\n=== COMPLETE CODEBASE ===\n"
+              # MINIMAL context (Haiku - just target file)
+              if context_level == 'minimal':
+                  # Find the specific file mentioned
+                  target_file = None
+                  for file_path in all_files.keys():
+                      if file_path in task or Path(file_path).stem in task_lower:
+                          target_file = file_path
+                          break
+                  
+                  if target_file and target_file in all_files:
+                      context += f"\n=== TARGET FILE: {target_file} ===\n"
+                      # For minimal context, include line numbers
+                      lines = all_files[target_file].split('\n')
+                      for i, line in enumerate(lines, 1):
+                          context += f"{i:4}: {line}\n"
+                  return context
+              
+              # TARGETED context (Sonnet - relevant files only)
+              elif context_level == 'targeted':
+                  relevant_files = set()
+                  
+                  # Keyword mappings
+                  keyword_mappings = {
+                      'payment': ['payment_manager.py', 'services/payment.py'],
+                      'gamification': ['services/gamification.py', 'routes/dashboard.py'],
+                      'assessment': ['services/assessment.py'],
+                      'refiloe': ['services/refiloe.py'],
+                      'whatsapp': ['services/whatsapp.py', 'services/refiloe.py'],
+                      'dashboard': ['routes/dashboard.py'],
+                      'app': ['app.py']
+                  }
+                  
+                  # Find relevant files
+                  for keyword, paths in keyword_mappings.items():
+                      if keyword in task_lower:
+                          for path in paths:
+                              if path in all_files:
+                                  relevant_files.add(path)
+                  
+                  # Add specifically mentioned files
+                  for file_path in all_files.keys():
+                      if file_path in task or Path(file_path).stem in task_lower:
+                          relevant_files.add(file_path)
+                  
+                  # Default to app.py if nothing found
+                  if not relevant_files and 'app.py' in all_files:
+                      relevant_files.add('app.py')
+                  
+                  # Add files with line numbers for targeted edits
+                  for file_path in sorted(relevant_files):
+                      if file_path in all_files:
+                          context += f"\n=== FILE: {file_path} ===\n"
+                          lines = all_files[file_path].split('\n')
+                          
+                          # Check if file exceeds 600 lines
+                          if len(lines) > 600:
+                              context += f"⚠️ WARNING: This file has {len(lines)} lines (exceeds 600 line limit)\n"
+                              context += "Consider splitting this file into smaller modules.\n\n"
+                          
+                          # Include file with line numbers
+                          for i, line in enumerate(lines, 1):
+                              context += f"{i:4}: {line}\n"
+                  
+                  return context
+              
+              # FULL context (Opus - comprehensive)
+              else:
+                  context += "\n=== FULL CODEBASE ===\n"
                   total_size = len(context)
+                  max_size = 300000  # ~75k tokens
+                  
                   for file_path, content in sorted(all_files.items()):
-                      if total_size + len(content) < 400000:  # ~100k tokens max
+                      if total_size + len(content) < max_size:
+                          lines = content.split('\n')
+                          
+                          # Warn about large files
+                          if len(lines) > 600:
+                              context += f"\n⚠️ FILE TOO LARGE: {file_path} ({len(lines)} lines)\n"
+                          
                           context += f"\n{'='*60}\nFILE: {file_path}\n{'='*60}\n"
                           context += content
                           context += f"\n{'='*60}\n"
                           total_size += len(content)
+                  
                   return context
-              
-              # Smart selection for specific tasks
-              relevant_files = set()
-              
-              # Core files (always include if small)
-              core_files = ['config.py', 'requirements.txt', 'claude.md', 'README.md']
-              for f in core_files:
-                  if f in all_files and len(all_files[f]) < 5000:
-                      relevant_files.add(f)
-              
-              # Keyword-based file selection
-              keyword_mappings = {
-                  'payment': ['payment_manager.py', 'services/payment.py', 'payfast_webhook.py'],
-                  'assessment': ['services/assessment.py'],
-                  'booking': ['services/booking.py'],
-                  'whatsapp': ['app.py', 'services/refiloe.py'],
-                  'message': ['app.py', 'services/refiloe.py'],
-                  'workout': ['services/workout.py'],
-                  'dashboard': ['routes/dashboard.py'],
-                  'database': ['supabase/migrations'],
-                  'migration': ['supabase/migrations'],
-                  'error': ['app.py', 'utils/logger.py'],
-                  'indentation': ['services/assessment.py'],  # Known problem file
-              }
-              
-              # Check keywords and add relevant files
-              for keyword, paths in keyword_mappings.items():
-                  if keyword in task_lower:
-                      for path in paths:
-                          if isinstance(path, str):
-                              # Check if it's a directory pattern
-                              if '/' in path and not path.endswith('.py'):
-                                  # Add all files in that directory
-                                  for file_path in all_files.keys():
-                                      if path in file_path:
-                                          relevant_files.add(file_path)
-                              else:
-                                  # Direct file
-                                  if path in all_files:
-                                      relevant_files.add(path)
-              
-              # Check if specific files are mentioned
-              for file_path in all_files.keys():
-                  file_name = Path(file_path).stem
-                  if file_name in task_lower:
-                      relevant_files.add(file_path)
-              
-              # Default files if nothing specific found
-              if len(relevant_files) <= len(core_files):
-                  relevant_files.update(['app.py', 'services/refiloe.py'])
-              
-              # Build context with selected files
-              context += f"\n\n=== RELEVANT FILES ({len(relevant_files)} of {len(all_files)}) ===\n"
-              
-              total_size = len(context)
-              max_size = 100000 if "sonnet" in selected_model else 300000
-              
-              for file_path in sorted(relevant_files):
-                  if file_path in all_files:
-                      content = all_files[file_path]
-                      if total_size + len(content) > max_size:
-                          print(f"⚠️ Skipping {file_path} - would exceed context limit")
-                          continue
-                      context += f"\n{'='*60}\nFILE: {file_path}\n{'='*60}\n"
-                      context += content
-                      context += f"\n{'='*60}\n"
-                      total_size += len(content)
-                      print(f"✓ Including: {file_path}")
-              
-              return context
           
-          # Read all project files
+          # Read project files
           print("\n📂 Reading project files...")
           all_project_files = {}
           
-          # Get Python files
-          for py_file in Path('.').rglob('*.py'):
-              if not str(py_file).startswith('.git'):
-                  try:
-                      with open(py_file, 'r', encoding='utf-8') as f:
-                          all_project_files[str(py_file)] = f.read()
-                  except Exception as e:
-                      print(f"✗ Could not read {py_file}: {e}")
-          
-          # Add other important files
-          patterns = ['*.txt', '*.md', '*.yml', '*.yaml', '*.sql', '*.json', '*.toml']
-          for pattern in patterns:
+          # Get all relevant files
+          for pattern in ['*.py', '*.txt', '*.md', '*.yml', '*.yaml', '*.sql', '*.json']:
               for file in Path('.').rglob(pattern):
-                  if not str(file).startswith('.git') and str(file) not in all_project_files:
+                  if not str(file).startswith('.git'):
                       try:
                           with open(file, 'r', encoding='utf-8') as f:
                               all_project_files[str(file)] = f.read()
@@ -284,33 +286,39 @@ jobs:
           
           print(f"📚 Found {len(all_project_files)} files")
           
-          # Build context based on model selection
-          context = build_smart_context(clean_task, all_project_files, use_full_context)
+          # Build context
+          context = build_context_for_model(clean_task, all_project_files, context_level)
           
           # Calculate costs
           estimated_tokens = len(context) / 4
-          cost_per_million = 15 if "opus" in selected_model else 3
+          if "opus" in selected_model:
+              cost_per_million = 15
+          elif "sonnet" in selected_model:
+              cost_per_million = 3
+          else:  # haiku
+              cost_per_million = 0.25
+          
           estimated_cost = (estimated_tokens / 1_000_000) * cost_per_million
           
           print(f"\n📊 Context size: {len(context):,} chars")
           print(f"🪙 Estimated tokens: {estimated_tokens:,.0f}")
           print(f"💰 Estimated cost: ${estimated_cost:.4f} ({model_name})")
           
-          # Cost warning for expensive requests
-          if estimated_cost > 0.50:
-              print(f"⚠️ WARNING: This request will cost ~${estimated_cost:.2f}")
-              if not force_opus:
-                  print(f"💡 Tip: Add @sonnet to force Sonnet 3.5 if this isn't complex")
-          
           try:
               client = anthropic.Anthropic()
               
-              # Build prompt
+              # Build prompt with new format for targeted edits
               prompt = f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
               
               Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
               Context: South African (Rand currency, +27 phones)
               Model: You are {model_name}
+              
+              CRITICAL RULES:
+              1. No file should exceed 600 lines
+              2. Use TARGETED EDITS for existing files (show only changed sections)
+              3. Provide COMPLETE content only for NEW files
+              4. If a file needs splitting, create multiple smaller files
               
               TASK: {clean_task}
               
@@ -321,17 +329,36 @@ jobs:
               ## ANALYSIS
               [Brief analysis of what needs to be done]
               
-              ## FILES TO CHANGE
+              ## CHANGES NEEDED
               
-              ### FILE: path/to/file.py
+              For EXISTING files (use targeted edits):
+              
+              ### EDIT: path/to/file.py
+              
+              **Change 1:** [Description]
+              Location: Lines X-Y (or function/class name)
               ```python
-              [Complete updated file content - the ENTIRE file]
+              # REMOVE (lines X-Y):
+              [exact code to remove]
+              
+              # ADD:
+              [exact code to add]
               ```
+              
+              For NEW files (provide complete content):
               
               ### NEW FILE: path/to/new_file.py
               ```python
-              [Complete new file content]
+              [Complete file content]
               ```
+              
+              For FILES TO SPLIT (if over 600 lines):
+              
+              ### SPLIT FILE: path/to/large_file.py
+              Split into:
+              - path/to/large_file_part1.py (lines 1-300)
+              - path/to/large_file_part2.py (lines 301-600)
+              - path/to/large_file_part3.py (lines 601+)
               
               ## MIGRATION: optional_migration_name.sql
               ```sql
@@ -342,10 +369,10 @@ jobs:
               [Brief summary of changes made]
               
               IMPORTANT:
-              - Provide COMPLETE file contents, not snippets
-              - Fix any IndentationErrors or syntax errors found
-              - Follow the rules in claude.md
-              - Use exact file paths as shown in the structure
+              - Use line numbers from the context provided
+              - Keep edits focused and minimal
+              - If fixing errors, only change the problematic lines
+              - For files >600 lines, suggest splitting into logical modules
               '''
               
               print(f"\n🤖 Calling {model_name}...")
@@ -358,110 +385,122 @@ jobs:
               response_text = response.content[0].text
               print(f"✓ Received response: {len(response_text)} chars")
               
-              # Save full response with metadata
+              # Save response
               with open('claude_response.md', 'w', encoding='utf-8') as f:
                   f.write(f"<!-- Model: {model_name} -->\n")
                   f.write(f"<!-- Cost: ${estimated_cost:.4f} -->\n")
-                  f.write(f"<!-- Tokens: ~{estimated_tokens:,.0f} -->\n\n")
                   f.write(response_text)
               
-              # Parse and apply changes if requested
+              # Apply changes if requested
               changes_applied = []
               
               if auto_apply:
-                  print("\n📝 Applying changes...")
+                  print("\n📝 Applying targeted changes...")
                   
-                  # Extract file changes
-                  file_pattern = r'###\s*(NEW\s+)?FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json)?\n(.*?)\n```'
-                  migration_pattern = r'##\s*MIGRATION:\s*(.+?)\n```sql\n(.*?)\n```'
+                  # Parse EDIT sections (targeted changes)
+                  edit_pattern = r'### EDIT:\s*(.+?)\n.*?```python\n# REMOVE.*?:\n(.*?)\n\n# ADD:\n(.*?)\n```'
                   
-                  # Apply file changes
-                  for match in re.finditer(file_pattern, response_text, re.DOTALL):
-                      is_new = match.group(1) is not None
-                      file_path = match.group(2).strip()
-                      content = match.group(3)
+                  for match in re.finditer(edit_pattern, response_text, re.DOTALL):
+                      file_path = match.group(1).strip()
+                      old_code = match.group(2).strip()
+                      new_code = match.group(3).strip()
+                      
+                      try:
+                          if Path(file_path).exists():
+                              with open(file_path, 'r', encoding='utf-8') as f:
+                                  content = f.read()
+                              
+                              # Apply the replacement
+                              if old_code in content:
+                                  content = content.replace(old_code, new_code)
+                                  with open(file_path, 'w', encoding='utf-8') as f:
+                                      f.write(content)
+                                  changes_applied.append(f"Updated {file_path}")
+                                  print(f"✓ Applied edit to: {file_path}")
+                              else:
+                                  print(f"⚠️ Could not find code to replace in {file_path}")
+                      except Exception as e:
+                          print(f"✗ Error editing {file_path}: {e}")
+                  
+                  # Parse NEW FILE sections (complete files)
+                  new_file_pattern = r'### NEW FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json)?\n(.*?)\n```'
+                  
+                  for match in re.finditer(new_file_pattern, response_text, re.DOTALL):
+                      file_path = match.group(1).strip()
+                      content = match.group(2)
                       
                       try:
                           Path(file_path).parent.mkdir(parents=True, exist_ok=True)
                           with open(file_path, 'w', encoding='utf-8') as f:
                               f.write(content)
-                          
-                          action = "Created" if is_new else "Updated"
-                          changes_applied.append(f"{action} {file_path}")
-                          print(f"✓ {action}: {file_path}")
+                          changes_applied.append(f"Created {file_path}")
+                          print(f"✓ Created: {file_path}")
                       except Exception as e:
-                          print(f"✗ Error writing {file_path}: {e}")
+                          print(f"✗ Error creating {file_path}: {e}")
                   
-                  # Apply migrations
+                  # Handle migrations
+                  migration_pattern = r'## MIGRATION:\s*(.+?)\n```sql\n(.*?)\n```'
+                  
                   for match in re.finditer(migration_pattern, response_text, re.DOTALL):
                       migration_name = match.group(1).strip()
-                      if not migration_name.endswith('.sql'):
-                          migration_name += '.sql'
-                      
                       content = match.group(2)
                       
                       try:
                           Path('supabase/migrations').mkdir(parents=True, exist_ok=True)
                           timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-                          migration_file = f"supabase/migrations/{timestamp}_{migration_name}"
+                          migration_file = f"supabase/migrations/{timestamp}_{migration_name}.sql"
                           
                           with open(migration_file, 'w', encoding='utf-8') as f:
                               f.write(content)
-                          
                           changes_applied.append(f"Created migration {migration_file}")
                           print(f"✓ Created migration: {migration_file}")
                       except Exception as e:
                           print(f"✗ Error creating migration: {e}")
               
-              # Prepare response summary
+              # Prepare summary
               if changes_applied:
-                  summary = f"✅ **Changes Applied Successfully:**\n"
+                  summary = f"✅ **Changes Applied:**\n"
                   for change in changes_applied:
                       summary += f"- {change}\n"
-                  summary += f"\n📝 **Full Details:** See claude_response.md\n"
               else:
-                  summary = "📋 **Analysis Complete** (no changes applied)\n"
+                  summary = "📋 **Analysis Complete**\n"
                   if not auto_apply:
-                      summary += "💡 Add `@apply` to automatically apply changes\n"
+                      summary += "💡 Add `@apply` to apply changes\n"
               
-              # Add model and cost info
-              summary += f"\n🤖 **Model:** {model_name} ({model_reason})\n"
+              # Add cost info
+              summary += f"\n🤖 **Model:** {model_name}\n"
               summary += f"💰 **Cost:** ${estimated_cost:.4f}\n"
-              summary += f"📊 **Tokens:** ~{estimated_tokens:,.0f}\n"
               
               # Save summary
               with open('summary.txt', 'w', encoding='utf-8') as f:
                   f.write(summary)
               
-              # If auto-apply, commit changes
+              # Commit if needed
               if auto_apply and changes_applied:
                   try:
                       subprocess.run(['git', 'add', '.'], check=True)
-                      
                       commit_msg = f"🤖 {model_name}: {clean_task[:50]}..."
                       subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
                       
                       if create_pr:
-                          timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-                          branch_name = f"claude-{clean_task[:20].replace(' ', '-').lower()}-{timestamp}"
+                          branch_name = f"claude-fix-{datetime.now().strftime('%Y%m%d%H%M%S')}"
                           subprocess.run(['git', 'checkout', '-b', branch_name], check=True)
                           subprocess.run(['git', 'push', 'origin', branch_name], check=True)
-                          
                           with open('pr_created.txt', 'w') as f:
                               f.write(branch_name)
                       else:
                           subprocess.run(['git', 'push'], check=True)
                       
-                      print("✓ Changes committed and pushed!")
+                      print("✓ Changes committed!")
                   except Exception as e:
                       print(f"✗ Git error: {e}")
               
-              # Save truncated response for comment
-              if len(response_text) > 50000:
-                  response_text = response_text[:50000] + "\n\n[... truncated - see claude_response.md]"
-              
+              # Save response for comment
               with open('response.txt', 'w', encoding='utf-8') as f:
-                  f.write(response_text)
+                  if len(response_text) > 50000:
+                      f.write(response_text[:50000] + "\n\n[... see claude_response.md for full response]")
+                  else:
+                      f.write(response_text)
                   
           except Exception as e:
               error_msg = str(e)
@@ -501,10 +540,10 @@ jobs:
             let comment = `🤖 **Claude Response:**\n\n${summary}\n`;
             
             if (prBranch) {
-              comment += `\n🔗 **Pull Request:** Create a PR from branch \`${prBranch}\`\n`;
+              comment += `\n🔗 **Pull Request:** Create PR from branch \`${prBranch}\`\n`;
             }
             
-            comment += `\n<details>\n<summary>📄 Full Analysis (click to expand)</summary>\n\n${response}\n</details>`;
+            comment += `\n<details>\n<summary>📄 Full Analysis</summary>\n\n${response}\n</details>`;
             
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
