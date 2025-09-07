@@ -4,7 +4,7 @@ This replaces keyword matching with intelligent intent understanding
 """
 
 import json
-import anthropic
+from anthropic import Anthropic
 from typing import Dict, Optional, List, Tuple
 from datetime import datetime, timedelta
 import pytz

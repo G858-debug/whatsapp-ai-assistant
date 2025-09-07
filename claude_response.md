@@ -1,171 +1,186 @@
 <!-- Model: Opus 4.1 -->
-<!-- Cost: $1.5305 -->
+<!-- Cost: $1.5324 -->
 <!-- Max Tokens: 16000 -->
 ## ANALYSIS
 
-Looking at the error logs, there are three main issues:
+Looking at the task requirements, I need to fix three specific issues:
+1. Fix database column name in `_get_conversation_history` method (change from 'content' to 'message_text')
+2. Fix Anthropic API usage in `services/ai_intent_handler.py` (change from `completions.create` to `messages.create` and add model definition)
+3. Fix `_log_interaction` method to accept both calling patterns with flexible parameters
 
-1. **Anthropic API client issue**: The code is trying to use `self.client.messages.create()` but the Anthropic client doesn't have a `messages` attribute. This is because the code is importing an older version of the anthropic library.
-
-2. **Database column issue**: The `messages` table doesn't have a `content` column, it likely has `message` or `text` column instead.
-
-3. **Method signature issue**: `RefiloeService._log_interaction()` is being called with `user_id` but the method doesn't accept that parameter.
+Let me search for these specific issues in the codebase.
 
 ## CHANGES NEEDED
 
-### EDIT: services/ai_intent_handler.py
+### EDIT: services/refiloe_helpers.py
 
-**Change 1:** Fix Anthropic API client usage
-Location: Lines 55-65 (in `understand_message` method)
+**Change 1:** Fix database column name in _get_conversation_history
+Location: Search for _get_conversation_history method (likely around line 200-250)
 ```python
-# REMOVE (lines 55-65):
-            # Get AI understanding
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=500,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            
-            # Parse the response
-            intent_data = self._parse_ai_response(response.content[0].text)
+# REMOVE:
+messages = self.db.table('messages').select('content')
 
 # ADD:
-            # Get AI understanding
-            response = self.client.completions.create(
-                model=self.model,
-                prompt=prompt,
-                max_tokens=500,
-                temperature=0.3
-            )
+messages = self.db.table('messages').select('message_text')
+```
+
+**Change 2:** Update return statement in _get_conversation_history
+Location: Same method, return statement
+```python
+# REMOVE:
+if messages.data:
+    return [msg['content'] for msg in reversed(messages.data)]
+
+# ADD:
+if messages.data:
+    return [msg['message_text'] for msg in reversed(messages.data)]
+```
+
+**Change 3:** Replace _log_interaction method with flexible signature
+Location: Search for def _log_interaction
+```python
+# REMOVE:
+def _log_interaction(self, phone: str, message: str, response: str):
+    """Log interaction for analytics"""
+    # existing implementation
+
+# ADD:
+def _log_interaction(self, **kwargs):
+    """Log interaction for analytics - flexible signature"""
+    try:
+        from datetime import datetime
+        import json
+        from utils.logger import log_error
+        
+        # Extract parameters
+        user_id = kwargs.get('user_id')
+        user_type = kwargs.get('user_type')
+        message = kwargs.get('message')
+        intent = kwargs.get('intent')
+        response_type = kwargs.get('response_type')
+        phone_number = kwargs.get('phone_number')
+        message_data = kwargs.get('message_data')
+        response = kwargs.get('response')
+        
+        # Handle new signature (from _handle_text_message)
+        if user_id and user_type and message:
+            log_data = {
+                'message_text': message,
+                'ai_intent': intent,
+                'message_type': response_type or 'text',
+                'direction': 'incoming',
+                'created_at': datetime.now().isoformat()
+            }
             
-            # Parse the response
-            intent_data = self._parse_ai_response(response.completion)
+            # Add trainer_id or client_id based on user_type
+            if user_type == 'trainer':
+                log_data['trainer_id'] = user_id
+                log_data['whatsapp_from'] = message_data.get('from') if message_data else ''
+                log_data['whatsapp_to'] = 'system'
+            else:
+                log_data['client_id'] = user_id
+                log_data['whatsapp_from'] = message_data.get('from') if message_data else ''
+                log_data['whatsapp_to'] = 'system'
+                
+        # Handle old signature (from process_message)  
+        elif phone_number and message_data and response:
+            log_data = {
+                'whatsapp_from': phone_number,
+                'whatsapp_to': 'system',
+                'message_text': json.dumps(message_data),
+                'ai_intent': 'general',
+                'direction': 'incoming',
+                'created_at': datetime.now().isoformat()
+            }
+        else:
+            return  # Invalid call
+            
+        self.db.table('messages').insert(log_data).execute()
+        
+    except Exception as e:
+        log_error(f"Error logging interaction: {str(e)}")
+```
+
+### EDIT: services/ai_intent_handler.py
+
+**Change 1:** Fix imports at the top of file
+Location: Lines 1-10 (at the top with other imports)
+```python
+# REMOVE:
+import anthropic
+
+# ADD:
+from anthropic import Anthropic
+```
+
+**Change 2:** Fix client initialization in __init__
+Location: In __init__ method (around line 20-30)
+```python
+# REMOVE:
+self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+# ADD:
+self.client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+self.model = "claude-3-5-sonnet-20241022"
+```
+
+**Change 3:** Fix API call in understand_message method
+Location: Around line 60 in understand_message method
+```python
+# REMOVE:
+response = self.client.completions.create(
+    model=self.model,
+    prompt=prompt,
+    max_tokens=500,
+    temperature=0.3
+)
+
+# Parse the response
+intent_data = self._parse_ai_response(response.completion)
+
+# ADD:
+response = self.client.messages.create(
+    model=self.model,
+    max_tokens=500,
+    temperature=0.3,
+    messages=[{"role": "user", "content": prompt}]
+)
+
+# Parse the response
+intent_data = self._parse_ai_response(response.content[0].text)
 ```
 
 ### EDIT: services/ai_intent_core.py
 
-**Change 1:** Fix Anthropic API usage in core module
-Location: Lines 42-52 (in `understand_message` method)
-```python
-# REMOVE (lines 42-52):
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=500,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            
-            intent_data = self._parse_ai_response(response.content[0].text)
-
-# ADD:
-            response = self.client.completions.create(
-                model=self.model,
-                prompt=prompt,
-                max_tokens=500,
-                temperature=0.3
-            )
-            
-            intent_data = self._parse_ai_response(response.completion)
-```
-
-### EDIT: services/refiloe.py
-
-**Change 1:** Fix the conversation history query
-Location: Around line where it queries messages table (search for "messages?select=content")
+**Change 1:** Fix API call in understand_message method
+Location: Around line 42-52
 ```python
 # REMOVE:
-            history = self.db.table('messages').select('content').eq(
-                'trainer_id', trainer_id
-            ).order('created_at', desc=True).limit(5).execute()
+response = self.client.completions.create(
+    model=self.model,
+    prompt=prompt,
+    max_tokens=500,
+    temperature=0.3
+)
+
+intent_data = self._parse_ai_response(response.completion)
 
 # ADD:
-            history = self.db.table('messages').select('message').eq(
-                'trainer_id', trainer_id
-            ).order('created_at', desc=True).limit(5).execute()
-```
+response = self.client.messages.create(
+    model=self.model,
+    max_tokens=500,
+    temperature=0.3,
+    messages=[{"role": "user", "content": prompt}]
+)
 
-**Change 2:** Fix the _log_interaction method signature
-Location: Search for the `_log_interaction` method definition
-```python
-# REMOVE:
-    def _log_interaction(self, phone: str, message: str, response: str):
-
-# ADD:
-    def _log_interaction(self, phone: str, message: str, response: str, user_id: str = None):
-```
-
-**Change 3:** Update calls to _log_interaction to include user_id
-Location: Search for calls to `self._log_interaction`
-```python
-# REMOVE:
-                self._log_interaction(
-                    phone=phone_number,
-                    message=message_text,
-                    response=response['message']
-                )
-
-# ADD:
-                self._log_interaction(
-                    phone=phone_number,
-                    message=message_text,
-                    response=response['message'],
-                    user_id=trainer.get('id') if trainer else (client.get('id') if client else None)
-                )
-```
-
-### EDIT: requirements.txt
-
-**Change 1:** Update anthropic library version
-Location: Line with anthropic
-```python
-# REMOVE:
-anthropic==0.7.0
-
-# ADD:
-anthropic==0.39.0
-```
-
-## MIGRATION: fix_messages_table.sql
-```sql
--- Check if messages table has content column, if not rename message to content
-DO $$ 
-BEGIN
-    IF NOT EXISTS (
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'messages' 
-        AND column_name = 'content'
-    ) THEN
-        -- Check if message column exists and rename it
-        IF EXISTS (
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'messages' 
-            AND column_name = 'message'
-        ) THEN
-            ALTER TABLE messages RENAME COLUMN message TO content;
-        END IF;
-    END IF;
-END $$;
-
--- Ensure messages table has proper structure
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS content TEXT;
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS trainer_id UUID REFERENCES trainers(id);
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id);
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS user_id UUID;
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-
--- Create index for faster queries
-CREATE INDEX IF NOT EXISTS idx_messages_trainer_created ON messages(trainer_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_messages_client_created ON messages(client_id, created_at DESC);
+intent_data = self._parse_ai_response(response.content[0].text)
 ```
 
 ## SUMMARY
 
 Fixed three critical issues:
-1. Updated Anthropic API calls to use the correct method (`completions.create` instead of `messages.create`)
-2. Fixed database column reference from `content` to `message` in the messages table query
-3. Added `user_id` parameter to `_log_interaction` method signature to match how it's being called
-4. Updated anthropic library version in requirements.txt to a compatible version
-5. Added migration to ensure messages table has correct column structure
+1. Updated database column references from 'content' to 'message_text' in the messages table queries
+2. Fixed Anthropic API usage to use the correct `messages.create` method instead of `completions.create` 
+3. Refactored `_log_interaction` method to accept flexible keyword arguments to handle both calling patterns
+
+Note: The `services/refiloe_helpers.py` file was not included in the codebase provided, but the fixes should be applied to wherever the `_get_conversation_history` and `_log_interaction` methods are actually defined (likely in `services/refiloe.py` or a similar service file).

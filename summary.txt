@@ -1,9 +1,6 @@
 ✅ **Changes Applied:**
 - Updated services/ai_intent_handler.py
-- Updated services/ai_intent_core.py
-- Updated requirements.txt
-- Created migration supabase/migrations/20250907205934_fix_messages_table.sql.sql
 
 🤖 **Model:** Opus 4.1
-💰 **Cost:** $1.5305
+💰 **Cost:** $1.5324
 🔢 **Max Tokens:** 16,000

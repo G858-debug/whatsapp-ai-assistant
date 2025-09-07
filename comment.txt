@@ -1,22 +1,91 @@
-@claude
+@claude 
 
-Refiloe doesn't response when I send a message to her. Here are the logs: 
-AttributeError: 'Anthropic' object has no attribute 'messages'
-2025-09-07 20:55:17,068 - refiloe - ERROR - Error handling text message: RefiloeService._log_interaction() got an unexpected keyword argument 'user_id'
-2025-09-07 20:55:17,069 - werkzeug - INFO - 100.64.0.2 - - [07/Sep/2025 20:55:17] "POST /webhook HTTP/1.1" 200 -
-Stopping Container
-2025-09-07 20:55:50,235 - httpx - INFO - HTTP Request: GET https://mqemiteirxwscxtamdtj.supabase.co/rest/v1/trainers?select=%2A&whatsapp=eq.27731863036 "HTTP/1.1 200 OK"
-2025-09-07 20:55:50,326 - httpx - INFO - HTTP Request: GET https://mqemiteirxwscxtamdtj.supabase.co/rest/v1/messages?select=content&trainer_id=eq.99128b15-f25c-4bd5-a5a6-94272be44b23&order=created_at.desc&limit=5 "HTTP/1.1 400 Bad Request"
-2025-09-07 20:55:50,327 - refiloe - ERROR - Error getting conversation history: {'code': '42703', 'details': None, 'hint': None, 'message': 'column messages.content does not exist'}
-2025-09-07 20:55:50,328 - refiloe - ERROR - AI intent understanding failed: 'Anthropic' object has no attribute 'messages'
-Traceback (most recent call last):
- File "/app/services/ai_intent_handler.py", line 60, in understand_message
- response = self.client.messages.create(
- ^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Anthropic' object has no attribute 'messages'
-2025-09-07 20:55:50,328 - refiloe - ERROR - Error handling text message: RefiloeService._log_interaction() got an unexpected keyword argument 'user_id'
-2025-09-07 20:55:50,329 - werkzeug - INFO - 100.64.0.3 - - [07/Sep/2025 20:55:50] "POST /webhook HTTP/1.1" 200 -
-
-Please fix 
+1. Fix the database column name in _get_conversation_history method:
+Search for this in services/refiloe_helpers.py or wherever _get_conversation_history is defined:
+Find:
+pythonmessages = self.db.table('messages').select('content')
+Change to:
+pythonmessages = self.db.table('messages').select('message_text')
+And update the return statement:
+pythonif messages.data:
+    return [msg['message_text'] for msg in reversed(messages.data)]
+2. Fix Anthropic API usage in services/ai_intent_handler.py (around line 60):
+Find:
+pythonresponse = self.client.completions.create(
+Change to:
+pythonresponse = self.client.messages.create(
+    model=self.model,
+    max_tokens=500,
+    temperature=0.3,
+    messages=[{"role": "user", "content": prompt}]
+)
+Make sure the model is defined in __init__:
+pythondef __init__(self, config, supabase_client):
+    # ... other code ...
+    self.client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    self.model = "claude-3-5-sonnet-20241022"  # Add this line
+3. Fix _log_interaction method to accept both calling patterns:
+In the file where _log_interaction is defined (likely services/refiloe_helpers.py):
+Replace the entire method with:
+pythondef _log_interaction(self, **kwargs):
+    """Log interaction for analytics - flexible signature"""
+    try:
+        # Extract parameters
+        user_id = kwargs.get('user_id')
+        user_type = kwargs.get('user_type')
+        message = kwargs.get('message')
+        intent = kwargs.get('intent')
+        response_type = kwargs.get('response_type')
+        phone_number = kwargs.get('phone_number')
+        message_data = kwargs.get('message_data')
+        response = kwargs.get('response')
+        
+        # Handle new signature (from _handle_text_message)
+        if user_id and user_type and message:
+            log_data = {
+                'message_text': message,
+                'ai_intent': intent,
+                'message_type': response_type or 'text',
+                'direction': 'incoming',
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Add trainer_id or client_id based on user_type
+            if user_type == 'trainer':
+                log_data['trainer_id'] = user_id
+                log_data['whatsapp_from'] = message_data.get('from') if message_data else ''
+                log_data['whatsapp_to'] = 'system'
+            else:
+                log_data['client_id'] = user_id
+                log_data['whatsapp_from'] = message_data.get('from') if message_data else ''
+                log_data['whatsapp_to'] = 'system'
+                
+        # Handle old signature (from process_message)  
+        elif phone_number and message_data and response:
+            log_data = {
+                'whatsapp_from': phone_number,
+                'whatsapp_to': 'system',
+                'message_text': json.dumps(message_data),
+                'ai_intent': 'general',
+                'direction': 'incoming',
+                'created_at': datetime.now().isoformat()
+            }
+        else:
+            return  # Invalid call
+            
+        self.db.table('messages').insert(log_data).execute()
+        
+    except Exception as e:
+        log_error(f"Error logging interaction: {str(e)}")
+4. Also ensure proper imports at the top of files:
+In services/ai_intent_handler.py:
+pythonfrom anthropic import Anthropic
+from datetime import datetime
+import json
+In the file with _log_interaction:
+pythonfrom datetime import datetime
+import json
+from utils.logger import log_error
 
 @apply
+
