@@ -1,25 +1,20 @@
-@claude @apply @sonnet Fix the Unicode escape syntax error in services/refiloe.py
+@claude Integrate gamification with existing features.
 
-In the _check_payment_status method around line 463, the Unicode escape for the money bag emoji is causing a syntax error.
+1. Workout completion (workout_service.py):
+   - Award 25 points when workout sent
+   - Check if part of workout challenge
 
-### EDIT: services/refiloe.py
+2. Assessment improvements (assessment_service.py):
+   - Compare assessments, award points for improvements
+   - Trigger "Improver" badge for 10% gains
 
-**Change 1:** Fix emoji Unicode escape in payment status message
-Location: Lines 461-465
+3. Habit tracking (habits.py):
+   - Daily points for logging
+   - Update relevant challenges automatically
+   - Streak bonuses
 
-# REMOVE (lines 461-465):
-                if outstanding.data:
-                    total = sum(p['amount'] for p in outstanding.data)
-                    message = f"""\U0001F4B0 *Payment Status*
-Outstanding: R{total:.2f}
-Contact your trainer for payment details."""
+4. In refiloe_service.py main handler:
+   - Check for earned badges after each action
+   - Include point notifications in responses
 
-# ADD:
-                if outstanding.data:
-                    total = sum(p['amount'] for p in outstanding.data)
-                    # Using money bag emoji
-                    message = f"""💰 *Payment Status*
-
-Outstanding: R{total:.2f}
-
-Contact your trainer for payment details."""
+@apply
