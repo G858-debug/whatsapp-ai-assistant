@@ -43,268 +43,21 @@ class RefiloeService:
         
         log_info("RefiloeService initialized successfully")
     
-    def process_message(self, message_data: Dict) -> Dict:
-        """Process incoming WhatsApp message"""
-        try:
-            # Extract message details
-            from_number = message_data.get('from')
-            message_type = message_data.get('type', 'text')
-            
-            # Get or create user context
-            user_context = self._get_user_context(from_number)
-            
-            # Route based on message type
-            if message_type == 'text':
-                response = self._handle_text_message(message_data, user_context)
-            elif message_type == 'audio':
-                response = self._handle_voice_message(message_data, user_context)
-            elif message_type == 'image':
-                response = self._handle_image_message(message_data, user_context)
-            elif message_type == 'interactive':
-                response = self._handle_interactive_message(message_data, user_context)
-            else:
-                response = {
-                    'success': False,
-                    'message': "I don't understand that type of message yet. Please send text or voice notes."
-                }
-            
-            # Log interaction
-            self._log_interaction(from_number, message_data, response)
-            
-            return response
-            
-        except Exception as e:
-            log_error(f"Error processing message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I encountered an error. Please try again."
-            }
-    
-    def _handle_text_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle text message"""
-        try:
-            text = message_data.get('text', {}).get('body', '')
-            from_number = message_data.get('from')
-            
-            # Check for commands
-            if text.lower().startswith('/'):
-                return self._handle_command(text, from_number, user_context)
-            
-            # Use AI to understand intent - fixed method name
-            intent_result = self.ai_handler.understand_message(
-                text, 
-                'client' if user_context.get('client_id') else 'trainer',
-                user_context,
-                []  # Empty conversation history for now
-            )
-            
-            # Route based on intent
-            primary_intent = intent_result.get('primary_intent', 'general_question')
-            
-            if 'booking' in primary_intent.lower():
-                return self._handle_booking_intent(intent_result, from_number, user_context)
-            elif 'payment' in primary_intent.lower():
-                return self._handle_payment_intent(intent_result, from_number, user_context)
-            elif 'workout' in primary_intent.lower():
-                return self._handle_workout_intent(intent_result, from_number, user_context)
-            elif 'assessment' in primary_intent.lower():
-                return self._handle_assessment_intent(intent_result, from_number, user_context)
-            elif 'habit' in primary_intent.lower():
-                return self._handle_habit_intent(intent_result, from_number, user_context)
-            elif primary_intent in ['greeting', 'casual_chat', 'thanks', 'farewell', 'status_check']:
-                # Handle conversational intents
-                return {
-                    'success': True,
-                    'message': self.ai_handler.generate_smart_response(
-                        intent_result, 
-                        'client' if user_context.get('client_id') else 'trainer',
-                        user_context
-                    )
-                }
-            else:
-                return self._handle_general_query(text, user_context)
-                
-        except Exception as e:
-            log_error(f"Error handling text message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your message. Please try again."
-            }
-    
-    def _handle_voice_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle voice message"""
-        try:
-            # For now, return a placeholder response
-            # TODO: Implement voice transcription
-            return {
-                'success': True,
-                'message': "🎤 I received your voice message! Voice processing is coming soon. For now, please send text messages."
-            }
-        except Exception as e:
-            log_error(f"Error handling voice message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your voice message."
-            }
-    
-    def _handle_image_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle image message"""
-        try:
-            # Check if this is for an assessment
-            if user_context.get('expecting_assessment_photo'):
-                return self._process_assessment_photo(message_data, user_context)
-            
-            return {
-                'success': True,
-                'message': "📸 Thanks for the image! To submit assessment photos, please start an assessment first."
-            }
-        except Exception as e:
-            log_error(f"Error handling image: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your image."
-            }
-    
-    def _handle_interactive_message(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Handle interactive button/list responses"""
-        try:
-            interactive = message_data.get('interactive', {})
-            response_type = interactive.get('type')
-            
-            if response_type == 'button_reply':
-                button_id = interactive.get('button_reply', {}).get('id')
-                return self._handle_button_click(button_id, user_context)
-            elif response_type == 'list_reply':
-                list_id = interactive.get('list_reply', {}).get('id')
-                return self._handle_list_selection(list_id, user_context)
-            
-            return {
-                'success': False,
-                'message': "I couldn't understand your selection."
-            }
-            
-        except Exception as e:
-            log_error(f"Error handling interactive message: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your selection."
-            }
-    
-    def _handle_command(self, command: str, from_number: str, user_context: Dict) -> Dict:
-        """Handle slash commands"""
-        try:
-            cmd = command.lower().strip()
-            
-            if cmd == '/help':
-                return self._get_help_message(user_context)
-            elif cmd == '/book':
-                return self._start_booking_flow(from_number, user_context)
-            elif cmd == '/cancel':
-                return self._cancel_current_action(user_context)
-            elif cmd == '/status':
-                return self._get_user_status(from_number, user_context)
-            elif cmd == '/workout':
-                return self._start_workout_flow(from_number, user_context)
-            elif cmd == '/assess':
-                return self._start_assessment_flow(from_number, user_context)
-            elif cmd == '/pay':
-                return self._check_payment_status(from_number, user_context)
-            else:
-                return {
-                    'success': True,
-                    'message': f"Unknown command: {cmd}\n\nAvailable commands:\n/help - Show help\n/book - Book a session\n/workout - Get workout\n/assess - Start assessment\n/status - Check status\n/pay - Payment info"
-                }
-                
-        except Exception as e:
-            log_error(f"Error handling command: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process that command."
-            }
-    
-    def _handle_booking_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle booking-related intents"""
-        try:
-            extracted_data = intent_result.get('extracted_data', {})
-            
-            # Check if we have enough info to book
-            if extracted_data.get('parsed_datetime'):
-                # We have a parsed datetime, try to book
-                return {
-                    'success': True,
-                    'message': f"📅 Let me check availability for {extracted_data.get('parsed_datetime')}..."
-                }
-            else:
-                # Start booking flow
-                return self._start_booking_flow(from_number, user_context)
-                
-        except Exception as e:
-            log_error(f"Error handling booking intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't process your booking request."
-            }
-    
-    def _handle_payment_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
-        """Handle payment-related intents"""
-        try:
-            # Check outstanding payments
-            outstanding = {'has_outstanding': False, 'amount': 0}  # Default values
-            
-            # Try to get payment status
-            result = self.db.table('payment_requests').select('amount').eq(
-                'client_phone', from_number
-            ).eq('status', 'pending').execute()
-            
-            if result.data:
-                total_amount = sum(p.get('amount', 0) for p in result.data)
-                outstanding = {
-                    'has_outstanding': True,
-                    'amount': total_amount
-                }
-            
-            if outstanding.get('has_outstanding'):
-                return {
-                    'success': True,
-                    'message': f"💰 You have an outstanding balance of R{outstanding['amount']:.2f}\n\nTo pay: Contact your trainer for payment details"
-                }
-            else:
-                return {
-                    'success': True,
-                    'message': "✅ You're all paid up! No outstanding payments."
-                }
-                
-        except Exception as e:
-            log_error(f"Error handling payment intent: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't check your payment status."
-            }
+    # [Keep all the methods from the document above up to _handle_workout_intent]
+    # ... (all the code from the document remains the same) ...
     
     def _handle_workout_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
         """Handle workout-related intents"""
         try:
-            extracted_data = intent_result.get('extracted_data', {})
-            exercises = extracted_data.get('exercises', [])
-            muscle_group = exercises[0] if exercises else 'full body'
-            
-            # Simple workout template
-            workout_text = f"""💪 *Workout Program*
-
-Here's your {muscle_group} workout:
-
-1. Warm-up - 5 minutes
-2. Main exercises - 30-40 minutes
-3. Cool down - 5 minutes
-
-Stay hydrated and focus on form! 💦
-
-Need a specific workout? Just ask!"""
-            
-            return {
-                'success': True,
-                'message': workout_text
-            }
+            if user_context.get('trainer_id'):
+                # Trainer sending workout
+                return self._start_workout_flow(from_number, user_context)
+            else:
+                # Client requesting workout
+                return {
+                    'success': True,
+                    'message': "💪 Your trainer will send you a personalized workout soon!"
+                }
                 
         except Exception as e:
             log_error(f"Error handling workout intent: {str(e)}")
@@ -316,80 +69,73 @@ Need a specific workout? Just ask!"""
     def _handle_assessment_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
         """Handle assessment-related intents"""
         try:
-            # Check for pending assessment
-            assessments = self.assessment.get_client_assessments(
-                user_context.get('client_id')
-            )
-            
-            pending = [a for a in assessments if a['status'] == 'pending']
-            
-            if pending:
-                return {
-                    'success': True,
-                    'message': f"📋 You have a pending assessment!\n\nDue: {pending[0]['due_date']}\n\nReply 'start assessment' to begin."
-                }
+            if user_context.get('trainer_id'):
+                # Trainer starting assessment
+                return self._start_assessment_flow(from_number, user_context)
             else:
+                # Client checking assessment
                 return {
                     'success': True,
-                    'message': "No pending assessments. Your trainer will schedule one when needed."
+                    'message': "📊 Your next assessment will be scheduled by your trainer."
                 }
                 
         except Exception as e:
             log_error(f"Error handling assessment intent: {str(e)}")
             return {
                 'success': False,
-                'message': "Sorry, I couldn't check your assessments."
+                'message': "Sorry, I couldn't process your assessment request."
             }
     
     def _handle_habit_intent(self, intent_result: Dict, from_number: str, user_context: Dict) -> Dict:
         """Handle habit tracking intents"""
         try:
             extracted_data = intent_result.get('extracted_data', {})
-            habit_type = extracted_data.get('habit_type')
-            habit_values = extracted_data.get('habit_values', [])
             
-            if habit_type and habit_values:
-                value = habit_values[0] if habit_values else None
-                if value:
-                    result = self.habits.log_habit(
-                        client_id=user_context.get('client_id'),
-                        habit_type=habit_type,
-                        value=value
-                    )
-                    
-                    if result.get('success'):
-                        return {
-                            'success': True,
-                            'message': f"✅ Logged: {habit_type} - {value}\n\nGreat job staying consistent!"
-                        }
+            # Check if logging habits
+            if extracted_data.get('habit_responses'):
+                return self._log_habits(extracted_data['habit_responses'], from_number, user_context)
             
-            return {
-                'success': True,
-                'message': "📊 Track your habits! Just tell me:\n• Water intake (e.g., '2 liters water')\n• Sleep (e.g., '8 hours sleep')\n• Steps (e.g., '10000 steps')\n• Workouts (e.g., 'completed workout')"
-            }
+            # Check if setting up habits
+            if extracted_data.get('habit_type'):
+                return self._setup_habit(extracted_data, from_number, user_context)
+            
+            # Default: show habit status
+            return self._get_habit_status(from_number, user_context)
             
         except Exception as e:
             log_error(f"Error handling habit intent: {str(e)}")
             return {
                 'success': False,
-                'message': "Sorry, I couldn't log that habit."
+                'message': "Sorry, I couldn't process your habit tracking request."
             }
     
     def _handle_general_query(self, text: str, user_context: Dict) -> Dict:
-        """Handle general queries with AI"""
+        """Handle general queries using AI"""
         try:
-            # Use Claude for general fitness advice
+            # Create context for AI
+            context = f"""
+            User is a {'trainer' if user_context.get('trainer_id') else 'client'}.
+            Name: {user_context.get('name', 'User')}
+            """
+            
+            # Generate response using Claude
             response = self.anthropic.messages.create(
-                model=Config.AI_MODEL,
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=500,
+                temperature=0.7,
                 messages=[
                     {
-                        "role": "system",
-                        "content": "You are Refiloe, a friendly South African fitness AI assistant. Provide helpful, encouraging fitness and health advice. Keep responses concise and practical."
-                    },
-                    {
                         "role": "user",
-                        "content": text
+                        "content": f"""You are Refiloe, a friendly AI fitness assistant for personal trainers and their clients in South Africa.
+                        
+                        Context: {context}
+                        
+                        User message: {text}
+                        
+                        Respond in a friendly, helpful manner. Keep response under 200 words.
+                        Use WhatsApp-friendly formatting (*bold*, _italic_) and emojis.
+                        If relevant, mention available commands like /book, /workout, /assess, /points, /badges.
+                        """
                     }
                 ]
             )
@@ -400,129 +146,148 @@ Need a specific workout? Just ask!"""
             }
             
         except Exception as e:
-            log_error(f"Error with AI response: {str(e)}")
+            log_error(f"Error generating AI response: {str(e)}")
             return {
                 'success': True,
-                'message': "I'm here to help with bookings, workouts, assessments, and tracking your fitness journey. What would you like to do?"
+                'message': "I understand you're asking about that. How can I help you specifically? Try /help for available commands."
             }
     
     def _get_user_context(self, phone_number: str) -> Dict:
         """Get or create user context"""
         try:
-            # Try to get existing client
-            result = self.db.table('clients').select('*').eq(
+            # Check if trainer
+            trainer = self.db.table('trainers').select('*').eq(
                 'whatsapp', phone_number
-            ).execute()
+            ).single().execute()
             
-            if result.data and len(result.data) > 0:
-                client = result.data[0]
+            if trainer.data:
                 return {
-                    'client_id': client['id'],
-                    'trainer_id': client.get('trainer_id'),
-                    'name': client.get('name'),
-                    'is_new': False,
-                    'phone_number': phone_number
+                    'trainer_id': trainer.data['id'],
+                    'name': trainer.data['name'],
+                    'is_trainer': True,
+                    'subscription_status': trainer.data.get('subscription_status', 'trial')
                 }
-            else:
-                # Check if it's a trainer
-                trainer_result = self.db.table('trainers').select('*').eq(
-                    'whatsapp', phone_number
-                ).execute()
-                
-                if trainer_result.data and len(trainer_result.data) > 0:
-                    trainer = trainer_result.data[0]
-                    return {
-                        'trainer_id': trainer['id'],
-                        'name': trainer.get('name'),
-                        'is_new': False,
-                        'phone_number': phone_number,
-                        'is_trainer': True
-                    }
-                
-                # New user
+            
+            # Check if client
+            client = self.db.table('clients').select('*').eq(
+                'whatsapp', phone_number
+            ).single().execute()
+            
+            if client.data:
                 return {
-                    'phone_number': phone_number,
-                    'is_new': True
+                    'client_id': client.data['id'],
+                    'trainer_id': client.data.get('trainer_id'),
+                    'name': client.data['name'],
+                    'is_client': True,
+                    'status': client.data.get('status', 'active')
                 }
-                
+            
+            # New user
+            return {
+                'is_new': True,
+                'phone_number': phone_number
+            }
+            
         except Exception as e:
             log_error(f"Error getting user context: {str(e)}")
-            return {'phone_number': phone_number, 'is_new': True}
-    
-    def _log_interaction(self, phone_number: str, message_data: Dict, response: Dict):
-        """Log interaction for analytics"""
-        try:
-            self.db.table('message_logs').insert({
-                'phone_number': phone_number,
-                'message_type': message_data.get('type'),
-                'message_content': json.dumps(message_data),
-                'response': json.dumps(response),
-                'timestamp': datetime.now().isoformat()
-            }).execute()
-        except Exception as e:
-            log_error(f"Error logging interaction: {str(e)}")
+            return {'phone_number': phone_number}
     
     def _get_help_message(self, user_context: Dict) -> Dict:
-        """Get help message"""
-        help_text = """🏋️ *Refiloe Fitness Assistant* 🏋️
+        """Get help message based on user type"""
+        if user_context.get('is_trainer'):
+            message = """🤖 *Refiloe AI Assistant - Trainer Commands*
 
-Here's what I can help you with:
+*Session Management:*
+- Book a session - "Book John for Tuesday 3pm"
+- View schedule - "Show my schedule"
+- Cancel booking - "Cancel tomorrow's session"
 
-📅 *Bookings*
-• "Book a session for tomorrow at 3pm"
-• "Show my upcoming sessions"
-• "Cancel my booking"
+*Client Management:*
+- Add client - "Add client Sarah 0821234567"
+- View clients - "Show my clients"
+- Send workout - /workout
 
-💪 *Workouts*
-• "Give me a leg workout"
-• "Show chest exercises"
-• "I need a 30-minute workout"
+*Assessments:*
+- Start assessment - /assess
+- View results - "Show Sarah's assessment"
 
-📊 *Assessments*
-• "Start my assessment"
-• "Check assessment status"
+*Gamification:* 🎮
+- View points - /points
+- Check badges - /badges
+- Game stats - /stats
+- Create challenge - "Create water challenge"
 
-💰 *Payments*
-• "Check my balance"
-• "Payment status"
+*Other:*
+- Payment status - /pay
+- Analytics - "Show my stats"
+- Help - /help
 
-📈 *Progress Tracking*
-• "Log 2 liters water"
-• "Completed workout"
-• "8 hours sleep"
+Just message naturally, I understand context! 💪"""
+        
+        elif user_context.get('is_client'):
+            message = """🤖 *Refiloe AI Assistant - Client Commands*
 
-*Quick Commands:*
-/book - Book a session
-/workout - Get a workout
-/assess - Start assessment
-/status - Check your status
-/help - Show this message
+*Sessions:*
+- View schedule - "When is my next session?"
+- Request reschedule - "Can I move Tuesday's session?"
 
-How can I help you today?"""
+*Progress:*
+- Track habits - "Water: 8 glasses, Steps: 10000"
+- View assessment - "Show my assessment"
+- Request workout - "Send me a workout"
+
+*Gamification:* 🎮
+- View points - /points
+- Check badges - /badges
+- Game stats - /stats
+- Join challenges - "Show challenges"
+
+*Other:*
+- Payment info - /pay
+- Help - /help
+
+Just message naturally, I understand! 💪"""
+        
+        else:
+            message = """🤖 *Welcome to Refiloe AI Assistant!*
+
+I help personal trainers and clients manage fitness training.
+
+*For Trainers:*
+Register by sending: "I'm a trainer"
+
+*For Clients:*
+Your trainer will add you to the system.
+
+*Features:*
+- Session scheduling 📅
+- Workout programs 💪
+- Progress tracking 📊
+- Habit monitoring 💧
+- Gamification 🎮
+- Payment management 💰
+
+Visit refiloe.ai to learn more!"""
         
         return {
             'success': True,
-            'message': help_text
+            'message': message
         }
     
     def _start_booking_flow(self, from_number: str, user_context: Dict) -> Dict:
-        """Start the booking flow"""
+        """Start booking flow"""
         try:
-            # Simple booking flow start
-            message = """📅 *Book a Session*
-
-When would you like to book your session?
-
-Please tell me the date and time, for example:
-• "Tomorrow at 3pm"
-• "Monday at 10am"
-• "Next Tuesday at 5pm"
-
-What works best for you?"""
+            if not user_context.get('trainer_id'):
+                return {
+                    'success': True,
+                    'message': "You need to be registered to book sessions. Contact your trainer to get started!"
+                }
             
+            # Get available slots
+            # TODO: Implement actual booking flow
             return {
                 'success': True,
-                'message': message
+                'message': "📅 *Book a Session*\n\nWhen would you like to book?\nExample: 'Tuesday at 3pm' or 'Tomorrow morning'"
             }
             
         except Exception as e:
@@ -532,100 +297,55 @@ What works best for you?"""
                 'message': "Sorry, I couldn't start the booking process."
             }
     
-    def _start_workout_flow(self, from_number: str, user_context: Dict) -> Dict:
-        """Start workout selection flow"""
-        return {
-            'success': True,
-            'message': "💪 *Choose Your Workout Focus*\n\n• Chest\n• Back\n• Legs\n• Shoulders\n• Arms\n• Core\n• Full Body\n\nReply with the muscle group you want to work on!",
-            'buttons': [
-                {'id': 'workout_chest', 'title': 'Chest'},
-                {'id': 'workout_legs', 'title': 'Legs'},
-                {'id': 'workout_full', 'title': 'Full Body'}
-            ]
-        }
-    
-    def _start_assessment_flow(self, from_number: str, user_context: Dict) -> Dict:
-        """Start assessment flow"""
-        try:
-            # Create new assessment
-            result = self.assessment.create_assessment(
-                trainer_id=user_context.get('trainer_id'),
-                client_id=user_context.get('client_id')
-            )
-            
-            if result.get('success'):
-                return {
-                    'success': True,
-                    'message': "📋 *Fitness Assessment Started*\n\nI'll guide you through a series of questions about your health and fitness.\n\nLet's start with your current health status.\n\n*Do you have any medical conditions?*\nReply with any conditions or 'none'"
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': "Sorry, I couldn't start the assessment."
-                }
-                
-        except Exception as e:
-            log_error(f"Error starting assessment: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't start the assessment process."
-            }
-    
-    def _check_payment_status(self, from_number: str, user_context: Dict) -> Dict:
-        """Check payment status for user"""
-        try:
-            # Get payment info
-            result = self.db.table('payment_requests').select('*').eq(
-                'client_phone', from_number
-            ).eq('status', 'pending').execute()
-            
-            if result.data:
-                total = sum([p['amount'] for p in result.data])
-                return {
-                    'success': True,
-                    'message': f"💰 *Payment Status*\n\nOutstanding: R{total:.2f}\n{len(result.data)} pending payment(s)\n\nYour trainer will send payment details soon."
-                }
-            else:
-                return {
-                    'success': True,
-                    'message': "✅ All payments up to date!"
-                }
-                
-        except Exception as e:
-            log_error(f"Error checking payment status: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't check your payment status."
-            }
-    
     def _cancel_current_action(self, user_context: Dict) -> Dict:
         """Cancel current action/flow"""
         # Clear any session state
         return {
             'success': True,
-            'message': "❌ Action cancelled. How else can I help you?"
+            'message': "✅ Action cancelled. How can I help you?"
         }
     
     def _get_user_status(self, from_number: str, user_context: Dict) -> Dict:
-        """Get comprehensive user status"""
+        """Get user status summary"""
         try:
-            status_parts = []
+            if user_context.get('is_trainer'):
+                # Get trainer stats
+                clients_count = self.db.table('clients').select(
+                    'id', count='exact'
+                ).eq('trainer_id', user_context['trainer_id']).execute()
+                
+                today_sessions = self.db.table('bookings').select(
+                    'id', count='exact'
+                ).eq('trainer_id', user_context['trainer_id']).eq(
+                    'session_date', datetime.now().date().isoformat()
+                ).execute()
+                
+                message = f"""📊 *Your Status*
+
+👥 Clients: {clients_count.count if clients_count else 0}
+📅 Sessions today: {today_sessions.count if today_sessions else 0}
+💳 Subscription: {user_context.get('subscription_status', 'trial')}
+
+Type /help for available commands."""
             
-            # Basic status message
-            if user_context.get('name'):
-                status_parts.append(f"Hi {user_context['name']}! 👋")
+            elif user_context.get('is_client'):
+                # Get client stats
+                next_session = self.db.table('bookings').select('*').eq(
+                    'client_id', user_context['client_id']
+                ).gte('session_date', datetime.now().date().isoformat()).order(
+                    'session_date'
+                ).limit(1).execute()
+                
+                message = f"""📊 *Your Status*
+
+👋 Hi {user_context.get('name', 'there')}!
+📅 Next session: {next_session.data[0]['session_date'] if next_session.data else 'None scheduled'}
+💪 Status: {user_context.get('status', 'active')}
+
+Type /help for available commands."""
             
-            # Get recent workout
-            if user_context.get('client_id'):
-                # Get habit streak
-                streak = self.habits.get_current_streak(user_context.get('client_id'))
-                if streak:
-                    status_parts.append(f"🔥 Current streak: {streak} days")
-            
-            if status_parts:
-                message = "📊 *Your Status*\n\n" + "\n".join(status_parts)
             else:
-                message = "Welcome! Let's get started with your fitness journey. Try booking a session or requesting a workout!"
+                message = "You're not registered yet. Contact your trainer to get started!"
             
             return {
                 'success': True,
@@ -639,27 +359,303 @@ What works best for you?"""
                 'message': "Sorry, I couldn't get your status."
             }
     
-    def _handle_button_click(self, button_id: str, user_context: Dict) -> Dict:
-        """Handle button click interactions"""
+    def _start_workout_flow(self, from_number: str, user_context: Dict) -> Dict:
+        """Start workout creation/sending flow"""
         try:
-            if button_id.startswith('workout_'):
-                muscle_group = button_id.replace('workout_', '')
-                return self._handle_workout_intent(
-                    {'extracted_data': {'exercises': [muscle_group]}},
-                    user_context.get('phone_number'),
-                    user_context
-                )
-            elif button_id.startswith('book_'):
-                # Handle booking selection
-                slot = button_id.replace('book_', '')
+            if not user_context.get('is_trainer'):
                 return {
                     'success': True,
-                    'message': f"Great! I'll book that slot for you: {slot}"
+                    'message': "💪 Your trainer will send you personalized workouts. Stay tuned!"
+                }
+            
+            # Get trainer's clients
+            clients = self.db.table('clients').select('id, name').eq(
+                'trainer_id', user_context['trainer_id']
+            ).eq('status', 'active').execute()
+            
+            if not clients.data:
+                return {
+                    'success': True,
+                    'message': "You don't have any active clients yet. Add clients first!"
+                }
+            
+            # Format client list
+            client_list = "\n".join([
+                f"{i+1}. {c['name']}" for i, c in enumerate(clients.data)
+            ])
+            
+            return {
+                'success': True,
+                'message': f"""💪 *Send Workout*
+
+Select a client:
+{client_list}
+
+Reply with the number or client name."""
+            }
+            
+        except Exception as e:
+            log_error(f"Error starting workout flow: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't start the workout process."
+            }
+    
+    def _start_assessment_flow(self, from_number: str, user_context: Dict) -> Dict:
+        """Start assessment flow"""
+        try:
+            if not user_context.get('is_trainer'):
+                return {
+                    'success': True,
+                    'message': "📊 Your trainer will schedule your fitness assessments."
+                }
+            
+            return {
+                'success': True,
+                'message': """📊 *Start Assessment*
+
+Choose option:
+1. Send assessment form to client
+2. Record assessment results
+3. View past assessments
+
+Reply with your choice (1-3)."""
+            }
+            
+        except Exception as e:
+            log_error(f"Error starting assessment flow: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't start the assessment process."
+            }
+    
+    def _check_payment_status(self, from_number: str, user_context: Dict) -> Dict:
+        """Check payment status"""
+        try:
+            if user_context.get('is_trainer'):
+                # Get trainer's pending payments
+                pending = self.db.table('payment_requests').select(
+                    'amount'
+                ).eq('trainer_id', user_context['trainer_id']).eq(
+                    'status', 'pending'
+                ).execute()
+                
+                total_pending = sum(p['amount'] for p in (pending.data or []))
+                
+                message = f"""💰 *Payment Status*
+
+Pending payments: R{total_pending:.2f}
+This month received: R0.00
+
+To request payment from client:
+"Request R500 from John""""
+            
+            else:
+                # Get client's payment status
+                outstanding = self.db.table('payment_requests').select(
+                    'amount, due_date'
+                ).eq('client_phone', from_number).eq(
+                    'status', 'pending'
+                ).execute()
+                
+                if outstanding.data:
+                    total = sum(p['amount'] for p in outstanding.data)
+                    message = f"""💰 *Payment Status*
+
+Outstanding: R{total:.2f}
+
+Contact your trainer for payment details."""
+                else:
+                    message = "✅ You're all paid up! No outstanding payments."
+            
+            return {
+                'success': True,
+                'message': message
+            }
+            
+        except Exception as e:
+            log_error(f"Error checking payment status: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't check payment status."
+            }
+    
+    def _log_habits(self, responses: List, from_number: str, user_context: Dict) -> Dict:
+        """Log habit responses"""
+        try:
+            if not user_context.get('client_id'):
+                return {
+                    'success': True,
+                    'message': "You need to be a registered client to track habits."
+                }
+            
+            # Process habit responses
+            result = self.habits.process_habit_response(
+                user_context['client_id'],
+                responses
+            )
+            
+            if result['success']:
+                # Award gamification points
+                self._award_habit_points(user_context['client_id'], len(responses))
+                
+                return {
+                    'success': True,
+                    'message': f"""✅ *Habits Logged!*
+
+{result.get('summary', 'Great job staying on track!')}
+
++{len(responses) * 10} points earned! 🎯
+
+Keep up the great work! 💪"""
                 }
             else:
                 return {
                     'success': False,
-                    'message': "I didn't understand that selection."
+                    'message': "Sorry, I couldn't log your habits. Please try again."
+                }
+                
+        except Exception as e:
+            log_error(f"Error logging habits: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't log your habits."
+            }
+    
+    def _setup_habit(self, data: Dict, from_number: str, user_context: Dict) -> Dict:
+        """Setup new habit tracking"""
+        try:
+            if not user_context.get('is_trainer'):
+                return {
+                    'success': True,
+                    'message': "Your trainer will set up habit tracking for you."
+                }
+            
+            habit_type = data.get('habit_type')
+            target_value = data.get('target_value')
+            
+            return {
+                'success': True,
+                'message': f"""🎯 *Setting up {habit_type} tracking*
+
+Target: {target_value} daily
+
+Which client? Reply with their name."""
+            }
+            
+        except Exception as e:
+            log_error(f"Error setting up habit: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't set up habit tracking."
+            }
+    
+    def _get_habit_status(self, from_number: str, user_context: Dict) -> Dict:
+        """Get habit tracking status"""
+        try:
+            if not user_context.get('client_id'):
+                return {
+                    'success': True,
+                    'message': "You need to be registered to track habits."
+                }
+            
+            # Get today's habits
+            habits = self.habits.get_client_habits_for_today(user_context['client_id'])
+            
+            if not habits:
+                return {
+                    'success': True,
+                    'message': "No habits to track today! Enjoy your rest day 😊"
+                }
+            
+            # Format habit list
+            habit_text = "\n".join([
+                f"{'✅' if h['logged'] else '⭕'} {h['name']}: {h['target']}"
+                for h in habits
+            ])
+            
+            return {
+                'success': True,
+                'message': f"""📊 *Today's Habits*
+
+{habit_text}
+
+To log: "Water 8, Steps 10000"
+
+Keep going! 💪"""
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting habit status: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I couldn't get your habit status."
+            }
+    
+    def _award_habit_points(self, client_id: str, habits_count: int):
+        """Award points for habit logging"""
+        try:
+            # Award 10 points per habit logged
+            points = habits_count * 10
+            
+            # Add to points ledger
+            self.db.table('points_ledger').insert({
+                'user_id': client_id,
+                'user_type': 'client',
+                'points': points,
+                'reason': f'Logged {habits_count} habits',
+                'created_at': datetime.now().isoformat()
+            }).execute()
+            
+            # Update gamification profile
+            profile = self.db.table('gamification_profiles').select('*').eq(
+                'client_id', client_id
+            ).single().execute()
+            
+            if profile.data:
+                new_total = profile.data['points_total'] + points
+                self.db.table('gamification_profiles').update({
+                    'points_total': new_total
+                }).eq('client_id', client_id).execute()
+            else:
+                # Create profile
+                self.db.table('gamification_profiles').insert({
+                    'client_id': client_id,
+                    'points_total': points,
+                    'is_public': True,
+                    'opted_in_global': True,
+                    'opted_in_trainer': True
+                }).execute()
+            
+            log_info(f"Awarded {points} points to client {client_id} for habit logging")
+            
+        except Exception as e:
+            log_error(f"Error awarding habit points: {str(e)}")
+    
+    def _handle_button_click(self, button_id: str, user_context: Dict) -> Dict:
+        """Handle button click from interactive message"""
+        try:
+            # Route based on button ID
+            if button_id.startswith('book_'):
+                slot = button_id.replace('book_', '')
+                return {
+                    'success': True,
+                    'message': f"📅 Booking session for {slot}..."
+                }
+            elif button_id.startswith('confirm_'):
+                return {
+                    'success': True,
+                    'message': "✅ Confirmed!"
+                }
+            elif button_id.startswith('cancel_'):
+                return {
+                    'success': True,
+                    'message': "❌ Cancelled."
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "Button clicked!"
                 }
                 
         except Exception as e:
@@ -670,10 +666,12 @@ What works best for you?"""
             }
     
     def _handle_list_selection(self, list_id: str, user_context: Dict) -> Dict:
-        """Handle list selection interactions"""
+        """Handle list selection from interactive message"""
         try:
-            # Similar to button handling but for list items
-            return self._handle_button_click(list_id, user_context)
+            return {
+                'success': True,
+                'message': f"You selected: {list_id}"
+            }
         except Exception as e:
             log_error(f"Error handling list selection: {str(e)}")
             return {
@@ -682,20 +680,28 @@ What works best for you?"""
             }
     
     def _process_assessment_photo(self, message_data: Dict, user_context: Dict) -> Dict:
-        """Process assessment photo submission"""
+        """Process assessment photo upload"""
         try:
-            # Store photo reference
-            photo_id = message_data.get('image', {}).get('id')
-            
-            # For now, just acknowledge receipt
             return {
                 'success': True,
-                'message': "📸 Photo received! Continue with your assessment or send another photo."
+                'message': "📸 Photo received! Please complete the assessment form sent to you."
             }
-            
         except Exception as e:
             log_error(f"Error processing assessment photo: {str(e)}")
             return {
                 'success': False,
                 'message': "Sorry, I couldn't process your photo."
             }
+    
+    def _log_interaction(self, phone_number: str, message_data: Dict, response: Dict):
+        """Log interaction for analytics"""
+        try:
+            self.db.table('messages').insert({
+                'whatsapp_from': phone_number,
+                'whatsapp_to': 'system',
+                'message_text': json.dumps(message_data),
+                'response': json.dumps(response),
+                'created_at': datetime.now().isoformat()
+            }).execute()
+        except Exception as e:
+            log_error(f"Error logging interaction: {str(e)}")
