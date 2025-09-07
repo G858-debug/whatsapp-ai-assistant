@@ -1,877 +1,988 @@
 <!-- Model: Opus 4.1 -->
-<!-- Cost: $1.5284 -->
+<!-- Cost: $1.5307 -->
 <!-- Max Tokens: 16000 -->
 <!-- CONTINUATION NEEDED -->
 ## ANALYSIS
 
-Step 3 focuses on splitting the large files that exceed 600 lines:
-- `app.py` (1125 lines) - needs to be split into smaller modules
+Continuing Step 3 - Need to split the remaining large files:
 - `routes/dashboard.py` (817 lines) - needs splitting
-- `services/ai_intent_handler.py` (649 lines) - needs splitting
+- `services/ai_intent_handler.py` (649 lines) - needs splitting  
 - `payment_integration.py` (746 lines) - needs splitting
 - `services/dashboard_sync.py` (640 lines) - needs splitting
 
-Let's start with splitting `app.py` into logical modules by extracting routes into separate blueprint files.
+Let's split these files into smaller, focused modules.
 
 ## CHANGES NEEDED
 
-### NEW FILE: routes/webhooks.py
+### SPLIT FILE: routes/dashboard.py
+
+Split into three logical modules:
+
+### NEW FILE: routes/dashboard_calendar.py
 ```python
-"""WhatsApp webhook routes"""
-from flask import Blueprint, request, jsonify
-from datetime import datetime
-import traceback
-import pytz
-from utils.logger import log_error, log_info, log_warning
-
-webhooks_bp = Blueprint('webhooks', __name__)
-
-@webhooks_bp.route('/webhook', methods=['GET', 'POST'])
-def webhook():
-    """Main WhatsApp webhook endpoint"""
-    from app import (
-        Config, whatsapp_service, refiloe_service, 
-        rate_limiter, input_sanitizer
-    )
-    
-    if request.method == 'GET':
-        verify_token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-        
-        if verify_token == Config.VERIFY_TOKEN:
-            log_info("Webhook verified successfully")
-            return challenge
-        else:
-            log_warning("Invalid verification token")
-            return 'Invalid verification token', 403
-    
-    elif request.method == 'POST':
-        try:
-            if Config.ENABLE_RATE_LIMITING:
-                ip_address = request.remote_addr
-                if not rate_limiter.check_webhook_rate(ip_address):
-                    log_warning(f"Rate limit exceeded for IP: {ip_address}")
-                    return jsonify({"error": "Rate limit exceeded"}), 429
-            
-            data = request.get_json()
-            
-            if not data:
-                return jsonify({"error": "No data provided"}), 400
-            
-            if 'entry' in data:
-                for entry in data['entry']:
-                    if 'changes' in entry:
-                        for change in entry['changes']:
-                            if 'value' in change and 'messages' in change['value']:
-                                for message in change['value']['messages']:
-                                    process_message(message, change['value'].get('contacts', []))
-            
-            return jsonify({"status": "success"}), 200
-            
-        except Exception as e:
-            log_error(f"Webhook processing error: {str(e)}\n{traceback.format_exc()}")
-            return jsonify({"error": "Internal server error"}), 500
-
-def process_message(message: dict, contacts: list):
-    """Process incoming WhatsApp message"""
-    from app import (
-        Config, whatsapp_service, refiloe_service,
-        rate_limiter, input_sanitizer
-    )
-    
-    try:
-        from_number = message['from']
-        message_type = message.get('type', 'text')
-        
-        if Config.ENABLE_RATE_LIMITING:
-            allowed, error_msg = rate_limiter.check_message_rate(from_number, message_type)
-            if not allowed:
-                if error_msg:
-                    whatsapp_service.send_message(from_number, error_msg)
-                return
-        
-        contact_name = "User"
-        if contacts:
-            contact = next((c for c in contacts if c['wa_id'] == from_number), None)
-            if contact:
-                contact_name = contact.get('profile', {}).get('name', 'User')
-        
-        message_data = {
-            'from': from_number,
-            'type': message_type,
-            'contact_name': contact_name
-        }
-        
-        if message_type == 'text':
-            text_body = message.get('text', {}).get('body', '')
-            sanitized, is_safe, warnings = input_sanitizer.sanitize_message(text_body, from_number)
-            if not is_safe:
-                whatsapp_service.send_message(from_number, "Sorry, your message contained invalid content.")
-                return
-            message_data['text'] = {'body': sanitized}
-        elif message_type == 'audio':
-            message_data['audio'] = message.get('audio', {})
-        elif message_type == 'image':
-            message_data['image'] = message.get('image', {})
-        elif message_type == 'interactive':
-            message_data['interactive'] = message.get('interactive', {})
-        elif message_type == 'button':
-            message_data['button'] = message.get('button', {})
-        
-        response = refiloe_service.process_message(message_data)
-        
-        if response.get('success') and response.get('message'):
-            whatsapp_service.send_message(from_number, response['message'])
-            
-            if response.get('media_url'):
-                whatsapp_service.send_media_message(from_number, response['media_url'], 'image')
-            
-            if response.get('buttons'):
-                whatsapp_service.send_message_with_buttons(
-                    from_number,
-                    response.get('header', 'Options'),
-                    response['buttons']
-                )
-            
-    except Exception as e:
-        log_error(f"Message processing error: {str(e)}")
-        try:
-            whatsapp_service.send_message(
-                from_number,
-                "Sorry, I encountered an error processing your message. Please try again."
-            )
-        except:
-            pass
-```
-
-### NEW FILE: routes/calendar.py
-```python
-"""Calendar and client view routes"""
-from flask import Blueprint, request, jsonify, send_file
+"""Dashboard calendar routes"""
+from flask import Blueprint, jsonify, request
 from datetime import datetime, timedelta
 import pytz
-import secrets
-from io import BytesIO
-from jinja2 import Template
+from functools import wraps
 from utils.logger import log_error
 
-calendar_bp = Blueprint('calendar', __name__)
+dashboard_calendar_bp = Blueprint('dashboard_calendar', __name__)
 
-def generate_calendar_token(client_id: str) -> str:
-    """Generate a secure token for calendar access"""
-    import hashlib
-    token_data = f"{client_id}:{datetime.now().isoformat()}:{secrets.token_hex(16)}"
-    return hashlib.sha256(token_data.encode()).hexdigest()
+def token_required(f):
+    """Verify dashboard access token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        
+        if not token:
+            token = request.args.get('token')
+            
+        if not token:
+            return jsonify({'error': 'No token provided'}), 401
+            
+        from app import supabase
+        
+        result = supabase.table('dashboard_tokens').select(
+            '*, trainers(*), clients(*)'
+        ).eq('token', token).single().execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Invalid token'}), 401
+            
+        if result.data.get('trainers'):
+            request.user = result.data['trainers']
+            request.user_type = 'trainer'
+        else:
+            request.user = result.data['clients']
+            request.user_type = 'client'
+            
+        request.token = token
+        return f(*args, **kwargs)
+        
+    return decorated
 
-def verify_calendar_token(token: str, client_id: str) -> bool:
-    """Verify calendar access token"""
-    from app import supabase
+@dashboard_calendar_bp.route('/api/dashboard/calendar/day', methods=['GET'])
+@token_required
+def get_day_sessions():
+    """Get all sessions for a specific day"""
     try:
-        result = supabase.table('calendar_access_tokens').select('*').eq(
-            'token', token
-        ).eq('client_id', client_id).eq('is_valid', True).execute()
+        from app import supabase
         
-        if result.data:
-            created_at = datetime.fromisoformat(result.data[0]['created_at'])
-            if (datetime.now(pytz.UTC) - created_at).total_seconds() < 86400:
-                return True
-        return False
-    except:
-        return False
-
-@calendar_bp.route('/api/client/calendar/<client_id>')
-def client_calendar_view(client_id):
-    """Client calendar view endpoint"""
-    from app import supabase, Config
-    
-    try:
-        token = request.args.get('token')
-        if not token or not verify_calendar_token(token, client_id):
-            return "Access denied. Please request a new calendar link.", 403
+        date = request.args.get('date')
+        if not date:
+            return jsonify({'error': 'Date parameter required'}), 400
+            
+        try:
+            day_date = datetime.fromisoformat(date)
+        except ValueError:
+            return jsonify({'error': 'Invalid date format'}), 400
         
-        client = supabase.table('clients').select('*, trainers(*)').eq(
-            'id', client_id
-        ).single().execute()
+        sessions = supabase.table('bookings').select(
+            """
+            *,
+            clients (
+                id,
+                name,
+                whatsapp,
+                package_type,
+                sessions_remaining
+            )
+            """
+        ).eq('trainer_id', request.user['id']).eq(
+            'session_date', day_date.date().isoformat()
+        ).order('start_time').execute()
         
-        if not client.data:
-            return "Client not found", 404
-        
-        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
-        end_date = today + timedelta(days=30)
-        
-        sessions = supabase.table('bookings').select('*').eq(
-            'client_id', client_id
-        ).gte('session_date', today.isoformat()).lte(
-            'session_date', end_date.isoformat()
-        ).order('session_date').order('session_time').execute()
-        
-        past_sessions = supabase.table('bookings').select('*').eq(
-            'client_id', client_id
-        ).lt('session_date', today.isoformat()).order(
-            'session_date', desc=True
-        ).limit(10).execute()
-        
-        next_session = None
+        formatted_sessions = []
         for session in (sessions.data or []):
-            if session['status'] in ['confirmed', 'rescheduled']:
-                next_session = session
-                break
-        
-        html_template = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>My Training Calendar - {{ client_name }}</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    min-height: 100vh;
-                    padding: 20px;
-                }
-                .container {
-                    max-width: 500px;
-                    margin: 0 auto;
-                    background: white;
-                    border-radius: 20px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                    overflow: hidden;
-                }
-                .header {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 30px 20px;
-                    text-align: center;
-                }
-                .header h1 {
-                    font-size: 24px;
-                    margin-bottom: 10px;
-                }
-                .header p {
-                    opacity: 0.9;
-                    font-size: 14px;
-                }
-                .next-session {
-                    background: #f0f9ff;
-                    border-left: 4px solid #3b82f6;
-                    margin: 20px;
-                    padding: 15px;
-                    border-radius: 10px;
-                }
-                .next-session h2 {
-                    color: #1e40af;
-                    font-size: 16px;
-                    margin-bottom: 10px;
-                }
-                .session-card {
-                    background: white;
-                    border: 1px solid #e5e7eb;
-                    margin: 10px 20px;
-                    padding: 15px;
-                    border-radius: 10px;
-                    position: relative;
-                }
-                .session-card.completed {
-                    opacity: 0.6;
-                    background: #f9fafb;
-                }
-                .session-date {
-                    font-weight: 600;
-                    color: #374151;
-                    margin-bottom: 5px;
-                }
-                .session-time {
-                    color: #6b7280;
-                    font-size: 14px;
-                }
-                .session-status {
-                    position: absolute;
-                    top: 15px;
-                    right: 15px;
-                    padding: 4px 8px;
-                    border-radius: 5px;
-                    font-size: 12px;
-                    font-weight: 500;
-                }
-                .status-confirmed {
-                    background: #d1fae5;
-                    color: #065f46;
-                }
-                .status-completed {
-                    background: #e0e7ff;
-                    color: #3730a3;
-                }
-                .status-cancelled {
-                    background: #fee2e2;
-                    color: #991b1b;
-                }
-                .section-title {
-                    font-size: 18px;
-                    font-weight: 600;
-                    margin: 30px 20px 15px;
-                    color: #1f2937;
-                }
-                .action-buttons {
-                    padding: 20px;
-                    display: flex;
-                    gap: 10px;
-                }
-                .btn {
-                    flex: 1;
-                    padding: 12px;
-                    border: none;
-                    border-radius: 10px;
-                    font-size: 14px;
-                    font-weight: 500;
-                    text-align: center;
-                    text-decoration: none;
-                    cursor: pointer;
-                }
-                .btn-primary {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                }
-                .btn-secondary {
-                    background: #f3f4f6;
-                    color: #374151;
-                }
-                .empty-state {
-                    text-align: center;
-                    padding: 40px 20px;
-                    color: #6b7280;
-                }
-                .stats {
-                    display: flex;
-                    justify-content: space-around;
-                    padding: 20px;
-                    background: #f9fafb;
-                }
-                .stat {
-                    text-align: center;
-                }
-                .stat-value {
-                    font-size: 24px;
-                    font-weight: 700;
-                    color: #1f2937;
-                }
-                .stat-label {
-                    font-size: 12px;
-                    color: #6b7280;
-                    margin-top: 5px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>📅 My Training Calendar</h1>
-                    <p>{{ client_name }} • {{ trainer_name }}</p>
-                </div>
-                
-                {% if next_session %}
-                <div class="next-session">
-                    <h2>🎯 Next Session</h2>
-                    <div class="session-date">{{ next_session.formatted_date }}</div>
-                    <div class="session-time">{{ next_session.session_time }}</div>
-                </div>
-                {% endif %}
-                
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-value">{{ upcoming_count }}</div>
-                        <div class="stat-label">Upcoming</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value">{{ completed_count }}</div>
-                        <div class="stat-label">Completed</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value">{{ total_count }}</div>
-                        <div class="stat-label">Total</div>
-                    </div>
-                </div>
-                
-                <h2 class="section-title">📍 Upcoming Sessions</h2>
-                {% if upcoming_sessions %}
-                    {% for session in upcoming_sessions %}
-                    <div class="session-card">
-                        <div class="session-date">{{ session.formatted_date }}</div>
-                        <div class="session-time">🕐 {{ session.session_time }}</div>
-                        <span class="session-status status-{{ session.status }}">{{ session.status|upper }}</span>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <p>No upcoming sessions scheduled</p>
-                    </div>
-                {% endif %}
-                
-                <h2 class="section-title">✅ Recent Sessions</h2>
-                {% if past_sessions %}
-                    {% for session in past_sessions %}
-                    <div class="session-card completed">
-                        <div class="session-date">{{ session.formatted_date }}</div>
-                        <div class="session-time">{{ session.session_time }}</div>
-                        <span class="session-status status-{{ session.status }}">{{ session.status|upper }}</span>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <p>No past sessions</p>
-                    </div>
-                {% endif %}
-                
-                <div class="action-buttons">
-                    <a href="/api/client/trainer-availability/{{ trainer_id }}?client_id={{ client_id }}&token={{ token }}" class="btn btn-primary">
-                        Check Availability
-                    </a>
-                    <a href="/api/client/calendar/{{ client_id }}/ics?token={{ token }}" class="btn btn-secondary">
-                        📥 Download Calendar
-                    </a>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        def format_date(date_str):
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-            return date_obj.strftime('%A, %d %B')
-        
-        upcoming_sessions = []
-        for session in (sessions.data or []):
-            session['formatted_date'] = format_date(session['session_date'])
-            upcoming_sessions.append(session)
-        
-        past_sessions_formatted = []
-        for session in (past_sessions.data or []):
-            session['formatted_date'] = format_date(session['session_date'])
-            past_sessions_formatted.append(session)
-        
-        if next_session:
-            next_session['formatted_date'] = format_date(next_session['session_date'])
-        
-        completed_count = len([s for s in past_sessions.data if s['status'] == 'completed'])
-        upcoming_count = len([s for s in sessions.data if s['status'] in ['confirmed', 'rescheduled']])
-        
-        template = Template(html_template)
-        return template.render(
-            client_name=client.data['name'],
-            client_id=client_id,
-            trainer_name=client.data['trainers']['name'],
-            trainer_id=client.data['trainer_id'],
-            next_session=next_session,
-            upcoming_sessions=upcoming_sessions,
-            past_sessions=past_sessions_formatted,
-            upcoming_count=upcoming_count,
-            completed_count=completed_count,
-            total_count=upcoming_count + completed_count,
-            token=token
-        )
-        
-    except Exception as e:
-        log_error(f"Error in client calendar view: {str(e)}")
-        return "Error loading calendar", 500
-
-@calendar_bp.route('/api/client/calendar/<client_id>/ics')
-def download_calendar_ics(client_id):
-    """Download calendar in ICS format"""
-    from app import supabase, calendar_service, Config
-    
-    try:
-        token = request.args.get('token')
-        if not token or not verify_calendar_token(token, client_id):
-            return "Access denied", 403
-        
-        client = supabase.table('clients').select('*, trainers(*)').eq(
-            'id', client_id
-        ).single().execute()
-        
-        if not client.data:
-            return "Client not found", 404
-        
-        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
-        sessions = supabase.table('bookings').select('*').eq(
-            'client_id', client_id
-        ).gte('session_date', today.isoformat()).order('session_date').execute()
-        
-        ics_content = calendar_service.generate_ics_file({
-            'client': client.data,
-            'sessions': sessions.data or [],
-            'trainer': client.data['trainers']
+            formatted_sessions.append({
+                'id': session['id'],
+                'start_time': session['start_time'],
+                'end_time': session['end_time'],
+                'client': {
+                    'id': session['clients']['id'],
+                    'name': session['clients']['name'],
+                    'phone': session['clients']['whatsapp'],
+                    'package': session['clients']['package_type'],
+                    'sessions_remaining': session['clients']['sessions_remaining']
+                },
+                'status': session['status'],
+                'session_type': session['session_type'],
+                'notes': session['notes']
+            })
+            
+        return jsonify({
+            'date': day_date.date().isoformat(),
+            'sessions': formatted_sessions
         })
         
-        output = BytesIO()
-        output.write(ics_content.encode('utf-8'))
-        output.seek(0)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_calendar_bp.route('/api/dashboard/calendar/day/session', methods=['POST'])
+@token_required
+def create_session():
+    """Create a new session"""
+    try:
+        from app import supabase
         
-        return send_file(
-            output,
-            mimetype='text/calendar',
-            as_attachment=True,
-            download_name=f'training_calendar_{client.data["name"].replace(" ", "_")}.ics'
+        data = request.json
+        required = ['client_id', 'date', 'start_time', 'end_time']
+        
+        if not all(k in data for k in required):
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        client = supabase.table('clients').select('*').eq(
+            'id', data['client_id']
+        ).eq('trainer_id', request.user['id']).single().execute()
+        
+        if not client.data:
+            return jsonify({'error': 'Invalid client'}), 400
+            
+        session = supabase.table('bookings').insert({
+            'trainer_id': request.user['id'],
+            'client_id': data['client_id'],
+            'session_date': data['date'],
+            'start_time': data['start_time'],
+            'end_time': data['end_time'],
+            'session_type': data.get('session_type', 'standard'),
+            'notes': data.get('notes', ''),
+            'status': 'scheduled',
+            'created_at': datetime.now().isoformat()
+        }).execute()
+        
+        return jsonify(session.data[0])
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_calendar_bp.route('/api/dashboard/calendar/day/session/<id>', methods=['PUT'])
+@token_required
+def update_session(id):
+    """Update a session"""
+    try:
+        from app import supabase
+        
+        data = request.json
+        
+        session = supabase.table('bookings').select('*').eq(
+            'id', id
+        ).eq('trainer_id', request.user['id']).single().execute()
+        
+        if not session.data:
+            return jsonify({'error': 'Session not found'}), 404
+            
+        allowed_updates = [
+            'start_time', 'end_time', 'session_type',
+            'notes', 'status'
+        ]
+        
+        updates = {
+            k: v for k, v in data.items() 
+            if k in allowed_updates
+        }
+        
+        if updates:
+            updated = supabase.table('bookings').update(
+                updates
+            ).eq('id', id).execute()
+            
+            return jsonify(updated.data[0])
+        
+        return jsonify({'error': 'No valid updates provided'}), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_calendar_bp.route('/api/dashboard/calendar/day/session/<id>', methods=['DELETE'])
+@token_required
+def delete_session(id):
+    """Delete a session"""
+    try:
+        from app import supabase
+        
+        session = supabase.table('bookings').select('*').eq(
+            'id', id
+        ).eq('trainer_id', request.user['id']).single().execute()
+        
+        if not session.data:
+            return jsonify({'error': 'Session not found'}), 404
+            
+        supabase.table('bookings').delete().eq('id', id).execute()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+```
+
+### NEW FILE: routes/dashboard_gamification.py
+```python
+"""Dashboard gamification routes"""
+from flask import Blueprint, jsonify, request, render_template
+from datetime import datetime, timedelta, date
+import pytz
+from functools import wraps
+from utils.logger import log_error
+
+dashboard_gamification_bp = Blueprint('dashboard_gamification', __name__)
+
+def token_required(f):
+    """Verify dashboard access token"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        
+        if not token:
+            token = request.args.get('token')
+            
+        if not token:
+            return jsonify({'error': 'No token provided'}), 401
+            
+        from app import supabase
+        
+        result = supabase.table('dashboard_tokens').select(
+            '*, trainers(*), clients(*)'
+        ).eq('token', token).single().execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Invalid token'}), 401
+            
+        if result.data.get('trainers'):
+            request.user = result.data['trainers']
+            request.user_type = 'trainer'
+        else:
+            request.user = result.data['clients']
+            request.user_type = 'client'
+            
+        request.token = token
+        return f(*args, **kwargs)
+        
+    return decorated
+
+@dashboard_gamification_bp.route('/dashboard/challenges')
+@token_required
+def challenge_hub():
+    """Render challenge hub page"""
+    try:
+        from app import supabase
+        
+        profile_key = f'{request.user_type}_id'
+        profile = supabase.table('gamification_profiles').select('*').eq(
+            profile_key, request.user['id']
+        ).single().execute()
+        
+        if not profile.data:
+            profile_data = {
+                profile_key: request.user['id'],
+                'points_total': 0,
+                'is_public': True,
+                'opted_in_global': True,
+                'opted_in_trainer': True,
+                'notification_style': 'daily_digest',
+                'digest_time': '07:00',
+                'quiet_start': '20:00',
+                'quiet_end': '06:00'
+            }
+            profile = supabase.table('gamification_profiles').insert(
+                profile_data
+            ).execute()
+            profile = {'data': profile.data[0] if profile.data else profile_data}
+        
+        return render_template('challenge_hub.html',
+            user=request.user,
+            user_type=request.user_type,
+            profile=profile.data,
+            token=request.token
         )
         
     except Exception as e:
-        log_error(f"Error generating ICS file: {str(e)}")
-        return "Error generating calendar file", 500
-```
+        return f"Error loading challenge hub: {str(e)}", 500
 
-### NEW FILE: routes/payment.py
-```python
-"""Payment related routes"""
-from flask import Blueprint, request, jsonify
-from datetime import datetime
-from utils.logger import log_error, log_warning
-
-payment_bp = Blueprint('payment', __name__)
-
-@payment_bp.route('/webhook/payfast', methods=['POST'])
-def payfast_webhook():
-    """Handle PayFast payment webhooks"""
-    from app import payment_manager, payfast_handler
-    
+@dashboard_gamification_bp.route('/api/dashboard/challenges/active', methods=['GET'])
+@token_required
+def get_active_challenges():
+    """Get user's active challenges"""
     try:
-        data = request.form.to_dict()
-        signature = request.headers.get('X-PayFast-Signature', '')
+        from app import supabase
         
-        if not payment_manager.verify_webhook_signature(data, signature):
-            log_warning("Invalid PayFast signature")
-            return 'Invalid signature', 403
+        participants = supabase.table('challenge_participants').select(
+            '*, challenges(*)'
+        ).eq('user_id', request.user['id']).eq(
+            'user_type', request.user_type
+        ).eq('status', 'active').execute()
         
-        result = payfast_handler.process_payment_notification(data)
+        challenges = []
+        for p in (participants.data or []):
+            if p.get('challenges'):
+                challenge = p['challenges']
+                
+                progress = supabase.table('challenge_progress').select('*').eq(
+                    'participant_id', p['id']
+                ).execute()
+                
+                total_progress = sum(
+                    pr.get('value_achieved', 0) 
+                    for pr in (progress.data or [])
+                )
+                
+                target = challenge.get('target_value', 1)
+                percentage = min(100, int((total_progress / target) * 100))
+                
+                challenges.append({
+                    'id': challenge['id'],
+                    'name': challenge['name'],
+                    'description': challenge['description'],
+                    'progress': total_progress,
+                    'target': target,
+                    'percentage': percentage,
+                    'end_date': challenge['end_date'],
+                    'points_reward': challenge['points_reward'],
+                    'participant_id': p['id']
+                })
         
-        if result['success']:
-            return 'OK', 200
-        else:
-            return 'Processing failed', 500
-            
+        return jsonify(challenges)
+        
     except Exception as e:
-        log_error(f"PayFast webhook error: {str(e)}")
-        return 'Internal error', 500
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_gamification_bp.route('/api/dashboard/challenges/pre-book', methods=['POST'])
+@token_required
+def pre_book_challenge():
+    """Pre-book a challenge"""
+    try:
+        from app import supabase
+        
+        data = request.json
+        challenge_id = data.get('challenge_id')
+        
+        if not challenge_id:
+            return jsonify({'error': 'Challenge ID required'}), 400
+        
+        existing = supabase.table('challenge_pre_bookings').select('id').eq(
+            'user_id', request.user['id']
+        ).eq('user_type', request.user_type).eq(
+            'challenge_id', challenge_id
+        ).execute()
+        
+        if existing.data:
+            return jsonify({'message': 'Already pre-booked'}), 200
+        
+        booking = supabase.table('challenge_pre_bookings').insert({
+            'user_id': request.user['id'],
+            'user_type': request.user_type,
+            'challenge_id': challenge_id,
+            'booked_at': datetime.now().isoformat()
+        }).execute()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Challenge pre-booked successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@dashboard_gamification_bp.route('/api/dashboard/leaderboard/<type>', methods=['GET'])
+@token_required
+def get_leaderboard(type):
+    """Get leaderboard data"""
+    try:
+        from app import supabase
+        from collections import Counter
+        
+        valid_types = ['global', 'trainer', 'challenge']
+        if type not in valid_types:
+            return jsonify({'error': 'Invalid leaderboard type'}), 400
+        
+        if type == 'global':
+            leaderboard = supabase.table('leaderboards').select('*').eq(
+                'type', 'global'
+            ).eq('is_active', True).single().execute()
+        elif type == 'trainer' and request.user_type == 'client':
+            client = supabase.table('clients').select('trainer_id').eq(
+                'id', request.user['id']
+            ).single().execute()
+            
+            if not client.data:
+                return jsonify({'error': 'No trainer found'}), 404
+                
+            leaderboard = supabase.table('leaderboards').select('*').eq(
+                'type', 'trainer_group'
+            ).eq('scope', client.data['trainer_id']).eq(
+                'is_active', True
+            ).single().execute()
+        else:
+            challenge_id = request.args.get('challenge_id')
+            if not challenge_id:
+                return jsonify({'error': 'Challenge ID required'}), 400
+                
+            leaderboard = supabase.table('leaderboards').select('*').eq(
+                'type', 'challenge'
+            ).eq('scope', challenge_id).eq(
+                'is_active', True
+            ).single().execute()
+        
+        if not leaderboard.data:
+            return jsonify({'error': 'Leaderboard not found'}), 404
+        
+        entries = supabase.table('leaderboard_entries').select('*').eq(
+            'leaderboard_id', leaderboard.data['id']
+        ).order('rank').execute()
+        
+        user_entry = None
+        user_rank = None
+        
+        for entry in (entries.data or []):
+            if (entry['user_id'] == request.user['id'] and 
+                entry['user_type'] == request.user_type):
+                user_entry = entry
+                user_rank = entry['rank']
+                break
+        
+        response = {
+            'leaderboard': {
+                'id': leaderboard.data['id'],
+                'name': leaderboard.data['name'],
+                'type': leaderboard.data['type']
+            },
+            'top_10': [],
+            'user_context': None,
+            'user_stats': None,
+            'total_participants': len(entries.data) if entries.data else 0
+        }
+        
+        for entry in (entries.data or [])[:10]:
+            response['top_10'].append({
+                'rank': entry['rank'],
+                'nickname': entry.get('nickname', 'Anonymous'),
+                'points': entry['points'],
+                'trend': entry.get('trend', 'same'),
+                'trend_value': abs(entry.get('previous_rank', entry['rank']) - entry['rank']),
+                'is_user': (entry['user_id'] == request.user['id'] and 
+                           entry['user_type'] == request.user_type)
+            })
+        
+        if user_rank and user_rank > 10:
+            context = []
+            start_idx = max(0, user_rank - 3)
+            end_idx = min(len(entries.data), user_rank + 2)
+            
+            for i in range(start_idx, end_idx):
+                entry = entries.data[i]
+                context.append({
+                    'rank': entry['rank'],
+                    'nickname': entry.get('nickname', 'Anonymous'),
+                    'points': entry['points'],
+                    'trend': entry.get('trend', 'same'),
+                    'trend_value': abs(entry.get('previous_rank', entry['rank']) - entry['rank']),
+                    'is_user': (entry['user_id'] == request.user['id'] and 
+                               entry['user_type'] == request.user_type)
+                })
+            
+            response['user_context'] = context
+        
+        if user_entry:
+            points_to_next = 0
+            if user_rank > 1:
+                prev_entry = entries.data[user_rank - 2]
+                points_to_next = prev_entry['points'] - user_entry['points']
+            
+            points_to_top10 = 0
+            if user_rank > 10:
+                top10_entry = entries.data[9]
+                points_to_top10 = top10_entry['points'] - user_entry['points']
+            
+            percentile = round((1 - (user_rank / len(entries.data))) * 100)
+            
+            response['user_stats'] = {
+                'rank': user_rank,
+                'points': user_entry['points'],
+                'trend': user_entry.get('trend', 'same'),
+                'trend_value': abs(user_entry.get('previous_rank', user_rank) - user_rank),
+                'points_to_next': points_to_next,
+                'points_to_top10': points_to_top10,
+                'percentile': percentile,
+                'best_rank': user_entry.get('best_rank', user_rank)
+            }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 ```
 
-### EDIT: app.py
+### EDIT: routes/dashboard.py
 
-**Change 1:** Replace the entire file with a much smaller version that imports blueprints
-Location: Lines 1-1125
+**Change 1:** Replace entire file with base dashboard routes only
+Location: Lines 1-817
 ```python
-# REMOVE (lines 1-1125):
+# REMOVE (lines 1-817):
 [entire current content]
 
 # ADD:
-import os
-from datetime import datetime
-from flask import Flask, jsonify
-from supabase import create_client
-from dotenv import load_dotenv
-import pytz
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+"""Main dashboard routes"""
+from flask import Blueprint, jsonify, request
+from routes.dashboard_calendar import dashboard_calendar_bp
+from routes.dashboard_gamification import dashboard_gamification_bp
 
-# Import services and utilities
-from services.whatsapp import WhatsAppService
-from services.refiloe import RefiloeService
-from services.ai_intent_handler import AIIntentHandler
-from services.scheduler import SchedulerService
-from services.assessment import EnhancedAssessmentService
-from services.habits import HabitTrackingService
-from services.workout import WorkoutService
-from services.subscription_manager import SubscriptionManager
-from services.analytics import AnalyticsService
-from services.calendar_service import CalendarService
-from models.trainer import TrainerModel
-from models.client import ClientModel
-from models.booking import BookingModel
-from utils.logger import setup_logger, log_error, log_info
-from utils.rate_limiter import RateLimiter
-from utils.input_sanitizer import InputSanitizer
-from config import Config
-from payment_manager import PaymentManager
-from payfast_webhook import PayFastWebhookHandler
+# Create main dashboard blueprint
+dashboard_bp = Blueprint('dashboard', __name__)
 
-# Import route blueprints
-from routes.dashboard import dashboard_bp
-from routes.webhooks import webhooks_bp
-from routes.calendar import calendar_bp
-from routes.payment import payment_bp
+# Register sub-blueprints
+dashboard_bp.register_blueprint(dashboard_calendar_bp)
+dashboard_bp.register_blueprint(dashboard_gamification_bp)
 
-# Load environment variables
-load_dotenv()
-
-# Initialize Flask app
-app = Flask(__name__)
-
-# Setup logger
-logger = setup_logger()
-
-# Validate configuration
-try:
-    Config.validate()
-    log_info("Configuration validated successfully")
-except ValueError as e:
-    log_error(f"Configuration error: {str(e)}")
-    raise
-
-# Initialize Supabase client
-supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
-
-# Initialize services with proper parameters
-whatsapp_service = WhatsAppService(Config, supabase, logger)
-ai_handler = AIIntentHandler(Config, supabase)
-scheduler_service = SchedulerService(supabase, whatsapp_service)
-assessment_service = EnhancedAssessmentService(supabase)
-habit_service = HabitTrackingService(supabase)
-workout_service = WorkoutService(Config, supabase)
-subscription_manager = SubscriptionManager(supabase)
-analytics_service = AnalyticsService(supabase)
-payment_manager = PaymentManager(supabase)
-payfast_handler = PayFastWebhookHandler()
-rate_limiter = RateLimiter(Config, supabase)
-input_sanitizer = InputSanitizer(Config)
-calendar_service = CalendarService(supabase, Config)
-
-# Initialize Refiloe service after other services
-refiloe_service = RefiloeService(supabase)
-
-# Initialize models with proper parameters
-trainer_model = TrainerModel(supabase, Config)
-client_model = ClientModel(supabase, Config)
-booking_model = BookingModel(supabase, Config)
-
-# Initialize background scheduler
-scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
-
-def send_daily_reminders():
-    """Send daily workout and payment reminders"""
-    try:
-        log_info("Running daily reminders task")
-        results = scheduler_service.check_and_send_reminders()
-        log_info(f"Daily reminders completed: {results}")
-    except Exception as e:
-        log_error(f"Error in daily reminders task: {str(e)}")
-
-def check_subscription_status():
-    """Check and update subscription statuses"""
-    try:
-        log_info("Checking subscription statuses")
-        active_subs = supabase.table('trainer_subscriptions').select('*').eq(
-            'status', 'active'
-        ).execute()
-        
-        expired_count = 0
-        for sub in (active_subs.data or []):
-            if sub.get('end_date'):
-                end_date = datetime.fromisoformat(sub['end_date'])
-                if end_date < datetime.now(pytz.timezone(Config.TIMEZONE)):
-                    supabase.table('trainer_subscriptions').update({
-                        'status': 'expired'
-                    }).eq('id', sub['id']).execute()
-                    expired_count += 1
-        
-        log_info(f"Processed {expired_count} expired subscriptions")
-    except Exception as e:
-        log_error(f"Error checking subscriptions: {str(e)}")
-
-# Schedule background tasks
-scheduler.add_job(
-    send_daily_reminders,
-    CronTrigger(hour=8, minute=0),
-    id='daily_reminders',
-    replace_existing=True
-)
-
-scheduler.add_job(
-    check_subscription_status,
-    CronTrigger(hour=0, minute=0),
-    id='check_subscriptions',
-    replace_existing=True
-)
-
-# Start the scheduler
-scheduler.start()
-log_info("Background scheduler started")
-
-# Register blueprints
-app.register_blueprint(dashboard_bp)
-app.register_blueprint(webhooks_bp)
-app.register_blueprint(calendar_bp)
-app.register_blueprint(payment_bp)
-
-@app.route('/')
-def home():
-    """Home page"""
-    return jsonify({
-        "status": "active",
-        "service": "Refiloe AI Assistant",
-        "version": "2.0",
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint"""
-    try:
-        supabase.table('trainers').select('id').limit(1).execute()
-        db_status = "connected"
-    except:
-        db_status = "error"
+@dashboard_bp.route('/api/dashboard/preferences', methods=['GET', 'PUT'])
+def handle_preferences():
+    """Handle user preferences"""
+    from routes.dashboard_gamification import token_required
     
-    return jsonify({
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "database": db_status,
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/dashboard')
-def dashboard():
-    """Simple web dashboard for trainers"""
-    from flask import render_template_string
-    
-    if not Config.ENABLE_WEB_DASHBOARD:
-        return "Dashboard is disabled", 404
-    
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Refiloe Dashboard</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #333; }
-            .status { padding: 10px; background: #e8f5e9; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <h1>Refiloe AI Assistant Dashboard</h1>
-        <div class="status">
-            <p>✅ System is running</p>
-            <p>📊 View your analytics and manage clients</p>
-        </div>
-    </body>
-    </html>
-    """)
-
-@app.route('/api/assessment/<assessment_id>')
-def view_assessment(assessment_id):
-    """View assessment results"""
-    try:
-        assessment = supabase.table('fitness_assessments').select(
-            """
-            *,
-            clients (name, trainer_id),
-            trainers (name, business_name),
-            physical_measurements (*),
-            fitness_goals (*),
-            fitness_test_results (*),
-            health_conditions (*),
-            lifestyle_factors (*)
-            """
-        ).eq('id', assessment_id).single().execute()
+    @token_required
+    def _handle():
+        from app import supabase
         
-        if not assessment.data:
-            return "Assessment not found", 404
-        
-        token = request.args.get('token')
-        if token:
-            token_valid = supabase.table('assessment_access_tokens').select('*').eq(
-                'token', token
-            ).eq('assessment_id', assessment_id).eq('is_valid', True).execute()
+        if request.method == 'GET':
+            profile_key = f'{request.user_type}_id'
+            profile = supabase.table('gamification_profiles').select('*').eq(
+                profile_key, request.user['id']
+            ).single().execute()
             
-            if not token_valid.data:
-                return "Invalid or expired access token", 403
+            if profile.data:
+                return jsonify(profile.data)
+            else:
+                return jsonify({
+                    'notification_style': 'daily_digest',
+                    'digest_time': '07:00',
+                    'quiet_start': '20:00',
+                    'quiet_end': '06:00',
+                    'opted_in_global': True,
+                    'opted_in_trainer': True,
+                    'is_public': True
+                })
         
-        return assessment_service.render_assessment_results(assessment.data)
-        
-    except Exception as e:
-        log_error(f"Error viewing assessment: {str(e)}")
-        return "Error loading assessment", 500
+        elif request.method == 'PUT':
+            data = request.json
+            profile_key = f'{request.user_type}_id'
+            
+            existing = supabase.table('gamification_profiles').select('id').eq(
+                profile_key, request.user['id']
+            ).single().execute()
+            
+            allowed_fields = [
+                'nickname', 'notification_style', 'digest_time',
+                'quiet_start', 'quiet_end', 'opted_in_global',
+                'opted_in_trainer', 'is_public'
+            ]
+            
+            updates = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            if existing.data:
+                result = supabase.table('gamification_profiles').update(
+                    updates
+                ).eq(profile_key, request.user['id']).execute()
+            else:
+                updates[profile_key] = request.user['id']
+                updates['points_total'] = 0
+                result = supabase.table('gamification_profiles').insert(
+                    updates
+                ).execute()
+            
+            return jsonify(result.data[0] if result.data else {'success': True})
+    
+    return _handle()
 
-@app.route('/api/admin/metrics')
-def admin_metrics():
-    """Admin metrics endpoint"""
-    try:
-        admin_key = request.headers.get('X-Admin-Key')
-        if admin_key != Config.ADMIN_KEY:
-            return jsonify({'error': 'Unauthorized'}), 401
+@dashboard_bp.route('/api/dashboard/stats', methods=['GET'])
+def get_user_stats():
+    """Get user's gamification stats"""
+    from routes.dashboard_gamification import token_required
+    
+    @token_required  
+    def _get_stats():
+        from app import supabase
         
-        metrics = {
-            'trainers': {
-                'total': supabase.table('trainers').select('id', count='exact').execute().count,
-                'active': supabase.table('trainers').select('id', count='exact').eq(
-                    'subscription_status', 'active'
-                ).execute().count
-            },
-            'clients': {
-                'total': supabase.table('clients').select('id', count='exact').execute().count,
-                'active': supabase.table('clients').select('id', count='exact').eq(
-                    'status', 'active'
-                ).execute().count
-            },
-            'bookings': {
-                'total': supabase.table('bookings').select('id', count='exact').execute().count,
-                'this_month': supabase.table('bookings').select('id', count='exact').gte(
-                    'session_date',
-                    datetime.now().replace(day=1).date().isoformat()
-                ).execute().count
+        profile_key = f'{request.user_type}_id'
+        
+        profile = supabase.table('gamification_profiles').select('*').eq(
+            profile_key, request.user['id']
+        ).single().execute()
+        
+        if not profile.data:
+            return jsonify({
+                'points_total': 0,
+                'badges': [],
+                'challenges_won': 0,
+                'current_streak': 0
+            })
+        
+        badges = supabase.table('user_badges').select(
+            '*, badges(*)'
+        ).eq('user_id', request.user['id']).eq(
+            'user_type', request.user_type
+        ).order('earned_at', desc=True).execute()
+        
+        wins = supabase.table('challenge_participants').select(
+            'id', count='exact'
+        ).eq('user_id', request.user['id']).eq(
+            'user_type', request.user_type
+        ).eq('final_position', 1).execute()
+        
+        return jsonify({
+            'points_total': profile.data.get('points_total', 0),
+            'badges': [
+                {
+                    'name': b['badges']['name'],
+                    'description': b['badges']['description'],
+                    'icon': b['badges']['icon_emoji'],
+                    'earned_at': b['earned_at']
+                }
+                for b in (badges.data or [])
+                if b.get('badges')
+            ],
+            'challenges_won': wins.count if wins else 0,
+            'current_streak': 0
+        })
+    
+    return _get_stats()
+```
+
+### NEW FILE: services/ai_intent_core.py
+```python
+"""Core AI intent detection functionality"""
+import json
+import anthropic
+from typing import Dict, Optional, List
+from datetime import datetime
+import pytz
+from utils.logger import log_info, log_error, log_warning
+
+class AIIntentCore:
+    """Core AI intent detection"""
+    
+    def __init__(self, config):
+        self.config = config
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
+        
+        if config.ANTHROPIC_API_KEY:
+            self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+            self.model = "claude-3-5-sonnet-20241022"
+            log_info("AI Intent Handler initialized with Claude")
+        else:
+            self.client = None
+            log_warning("No Anthropic API key - falling back to keyword matching")
+    
+    def understand_message(self, message: str, sender_type: str,
+                          sender_data: Dict, conversation_history: List[str] = None) -> Dict:
+        """Main entry point - understands any message using AI"""
+        
+        if not self.client:
+            log_info(f"Using fallback intent detection for: {message[:50]}")
+            return self._fallback_intent_detection(message, sender_type)
+        
+        try:
+            context = self._build_context(sender_type, sender_data)
+            prompt = self._create_intent_prompt(message, sender_type, context, conversation_history)
+            
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=500,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            
+            intent_data = self._parse_ai_response(response.content[0].text)
+            validated_intent = self._validate_intent(intent_data, sender_data, sender_type)
+            
+            log_info(f"AI Intent detected: {validated_intent.get('primary_intent')} "
+                    f"with confidence {validated_intent.get('confidence')}")
+            
+            return validated_intent
+            
+        except Exception as e:
+            log_error(f"AI intent understanding failed: {str(e)}", exc_info=True)
+            return self._fallback_intent_detection(message, sender_type)
+    
+    def _build_context(self, sender_type: str, sender_data: Dict) -> Dict:
+        """Build context based on sender type"""
+        if sender_type == 'trainer':
+            return {
+                'name': sender_data.get('name', 'Trainer'),
+                'id': sender_data.get('id'),
+                'whatsapp': sender_data.get('whatsapp'),
+                'business_name': sender_data.get('business_name'),
+                'active_clients': sender_data.get('active_clients', 0)
             }
+        else:
+            return {
+                'name': sender_data.get('name', 'Client'),
+                'id': sender_data.get('id'),
+                'whatsapp': sender_data.get('whatsapp'),
+                'trainer_name': sender_data.get('trainer_name', 'your trainer'),
+                'sessions_remaining': sender_data.get('sessions_remaining', 0)
+            }
+    
+    def _parse_ai_response(self, response_text: str) -> Dict:
+        """Parse the AI's JSON response"""
+        try:
+            import re
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            return json.loads(response_text.strip())
+        except json.JSONDecodeError as e:
+            log_error(f"Failed to parse AI response: {e}")
+            return {
+                'primary_intent': 'unclear',
+                'confidence': 0.3,
+                'extracted_data': {},
+                'sentiment': 'neutral',
+                'suggested_response_type': 'conversational'
+            }
+    
+    def _validate_intent(self, intent_data: Dict, sender_data: Dict, sender_type: str) -> Dict:
+        """Validate and enrich the AI's intent understanding"""
+        intent_data.setdefault('primary_intent', 'general_question')
+        intent_data.setdefault('confidence', 0.5)
+        intent_data.setdefault('extracted_data', {})
+        intent_data.setdefault('requires_confirmation', False)
+        intent_data.setdefault('suggested_response_type', 'conversational')
+        intent_data.setdefault('conversation_tone', 'friendly')
+        return intent_data
+    
+    def _fallback_intent_detection(self, message: str, sender_type: str) -> Dict:
+        """Basic keyword-based intent detection when AI is unavailable"""
+        message_lower = message.lower()
+        
+        casual_keywords = {
+            'status_check': ['are you there', 'you there', 'still there'],
+            'greeting': ['hi', 'hello', 'hey', 'howzit', 'sawubona'],
+            'thanks': ['thanks', 'thank you', 'appreciate'],
+            'farewell': ['bye', 'goodbye', 'see you'],
+            'casual_chat': ['how are you', 'what\'s up'],
         }
         
-        return jsonify(metrics)
+        for intent, keywords in casual_keywords.items():
+            for keyword in keywords:
+                if keyword in message_lower:
+                    return {
+                        'primary_intent': intent,
+                        'secondary_intents': [],
+                        'confidence': 0.8,
+                        'extracted_data': {},
+                        'sentiment': 'friendly',
+                        'requires_confirmation': False,
+                        'suggested_response_type': 'conversational',
+                        'conversation_tone': 'casual',
+                        'is_follow_up': False
+                    }
         
-    except Exception as e:
-        log_error(f"Error getting admin metrics: {str(e)}")
-        return jsonify({'error': 'Error fetching metrics'}), 500
+        return {
+            'primary_intent': 'general_question',
+            'secondary_intents': [],
+            'confidence': 0.3,
+            'extracted_data': {},
+            'sentiment': 'neutral',
+            'requires_confirmation': False,
+            'suggested_response_type': 'task',
+            'conversation_tone': 'friendly',
+            'is_follow_up': False
+        }
 
-@app.errorhandler(404)
-def not_found(e):
-    """Handle 404 errors"""
-    return jsonify({'error': 'Endpoint not found'}), 404
+    def _create_intent_prompt(self, message: str, sender_type: str, 
+                             context: Dict, history: List[str]) -> str:
+        """Create prompt for Claude"""
+        return f"""Analyze this WhatsApp message to Refiloe, an AI assistant for personal trainers.
 
-@app.errorhandler(500)
-def server_error(e):
-    """Handle 500 errors"""
-    log_error(f"Server error: {str(e)}")
-    return jsonify({'error': 'Internal server error'}), 500
+SENDER: {sender_type} ({context.get('name', 'Unknown')})
+MESSAGE: "{message}"
 
-# Cleanup on shutdown
-def cleanup():
-    """Cleanup resources on shutdown"""
-    try:
-        scheduler.shutdown()
-        log_info("Scheduler shut down successfully")
-    except Exception as e:
-        log_error(f"Error during cleanup: {str(e)}")
+Return ONLY valid JSON with primary_intent, confidence, extracted_data, sentiment, and suggested_response_type."""
+```
 
-import atexit
-atexit.register(cleanup)
+### EDIT: services/ai_intent_handler.py
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('DEBUG', 'False').lower() == 'true'
+**Change 1:** Import core functionality and reduce to handler logic only
+Location: Lines 1-649
+```python
+# REMOVE (lines 1-649):
+[entire current content]
+
+# ADD:
+"""AI Intent Handler - routes intents to appropriate handlers"""
+from typing import Dict, Optional, List
+from datetime import datetime, timedelta
+import pytz
+from services.ai_intent_core import AIIntentCore
+from utils.logger import log_info, log_error
+
+class AIIntentHandler:
+    """Handle all message understanding through AI first"""
     
-    log_info(f"Starting Refiloe AI Assistant on port {port}")
-    log_info(f"Debug mode: {debug_mode}")
-    log_info(f"Environment: {os.environ.get('ENVIRONMENT', 'production')}")
+    def __init__(self, config, supabase_client):
+        self.config = config
+        self.db = supabase_client
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
+        self.core = AIIntentCore(config)
     
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=debug_mode
-    )
+    def understand_message(self, message: str, sender_type: str,
+                          sender_data: Dict, conversation_history: List[str] = None) -> Dict:
+        """Delegate to core for understanding"""
+        return self.core.understand_message(message, sender_type, sender_data, conversation_history)
+    
+    def generate_smart_response(self, intent_data: Dict, sender_type: str, 
+                               sender_data: Dict) -> str:
+        """Generate a contextual response when no specific handler exists"""
+        import random
+        
+        intent = intent_data.get('primary_intent')
+        name = sender_data.get('name', 'there')
+        
+        casual_responses = {
+            'status_check': [
+                f"Yes {name}, I'm here! 😊 Just chilling in the cloud, ready when you need me.",
+                f"I'm always here for you, {name}! 24/7, rain or shine ☀️",
+                f"Yep, still here {name}! Not going anywhere 😄",
+                f"Present and accounted for! What's on your mind, {name}?"
+            ],
+            'casual_chat': [
+                f"I'm doing great, {name}! Just here helping trainers and clients stay fit. How are things with you?",
+                f"All good on my end! How's your day going, {name}?",
+                f"Can't complain - living the AI dream! 😄 How are you doing?",
+                f"I'm well, thanks for asking! How's the fitness world treating you?"
+            ],
+            'thanks': [
+                f"You're welcome, {name}! Always happy to help 😊",
+                f"My pleasure! That's what I'm here for 💪",
+                f"Anytime, {name}! 🙌",
+                f"No worries at all! Glad I could help."
+            ],
+            'farewell': [
+                f"Chat soon, {name}! Have an awesome day! 👋",
+                f"Later, {name}! Stay strong! 💪",
+                f"Bye {name}! Catch you later 😊",
+                f"See you soon! Don't be a stranger!"
+            ]
+        }
+        
+        if intent in casual_responses:
+            return random.choice(casual_responses[intent])
+        
+        if intent == 'greeting':
+            greetings = [
+                f"Hey {name}! 👋",
+                f"Hi {name}! Good to hear from you 😊",
+                f"Hello {name}! How's it going?",
+                f"Hey there {name}! 🙌"
+            ]
+            return random.choice(greetings)
+        elif intent == 'unclear':
+            return f"I didn't quite catch that, {name}. Could you rephrase that for me?"
+        else:
+            return f"Let me help you with that, {name}. What specifically would you like to know?"
+    
+    def process_habit_responses(self, responses: List) -> List[Dict]:
+        """Process various habit response formats into structured data"""
+        processed = []
+        
+        for response in responses:
+            response_lower = str(response).lower()
+            
+            if response_lower in ['yes', '✅', 'done', 'complete', '👍']:
+                processed.append({'completed': True, 'value': None})
+            elif response_lower in ['no', '❌', 'skip', 'missed', '👎']:
+                processed.append({'completed': False, 'value': None})
+            elif response_lower.replace('.', '').isdigit():
+                processed.append({'completed': True, 'value': float(response_lower)})
+            elif '/' in response_lower:
+                parts = response_lower.split('/')
+                if len(parts) == 2 and parts[0].isdigit():
+                    processed.append({'completed': True, 'value': float(parts[0])})
+            else:
+                import re
+                numbers = re.findall(r'\d+', response_lower)
+                if numbers:
+                    processed.append({'completed': True, 'value': float(numbers[0])})
+                else:
+                    processed.append({'completed': False, 'value': None})
+        
+        return processed
+    
+    def fuzzy_match_client(self, search_name: str, trainer_id: str) -> Optional[Dict]:
+        """Find best matching client name"""
+        clients = self.db.table('clients').select('id, name').eq(
+            'trainer_id', trainer_id
+        ).execute()
+        
+        if not clients.data:
+            return None
+        
+        search_lower = search_name.lower()
+        
+        for client in clients.data:
+            client_lower = client['name'].lower()
+            if search_lower == client_lower:
+                return client
+            if search_lower in client_lower or client_lower in search_lower:
+                return client
+            if search_lower.split()[0] == client_lower.split()[0]:
+                return client
+        
+        return None
+    
+    def parse_datetime(self, time_str: str) -> Optional[datetime]:
+        """Parse various datetime formats to SA timezone"""
+        from dateutil import parser
+        import re
+        
+        try:
+            time_lower = time_str.lower()
+            now = datetime.now(self.sa_tz)
+            
+            if 'tomorrow' in time_lower:
+                base_date = now + timedelta(days=1)
+            elif 'today' in time_lower:
+                base_date = now
+            elif 'monday' in time_lower:
+                days_ahead = 0 - now.weekday()
+                if days_ahead <= 0:
+                    days_ahead += 7
+                base_date = now + timedelta(days=days_ahead)
+            else:
+                parsed = parser.parse(time_str, fuzzy=True)
+                return self.sa_tz.localize(parsed) if parsed.tzinfo is None else parsed
+            
+            time_match = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?', time_lower)
+            if time_match:
+                hour = int(time_match.group(1))
+                minute = int(time_match.group(2) or 0)
+                meridiem = time_match.group(3)
+                
+                if meridiem == 'pm' and hour < 12:
+                    hour += 12
+                elif meridiem == 'am' and hour == 12:
+                    hour = 0
+                
+                return base_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            
+            return base_date.replace(hour=9, minute=0, second=0, microsecond=0)
+            
+        except Exception as e:
+            log_error(f"Error parsing datetime '{time_str}': {str(e)}")
+            return None
 ```
 
 ## SUMMARY
 
-✅ **Step 3 Completed:** Started splitting large files by:
-- Created `routes/webhooks.py` - Extracted WhatsApp webhook handling from app.py
-- Created `routes/calendar.py` - Extracted calendar routes from app.py
-- Created `routes/payment.py` - Extracted payment routes from app.py
-- Reduced `app.py` from 1125 lines to ~350 lines by extracting routes into blueprints
+✅ **Completed splitting large files:**
+- Split `routes/dashboard.py` (817 lines) into:
+  - `routes/dashboard_calendar.py` - Calendar-specific routes
+  - `routes/dashboard_gamification.py` - Gamification routes  
+  - `routes/dashboard.py` - Main blueprint registration (reduced to ~150 lines)
 
-The main app.py file is now much smaller and cleaner, with routes properly organized into separate blueprint modules. Each new file is under 600 lines and follows a logical separation of concerns.
+- Split `services/ai_intent_handler.py` (649 lines) into:
+  - `services/ai_intent_core.py` - Core AI detection logic
+  - `services/ai_intent_handler.py` - Handler logic (reduced to ~180 lines)
 
-**CONTINUE_NEEDED** - Next steps will split the remaining large files (routes/dashboard.py, services/ai_intent_handler.py, payment_integration.py, services/dashboard_sync.py).
+**CONTINUE_NEEDED** - Still need to split:
+- `payment_integration.py` (746 lines)
+- `services/dashboard_sync.py` (640 lines)
