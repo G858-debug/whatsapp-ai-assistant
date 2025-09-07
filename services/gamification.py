@@ -63,23 +63,60 @@ class BadgeChecker:
                 
             elif criteria_type == 'challenge_wins':
                 # Check challenge wins
-                result = self.db.table('challenge_history').select('id').eq(
-                    f'{user_type}_id', user_id
-                ).eq('status', 'won').execute()
+                result = self.db.table('challenge_participants').select('id').eq(
+                    'user_id', user_id
+                ).eq('user_type', user_type).eq('final_position', 1).execute()
                 return len(result.data or []) >= criteria_value
                 
             elif criteria_type == 'points_milestone':
                 # Check total points
-                result = self.db.table('user_points').select('total_points').eq(
+                result = self.db.table('gamification_profiles').select('points_total').eq(
                     f'{user_type}_id', user_id
                 ).single().execute()
                 if result.data:
-                    return result.data['total_points'] >= criteria_value
+                    return result.data['points_total'] >= criteria_value
+            
+            elif criteria_type == 'total_workouts':
+                # Check total workout count
+                result = self.db.table('workout_history').select('id').eq(
+                    f'{user_type}_id', user_id
+                ).eq('completed', True).execute()
+                return len(result.data or []) >= criteria_value
+                
+            elif criteria_type == 'improvement':
+                # Check for 10% improvement in assessments
+                return self._check_improvement(user_id, user_type, criteria_value)
             
             return False
             
         except Exception as e:
             log_error(f"Error checking badge criteria: {str(e)}")
+            return False
+    
+    def _check_improvement(self, user_id: str, user_type: str, required_percentage: float) -> bool:
+        """Check if user has improved by required percentage"""
+        try:
+            # Get latest two assessments
+            assessments = self.db.table('fitness_assessments').select('*').eq(
+                f'{user_type}_id', user_id
+            ).order('assessment_date', desc=True).limit(2).execute()
+            
+            if not assessments.data or len(assessments.data) < 2:
+                return False
+            
+            latest = assessments.data[0]
+            previous = assessments.data[1]
+            
+            # Check weight improvement (loss)
+            if latest.get('weight_kg') and previous.get('weight_kg'):
+                weight_change = ((previous['weight_kg'] - latest['weight_kg']) / previous['weight_kg']) * 100
+                if weight_change >= required_percentage:
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            log_error(f"Error checking improvement: {str(e)}")
             return False
     
     def _award_badge(self, user_id: str, user_type: str, badge: Dict):
@@ -95,7 +132,7 @@ class BadgeChecker:
             
             # Award points if specified
             if badge.get('points_value'):
-                self._add_points(user_id, user_type, badge['points_value'])
+                self._add_points(user_id, user_type, badge['points_value'], f"Badge earned: {badge['name']}")
             
             # Get user's contact info
             if user_type == 'client':
@@ -123,28 +160,39 @@ _{badge['description']}_
         except Exception as e:
             log_error(f"Error awarding badge: {str(e)}")
     
-    def _add_points(self, user_id: str, user_type: str, points: int):
+    def _add_points(self, user_id: str, user_type: str, points: int, reason: str = "Points earned"):
         """Add points to user's total"""
         try:
-            # Get current points
-            result = self.db.table('user_points').select('total_points').eq(
+            # Add to points ledger
+            self.db.table('points_ledger').insert({
+                'user_id': user_id,
+                'user_type': user_type,
+                'points': points,
+                'reason': reason,
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }).execute()
+            
+            # Update gamification profile
+            profile = self.db.table('gamification_profiles').select('*').eq(
                 f'{user_type}_id', user_id
             ).single().execute()
             
-            if result.data:
+            if profile.data:
                 # Update existing
-                new_total = result.data['total_points'] + points
-                self.db.table('user_points').update({
-                    'total_points': new_total,
+                new_total = profile.data['points_total'] + points
+                self.db.table('gamification_profiles').update({
+                    'points_total': new_total,
                     'updated_at': datetime.now(self.sa_tz).isoformat()
                 }).eq(f'{user_type}_id', user_id).execute()
             else:
-                # Create new entry
-                self.db.table('user_points').insert({
+                # Create new profile
+                self.db.table('gamification_profiles').insert({
                     f'{user_type}_id': user_id,
-                    'total_points': points,
-                    'created_at': datetime.now(self.sa_tz).isoformat(),
-                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                    'points_total': points,
+                    'is_public': True,
+                    'opted_in_global': True,
+                    'opted_in_trainer': True,
+                    'created_at': datetime.now(self.sa_tz).isoformat()
                 }).execute()
             
         except Exception as e:
@@ -156,36 +204,463 @@ _{badge['description']}_
             # Get workouts ordered by date
             result = self.db.table('workout_history').select('*').eq(
                 f'{user_type}_id', user_id
-            ).order('completed_at', desc=True).execute()
+            ).order('sent_at', desc=True).execute()
             
             if not result.data:
                 return 0
             
             streak = 0
             last_date = None
+            today = datetime.now(self.sa_tz).date()
             
             for workout in result.data:
-                workout_date = datetime.fromisoformat(workout['completed_at']).date()
+                workout_date = datetime.fromisoformat(workout['sent_at']).date()
                 
-                if last_date is None:
-                    last_date = workout_date
-                    streak = 1
+                # Skip if in the future
+                if workout_date > today:
                     continue
                 
-                # Check if this workout is consecutive
-                date_diff = (last_date - workout_date).days
-                
-                if date_diff == 1:
-                    streak += 1
-                    last_date = workout_date
+                if last_date is None:
+                    # First workout - check if it's recent enough
+                    if (today - workout_date).days <= 1:
+                        last_date = workout_date
+                        streak = 1
+                    else:
+                        break
                 else:
-                    break
+                    # Check if consecutive
+                    date_diff = (last_date - workout_date).days
+                    
+                    if date_diff == 1:
+                        streak += 1
+                        last_date = workout_date
+                    else:
+                        break
             
             return streak
             
         except Exception as e:
             log_error(f"Error calculating streak: {str(e)}")
             return 0
+
+
+class ChallengeManager:
+    """Manages challenge creation and administration for trainers"""
+    
+    def __init__(self, config, supabase_client, whatsapp_service):
+        self.config = config
+        self.db = supabase_client
+        self.whatsapp = whatsapp_service
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
+        
+    def create_challenge(self, trainer_id: str, name: str, challenge_type: str, 
+                        duration_days: int, target_value: float = None, 
+                        description: str = None, max_participants: int = None) -> Dict:
+        """Create a new challenge for trainer's clients"""
+        try:
+            # Calculate dates
+            start_date = datetime.now(self.sa_tz).date()
+            end_date = start_date + timedelta(days=duration_days)
+            
+            # Determine challenge type details
+            challenge_types = {
+                'water': {'description': 'Daily water intake challenge', 'unit': 'liters', 'default_target': 2.5},
+                'steps': {'description': 'Daily steps challenge', 'unit': 'steps', 'default_target': 10000},
+                'workout': {'description': 'Workout completion challenge', 'unit': 'sessions', 'default_target': duration_days * 0.7},
+                'sleep': {'description': 'Sleep tracking challenge', 'unit': 'hours', 'default_target': 8},
+                'weight_loss': {'description': 'Weight loss challenge', 'unit': 'kg', 'default_target': 2},
+                'custom': {'description': description or 'Custom fitness challenge', 'unit': 'points', 'default_target': 100}
+            }
+            
+            type_info = challenge_types.get(challenge_type, challenge_types['custom'])
+            
+            # Use provided target or default
+            if target_value is None:
+                target_value = type_info['default_target']
+            
+            # Calculate points reward based on duration and difficulty
+            base_points = 100
+            duration_multiplier = min(duration_days / 7, 4)  # Max 4x for long challenges
+            points_reward = int(base_points * duration_multiplier)
+            
+            # Create challenge
+            challenge_data = {
+                'created_by': trainer_id,
+                'name': name,
+                'description': description or type_info['description'],
+                'type': 'trainer_wide',  # Trainer-created challenges are trainer-wide
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'target_value': target_value,
+                'points_reward': points_reward,
+                'is_active': True,
+                'max_participants': max_participants,
+                'challenge_rules': {
+                    'challenge_type': challenge_type,
+                    'unit': type_info['unit'],
+                    'daily_tracking': challenge_type in ['water', 'steps', 'sleep'],
+                    'cumulative': challenge_type in ['workout', 'weight_loss'],
+                    'duration_days': duration_days
+                }
+            }
+            
+            result = self.db.table('challenges').insert(challenge_data).execute()
+            
+            if result.data:
+                challenge_id = result.data[0]['id']
+                log_info(f"Created challenge {name} (ID: {challenge_id}) for trainer {trainer_id}")
+                
+                return {
+                    'success': True,
+                    'challenge_id': challenge_id,
+                    'message': f"""✨ *Challenge Created Successfully!*
+
+📋 *{name}*
+⏱️ Duration: {duration_days} days
+🎯 Target: {target_value} {type_info['unit']}
+🏆 Reward: {points_reward} points
+📅 Starts: {start_date.strftime('%d %B')}
+
+Ready to invite your clients! Use "invite clients to {name}" to send invitations."""
+                }
+            
+            return {'success': False, 'error': 'Failed to create challenge'}
+            
+        except Exception as e:
+            log_error(f"Error creating challenge: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def list_trainer_challenges(self, trainer_id: str, active_only: bool = True) -> Dict:
+        """List all challenges created by a trainer"""
+        try:
+            query = self.db.table('challenges').select('*').eq('created_by', trainer_id)
+            
+            if active_only:
+                query = query.eq('is_active', True)
+            
+            result = query.order('created_at', desc=True).execute()
+            
+            if not result.data:
+                return {
+                    'success': True,
+                    'challenges': [],
+                    'message': "No challenges found. Create one with 'create challenge'!"
+                }
+            
+            # Format challenges for display
+            challenges_text = "📊 *Your Active Challenges*\n\n"
+            
+            for idx, challenge in enumerate(result.data, 1):
+                # Get participant count
+                participants = self.db.table('challenge_participants').select('id').eq(
+                    'challenge_id', challenge['id']
+                ).execute()
+                
+                participant_count = len(participants.data) if participants.data else 0
+                
+                # Calculate days remaining
+                end_date = datetime.strptime(challenge['end_date'], '%Y-%m-%d').date()
+                days_remaining = (end_date - datetime.now(self.sa_tz).date()).days
+                
+                status_emoji = "🟢" if days_remaining > 0 else "🔴"
+                
+                challenges_text += f"""{idx}. {status_emoji} *{challenge['name']}*
+   👥 Participants: {participant_count}
+   📅 Ends: {end_date.strftime('%d %B')} ({days_remaining} days left)
+   🏆 Reward: {challenge['points_reward']} points
+   
+"""
+            
+            return {
+                'success': True,
+                'challenges': result.data,
+                'message': challenges_text
+            }
+            
+        except Exception as e:
+            log_error(f"Error listing challenges: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def invite_clients_to_challenge(self, trainer_id: str, challenge_id: str, 
+                                   client_ids: List[str] = None) -> Dict:
+        """Send WhatsApp invitations to clients for a challenge"""
+        try:
+            # Get challenge details
+            challenge = self.db.table('challenges').select('*').eq(
+                'id', challenge_id
+            ).eq('created_by', trainer_id).single().execute()
+            
+            if not challenge.data:
+                return {'success': False, 'error': 'Challenge not found'}
+            
+            # Get clients to invite
+            if client_ids:
+                # Specific clients
+                clients = self.db.table('clients').select('*').in_('id', client_ids).execute()
+            else:
+                # All trainer's clients
+                clients = self.db.table('clients').select('*').eq(
+                    'trainer_id', trainer_id
+                ).eq('status', 'active').execute()
+            
+            if not clients.data:
+                return {'success': False, 'error': 'No clients to invite'}
+            
+            invited_count = 0
+            failed_invites = []
+            
+            for client in clients.data:
+                try:
+                    # Check if already participating
+                    existing = self.db.table('challenge_participants').select('id').eq(
+                        'challenge_id', challenge_id
+                    ).eq('user_id', client['id']).eq('user_type', 'client').execute()
+                    
+                    if existing.data:
+                        continue  # Skip if already participating
+                    
+                    # Add to challenge
+                    self.db.table('challenge_participants').insert({
+                        'challenge_id': challenge_id,
+                        'user_id': client['id'],
+                        'user_type': 'client',
+                        'joined_at': datetime.now(self.sa_tz).isoformat(),
+                        'status': 'active'
+                    }).execute()
+                    
+                    # Send WhatsApp invitation
+                    invitation_message = f"""🎯 *Challenge Invitation!*
+
+Hi {client['name']}! You've been invited to join:
+
+*{challenge.data['name']}*
+
+📝 {challenge.data['description']}
+🎯 Target: {challenge.data['target_value']} {challenge.data['challenge_rules'].get('unit', '')}
+⏱️ Duration: {challenge.data['challenge_rules'].get('duration_days', 0)} days
+🏆 Reward: {challenge.data['points_reward']} points
+
+Ready to crush this challenge? 💪
+
+Reply "YES" to accept or "NO" to decline."""
+                    
+                    self.whatsapp.send_message(client['whatsapp'], invitation_message)
+                    invited_count += 1
+                    
+                except Exception as e:
+                    log_error(f"Failed to invite client {client['id']}: {str(e)}")
+                    failed_invites.append(client['name'])
+            
+            # Create summary message
+            summary = f"✅ Invitations sent to {invited_count} clients!"
+            if failed_invites:
+                summary += f"\n⚠️ Failed to invite: {', '.join(failed_invites)}"
+            
+            return {
+                'success': True,
+                'invited_count': invited_count,
+                'message': summary
+            }
+            
+        except Exception as e:
+            log_error(f"Error inviting clients: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def end_challenge(self, trainer_id: str, challenge_id: str) -> Dict:
+        """End a challenge, calculate winners, and award points"""
+        try:
+            # Verify challenge ownership
+            challenge = self.db.table('challenges').select('*').eq(
+                'id', challenge_id
+            ).eq('created_by', trainer_id).single().execute()
+            
+            if not challenge.data:
+                return {'success': False, 'error': 'Challenge not found'}
+            
+            # Get all participants with their progress
+            participants = self.db.table('challenge_participants').select(
+                '*, challenge_progress(*)'
+            ).eq('challenge_id', challenge_id).eq('status', 'active').execute()
+            
+            if not participants.data:
+                return {'success': False, 'error': 'No active participants'}
+            
+            # Calculate final scores for each participant
+            participant_scores = []
+            
+            for participant in participants.data:
+                # Sum up all progress values
+                total_value = sum(
+                    p.get('value_achieved', 0) 
+                    for p in participant.get('challenge_progress', [])
+                )
+                
+                participant_scores.append({
+                    'participant_id': participant['id'],
+                    'user_id': participant['user_id'],
+                    'user_type': participant['user_type'],
+                    'total_value': total_value,
+                    'target_reached': total_value >= challenge.data['target_value']
+                })
+            
+            # Sort by total value to determine winners
+            participant_scores.sort(key=lambda x: x['total_value'], reverse=True)
+            
+            # Award points and update positions
+            winners_text = "🏆 *Challenge Results*\n\n"
+            
+            for position, scorer in enumerate(participant_scores, 1):
+                # Calculate points based on position and target achievement
+                if position == 1:
+                    points = challenge.data['points_reward']
+                    medal = "🥇"
+                elif position == 2:
+                    points = int(challenge.data['points_reward'] * 0.75)
+                    medal = "🥈"
+                elif position == 3:
+                    points = int(challenge.data['points_reward'] * 0.5)
+                    medal = "🥉"
+                elif scorer['target_reached']:
+                    points = int(challenge.data['points_reward'] * 0.25)
+                    medal = "✅"
+                else:
+                    points = 10  # Participation points
+                    medal = "👏"
+                
+                # Update participant record
+                self.db.table('challenge_participants').update({
+                    'status': 'completed',
+                    'final_position': position
+                }).eq('id', scorer['participant_id']).execute()
+                
+                # Award points
+                self._award_points(scorer['user_id'], scorer['user_type'], points, challenge_id)
+                
+                # Get user name for display
+                if scorer['user_type'] == 'client':
+                    user = self.db.table('clients').select('name').eq(
+                        'id', scorer['user_id']
+                    ).single().execute()
+                else:
+                    user = self.db.table('trainers').select('name').eq(
+                        'id', scorer['user_id']
+                    ).single().execute()
+                
+                user_name = user.data['name'] if user.data else 'Unknown'
+                
+                # Add to results text
+                if position <= 10:  # Show top 10
+                    winners_text += f"{medal} {position}. {user_name}: {scorer['total_value']:.1f} ({points} points)\n"
+            
+            # Mark challenge as inactive
+            self.db.table('challenges').update({
+                'is_active': False
+            }).eq('id', challenge_id).execute()
+            
+            winners_text += f"\n*Challenge "{challenge.data['name']}" has ended!*"
+            
+            # Send notifications to all participants
+            self._notify_challenge_results(challenge_id, participant_scores)
+            
+            return {
+                'success': True,
+                'message': winners_text,
+                'winner_count': len([s for s in participant_scores if s['target_reached']])
+            }
+            
+        except Exception as e:
+            log_error(f"Error ending challenge: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _award_points(self, user_id: str, user_type: str, points: int, challenge_id: str):
+        """Award points to a user for challenge completion"""
+        try:
+            # Add to points ledger
+            self.db.table('points_ledger').insert({
+                'user_id': user_id,
+                'user_type': user_type,
+                'points': points,
+                'reason': f'Challenge completion reward',
+                'challenge_id': challenge_id,
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }).execute()
+            
+            log_info(f"Awarded {points} points to {user_type} {user_id}")
+            
+        except Exception as e:
+            log_error(f"Error awarding points: {str(e)}")
+    
+    def _notify_challenge_results(self, challenge_id: str, participant_scores: List[Dict]):
+        """Send WhatsApp notifications to all participants about challenge results"""
+        try:
+            # Get challenge details
+            challenge = self.db.table('challenges').select('*').eq(
+                'id', challenge_id
+            ).single().execute()
+            
+            if not challenge.data:
+                return
+            
+            for scorer in participant_scores[:3]:  # Notify top 3
+                # Get user contact
+                if scorer['user_type'] == 'client':
+                    user = self.db.table('clients').select('name, whatsapp').eq(
+                        'id', scorer['user_id']
+                    ).single().execute()
+                else:
+                    user = self.db.table('trainers').select('name, whatsapp').eq(
+                        'id', scorer['user_id']
+                    ).single().execute()
+                
+                if user.data:
+                    position = participant_scores.index(scorer) + 1
+                    
+                    if position == 1:
+                        message = f"🥇 *CONGRATULATIONS CHAMPION!*\n\nYou WON the {challenge.data['name']}! Amazing work! 🎉"
+                    elif position == 2:
+                        message = f"🥈 *Fantastic Achievement!*\n\nYou placed 2nd in the {challenge.data['name']}! Well done! 👏"
+                    elif position == 3:
+                        message = f"🥉 *Great Job!*\n\nYou placed 3rd in the {challenge.data['name']}! Keep it up! 💪"
+                    
+                    self.whatsapp.send_message(user.data['whatsapp'], message)
+                    
+        except Exception as e:
+            log_error(f"Error notifying challenge results: {str(e)}")
+    
+    def set_challenge_reward(self, trainer_id: str, challenge_id: str, 
+                            reward_type: str, reward_value: str) -> Dict:
+        """Add a custom reward to a challenge"""
+        try:
+            # Verify challenge ownership
+            challenge = self.db.table('challenges').select('*').eq(
+                'id', challenge_id
+            ).eq('created_by', trainer_id).single().execute()
+            
+            if not challenge.data:
+                return {'success': False, 'error': 'Challenge not found'}
+            
+            # Update challenge rules with custom reward
+            current_rules = challenge.data.get('challenge_rules', {})
+            current_rules['custom_rewards'] = current_rules.get('custom_rewards', [])
+            current_rules['custom_rewards'].append({
+                'type': reward_type,
+                'value': reward_value,
+                'added_at': datetime.now(self.sa_tz).isoformat()
+            })
+            
+            # Update challenge
+            self.db.table('challenges').update({
+                'challenge_rules': current_rules
+            }).eq('id', challenge_id).execute()
+            
+            return {
+                'success': True,
+                'message': f"✅ Reward added to challenge!\n\n🎁 {reward_type}: {reward_value}"
+            }
+            
+        except Exception as e:
+            log_error(f"Error setting challenge reward: {str(e)}")
+            return {'success': False, 'error': str(e)}
 
 
 class LeaderboardService:
@@ -317,212 +792,139 @@ class LeaderboardService:
             if not all_entries.data:
                 return f"🏆 *{leaderboard.data['name']}*\n\nNo participants yet. Be the first!"
             
-            # Find user's entry
+            # Find user's position
             user_entry = None
             user_rank = None
+            total_participants = len(all_entries.data)
+            
             for entry in all_entries.data:
                 if entry['user_id'] == user_id and entry['user_type'] == user_type:
                     user_entry = entry
                     user_rank = entry['rank']
                     break
             
-            # Generate formatted leaderboard
-            return self._format_leaderboard_display(
-                leaderboard.data,
-                all_entries.data,
-                user_entry,
-                user_rank,
-                profile
-            )
+            # Build leaderboard display
+            display_text = f"🏆 *{leaderboard.data['name']}*\n"
+            display_text += f"_Total participants: {total_participants}_\n\n"
+            
+            # Show top 10
+            for entry in all_entries.data[:10]:
+                rank = entry['rank']
+                nickname = entry.get('nickname', 'Anonymous')
+                points = entry['points']
+                
+                # Add medals for top 3
+                if rank == 1:
+                    medal = "🥇"
+                elif rank == 2:
+                    medal = "🥈"
+                elif rank == 3:
+                    medal = "🥉"
+                else:
+                    medal = f"{rank}."
+                
+                # Highlight if it's the current user
+                if entry['user_id'] == user_id and entry['user_type'] == user_type:
+                    display_text += f"➡️ {medal} *You ({nickname})* - {points:,} pts"
+                else:
+                    display_text += f"{medal} {nickname} - {points:,} pts"
+                
+                # Add trend indicator
+                if entry.get('trend') == 'up':
+                    display_text += f" ↑{abs(entry.get('previous_rank', rank) - rank)}"
+                elif entry.get('trend') == 'down':
+                    display_text += f" ↓{abs(entry.get('previous_rank', rank) - rank)}"
+                
+                display_text += "\n"
+            
+            # If user is not in top 10, show their context window
+            if user_rank and user_rank > 10:
+                display_text += "\n📍 *Your Neighborhood:*\n"
+                
+                # Show 2 above and 2 below user's position
+                start_idx = max(0, user_rank - 3)
+                end_idx = min(total_participants, user_rank + 2)
+                
+                for i in range(start_idx, end_idx):
+                    entry = all_entries.data[i]
+                    rank = entry['rank']
+                    nickname = entry.get('nickname', 'Anonymous')
+                    points = entry['points']
+                    
+                    if entry['user_id'] == user_id and entry['user_type'] == user_type:
+                        display_text += f"➡️ *{rank}. You ({nickname})* - {points:,} pts"
+                    else:
+                        display_text += f"{rank}. {nickname} - {points:,} pts"
+                    
+                    # Add trend
+                    if entry.get('trend') == 'up':
+                        display_text += f" ↑{abs(entry.get('previous_rank', rank) - rank)}"
+                    elif entry.get('trend') == 'down':
+                        display_text += f" ↓{abs(entry.get('previous_rank', rank) - rank)}"
+                    elif entry.get('trend') == 'new':
+                        display_text += " 🆕"
+                    
+                    display_text += "\n"
+            
+            # Add user stats
+            if user_entry:
+                display_text += "\n📊 *Your Stats:*\n"
+                display_text += f"Position: #{user_rank}"
+                
+                # Add movement indicator
+                if user_entry.get('trend') == 'up':
+                    change = abs(user_entry.get('previous_rank', user_rank) - user_rank)
+                    display_text += f" (↑ moved up {change} spots today!)\n"
+                elif user_entry.get('trend') == 'down':
+                    change = abs(user_entry.get('previous_rank', user_rank) - user_rank)
+                    display_text += f" (↓ moved down {change} spots)\n"
+                elif user_entry.get('trend') == 'new':
+                    display_text += " (🆕 New to leaderboard!)\n"
+                else:
+                    display_text += " (↔️ Same as yesterday)\n"
+                
+                # Points to next rank
+                if user_rank > 1:
+                    next_entry = all_entries.data[user_rank - 2]
+                    points_needed = next_entry['points'] - user_entry['points']
+                    display_text += f"Points to next: {points_needed:,} pts\n"
+                
+                # Points to milestones
+                if user_rank > 100:
+                    top_100_entry = all_entries.data[99] if len(all_entries.data) > 99 else None
+                    if top_100_entry:
+                        points_to_100 = top_100_entry['points'] - user_entry['points']
+                        display_text += f"Points to top 100: {points_to_100:,} pts\n"
+                
+                if user_rank > 10:
+                    top_10_entry = all_entries.data[9]
+                    points_to_10 = top_10_entry['points'] - user_entry['points']
+                    display_text += f"Points to top 10: {points_to_10:,} pts\n"
+                
+                # Percentage ranking
+                percentile = round((1 - (user_rank / total_participants)) * 100)
+                display_text += f"\nYou're in the top {percentile}% of participants!"
+                
+                # Motivational message based on performance
+                if user_entry.get('trend') == 'up':
+                    display_text += "\n\n💪 Great progress! Keep pushing!"
+                elif user_rank <= 10:
+                    display_text += "\n\n🌟 Amazing work! You're in the elite!"
+                else:
+                    display_text += "\n\n🎯 Keep going! Every point counts!"
+            
+            return display_text
             
         except Exception as e:
             log_error(f"Error getting leaderboard: {str(e)}")
             return "Error loading leaderboard. Please try again."
     
-    def _format_leaderboard_display(self, leaderboard: Dict, entries: List[Dict], 
-                                   user_entry: Optional[Dict], user_rank: Optional[int],
-                                   profile: Dict) -> str:
-        """Format leaderboard for WhatsApp display"""
-        try:
-            lines = [f"🏆 *{leaderboard['name']}*\n"]
-            
-            # Check if user is in top 10
-            if user_rank and user_rank <= 10:
-                # Show top 10 with user highlighted
-                for entry in entries[:10]:
-                    rank = entry['rank']
-                    
-                    # Add medal for top 3
-                    if rank == 1:
-                        medal = "🥇"
-                    elif rank == 2:
-                        medal = "🥈"
-                    elif rank == 3:
-                        medal = "🥉"
-                    else:
-                        medal = ""
-                    
-                    # Check if this is the user
-                    if entry['user_id'] == user_entry['user_id']:
-                        # Highlight user's position
-                        trend_symbol = self._get_trend_symbol(entry)
-                        nickname = profile.get('nickname', 'You')
-                        lines.append(f"{rank}. ➡️ You ({nickname}) - {entry['points']} pts {trend_symbol}")
-                    else:
-                        # Show other users (respecting privacy)
-                        display_name = self._get_display_name(entry)
-                        lines.append(f"{rank}. {medal} {display_name} - {entry['points']} pts")
-            
-            elif user_rank and user_rank > 10:
-                # Show top 10
-                for entry in entries[:10]:
-                    rank = entry['rank']
-                    
-                    if rank == 1:
-                        medal = "🥇"
-                    elif rank == 2:
-                        medal = "🥈"
-                    elif rank == 3:
-                        medal = "🥉"
-                    else:
-                        medal = ""
-                    
-                    display_name = self._get_display_name(entry)
-                    lines.append(f"{rank}. {medal} {display_name} - {entry['points']} pts")
-                
-                # If user is rank 11-15, show both top 10 and context
-                if 11 <= user_rank <= 15:
-                    lines.append("")  # Empty line
-                
-                # Show ellipsis if user is not immediately after top 10
-                if user_rank > 15:
-                    lines.append("...")
-                    lines.append("")
-                
-                # Show user's neighborhood (context window)
-                lines.append("📍 *Your Neighborhood:*")
-                
-                # Get 2 users above and 2 below
-                start_idx = max(0, user_rank - 3)
-                end_idx = min(len(entries), user_rank + 2)
-                
-                for i in range(start_idx, end_idx):
-                    entry = entries[i]
-                    rank = entry['rank']
-                    
-                    if entry['user_id'] == user_entry['user_id']:
-                        # Highlight user
-                        trend_symbol = self._get_trend_symbol(entry)
-                        nickname = profile.get('nickname', 'You')
-                        lines.append(f"➡️ {rank}. You ({nickname}) - {entry['points']} pts {trend_symbol}")
-                    else:
-                        display_name = self._get_display_name(entry)
-                        lines.append(f"{rank}. {display_name} - {entry['points']} pts")
-            
-            # Add user stats if they're participating
-            if user_entry:
-                lines.extend(self._format_user_stats(user_entry, entries))
-            
-            return "\n".join(lines)
-            
-        except Exception as e:
-            log_error(f"Error formatting leaderboard display: {str(e)}")
-            return "Error formatting leaderboard."
-    
-    def _format_user_stats(self, user_entry: Dict, all_entries: List[Dict]) -> List[str]:
-        """Format user statistics section"""
-        lines = ["\n📊 *Your Stats:*"]
-        
-        # Position and movement
-        rank = user_entry['rank']
-        previous_rank = user_entry.get('previous_rank', rank)
-        
-        if previous_rank != rank:
-            if previous_rank > rank:
-                movement = f"↑ moved up {previous_rank - rank} spots today!"
-            else:
-                movement = f"↓ moved down {rank - previous_rank} spots"
-            lines.append(f"Position: #{rank} ({movement})")
-        else:
-            lines.append(f"Position: #{rank} (no change)")
-        
-        # Points to next position
-        if rank > 1:
-            next_entry = all_entries[rank - 2]  # Entry above current user
-            points_needed = next_entry['points'] - user_entry['points']
-            lines.append(f"Points to #{rank-1}: {points_needed} pts")
-        
-        # Points to milestones (if not already achieved)
-        if rank > 10:
-            top_10_entry = all_entries[9] if len(all_entries) > 9 else None
-            if top_10_entry:
-                points_to_top10 = top_10_entry['points'] - user_entry['points']
-                lines.append(f"Points to top 10: {points_to_top10} pts")
-        
-        if rank > 100:
-            top_100_entry = all_entries[99] if len(all_entries) > 99 else None
-            if top_100_entry:
-                points_to_top100 = top_100_entry['points'] - user_entry['points']
-                lines.append(f"Points to top 100: {points_to_top100} pts")
-        
-        # Percentage ranking
-        total_participants = len(all_entries)
-        percentile = ((total_participants - rank + 1) / total_participants) * 100
-        lines.append(f"You're in the top {percentile:.1f}% of all participants")
-        
-        # Motivational message
-        if rank <= 10:
-            lines.append("\n🏆 Outstanding performance! Keep it up!")
-        elif rank <= 50:
-            lines.append("\n💪 Great job! You're doing amazing!")
-        elif rank <= 100:
-            lines.append("\n🎯 Good progress! Keep pushing!")
-        else:
-            lines.append("\n📈 Keep going! Every point counts!")
-        
-        return lines
-    
-    def _get_trend_symbol(self, entry: Dict) -> str:
-        """Get trend symbol for ranking change"""
-        trend = entry.get('trend', 'same')
-        previous_rank = entry.get('previous_rank', entry['rank'])
-        current_rank = entry['rank']
-        
-        if trend == 'up' and previous_rank > current_rank:
-            change = previous_rank - current_rank
-            return f"↑{change}"
-        elif trend == 'down' and previous_rank < current_rank:
-            change = current_rank - previous_rank
-            return f"↓{change}"
-        else:
-            return ""
-    
-    def _get_display_name(self, entry: Dict) -> str:
-        """Get display name respecting privacy settings"""
-        try:
-            # Check if user has public profile
-            profile = self._get_user_gamification_profile(entry['user_id'], entry['user_type'])
-            
-            if profile and profile.get('is_public'):
-                return entry.get('nickname', 'Anonymous')
-            else:
-                # Show anonymous for private profiles
-                return 'Anonymous'
-                
-        except Exception:
-            return 'Anonymous'
-    
     def _get_user_gamification_profile(self, user_id: str, user_type: str) -> Optional[Dict]:
         """Get user's gamification profile"""
         try:
-            if user_type == 'client':
-                result = self.db.table('gamification_profiles').select('*').eq(
-                    'client_id', user_id
-                ).single().execute()
-            else:
-                result = self.db.table('gamification_profiles').select('*').eq(
-                    'trainer_id', user_id
-                ).single().execute()
+            result = self.db.table('gamification_profiles').select('*').eq(
+                f'{user_type}_id', user_id
+            ).single().execute()
             
             return result.data if result.data else None
             
@@ -530,98 +932,171 @@ class LeaderboardService:
             log_error(f"Error getting gamification profile: {str(e)}")
             return None
     
-    def create_leaderboard(self, name: str, leaderboard_type: str, scope: str,
-                          start_date: str, end_date: str) -> Dict:
-        """Create a new leaderboard"""
+    def create_or_update_leaderboard_entry(self, leaderboard_id: str, user_id: str, 
+                                          user_type: str, points: int, nickname: str = None):
+        """Create or update a user's leaderboard entry"""
         try:
-            result = self.db.table('leaderboards').insert({
-                'name': name,
-                'type': leaderboard_type,
-                'scope': scope,
-                'start_date': start_date,
-                'end_date': end_date,
-                'is_active': True,
-                'created_at': datetime.now(self.sa_tz).isoformat()
-            }).execute()
-            
-            if result.data:
-                log_info(f"Created leaderboard: {name}")
-                return {'success': True, 'leaderboard_id': result.data[0]['id']}
-            
-            return {'success': False, 'error': 'Failed to create leaderboard'}
-            
-        except Exception as e:
-            log_error(f"Error creating leaderboard: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
-    def add_user_to_leaderboard(self, leaderboard_id: str, user_id: str, 
-                               user_type: str, nickname: str) -> bool:
-        """Add user to a leaderboard"""
-        try:
-            # Check if user already in leaderboard
-            existing = self.db.table('leaderboard_entries').select('id').eq(
-                'leaderboard_id', leaderboard_id
-            ).eq('user_id', user_id).eq('user_type', user_type).execute()
-            
-            if existing.data:
-                return True  # Already in leaderboard
-            
-            # Add user to leaderboard
-            result = self.db.table('leaderboard_entries').insert({
-                'leaderboard_id': leaderboard_id,
-                'user_id': user_id,
-                'user_type': user_type,
-                'nickname': nickname,
-                'points': 0,
-                'rank': 999999,  # Will be updated on next ranking update
-                'trend': 'same',
-                'created_at': datetime.now(self.sa_tz).isoformat(),
-                'last_updated': datetime.now(self.sa_tz).isoformat()
-            }).execute()
-            
-            return bool(result.data)
-            
-        except Exception as e:
-            log_error(f"Error adding user to leaderboard: {str(e)}")
-            return False
-    
-    def update_user_points(self, leaderboard_id: str, user_id: str, 
-                          user_type: str, points_to_add: int) -> bool:
-        """Update user's points in a leaderboard"""
-        try:
-            # Get current entry
-            entry = self.db.table('leaderboard_entries').select('*').eq(
+            # Check if entry exists
+            existing = self.db.table('leaderboard_entries').select('*').eq(
                 'leaderboard_id', leaderboard_id
             ).eq('user_id', user_id).eq('user_type', user_type).single().execute()
             
-            if not entry.data:
-                return False
+            if existing.data:
+                # Update existing entry
+                self.db.table('leaderboard_entries').update({
+                    'points': points,
+                    'nickname': nickname or existing.data.get('nickname', 'Anonymous'),
+                    'last_updated': datetime.now(self.sa_tz).isoformat()
+                }).eq('id', existing.data['id']).execute()
+            else:
+                # Create new entry
+                self.db.table('leaderboard_entries').insert({
+                    'leaderboard_id': leaderboard_id,
+                    'user_id': user_id,
+                    'user_type': user_type,
+                    'nickname': nickname or 'Anonymous',
+                    'points': points,
+                    'rank': 999999,  # Will be updated by ranking job
+                    'trend': 'new',
+                    'last_updated': datetime.now(self.sa_tz).isoformat()
+                }).execute()
             
-            # Update points
-            new_points = entry.data['points'] + points_to_add
-            
-            result = self.db.table('leaderboard_entries').update({
-                'points': new_points,
-                'last_updated': datetime.now(self.sa_tz).isoformat()
-            }).eq('id', entry.data['id']).execute()
-            
-            return bool(result.data)
+            # Trigger ranking update
+            self.update_leaderboard_rankings(leaderboard_id)
             
         except Exception as e:
-            log_error(f"Error updating user points: {str(e)}")
-            return False
+            log_error(f"Error creating/updating leaderboard entry: {str(e)}")
+
+
+class GamificationService:
+    """Main gamification service that coordinates all components"""
     
-    def get_active_leaderboards(self, scope: Optional[str] = None) -> List[Dict]:
-        """Get all active leaderboards, optionally filtered by scope"""
+    def __init__(self, config, supabase_client, whatsapp_service):
+        self.config = config
+        self.db = supabase_client
+        self.whatsapp = whatsapp_service
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
+        
+        # Initialize sub-services
+        self.badges = BadgeChecker(config, supabase_client, whatsapp_service)
+        self.challenges = ChallengeManager(config, supabase_client, whatsapp_service)
+        self.leaderboards = LeaderboardService(config, supabase_client, whatsapp_service)
+    
+    def process_action(self, user_id: str, user_type: str, action: str, value: int = 1):
+        """Process a user action and award appropriate points/badges"""
         try:
-            query = self.db.table('leaderboards').select('*').eq('is_active', True)
+            points_earned = 0
             
-            if scope:
-                query = query.eq('scope', scope)
+            # Determine points for action
+            action_points = {
+                'habit_logged': 10,
+                'workout_completed': 25,
+                'assessment_improved': 50,
+                'challenge_joined': 5,
+                'streak_bonus': 5  # Multiplied by streak days
+            }
             
-            result = query.execute()
-            return result.data if result.data else []
+            if action in action_points:
+                points_earned = action_points[action] * value
+                
+                # Add points to user
+                self._add_points(user_id, user_type, points_earned, f"Action: {action}")
+                
+                # Update leaderboards
+                self._update_user_leaderboards(user_id, user_type)
+                
+                # Check for new badges
+                new_badges = self.badges.check_badges(user_id, user_type)
+                
+                return {
+                    'points_earned': points_earned,
+                    'new_badges': new_badges
+                }
+            
+            return {'points_earned': 0, 'new_badges': []}
             
         except Exception as e:
-            log_error(f"Error getting active leaderboards: {str(e)}")
-            return []
+            log_error(f"Error processing gamification action: {str(e)}")
+            return {'points_earned': 0, 'new_badges': []}
+    
+    def _add_points(self, user_id: str, user_type: str, points: int, reason: str):
+        """Add points to user's total"""
+        try:
+            # Add to ledger
+            self.db.table('points_ledger').insert({
+                'user_id': user_id,
+                'user_type': user_type,
+                'points': points,
+                'reason': reason,
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }).execute()
+            
+            # Update profile
+            profile = self.db.table('gamification_profiles').select('*').eq(
+                f'{user_type}_id', user_id
+            ).single().execute()
+            
+            if profile.data:
+                new_total = profile.data['points_total'] + points
+                self.db.table('gamification_profiles').update({
+                    'points_total': new_total
+                }).eq(f'{user_type}_id', user_id).execute()
+            else:
+                # Create profile if doesn't exist
+                self.db.table('gamification_profiles').insert({
+                    f'{user_type}_id': user_id,
+                    'points_total': points,
+                    'is_public': True,
+                    'opted_in_global': True,
+                    'opted_in_trainer': True
+                }).execute()
+                
+        except Exception as e:
+            log_error(f"Error adding points: {str(e)}")
+    
+    def _update_user_leaderboards(self, user_id: str, user_type: str):
+        """Update user's position on all relevant leaderboards"""
+        try:
+            # Get user's current points
+            profile = self.db.table('gamification_profiles').select('*').eq(
+                f'{user_type}_id', user_id
+            ).single().execute()
+            
+            if not profile.data:
+                return
+            
+            points = profile.data['points_total']
+            nickname = profile.data.get('nickname', 'Anonymous')
+            
+            # Update global leaderboard if opted in
+            if profile.data.get('opted_in_global', True):
+                global_board = self.db.table('leaderboards').select('id').eq(
+                    'type', 'global'
+                ).eq('is_active', True).single().execute()
+                
+                if global_board.data:
+                    self.leaderboards.create_or_update_leaderboard_entry(
+                        global_board.data['id'], user_id, user_type, points, nickname
+                    )
+            
+            # Update trainer group leaderboard if client
+            if user_type == 'client' and profile.data.get('opted_in_trainer', True):
+                # Get client's trainer
+                client = self.db.table('clients').select('trainer_id').eq(
+                    'id', user_id
+                ).single().execute()
+                
+                if client.data:
+                    trainer_board = self.db.table('leaderboards').select('id').eq(
+                        'type', 'trainer_group'
+                    ).eq('scope', client.data['trainer_id']).eq(
+                        'is_active', True
+                    ).single().execute()
+                    
+                    if trainer_board.data:
+                        self.leaderboards.create_or_update_leaderboard_entry(
+                            trainer_board.data['id'], user_id, user_type, points, nickname
+                        )
+                        
+        except Exception as e:
+            log_error(f"Error updating user leaderboards: {str(e)}")
