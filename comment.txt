@@ -1,2 +1,12 @@
-@claude complete  services/calendar_service.py 
+@claude Create a new migration file for the gamification system. 
+
+Add these tables:
+1. gamification_profiles - stores user gaming preferences (trainer_id, client_id, nickname, points_total, is_public, opted_in_global, opted_in_trainer, notification_preferences)
+2. challenges - challenge definitions (id, created_by, name, description, type, start_date, end_date, target_value, points_reward, is_active, max_participants, challenge_rules)
+3. challenge_participants - who joined what (challenge_id, user_id, user_type, joined_at, status, final_position)
+4. challenge_progress - daily tracking (participant_id, challenge_id, date, value_achieved, points_earned)
+5. points_ledger - all point transactions (user_id, user_type, points, reason, challenge_id, created_at)
+
+Include proper foreign keys, indexes, and a rollback section. Follow South African timezone.
+
 @apply
