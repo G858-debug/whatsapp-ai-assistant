@@ -34,6 +34,7 @@ from utils.input_sanitizer import InputSanitizer
 from config import Config
 from payment_manager import PaymentManager
 from payfast_webhook import PayFastWebhookHandler
+from routes.dashboard import dashboard_bp
 
 # Load environment variables
 load_dotenv()
@@ -130,6 +131,9 @@ scheduler.add_job(
 # Start the scheduler
 scheduler.start()
 log_info("Background scheduler started")
+
+# Register dashboard blueprint for gamification and calendar features
+app.register_blueprint(dashboard_bp)
 
 @app.route('/')
 def home():
@@ -806,29 +810,28 @@ def trainer_availability_view(trainer_id):
                 
                 {% for day in days %}
                 <div class="day-section">
-                    <div class="day-header">{{ day.formatted_date }}</div>
+                    <div class="day-header">{{ day.formatted_date }} - {{ day.day_name }}</div>
                     <div class="slots-grid">
                         {% for slot in day.slots %}
-                        <div class="slot available" onclick="requestBooking('{{ day.date }}', '{{ slot }}')">
+                        <a href="https://wa.me/{{ trainer_whatsapp }}?text=Hi%20I%20would%20like%20to%20book%20a%20session%20on%20{{ day.formatted_date }}%20at%20{{ slot }}" 
+                           class="slot available">
                             {{ slot }}
-                        </div>
+                        </a>
                         {% endfor %}
                     </div>
                 </div>
                 {% endfor %}
                 
+                {% if not days %}
+                <div style="padding: 40px 20px; text-align: center; color: #6b7280;">
+                    No available slots in the next 14 days
+                </div>
+                {% endif %}
+                
                 <a href="/api/client/calendar/{{ client_id }}?token={{ token }}" class="back-btn">
-                    ← Back to My Calendar
+                    ← Back to Calendar
                 </a>
             </div>
-            
-            <script>
-                function requestBooking(date, time) {
-                    const message = `Hi, I'd like to book a training session on ${date} at ${time}`;
-                    const whatsappUrl = `https://wa.me/27730564882?text=${encodeURIComponent(message)}`;
-                    window.location.href = whatsappUrl;
-                }
-            </script>
         </body>
         </html>
         """
@@ -837,9 +840,9 @@ def trainer_availability_view(trainer_id):
         template = Template(html_template)
         return template.render(
             trainer_name=trainer.data['name'],
-            trainer_id=trainer_id,
-            client_id=client_id,
+            trainer_whatsapp=trainer.data.get('whatsapp', '').replace('+', ''),
             days=days_data,
+            client_id=client_id,
             token=token
         )
         
@@ -849,14 +852,14 @@ def trainer_availability_view(trainer_id):
 
 @app.route('/api/client/calendar/<client_id>/ics')
 def download_calendar_ics(client_id):
-    """Download client's calendar as ICS file"""
+    """Download calendar in ICS format"""
     try:
-        # Verify access token
+        # Verify access
         token = request.args.get('token')
         if not token or not verify_calendar_token(token, client_id):
             return "Access denied", 403
         
-        # Get client and sessions
+        # Get client and trainer info
         client = supabase.table('clients').select('*, trainers(*)').eq(
             'id', client_id
         ).single().execute()
@@ -868,14 +871,13 @@ def download_calendar_ics(client_id):
         today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
         sessions = supabase.table('bookings').select('*').eq(
             'client_id', client_id
-        ).gte('session_date', today.isoformat()).execute()
+        ).gte('session_date', today.isoformat()).order('session_date').execute()
         
         # Generate ICS content
-        ics_content = calendar_service.generate_ics_file({
-            'client': client.data,
-            'sessions': sessions.data or [],
-            'trainer': client.data['trainers']
-        })
+        ics_content = calendar_service.generate_ics_for_client(
+            client.data,
+            sessions.data or []
+        )
         
         # Create response with ICS file
         output = BytesIO()
@@ -893,24 +895,230 @@ def download_calendar_ics(client_id):
         log_error(f"Error generating ICS file: {str(e)}")
         return "Error generating calendar file", 500
 
+@app.route('/api/assessment/<assessment_id>')
+def view_assessment(assessment_id):
+    """View assessment results"""
+    try:
+        # Get assessment with all related data
+        assessment = supabase.table('fitness_assessments').select(
+            """
+            *,
+            clients (name, trainer_id),
+            trainers (name, business_name),
+            physical_measurements (*),
+            fitness_goals (*),
+            fitness_test_results (*),
+            health_conditions (*),
+            lifestyle_factors (*)
+            """
+        ).eq('id', assessment_id).single().execute()
+        
+        if not assessment.data:
+            return "Assessment not found", 404
+        
+        # Check access token if provided
+        token = request.args.get('token')
+        if token:
+            # Verify token matches assessment
+            token_valid = supabase.table('assessment_access_tokens').select('*').eq(
+                'token', token
+            ).eq('assessment_id', assessment_id).eq('is_valid', True).execute()
+            
+            if not token_valid.data:
+                return "Invalid or expired access token", 403
+        
+        # Render assessment view
+        return assessment_service.render_assessment_results(assessment.data)
+        
+    except Exception as e:
+        log_error(f"Error viewing assessment: {str(e)}")
+        return "Error loading assessment", 500
+
+@app.route('/api/assessment/form/<token>')
+def assessment_form(token):
+    """Display assessment form for clients"""
+    try:
+        # Verify token
+        access = supabase.table('assessment_access_tokens').select(
+            '*, clients(*), trainers(*)'
+        ).eq('token', token).eq('is_valid', True).single().execute()
+        
+        if not access.data:
+            return "Invalid or expired link", 403
+        
+        # Check if not expired (7 days)
+        created_at = datetime.fromisoformat(access.data['created_at'])
+        if (datetime.now(pytz.UTC) - created_at).days > 7:
+            return "This link has expired. Please request a new one from your trainer.", 403
+        
+        # Get assessment template if exists
+        template = None
+        if access.data.get('assessment_id'):
+            template = supabase.table('assessment_templates').select('*').eq(
+                'id', access.data['assessment_id']
+            ).single().execute()
+        
+        # Render form
+        return assessment_service.render_assessment_form(
+            access.data,
+            template.data if template else None
+        )
+        
+    except Exception as e:
+        log_error(f"Error loading assessment form: {str(e)}")
+        return "Error loading form", 500
+
+@app.route('/api/assessment/submit', methods=['POST'])
+def submit_assessment():
+    """Submit assessment form data"""
+    try:
+        data = request.json
+        token = data.get('token')
+        
+        if not token:
+            return jsonify({'error': 'No token provided'}), 403
+        
+        # Verify token
+        access = supabase.table('assessment_access_tokens').select(
+            '*, clients(*)'
+        ).eq('token', token).eq('is_valid', True).single().execute()
+        
+        if not access.data:
+            return jsonify({'error': 'Invalid token'}), 403
+        
+        # Process assessment submission
+        result = assessment_service.process_assessment_submission(
+            client_id=access.data['client_id'],
+            trainer_id=access.data['trainer_id'],
+            form_data=data.get('assessment_data', {})
+        )
+        
+        if result['success']:
+            # Invalidate token after successful submission
+            supabase.table('assessment_access_tokens').update({
+                'is_valid': False,
+                'used_at': datetime.now().isoformat()
+            }).eq('token', token).execute()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Assessment submitted successfully!',
+                'assessment_id': result['assessment_id']
+            })
+        else:
+            return jsonify({'error': result.get('error', 'Submission failed')}), 400
+            
+    except Exception as e:
+        log_error(f"Error submitting assessment: {str(e)}")
+        return jsonify({'error': 'Error processing submission'}), 500
+
+@app.route('/api/analytics/dashboard/<trainer_id>')
+def analytics_dashboard(trainer_id):
+    """Analytics dashboard for trainers"""
+    try:
+        # Verify access (you might want to add proper authentication here)
+        trainer = supabase.table('trainers').select('*').eq(
+            'id', trainer_id
+        ).single().execute()
+        
+        if not trainer.data:
+            return "Trainer not found", 404
+        
+        # Get analytics data
+        analytics_data = analytics_service.get_trainer_analytics(
+            trainer_id,
+            days=30
+        )
+        
+        # Render analytics dashboard
+        return analytics_service.render_analytics_dashboard(
+            trainer.data,
+            analytics_data
+        )
+        
+    except Exception as e:
+        log_error(f"Error loading analytics: {str(e)}")
+        return "Error loading analytics", 500
+
+@app.route('/api/admin/metrics')
+def admin_metrics():
+    """Admin metrics endpoint"""
+    try:
+        # Add admin authentication here
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != Config.ADMIN_KEY:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Get system metrics
+        metrics = {
+            'trainers': {
+                'total': supabase.table('trainers').select('id', count='exact').execute().count,
+                'active': supabase.table('trainers').select('id', count='exact').eq(
+                    'subscription_status', 'active'
+                ).execute().count
+            },
+            'clients': {
+                'total': supabase.table('clients').select('id', count='exact').execute().count,
+                'active': supabase.table('clients').select('id', count='exact').eq(
+                    'status', 'active'
+                ).execute().count
+            },
+            'bookings': {
+                'total': supabase.table('bookings').select('id', count='exact').execute().count,
+                'this_month': supabase.table('bookings').select('id', count='exact').gte(
+                    'session_date',
+                    datetime.now().replace(day=1).date().isoformat()
+                ).execute().count
+            },
+            'messages': {
+                'total': supabase.table('messages').select('id', count='exact').execute().count,
+                'today': supabase.table('messages').select('id', count='exact').gte(
+                    'created_at',
+                    datetime.now().replace(hour=0, minute=0, second=0).isoformat()
+                ).execute().count
+            }
+        }
+        
+        return jsonify(metrics)
+        
+    except Exception as e:
+        log_error(f"Error getting admin metrics: {str(e)}")
+        return jsonify({'error': 'Error fetching metrics'}), 500
+
 @app.errorhandler(404)
 def not_found(e):
     """Handle 404 errors"""
-    return jsonify({"error": "Endpoint not found"}), 404
+    return jsonify({'error': 'Endpoint not found'}), 404
 
 @app.errorhandler(500)
 def server_error(e):
     """Handle 500 errors"""
     log_error(f"Server error: {str(e)}")
-    return jsonify({"error": "Internal server error"}), 500
+    return jsonify({'error': 'Internal server error'}), 500
 
-# Cleanup scheduler on shutdown
+# Cleanup on shutdown
+def cleanup():
+    """Cleanup resources on shutdown"""
+    try:
+        scheduler.shutdown()
+        log_info("Scheduler shut down successfully")
+    except Exception as e:
+        log_error(f"Error during cleanup: {str(e)}")
+
 import atexit
-atexit.register(lambda: scheduler.shutdown(wait=False))
+atexit.register(cleanup)
 
 if __name__ == '__main__':
+    # Run the Flask app
     port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
+    debug_mode = os.environ.get('DEBUG', 'False').lower() == 'true'
     
     log_info(f"Starting Refiloe AI Assistant on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    log_info(f"Debug mode: {debug_mode}")
+    log_info(f"Environment: {os.environ.get('ENVIRONMENT', 'production')}")
+    
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=debug_mode
+    )
