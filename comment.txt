@@ -1,45 +1,12 @@
-@claude Act as multiple specialized agents to fix and optimize each of the following components. Integrate challenge progress tracking with existing habit and workout logging.
+@claude
 
-Modify existing services:
+The RefiloeService class in services/refiloe.py is too large to edit directly. Please help me refactor it into smaller files:
 
-1. IN habits.py:
-When log_habit_check() is called:
-- Check active challenges for this user
-- If habit matches challenge criteria, update challenge_progress
-- Add points silently (include in daily digest)
-- No immediate WhatsApp notification
+Create services/refiloe_handlers.py with all the handle* methods
+Create services/refiloe_helpers.py with helper methods like _get_user_context, _log_interaction, etc.
+Keep the main process_message and init in services/refiloe.py
+Import the methods from the new files
+This will make the code more maintainable and editable.
 
-2. IN workout_service.py:
-When workout is completed:
-- Check if user has workout-related challenges
-- Auto-increment workout challenge progress
-- Update dashboard in real-time
-- Include achievement in next digest only
+@apply
 
-3. IN assessment_service.py:
-When assessment improves:
-- Check for improvement challenges
-- Award bonus points for % improvements
-- Create celebration message for daily digest
-- Update dashboard stats immediately
-
-4. CREATE challenge_progress_tracker.py:
-- auto_track_progress(): Called by other services
-- Maps activities to challenges:
-  * Water logged → Hydration challenges
-  * Steps logged → Step challenges
-  * Workout done → Workout warrior
-  * All habits logged → Consistency challenges
-- Batch updates to reduce database calls
-- Return points earned for digest
-
-5. DASHBOARD REAL-TIME UPDATES:
-- Progress bars update without refresh
-- Points counter animates up
-- Rank changes show immediately
-- Confetti on challenge completion
-
-No extra WhatsApp messages - everything accumulates for daily digest.
-Dashboard shows real-time progress.
-
-@apply 
