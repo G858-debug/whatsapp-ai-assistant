@@ -553,8 +553,8 @@ The task is too complex for a single operation. Breaking it down:
 ## RECOMMENDATION
 This task should be split into smaller parts:
 
-1. **First**: Run `@claude` (without @apply) to analyze the requirements
-2. **Then**: Apply fixes one at a time:
+1. First: Run `@claude` (without @apply) to analyze the requirements
+2. Then: Apply fixes one at a time:
    - `@claude @apply fix syntax errors in services/refiloe.py`
    - `@claude @apply fix imports in app.py`
    - etc.
