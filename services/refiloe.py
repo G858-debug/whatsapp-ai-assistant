@@ -460,7 +460,7 @@ To request payment from client:
                 
                 if outstanding.data:
                     total = sum(p['amount'] for p in outstanding.data)
-                    message = f"""\U0001F4B0 *Payment Status*
+                    message = f"""💰 *Payment Status*
 
 Outstanding: R{total:.2f}
 
