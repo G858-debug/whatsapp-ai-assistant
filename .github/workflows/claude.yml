@@ -78,14 +78,84 @@ jobs:
                            .replace('@opus', '').replace('@sonnet', '').replace('@haiku', '')\
                            .replace('@continue', '').strip()
           
+          # =====================================
+          # SOLUTION 6: STREAMING FOR LONG OPERATIONS
+          # =====================================
+          def check_if_multi_step_task(task_lower):
+              """Check if task requires multiple steps"""
+              multi_step_triggers = [
+                  'refactor all', 'update entire', 'fix all', 'complete implementation',
+                  'implement full', 'create complete', 'build entire', 'redesign',
+                  'migrate everything', 'update all', 'fix everything', 'comprehensive',
+                  'all files', 'entire codebase', 'full system', 'complete system'
+              ]
+              return any(trigger in task_lower for trigger in multi_step_triggers)
+          
+          def break_into_steps(task_lower, clean_task):
+              """Break complex task into manageable steps"""
+              steps = []
+              
+              # Gamification implementation
+              if 'gamification' in task_lower:
+                  steps = [
+                      "Step 1: Create database schema for gamification (tables, migrations)",
+                      "Step 2: Implement core gamification service (badges, points, challenges)",
+                      "Step 3: Create leaderboard system and rankings",
+                      "Step 4: Add dashboard routes and API endpoints",
+                      "Step 5: Integrate with existing services (habits, workouts, assessments)"
+                  ]
+              # Refactoring tasks
+              elif 'refactor' in task_lower:
+                  steps = [
+                      "Step 1: Analyze current code structure and identify issues",
+                      "Step 2: Split large files (>600 lines) into modules",
+                      "Step 3: Extract shared utilities and helpers",
+                      "Step 4: Update imports and dependencies",
+                      "Step 5: Test and validate changes"
+                  ]
+              # Fix all errors
+              elif 'fix all' in task_lower or 'fix everything' in task_lower:
+                  steps = [
+                      "Step 1: Fix critical syntax errors blocking deployment",
+                      "Step 2: Fix import and dependency issues",
+                      "Step 3: Fix database and model errors",
+                      "Step 4: Fix service layer issues",
+                      "Step 5: Fix remaining warnings and optimize"
+                  ]
+              # Update entire system
+              elif 'update entire' in task_lower or 'update all' in task_lower:
+                  steps = [
+                      "Step 1: Update core configuration and dependencies",
+                      "Step 2: Update database models and migrations",
+                      "Step 3: Update service layer components",
+                      "Step 4: Update API routes and endpoints",
+                      "Step 5: Update frontend/templates and documentation"
+                  ]
+              # Default multi-step
+              else:
+                  steps = [
+                      "Step 1: Analyze requirements and current state",
+                      "Step 2: Implement core functionality",
+                      "Step 3: Add supporting features",
+                      "Step 4: Integrate with existing system",
+                      "Step 5: Test and document changes"
+                  ]
+              
+              return steps
+          
           # SOLUTION 5: Handle continue command
+          current_step = 1
           if continue_task:
               # Check for previous context
               if Path('claude_context.json').exists():
                   with open('claude_context.json', 'r') as f:
                       previous_context = json.load(f)
                   print(f"📂 Continuing from previous task: {previous_context.get('task', 'unknown')}")
-                  clean_task = f"Continue from previous task: {previous_context['task']}\n\nRemaining work:\n{previous_context.get('remaining_work', 'Complete the implementation')}"
+                  print(f"📍 Current step: {previous_context.get('current_step', 1)}")
+                  
+                  clean_task = previous_context['task']
+                  current_step = previous_context.get('current_step', 1) + 1
+                  
                   # Use the same model as before if specified
                   if previous_context.get('model'):
                       if 'opus' in previous_context['model']:
@@ -98,6 +168,24 @@ jobs:
                   print("⚠️ No previous context found for @continue")
                   clean_task = "No previous context found. Please specify what to continue."
           
+          # SOLUTION 6: Check if task needs multiple steps
+          task_lower = clean_task.lower()
+          is_multi_step = check_if_multi_step_task(task_lower)
+          steps = []
+          
+          if is_multi_step and not continue_task:
+              steps = break_into_steps(task_lower, clean_task)
+              print("\n📋 This will be done in multiple steps:")
+              for step in steps:
+                  print(f"  {'✅' if steps.index(step) < current_step - 1 else '➡️' if steps.index(step) == current_step - 1 else '⏳'} {step}")
+              
+              # Focus on current step
+              if current_step <= len(steps):
+                  clean_task = f"{clean_task}\n\nFOCUS ON: {steps[current_step - 1]}\nThis is step {current_step} of {len(steps)}."
+              else:
+                  print("✅ All steps completed!")
+                  clean_task = f"{clean_task}\n\nFinal review and cleanup."
+          
           # =====================================
           # ENHANCED MODEL SELECTION WITH INCREASED TOKENS (SOLUTION 1)
           # =====================================
@@ -109,65 +197,50 @@ jobs:
               # Force model if specified
               if force_opus:
                   print("🎯 Force flag: Using Opus 4.1")
-                  return 'claude-opus-4-1-20250805', 16000, 'full', "Opus 4.1 (forced)"  # Increased from 8000
+                  return 'claude-opus-4-1-20250805', 16000, 'full', "Opus 4.1 (forced)"
               
               if force_sonnet:
                   print("🎯 Force flag: Using Sonnet 3.5")
-                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Sonnet 3.5 (forced)"  # Increased from 4000
+                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Sonnet 3.5 (forced)"
               
               if force_haiku:
                   print("🎯 Force flag: Using Haiku 3")
-                  return 'claude-3-haiku-20240307', 4000, 'minimal', "Haiku 3 (forced)"  # Increased from 2000
+                  return 'claude-3-haiku-20240307', 4000, 'minimal', "Haiku 3 (forced)"
+              
+              # For multi-step tasks, use appropriate model based on step
+              if is_multi_step:
+                  if 'analyze' in task_lower or 'step 1' in task_lower:
+                      return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Analysis step (Sonnet 3.5)"
+                  elif 'implement' in task_lower or 'create' in task_lower:
+                      return 'claude-opus-4-1-20250805', 16000, 'full', "Implementation step (Opus 4.1)"
+                  else:
+                      return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Standard step (Sonnet 3.5)"
               
               # HAIKU 3 TRIGGERS (Ultra-simple tasks - $0.25/million tokens)
               haiku_triggers = [
-                  # Trivial fixes
                   'fix typo', 'fix spelling', 'update comment', 'fix comma',
                   'add space', 'remove space', 'fix quote', 'fix bracket',
-                  'fix emoji', 'fix string', 'fix f-string',
-                  
-                  # Simple string/text changes
+                  'fix emoji', 'fix string', 'fix f-string', 'syntax error line',
                   'change text', 'update string', 'rename variable',
-                  'update version', 'change url', 'fix link',
-                  
-                  # Documentation only
-                  'add comment', 'update readme', 'fix markdown', 'add docstring',
-                  
-                  # Formatting
-                  'format code', 'fix whitespace', 'align code', 'fix tabs'
+                  'update version', 'change url', 'fix link'
               ]
               
               # SONNET 3.5 TRIGGERS (Moderate tasks - $3/million tokens)
               sonnet_triggers = [
-                  # Single function fixes
                   'fix function', 'update method', 'fix indentation', 'indentationerror',
                   'syntax error', 'fix import', 'add validation', 'add check',
                   'fix payment', 'fix error in', 'deployment crash',
-                  
-                  # Simple features
                   'add endpoint', 'simple feature', 'add field', 'update model',
-                  'single file', 'one file', 'specific function',
-                  
-                  # Small refactors
-                  'extract function', 'rename class', 'move function',
-                  'split function', 'combine functions'
+                  'single file', 'one file', 'specific function'
               ]
               
               # OPUS 4.1 TRIGGERS (Complex tasks - $15/million tokens)
               opus_triggers = [
-                  # Architecture & Design
                   'architect', 'design system', 'restructure', 'refactor entire',
-                  
-                  # Multi-file operations
                   'all files', 'entire codebase', 'multiple services', 'full system',
                   'complete implementation', 'finish all',
-                  
-                  # Complex analysis
                   'analyze', 'investigate', 'debug complex', 'trace bug',
-                  'performance', 'security audit', 'code review',
-                  
-                  # Integration & Features
-                  'integrate', 'implement full', 'build complete', 'create system'
+                  'performance', 'security audit', 'code review'
               ]
               
               # Check triggers
@@ -220,12 +293,11 @@ jobs:
                           break
                   
                   # Default to services/refiloe.py if it's a deployment error
-                  if not target_file and 'deployment' in task_lower:
+                  if not target_file and ('deployment' in task_lower or 'crash' in task_lower):
                       target_file = 'services/refiloe.py'
                   
                   if target_file and target_file in all_files:
                       context += f"\n=== TARGET FILE: {target_file} ===\n"
-                      # For minimal context, include line numbers
                       lines = all_files[target_file].split('\n')
                       for i, line in enumerate(lines, 1):
                           context += f"{i:4}: {line}\n"
@@ -235,24 +307,34 @@ jobs:
               elif context_level == 'targeted':
                   relevant_files = set()
                   
-                  # Keyword mappings
+                  # Keyword mappings - expanded for multi-step operations
                   keyword_mappings = {
                       'payment': ['payment_manager.py', 'services/payment.py'],
-                      'gamification': ['services/gamification.py', 'routes/dashboard.py'],
+                      'gamification': ['services/gamification.py', 'routes/dashboard.py', 'templates/challenge_hub.html'],
                       'assessment': ['services/assessment.py'],
                       'refiloe': ['services/refiloe.py'],
                       'whatsapp': ['services/whatsapp.py', 'services/refiloe.py'],
                       'dashboard': ['routes/dashboard.py'],
                       'app': ['app.py'],
-                      'deployment': ['services/refiloe.py', 'app.py'],
-                      'crash': ['services/refiloe.py', 'app.py']
+                      'deployment': ['services/refiloe.py', 'app.py', 'requirements.txt'],
+                      'crash': ['services/refiloe.py', 'app.py'],
+                      'database': ['models/', 'supabase/migrations/'],
+                      'schema': ['supabase/migrations/'],
+                      'service': ['services/'],
+                      'route': ['routes/'],
+                      'template': ['templates/']
                   }
                   
-                  # Find relevant files
+                  # Find relevant files based on keywords
                   for keyword, paths in keyword_mappings.items():
                       if keyword in task_lower:
                           for path in paths:
-                              if path in all_files:
+                              if path.endswith('/'):
+                                  # Directory - add all files in it
+                                  for file_path in all_files.keys():
+                                      if file_path.startswith(path):
+                                          relevant_files.add(file_path)
+                              elif path in all_files:
                                   relevant_files.add(path)
                   
                   # Add specifically mentioned files
@@ -260,7 +342,7 @@ jobs:
                       if file_path in task or Path(file_path).stem in task_lower:
                           relevant_files.add(file_path)
                   
-                  # Default to app.py and services/refiloe.py if nothing found
+                  # Default files if nothing found
                   if not relevant_files:
                       if 'app.py' in all_files:
                           relevant_files.add('app.py')
@@ -288,7 +370,7 @@ jobs:
               else:
                   context += "\n=== FULL CODEBASE ===\n"
                   total_size = len(context)
-                  max_size = 400000  # Increased from 300000 for Opus with more tokens
+                  max_size = 400000  # Increased for Opus with more tokens
                   
                   for file_path, content in sorted(all_files.items()):
                       if total_size + len(content) < max_size:
@@ -310,7 +392,7 @@ jobs:
           all_project_files = {}
           
           # Get all relevant files
-          for pattern in ['*.py', '*.txt', '*.md', '*.yml', '*.yaml', '*.sql', '*.json']:
+          for pattern in ['*.py', '*.txt', '*.md', '*.yml', '*.yaml', '*.sql', '*.json', '*.html']:
               for file in Path('.').rglob(pattern):
                   if not str(file).startswith('.git'):
                       try:
@@ -342,19 +424,21 @@ jobs:
           try:
               client = anthropic.Anthropic()
               
-              # Build prompt with continuation support
+              # Build prompt with multi-step awareness
               prompt = f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
               
               Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
               Context: South African (Rand currency, +27 phones)
               Model: You are {model_name}
+              {"Multi-Step Task: Step " + str(current_step) + " of " + str(len(steps)) if is_multi_step else ""}
               
               CRITICAL RULES:
               1. No file should exceed 600 lines
               2. Use TARGETED EDITS for existing files (show only changed sections)
               3. Provide COMPLETE content only for NEW files
               4. If a file needs splitting, create multiple smaller files
-              5. If changes are too extensive for one response, indicate "CONTINUE_NEEDED" at the end
+              5. For multi-step tasks, focus ONLY on the current step
+              6. Indicate if more steps remain with "CONTINUE_NEEDED"
               
               TASK: {clean_task}
               
@@ -363,7 +447,7 @@ jobs:
               Provide your response in this EXACT format:
               
               ## ANALYSIS
-              [Brief analysis of what needs to be done]
+              [Brief analysis of what needs to be done{"for this step" if is_multi_step else ""}]
               
               ## CHANGES NEEDED
               
@@ -402,20 +486,24 @@ jobs:
               ```
               
               ## SUMMARY
-              [Brief summary of changes made]
+              [Brief summary of changes made{"in this step" if is_multi_step else ""}]
               
-              ## CONTINUE_NEEDED
-              [If more changes are needed, list them here and say "Run @claude @continue to complete"]
+              {"## CONTINUE_NEEDED" if is_multi_step and current_step < len(steps) else ""}
+              {"Next step: " + steps[current_step] if is_multi_step and current_step < len(steps) else ""}
+              {"Run @claude @continue to proceed with next step" if is_multi_step and current_step < len(steps) else ""}
               
               IMPORTANT:
               - Use line numbers from the context provided
               - Keep edits focused and minimal
               - If fixing errors, only change the problematic lines
               - For files >600 lines, suggest splitting into logical modules
-              - If you can't complete all changes, indicate what remains
+              {"- Focus ONLY on: " + steps[current_step - 1] if is_multi_step and current_step <= len(steps) else ""}
               '''
               
               print(f"\n🤖 Calling {model_name} with {max_tokens:,} max tokens...")
+              if is_multi_step:
+                  print(f"📍 Working on step {current_step} of {len(steps)}")
+              
               response = client.messages.create(
                   model=selected_model,
                   max_tokens=max_tokens,
@@ -426,30 +514,33 @@ jobs:
               print(f"✓ Received response: {len(response_text)} chars")
               
               # Check if continuation is needed
-              continue_needed = "CONTINUE_NEEDED" in response_text or "Run @claude @continue" in response_text
+              continue_needed = "CONTINUE_NEEDED" in response_text or (is_multi_step and current_step < len(steps))
               
-              # Save context for potential continuation (SOLUTION 5)
+              # Save context for potential continuation (SOLUTION 5 & 6)
               if continue_needed:
-                  # Extract remaining work from response
-                  remaining_work = ""
-                  if "## CONTINUE_NEEDED" in response_text:
-                      remaining_work = response_text.split("## CONTINUE_NEEDED")[1].strip()
-                  
                   context_data = {
-                      'task': clean_task,
+                      'task': clean_task if not is_multi_step else task.replace('@continue', '').strip(),
                       'model': selected_model,
-                      'remaining_work': remaining_work,
+                      'current_step': current_step,
+                      'total_steps': len(steps) if is_multi_step else 1,
+                      'steps': steps,
                       'timestamp': datetime.now().isoformat()
                   }
                   with open('claude_context.json', 'w') as f:
                       json.dump(context_data, f)
-                  print("💾 Context saved for continuation")
+                  print(f"💾 Context saved for continuation (step {current_step + 1} of {len(steps)})")
+              elif Path('claude_context.json').exists():
+                  # Remove context file if task is complete
+                  os.remove('claude_context.json')
+                  print("✅ Task completed, context cleared")
               
               # Save response
               with open('claude_response.md', 'w', encoding='utf-8') as f:
                   f.write(f"<!-- Model: {model_name} -->\n")
                   f.write(f"<!-- Cost: ${estimated_cost:.4f} -->\n")
                   f.write(f"<!-- Max Tokens: {max_tokens} -->\n")
+                  if is_multi_step:
+                      f.write(f"<!-- Step {current_step} of {len(steps)} -->\n")
                   if continue_needed:
                       f.write(f"<!-- CONTINUATION NEEDED -->\n")
                   f.write(response_text)
@@ -486,7 +577,7 @@ jobs:
                           print(f"✗ Error editing {file_path}: {e}")
                   
                   # Parse NEW FILE sections (complete files)
-                  new_file_pattern = r'### NEW FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json)?\n(.*?)\n```'
+                  new_file_pattern = r'### NEW FILE:\s*(.+?)\n```(?:python|sql|txt|md|yml|yaml|json|html)?\n(.*?)\n```'
                   
                   for match in re.finditer(new_file_pattern, response_text, re.DOTALL):
                       file_path = match.group(1).strip()
@@ -530,10 +621,20 @@ jobs:
                   if not auto_apply:
                       summary += "💡 Add `@apply` to apply changes\n"
               
+              # Add step progress for multi-step tasks
+              if is_multi_step:
+                  summary += f"\n📊 **Progress:** Step {current_step} of {len(steps)} completed\n"
+                  if current_step < len(steps):
+                      summary += f"📍 **Next:** {steps[current_step]}\n"
+              
               # Add continuation notice if needed
               if continue_needed:
-                  summary += f"\n⚠️ **More changes needed!**\n"
-                  summary += f"Run `@claude @continue` to complete remaining changes.\n"
+                  summary += f"\n⚠️ **More steps needed!**\n"
+                  summary += f"Run `@claude @continue` to proceed with "
+                  if is_multi_step:
+                      summary += f"step {current_step + 1} of {len(steps)}\n"
+                  else:
+                      summary += "remaining changes\n"
               
               # Add cost info
               summary += f"\n🤖 **Model:** {model_name}\n"
@@ -548,7 +649,12 @@ jobs:
               if auto_apply and changes_applied:
                   try:
                       subprocess.run(['git', 'add', '.'], check=True)
-                      commit_msg = f"🤖 {model_name}: {clean_task[:50]}..."
+                      
+                      if is_multi_step:
+                          commit_msg = f"🤖 {model_name}: Step {current_step}/{len(steps)} - {clean_task[:30]}..."
+                      else:
+                          commit_msg = f"🤖 {model_name}: {clean_task[:50]}..."
+                      
                       subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
                       
                       if create_pr:
