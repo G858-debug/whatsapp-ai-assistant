@@ -71,40 +71,63 @@ jobs:
           force_opus = '@opus' in comment
           force_sonnet = '@sonnet' in comment
           force_haiku = '@haiku' in comment
+          continue_task = '@continue' in comment  # SOLUTION 5: Continue command
           
           # Remove command keywords from task
           clean_task = task.replace('@apply', '').replace('@commit', '').replace('@pr', '')\
-                           .replace('@opus', '').replace('@sonnet', '').replace('@haiku', '').strip()
+                           .replace('@opus', '').replace('@sonnet', '').replace('@haiku', '')\
+                           .replace('@continue', '').strip()
+          
+          # SOLUTION 5: Handle continue command
+          if continue_task:
+              # Check for previous context
+              if Path('claude_context.json').exists():
+                  with open('claude_context.json', 'r') as f:
+                      previous_context = json.load(f)
+                  print(f"📂 Continuing from previous task: {previous_context.get('task', 'unknown')}")
+                  clean_task = f"Continue from previous task: {previous_context['task']}\n\nRemaining work:\n{previous_context.get('remaining_work', 'Complete the implementation')}"
+                  # Use the same model as before if specified
+                  if previous_context.get('model'):
+                      if 'opus' in previous_context['model']:
+                          force_opus = True
+                      elif 'sonnet' in previous_context['model']:
+                          force_sonnet = True
+                      elif 'haiku' in previous_context['model']:
+                          force_haiku = True
+              else:
+                  print("⚠️ No previous context found for @continue")
+                  clean_task = "No previous context found. Please specify what to continue."
           
           # =====================================
-          # ENHANCED MODEL SELECTION WITH HAIKU
+          # ENHANCED MODEL SELECTION WITH INCREASED TOKENS (SOLUTION 1)
           # =====================================
           def select_model_and_context(task, comment):
-              """Select model based on task complexity: Haiku < Sonnet < Opus"""
+              """Select model based on task complexity with increased token limits"""
               
               task_lower = task.lower()
               
               # Force model if specified
               if force_opus:
                   print("🎯 Force flag: Using Opus 4.1")
-                  return 'claude-opus-4-1-20250805', 8000, 'full', "Opus 4.1 (forced)"
+                  return 'claude-opus-4-1-20250805', 16000, 'full', "Opus 4.1 (forced)"  # Increased from 8000
               
               if force_sonnet:
                   print("🎯 Force flag: Using Sonnet 3.5")
-                  return 'claude-3-5-sonnet-20241022', 4000, 'targeted', "Sonnet 3.5 (forced)"
+                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Sonnet 3.5 (forced)"  # Increased from 4000
               
               if force_haiku:
                   print("🎯 Force flag: Using Haiku 3")
-                  return 'claude-3-haiku-20240307', 2000, 'minimal', "Haiku 3 (forced)"
+                  return 'claude-3-haiku-20240307', 4000, 'minimal', "Haiku 3 (forced)"  # Increased from 2000
               
               # HAIKU 3 TRIGGERS (Ultra-simple tasks - $0.25/million tokens)
               haiku_triggers = [
                   # Trivial fixes
                   'fix typo', 'fix spelling', 'update comment', 'fix comma',
                   'add space', 'remove space', 'fix quote', 'fix bracket',
+                  'fix emoji', 'fix string', 'fix f-string',
                   
                   # Simple string/text changes
-                  'change text', 'update string', 'fix emoji', 'rename variable',
+                  'change text', 'update string', 'rename variable',
                   'update version', 'change url', 'fix link',
                   
                   # Documentation only
@@ -119,6 +142,7 @@ jobs:
                   # Single function fixes
                   'fix function', 'update method', 'fix indentation', 'indentationerror',
                   'syntax error', 'fix import', 'add validation', 'add check',
+                  'fix payment', 'fix error in', 'deployment crash',
                   
                   # Simple features
                   'add endpoint', 'simple feature', 'add field', 'update model',
@@ -136,6 +160,7 @@ jobs:
                   
                   # Multi-file operations
                   'all files', 'entire codebase', 'multiple services', 'full system',
+                  'complete implementation', 'finish all',
                   
                   # Complex analysis
                   'analyze', 'investigate', 'debug complex', 'trace bug',
@@ -150,19 +175,19 @@ jobs:
               is_sonnet = any(trigger in task_lower for trigger in sonnet_triggers)
               is_opus = any(trigger in task_lower for trigger in opus_triggers)
               
-              # Decision logic
+              # Decision logic with increased token limits
               if is_haiku and not is_sonnet and not is_opus:
-                  return 'claude-3-haiku-20240307', 2000, 'minimal', "Trivial task (Haiku 3)"
+                  return 'claude-3-haiku-20240307', 4000, 'minimal', "Trivial task (Haiku 3)"
               elif is_sonnet and not is_opus:
-                  return 'claude-3-5-sonnet-20241022', 4000, 'targeted', "Moderate task (Sonnet 3.5)"
+                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Moderate task (Sonnet 3.5)"
               elif is_opus:
-                  return 'claude-opus-4-1-20250805', 8000, 'full', "Complex task (Opus 4.1)"
+                  return 'claude-opus-4-1-20250805', 16000, 'full', "Complex task (Opus 4.1)"
               elif len(task) < 50:
-                  return 'claude-3-haiku-20240307', 2000, 'minimal', "Short request (Haiku 3)"
+                  return 'claude-3-haiku-20240307', 4000, 'minimal', "Short request (Haiku 3)"
               elif len(task) < 150:
-                  return 'claude-3-5-sonnet-20241022', 4000, 'targeted', "Standard task (Sonnet 3.5)"
+                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Standard task (Sonnet 3.5)"
               else:
-                  return 'claude-opus-4-1-20250805', 8000, 'full', "Long request (Opus 4.1)"
+                  return 'claude-opus-4-1-20250805', 16000, 'full', "Long request (Opus 4.1)"
           
           # Select model
           selected_model, max_tokens, context_level, model_reason = select_model_and_context(task, comment)
@@ -170,6 +195,7 @@ jobs:
           
           print(f"🤖 Model: {model_name}")
           print(f"📝 Reason: {model_reason}")
+          print(f"🔢 Max tokens: {max_tokens:,}")
           
           # =====================================
           # CONTEXT BUILDING BASED ON MODEL
@@ -193,6 +219,10 @@ jobs:
                           target_file = file_path
                           break
                   
+                  # Default to services/refiloe.py if it's a deployment error
+                  if not target_file and 'deployment' in task_lower:
+                      target_file = 'services/refiloe.py'
+                  
                   if target_file and target_file in all_files:
                       context += f"\n=== TARGET FILE: {target_file} ===\n"
                       # For minimal context, include line numbers
@@ -213,7 +243,9 @@ jobs:
                       'refiloe': ['services/refiloe.py'],
                       'whatsapp': ['services/whatsapp.py', 'services/refiloe.py'],
                       'dashboard': ['routes/dashboard.py'],
-                      'app': ['app.py']
+                      'app': ['app.py'],
+                      'deployment': ['services/refiloe.py', 'app.py'],
+                      'crash': ['services/refiloe.py', 'app.py']
                   }
                   
                   # Find relevant files
@@ -228,9 +260,12 @@ jobs:
                       if file_path in task or Path(file_path).stem in task_lower:
                           relevant_files.add(file_path)
                   
-                  # Default to app.py if nothing found
-                  if not relevant_files and 'app.py' in all_files:
-                      relevant_files.add('app.py')
+                  # Default to app.py and services/refiloe.py if nothing found
+                  if not relevant_files:
+                      if 'app.py' in all_files:
+                          relevant_files.add('app.py')
+                      if 'services/refiloe.py' in all_files:
+                          relevant_files.add('services/refiloe.py')
                   
                   # Add files with line numbers for targeted edits
                   for file_path in sorted(relevant_files):
@@ -253,7 +288,7 @@ jobs:
               else:
                   context += "\n=== FULL CODEBASE ===\n"
                   total_size = len(context)
-                  max_size = 300000  # ~75k tokens
+                  max_size = 400000  # Increased from 300000 for Opus with more tokens
                   
                   for file_path, content in sorted(all_files.items()):
                       if total_size + len(content) < max_size:
@@ -307,7 +342,7 @@ jobs:
           try:
               client = anthropic.Anthropic()
               
-              # Build prompt with new format for targeted edits
+              # Build prompt with continuation support
               prompt = f'''You are helping with Refiloe, a WhatsApp AI assistant for South African personal trainers.
               
               Tech Stack: Python Flask, Supabase, Railway, WhatsApp Business API
@@ -319,6 +354,7 @@ jobs:
               2. Use TARGETED EDITS for existing files (show only changed sections)
               3. Provide COMPLETE content only for NEW files
               4. If a file needs splitting, create multiple smaller files
+              5. If changes are too extensive for one response, indicate "CONTINUE_NEEDED" at the end
               
               TASK: {clean_task}
               
@@ -368,14 +404,18 @@ jobs:
               ## SUMMARY
               [Brief summary of changes made]
               
+              ## CONTINUE_NEEDED
+              [If more changes are needed, list them here and say "Run @claude @continue to complete"]
+              
               IMPORTANT:
               - Use line numbers from the context provided
               - Keep edits focused and minimal
               - If fixing errors, only change the problematic lines
               - For files >600 lines, suggest splitting into logical modules
+              - If you can't complete all changes, indicate what remains
               '''
               
-              print(f"\n🤖 Calling {model_name}...")
+              print(f"\n🤖 Calling {model_name} with {max_tokens:,} max tokens...")
               response = client.messages.create(
                   model=selected_model,
                   max_tokens=max_tokens,
@@ -385,10 +425,33 @@ jobs:
               response_text = response.content[0].text
               print(f"✓ Received response: {len(response_text)} chars")
               
+              # Check if continuation is needed
+              continue_needed = "CONTINUE_NEEDED" in response_text or "Run @claude @continue" in response_text
+              
+              # Save context for potential continuation (SOLUTION 5)
+              if continue_needed:
+                  # Extract remaining work from response
+                  remaining_work = ""
+                  if "## CONTINUE_NEEDED" in response_text:
+                      remaining_work = response_text.split("## CONTINUE_NEEDED")[1].strip()
+                  
+                  context_data = {
+                      'task': clean_task,
+                      'model': selected_model,
+                      'remaining_work': remaining_work,
+                      'timestamp': datetime.now().isoformat()
+                  }
+                  with open('claude_context.json', 'w') as f:
+                      json.dump(context_data, f)
+                  print("💾 Context saved for continuation")
+              
               # Save response
               with open('claude_response.md', 'w', encoding='utf-8') as f:
                   f.write(f"<!-- Model: {model_name} -->\n")
                   f.write(f"<!-- Cost: ${estimated_cost:.4f} -->\n")
+                  f.write(f"<!-- Max Tokens: {max_tokens} -->\n")
+                  if continue_needed:
+                      f.write(f"<!-- CONTINUATION NEEDED -->\n")
                   f.write(response_text)
               
               # Apply changes if requested
@@ -467,9 +530,15 @@ jobs:
                   if not auto_apply:
                       summary += "💡 Add `@apply` to apply changes\n"
               
+              # Add continuation notice if needed
+              if continue_needed:
+                  summary += f"\n⚠️ **More changes needed!**\n"
+                  summary += f"Run `@claude @continue` to complete remaining changes.\n"
+              
               # Add cost info
               summary += f"\n🤖 **Model:** {model_name}\n"
               summary += f"💰 **Cost:** ${estimated_cost:.4f}\n"
+              summary += f"🔢 **Max Tokens:** {max_tokens:,}\n"
               
               # Save summary
               with open('summary.txt', 'w', encoding='utf-8') as f:
