@@ -40,7 +40,18 @@ def cleanup():
     except Exception as e:
         log_error(f"Error during cleanup: {str(e)}")
 
+import signal
 import atexit
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    log_info(f"Received signal {signum}")
+    cleanup()
+    exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 atexit.register(cleanup)
 
 if __name__ == '__main__':
