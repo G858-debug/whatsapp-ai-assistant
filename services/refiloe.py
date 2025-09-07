@@ -448,7 +448,7 @@ Pending payments: R{total_pending:.2f}
 This month received: R0.00
 
 To request payment from client:
-"Request R500 from John""""
+"Request R500 from John"
             
             else:
                 # Get client's payment status
