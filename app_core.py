@@ -32,7 +32,9 @@ def setup_app_core(app):
     supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
     
     # Initialize services
-    whatsapp_service = WhatsAppService(Config, supabase)
+    from utils.logger import setup_logger
+    logger = setup_logger()
+    whatsapp_service = WhatsAppService(Config, supabase, logger)
     ai_handler = AIIntentHandler(Config, supabase)
     scheduler_service = SchedulerService(supabase, whatsapp_service)
     assessment_service = EnhancedAssessmentService(supabase)
