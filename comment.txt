@@ -1,20 +1,75 @@
-@claude Integrate gamification with existing features.
+@claude Act as multiple specialized agents to fix and optimize each of the following components. Update the web dashboard to be the PRIMARY interface for all gamification features.
 
-1. Workout completion (workout_service.py):
-   - Award 25 points when workout sent
-   - Check if part of workout challenge
+MAIN DASHBOARD (templates/dashboard.html):
+Add a prominent "Challenges & Games" card that shows:
+- Active challenges count with progress bars
+- Current points and rank
+- "View Challenge Hub" button
 
-2. Assessment improvements (assessment_service.py):
-   - Compare assessments, award points for improvements
-   - Trigger "Improver" badge for 10% gains
+CREATE NEW TEMPLATE (templates/challenge_hub.html):
+Mobile-first design with tabs:
 
-3. Habit tracking (habits.py):
-   - Daily points for logging
-   - Update relevant challenges automatically
-   - Streak bonuses
+1. MY ACTIVE CHALLENGES TAB:
+- Visual progress cards for each active challenge
+- Progress bars showing completion %
+- Points earned so far
+- Time remaining countdown
+- "Leave Challenge" option
+- Quick log buttons (water ✓, steps ✓, workout ✓)
 
-4. In refiloe_service.py main handler:
-   - Check for earned badges after each action
-   - Include point notifications in responses
+2. UPCOMING CHALLENGES TAB (DEFAULT VIEW):
+- Calendar view for next 7 days
+- Challenge cards with: name, duration, start date, participants signed up
+- "Pre-book" button (changes to "Booked ✓" when clicked)
+- Filter by: duration, type, difficulty
+- Search functionality
+
+3. LEADERBOARDS TAB:
+- Toggle: Global | My Trainer's Group | My Challenges
+- Show user's rank prominently at top (even if #135)
+- Context window: 2 above, 2 below user
+- Points to next rank
+- Animated rank changes (↑↓)
+
+4. MY STATS TAB:
+- Total points with trend graph
+- Badges earned (visual grid with emojis)
+- Challenge win rate for the month
+- Best streaks
+- Personal records
+
+5. NOTIFICATIONS TAB:
+- Notification preferences toggle
+- Set daily digest time
+- Choose notification style
+- "Quiet hours" setting
+- Test notification button
+
+FOR TRAINERS - Additional tab:
+6. CREATE CHALLENGE TAB:
+- Template selector or custom
+- Set duration, type, target
+- Invite clients (checkbox list)
+- Add custom reward
+- Preview before creating
+- "Save as template" option
+
+FEATURES FOR ALL PAGES:
+- Pull-to-refresh on mobile
+- Smooth animations for progress updates
+- Click challenge for detailed view with:
+  * Full leaderboard
+  * Daily progress graph
+  * Participant list
+  * Challenge rules
+
+DASHBOARD WIDGETS:
+- Add live updating without page refresh
+- Show confetti animation on achievements
+- Progress bars animate when updated
+- Notification badge for new challenges
+
+Keep all existing dashboard functionality, just add Challenge Hub as new section.
+Use existing styles: beige, sage green (#8E9C55), purple gradients.
 
 @apply

@@ -4,525 +4,358 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Refiloe Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        [x-cloak] { display: none !important; }
-        .calendar-grid {
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5e6d3 0%, #e8dcc3 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+        }
+        
+        .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 1px;
-            background-color: #e5e7eb;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
         }
-        .calendar-cell {
-            background-color: white;
-            min-height: 80px;
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
         }
-        @media (max-width: 640px) {
-            .calendar-cell {
-                min-height: 60px;
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .card-icon {
+            font-size: 24px;
+        }
+        
+        /* Gamification Card Styles */
+        .challenge-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .challenge-card .card-title {
+            color: white;
+        }
+        
+        .challenge-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #8E9C55, #a4b366);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #8E9C55 0%, #a4b366 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #8E9C55;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .challenge-stats {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
-<body class="bg-gray-50">
-    <div x-data="dashboardApp()" x-init="init()" x-cloak>
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <h1 class="text-xl font-semibold text-gray-900">Refiloe Dashboard</h1>
-                    <button @click="logout()" class="text-sm text-gray-500 hover:text-gray-700">
-                        Logout
-                    </button>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome back, {{ user.name }}! 👋</h1>
+            <p>{{ current_date }}</p>
+        </div>
+        
+        <div class="dashboard-grid">
+            <!-- Challenges & Games Card -->
+            <div class="card challenge-card">
+                <div class="card-header">
+                    <h2 class="card-title">🎮 Challenges & Games</h2>
+                    <span class="badge">NEW</span>
+                </div>
+                
+                <div class="challenge-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="activeCount">0</span>
+                        <span class="stat-label">Active</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="pointsTotal">0</span>
+                        <span class="stat-label">Points</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="userRank">#--</span>
+                        <span class="stat-label">Rank</span>
+                    </div>
+                </div>
+                
+                <div id="activeChallenges"></div>
+                
+                <a href="/dashboard/challenges" class="btn btn-secondary" style="margin-top: 20px;">
+                    View Challenge Hub →
+                </a>
+            </div>
+            
+            <!-- Today's Sessions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📅 Today's Sessions</h2>
+                    <span class="card-icon">{{ session_count }}</span>
+                </div>
+                <div id="todaysSessions">
+                    <!-- Sessions will be loaded here -->
                 </div>
             </div>
-        </header>
-
-        <!-- Navigation Tabs -->
-        <div class="bg-white border-b">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <nav class="flex space-x-8" aria-label="Tabs">
-                    <button @click="activeTab = 'day'" 
-                            :class="activeTab === 'day' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                        Day
-                    </button>
-                    <button @click="activeTab = 'week'" 
-                            :class="activeTab === 'week' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                        Week
-                    </button>
-                    <button @click="activeTab = 'calendar'" 
-                            :class="activeTab === 'calendar' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                        Calendar
-                    </button>
-                    <button @click="activeTab = 'clients'" 
-                            :class="activeTab === 'clients' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                        Clients
-                    </button>
-                </nav>
+            
+            <!-- Quick Actions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">⚡ Quick Actions</h2>
+                </div>
+                <div class="quick-actions">
+                    <button class="btn btn-primary" onclick="addSession()">Add Session</button>
+                    <button class="btn btn-secondary" onclick="viewClients()">View Clients</button>
+                    <button class="btn btn-secondary" onclick="sendWorkout()">Send Workout</button>
+                    <button class="btn btn-secondary" onclick="viewStats()">Analytics</button>
+                </div>
+            </div>
+            
+            <!-- Revenue Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">💰 This Month</h2>
+                </div>
+                <div class="stat-item" style="text-align: left;">
+                    <span class="stat-value">R{{ monthly_revenue|default('0') }}</span>
+                    <span class="stat-label">Revenue</span>
+                </div>
             </div>
         </div>
-
-        <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <!-- Day View -->
-            <div x-show="activeTab === 'day'" x-transition>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-semibold" x-text="formatDate(currentDate)"></h2>
-                        <div class="flex gap-2">
-                            <button @click="changeDate(-1)" class="p-2 hover:bg-gray-100 rounded">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                                </svg>
-                            </button>
-                            <button @click="goToToday()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
-                                Today
-                            </button>
-                            <button @click="changeDate(1)" class="p-2 hover:bg-gray-100 rounded">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div x-show="dayLoading" class="text-center py-8">
-                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    </div>
-                    
-                    <div x-show="!dayLoading" class="space-y-4">
-                        <template x-for="session in daySessions" :key="session.id">
-                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="font-medium" x-text="session.time"></div>
-                                        <div class="text-lg" x-text="session.client.name"></div>
-                                        <div class="text-sm text-gray-500" x-text="session.type"></div>
-                                    </div>
-                                    <span :class="{
-                                        'bg-green-100 text-green-800': session.status === 'completed',
-                                        'bg-blue-100 text-blue-800': session.status === 'confirmed',
-                                        'bg-gray-100 text-gray-800': session.status === 'cancelled'
-                                    }" class="px-2 py-1 text-xs font-medium rounded-full" x-text="session.status"></span>
-                                </div>
-                            </div>
-                        </template>
-                        <div x-show="daySessions.length === 0" class="text-center py-8 text-gray-500">
-                            No sessions scheduled for this day
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Week View -->
-            <div x-show="activeTab === 'week'" x-transition>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-semibold">Week View</h2>
-                        <div class="flex gap-2">
-                            <button @click="changeWeek(-1)" class="p-2 hover:bg-gray-100 rounded">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                                </svg>
-                            </button>
-                            <button @click="goToCurrentWeek()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
-                                This Week
-                            </button>
-                            <button @click="changeWeek(1)" class="p-2 hover:bg-gray-100 rounded">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div x-show="weekLoading" class="text-center py-8">
-                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    </div>
-                    
-                    <div x-show="!weekLoading" class="overflow-x-auto">
-                        <div class="min-w-full">
-                            <!-- Week grid implementation here -->
-                            <div class="text-center py-8 text-gray-500">
-                                Week view coming soon
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Calendar (Month) View -->
-            <div x-show="activeTab === 'calendar'" x-transition>
-                <div class="bg-white rounded-lg shadow">
-                    <!-- Calendar Header -->
-                    <div class="px-6 py-4 border-b">
-                        <div class="flex justify-between items-center">
-                            <h2 class="text-lg font-semibold" x-text="monthYearDisplay"></h2>
-                            <div class="flex gap-2">
-                                <button @click="changeMonth(-1)" class="p-2 hover:bg-gray-100 rounded transition-colors">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                                    </svg>
-                                </button>
-                                <button @click="goToCurrentMonth()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-                                    Today
-                                </button>
-                                <button @click="changeMonth(1)" class="p-2 hover:bg-gray-100 rounded transition-colors">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Loading State -->
-                    <div x-show="calendarLoading" class="p-8">
-                        <div class="flex justify-center">
-                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                        </div>
-                    </div>
-
-                    <!-- Calendar Grid -->
-                    <div x-show="!calendarLoading" class="p-4 sm:p-6">
-                        <!-- Day Headers -->
-                        <div class="calendar-grid mb-1">
-                            <template x-for="day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">
-                                <div class="text-center text-sm font-medium text-gray-700 py-2" 
-                                     :class="{'text-gray-400': day === 'Sat' || day === 'Sun'}" 
-                                     x-text="day"></div>
-                            </template>
-                        </div>
-
-                        <!-- Calendar Days -->
-                        <div class="calendar-grid">
-                            <template x-for="day in calendarDays" :key="day.date">
-                                <div @click="day.date && navigateToDay(day.date)" 
-                                     class="calendar-cell p-2 cursor-pointer hover:bg-gray-50 transition-colors relative"
-                                     :class="{
-                                         'bg-gray-50': !day.isCurrentMonth,
-                                         'ring-2 ring-blue-500': day.isToday,
-                                         'opacity-60': day.isWeekend && !day.hasEvents
-                                     }">
-                                    <!-- Date Number -->
-                                    <div class="flex justify-between items-start mb-1">
-                                        <span class="text-sm font-medium" 
-                                              :class="{'text-gray-400': !day.isCurrentMonth, 'text-blue-600': day.isToday}"
-                                              x-text="day.dayNumber"></span>
-                                        <div x-show="day.sessionCount > 0" class="flex gap-1">
-                                            <!-- Session type indicators -->
-                                            <template x-for="type in day.sessionTypes">
-                                                <span class="w-2 h-2 rounded-full"
-                                                      :class="{
-                                                          'bg-green-500': type === '1-on-1',
-                                                          'bg-blue-500': type === 'online',
-                                                          'bg-orange-500': type === 'group',
-                                                          'bg-gray-400': type === 'personal'
-                                                      }"></span>
-                                            </template>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Client Names -->
-                                    <div x-show="day.sessions && day.sessions.length > 0" class="space-y-1">
-                                        <template x-for="(session, index) in day.sessions.slice(0, 3)">
-                                            <div x-show="index < 3" class="text-xs truncate" x-text="session.client_abbrev"></div>
-                                        </template>
-                                        <div x-show="day.sessions.length > 3" class="text-xs text-gray-500">
-                                            +<span x-text="day.sessions.length - 3"></span> more
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-
-                        <!-- Month Stats -->
-                        <div class="mt-6 flex justify-between items-center text-sm text-gray-600">
-                            <div>
-                                Total Sessions: <span class="font-medium" x-text="monthStats.total_sessions"></span>
-                            </div>
-                            <div>
-                                Completed: <span class="font-medium text-green-600" x-text="monthStats.completed"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Clients View -->
-            <div x-show="activeTab === 'clients'" x-transition>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-semibold">Clients</h2>
-                        <button @click="showAddClientModal = true" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                            Add Client
-                        </button>
-                    </div>
-                    
-                    <div x-show="clientsLoading" class="text-center py-8">
-                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    </div>
-                    
-                    <div x-show="!clientsLoading" class="space-y-4">
-                        <template x-for="client in clients" :key="client.id">
-                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="text-lg font-medium" x-text="client.name"></div>
-                                        <div class="text-sm text-gray-500" x-text="client.whatsapp"></div>
-                                        <div class="text-sm text-gray-500">
-                                            Sessions: <span x-text="client.sessions_remaining"></span>
-                                        </div>
-                                    </div>
-                                    <span :class="{
-                                        'bg-green-100 text-green-800': client.status === 'active',
-                                        'bg-gray-100 text-gray-800': client.status === 'inactive'
-                                    }" class="px-2 py-1 text-xs font-medium rounded-full" x-text="client.status"></span>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </main>
     </div>
-
+    
     <script>
-        function dashboardApp() {
-            return {
-                activeTab: 'calendar',
-                currentDate: new Date(),
-                currentMonth: new Date().getMonth(),
-                currentYear: new Date().getFullYear(),
-                calendarDays: [],
-                calendarLoading: false,
-                dayLoading: false,
-                weekLoading: false,
-                clientsLoading: false,
-                daySessions: [],
-                weekData: {},
-                clients: [],
-                monthStats: { total_sessions: 0, completed: 0 },
-                showAddClientModal: false,
-                calendarData: {},
+        // Load gamification data
+        async function loadGamificationData() {
+            try {
+                // Load active challenges
+                const challengesRes = await fetch('/api/dashboard/challenges/active', {
+                    headers: {'Authorization': 'Bearer {{ token }}'}
+                });
+                const challenges = await challengesRes.json();
                 
-                get monthYearDisplay() {
-                    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                                   'July', 'August', 'September', 'October', 'November', 'December'];
-                    return `${months[this.currentMonth]} ${this.currentYear}`;
-                },
+                document.getElementById('activeCount').textContent = challenges.length || 0;
                 
-                async init() {
-                    const token = localStorage.getItem('dashboard_token');
-                    if (!token) {
-                        window.location.href = '/dashboard/login';
-                        return;
-                    }
-                    
-                    // Load initial data based on active tab
-                    if (this.activeTab === 'calendar') {
-                        await this.loadMonthView();
-                    } else if (this.activeTab === 'day') {
-                        await this.loadDayView();
-                    } else if (this.activeTab === 'week') {
-                        await this.loadWeekView();
-                    } else if (this.activeTab === 'clients') {
-                        await this.loadClients();
-                    }
-                },
+                // Display progress bars for active challenges
+                const container = document.getElementById('activeChallenges');
+                if (challenges.length > 0) {
+                    container.innerHTML = challenges.slice(0, 2).map(c => `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-size: 14px; margin-bottom: 5px;">${c.name}</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${c.percentage}%">
+                                    ${c.percentage}%
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
                 
-                async loadMonthView() {
-                    this.calendarLoading = true;
-                    try {
-                        const token = localStorage.getItem('dashboard_token');
-                        const response = await fetch(`/api/dashboard/calendar/month?year=${this.currentYear}&month=${this.currentMonth + 1}`, {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.calendarData = data.calendar_data || {};
-                            this.monthStats = data.month_stats || { total_sessions: 0, completed: 0 };
-                            this.generateCalendarDays();
-                        }
-                    } catch (error) {
-                        console.error('Error loading month view:', error);
-                    } finally {
-                        this.calendarLoading = false;
-                    }
-                },
+                // Load stats
+                const statsRes = await fetch('/api/dashboard/stats', {
+                    headers: {'Authorization': 'Bearer {{ token }}'}
+                });
+                const stats = await statsRes.json();
                 
-                generateCalendarDays() {
-                    const firstDay = new Date(this.currentYear, this.currentMonth, 1);
-                    const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0);
-                    const startDate = new Date(firstDay);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    
-                    // Adjust to start on Monday
-                    const dayOfWeek = startDate.getDay();
-                    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                    startDate.setDate(startDate.getDate() - daysToSubtract);
-                    
-                    this.calendarDays = [];
-                    const currentDate = new Date(startDate);
-                    
-                    // Generate 6 weeks (42 days)
-                    for (let i = 0; i < 42; i++) {
-                        const dateStr = currentDate.toISOString().split('T')[0];
-                        const dayData = this.calendarData[dateStr] || [];
-                        const isCurrentMonth = currentDate.getMonth() === this.currentMonth;
-                        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-                        const isToday = currentDate.getTime() === today.getTime();
-                        
-                        // Get unique session types
-                        const sessionTypes = [...new Set(dayData.map(s => s.type))];
-                        
-                        this.calendarDays.push({
-                            date: dateStr,
-                            dayNumber: currentDate.getDate(),
-                            isCurrentMonth: isCurrentMonth,
-                            isWeekend: isWeekend,
-                            isToday: isToday,
-                            sessions: dayData,
-                            sessionCount: dayData.length,
-                            sessionTypes: sessionTypes,
-                            hasEvents: dayData.length > 0
-                        });
-                        
-                        currentDate.setDate(currentDate.getDate() + 1);
-                    }
-                },
+                document.getElementById('pointsTotal').textContent = stats.points_total || 0;
                 
-                async loadDayView() {
-                    this.dayLoading = true;
-                    try {
-                        const token = localStorage.getItem('dashboard_token');
-                        const dateStr = this.currentDate.toISOString().split('T')[0];
-                        const response = await fetch(`/api/dashboard/calendar/day?date=${dateStr}`, {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.daySessions = data.sessions || [];
-                        }
-                    } catch (error) {
-                        console.error('Error loading day view:', error);
-                    } finally {
-                        this.dayLoading = false;
-                    }
-                },
+                // Load leaderboard position
+                const lbRes = await fetch('/api/dashboard/leaderboard/global', {
+                    headers: {'Authorization': 'Bearer {{ token }}'}
+                });
+                const lb = await lbRes.json();
                 
-                async loadWeekView() {
-                    this.weekLoading = true;
-                    try {
-                        const token = localStorage.getItem('dashboard_token');
-                        const dateStr = this.currentDate.toISOString().split('T')[0];
-                        const response = await fetch(`/api/dashboard/calendar/week?date=${dateStr}`, {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.weekData = data.week_data || {};
-                        }
-                    } catch (error) {
-                        console.error('Error loading week view:', error);
-                    } finally {
-                        this.weekLoading = false;
-                    }
-                },
+                if (lb.user_stats) {
+                    document.getElementById('userRank').textContent = `#${lb.user_stats.rank}`;
+                }
                 
-                async loadClients() {
-                    this.clientsLoading = true;
-                    try {
-                        const token = localStorage.getItem('dashboard_token');
-                        const response = await fetch('/api/dashboard/clients', {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.clients = data.clients || [];
-                        }
-                    } catch (error) {
-                        console.error('Error loading clients:', error);
-                    } finally {
-                        this.clientsLoading = false;
-                    }
-                },
-                
-                changeMonth(direction) {
-                    this.currentMonth += direction;
-                    if (this.currentMonth > 11) {
-                        this.currentMonth = 0;
-                        this.currentYear++;
-                    } else if (this.currentMonth < 0) {
-                        this.currentMonth = 11;
-                        this.currentYear--;
-                    }
-                    this.loadMonthView();
-                },
-                
-                goToCurrentMonth() {
-                    const today = new Date();
-                    this.currentMonth = today.getMonth();
-                    this.currentYear = today.getFullYear();
-                    this.loadMonthView();
-                },
-                
-                navigateToDay(dateStr) {
-                    this.currentDate = new Date(dateStr);
-                    this.activeTab = 'day';
-                    this.loadDayView();
-                },
-                
-                changeDate(days) {
-                    this.currentDate.setDate(this.currentDate.getDate() + days);
-                    this.currentDate = new Date(this.currentDate);
-                    this.loadDayView();
-                },
-                
-                goToToday() {
-                    this.currentDate = new Date();
-                    this.loadDayView();
-                },
-                
-                changeWeek(weeks) {
-                    this.currentDate.setDate(this.currentDate.getDate() + (weeks * 7));
-                    this.currentDate = new Date(this.currentDate);
-                    this.loadWeekView();
-                },
-                
-                goToCurrentWeek() {
-                    this.currentDate = new Date();
-                    this.loadWeekView();
-                },
-                
-                formatDate(date) {
-                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                    return date.toLocaleDateString('en-US', options);
-                },
-                
-                logout() {
-                    localStorage.removeItem('dashboard_token');
-                    window.location.href = '/dashboard/login';
+            } catch (error) {
+                console.error('Error loading gamification data:', error);
+            }
+        }
+        
+        // Refresh data every 30 seconds for live updates
+        loadGamificationData();
+        setInterval(loadGamificationData, 30000);
+        
+        // Confetti animation for achievements
+        function celebrateAchievement() {
+            // Simple confetti effect
+            const colors = ['#8E9C55', '#764ba2', '#667eea', '#f5e6d3'];
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: 10px;
+                    height: 10px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    left: ${Math.random() * 100}%;
+                    top: -10px;
+                    border-radius: 50%;
+                    animation: fall ${3 + Math.random() * 2}s linear;
+                    z-index: 9999;
+                `;
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 5000);
+            }
+        }
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fall {
+                to {
+                    transform: translateY(100vh) rotate(360deg);
+                    opacity: 0;
                 }
             }
+        `;
+        document.head.appendChild(style);
+        
+        // Quick action functions
+        function addSession() {
+            window.location.href = '/dashboard/calendar?action=add';
+        }
+        
+        function viewClients() {
+            window.location.href = '/dashboard/clients';
+        }
+        
+        function sendWorkout() {
+            window.location.href = '/dashboard/workout';
+        }
+        
+        function viewStats() {
+            window.location.href = '/dashboard/analytics';
         }
     </script>
 </body>
