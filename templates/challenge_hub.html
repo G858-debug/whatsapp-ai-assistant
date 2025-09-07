@@ -6,912 +6,204 @@
     <title>Challenge Hub - Refiloe</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #f5e6d3 0%, #e8dcc3 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
         }
-        
-        .mobile-container {
-            max-width: 600px;
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
-            min-height: 100vh;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .tabs {
-            display: flex;
-            overflow-x: auto;
-            background: white;
-            border-bottom: 2px solid #f0f0f0;
-            position: sticky;
-            top: 70px;
-            z-index: 50;
-        }
-        
-        .tab {
-            flex: 0 0 auto;
-            padding: 15px 20px;
-            background: none;
-            border: none;
-            font-size: 14px;
-            font-weight: 600;
-            color: #666;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.3s ease;
-        }
-        
-        .tab.active {
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-        }
-        
-        .tab-content {
-            display: none;
-            padding: 20px;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* Challenge Cards */
-        .challenge-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
-        }
-        
-        .challenge-card:active {
-            transform: scale(0.98);
-        }
-        
-        .challenge-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
-        }
-        
-        .challenge-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .challenge-meta {
-            font-size: 12px;
-            color: #999;
-            margin-top: 5px;
-        }
-        
-        .progress-bar {
-            background: #f0f0f0;
-            border-radius: 10px;
-            height: 30px;
-            overflow: hidden;
-            margin: 15px 0;
-        }
-        
-        .progress-fill {
-            background: linear-gradient(90deg, #8E9C55, #a4b366);
-            height: 100%;
-            border-radius: 10px;
-            transition: width 0.5s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        
-        .countdown {
-            display: inline-block;
-            padding: 5px 10px;
-            background: #fff3cd;
-            color: #856404;
-            border-radius: 5px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
-        .quick-log {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .log-btn {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid #8E9C55;
-            background: white;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #8E9C55;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .log-btn:active {
-            background: #8E9C55;
-            color: white;
-        }
-        
-        /* Calendar View */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .calendar-day {
-            aspect-ratio: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: #f9f9f9;
-            border-radius: 10px;
-            font-size: 12px;
-            position: relative;
-        }
-        
-        .calendar-day.has-challenge {
-            background: linear-gradient(135deg, #667eea20, #764ba220);
-            border: 2px solid #667eea;
-        }
-        
-        .calendar-date {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .calendar-challenge-count {
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            background: #667eea;
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 600;
-        }
-        
-        /* Leaderboard */
-        .leaderboard-toggle {
-            display: flex;
-            background: #f0f0f0;
-            border-radius: 10px;
-            padding: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .toggle-btn {
-            flex: 1;
-            padding: 10px;
-            background: none;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #666;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .toggle-btn.active {
-            background: white;
-            color: #667eea;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        .rank-card {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .rank-number {
-            font-size: 48px;
-            font-weight: 700;
-        }
-        
-        .rank-change {
-            display: inline-block;
-            padding: 5px 10px;
-            background: rgba(255,255,255,0.2);
             border-radius: 20px;
-            font-size: 14px;
-            margin-top: 10px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        
-        .leaderboard-entry {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            background: white;
-            border-radius: 10px;
+        .header {
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1f2937;
             margin-bottom: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        
-        .leaderboard-entry.user {
-            background: linear-gradient(135deg, #667eea20, #764ba220);
-            border: 2px solid #667eea;
-        }
-        
-        .rank-position {
-            font-size: 20px;
-            font-weight: 700;
-            color: #667eea;
-            margin-right: 15px;
-            min-width: 40px;
-        }
-        
-        .user-info {
-            flex: 1;
-        }
-        
-        .user-name {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .user-points {
-            font-size: 12px;
-            color: #666;
-        }
-        
-        .rank-trend {
-            font-size: 20px;
-        }
-        
-        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
-        
         .stat-card {
-            background: white;
-            border-radius: 15px;
+            background: #f3f4f6;
             padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 10px;
             text-align: center;
         }
-        
         .stat-value {
-            font-size: 32px;
-            font-weight: 700;
+            font-size: 2em;
+            font-weight: bold;
             color: #667eea;
         }
-        
         .stat-label {
-            font-size: 14px;
-            color: #666;
+            color: #6b7280;
             margin-top: 5px;
         }
-        
-        .badge-grid {
+        .challenge-section {
+            margin-bottom: 30px;
+        }
+        .challenge-section h2 {
+            color: #374151;
+            margin-bottom: 15px;
+        }
+        .challenge-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
-        
-        .badge-item {
-            text-align: center;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 15px;
-        }
-        
-        .badge-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-        
-        .badge-name {
-            font-size: 12px;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        /* Notification Settings */
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            background: white;
+        .challenge-card {
+            border: 1px solid #e5e7eb;
             border-radius: 10px;
+            padding: 20px;
+            transition: transform 0.2s;
+        }
+        .challenge-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .challenge-name {
+            font-weight: 600;
+            color: #1f2937;
             margin-bottom: 10px;
         }
-        
-        .setting-label {
-            font-weight: 600;
-            color: #333;
+        .challenge-progress {
+            background: #e5e7eb;
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
         }
-        
-        .toggle-switch {
-            position: relative;
-            width: 50px;
-            height: 26px;
+        .progress-fill {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            transition: width 0.3s;
         }
-        
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        
-        input:checked + .slider {
-            background-color: #8E9C55;
-        }
-        
-        input:checked + .slider:before {
-            transform: translateX(24px);
-        }
-        
-        .btn-primary {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #8E9C55, #a4b366);
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 5px;
             cursor: pointer;
-            transition: transform 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
         }
-        
-        .btn-primary:active {
-            transform: scale(0.98);
-        }
-        
-        /* Pull to refresh */
-        .pull-indicator {
-            display: none;
-            text-align: center;
-            padding: 20px;
-            color: #667eea;
-        }
-        
-        .pull-indicator.show {
-            display: block;
-        }
-        
-        @media (min-width: 768px) {
-            .mobile-container {
-                margin: 20px auto;
-                border-radius: 20px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            }
+        .btn:hover {
+            opacity: 0.9;
         }
     </style>
 </head>
 <body>
-    <div class="mobile-container">
+    <div class="container">
         <div class="header">
             <h1>🎮 Challenge Hub</h1>
-            <p>{{ profile.points_total }} points • Rank #{{ profile.rank|default('--') }}</p>
+            <p>Welcome back, {{ user.name }}!</p>
         </div>
         
-        <div class="tabs">
-            <button class="tab" onclick="switchTab('active')">My Active</button>
-            <button class="tab active" onclick="switchTab('upcoming')">Upcoming</button>
-            <button class="tab" onclick="switchTab('leaderboard')">Leaderboard</button>
-            <button class="tab" onclick="switchTab('stats')">My Stats</button>
-            <button class="tab" onclick="switchTab('notifications')">Notifications</button>
-            {% if user_type == 'trainer' %}
-            <button class="tab" onclick="switchTab('create')">Create</button>
-            {% endif %}
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ profile.points_total|default(0) }}</div>
+                <div class="stat-label">Total Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="active-challenges">0</div>
+                <div class="stat-label">Active Challenges</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="badges-earned">0</div>
+                <div class="stat-label">Badges Earned</div>
+            </div>
         </div>
         
-        <div class="pull-indicator" id="pullIndicator">
-            <span>🔄 Refreshing...</span>
+        <div class="challenge-section">
+            <h2>Active Challenges</h2>
+            <div class="challenge-grid" id="active-challenges-grid">
+                <!-- Populated by JavaScript -->
+            </div>
         </div>
         
-        <!-- Active Challenges Tab -->
-        <div id="active" class="tab-content">
-            <div id="activeChallengesList"></div>
+        <div class="challenge-section">
+            <h2>Upcoming Challenges</h2>
+            <div class="challenge-grid" id="upcoming-challenges-grid">
+                <!-- Populated by JavaScript -->
+            </div>
         </div>
-        
-        <!-- Upcoming Challenges Tab -->
-        <div id="upcoming" class="tab-content active">
-            <div class="calendar-grid" id="calendarGrid"></div>
-            <div id="upcomingChallengesList"></div>
-        </div>
-        
-        <!-- Leaderboard Tab -->
-        <div id="leaderboard" class="tab-content">
-            <div class="leaderboard-toggle">
-                <button class="toggle-btn active" onclick="switchLeaderboard('global')">Global</button>
-                <button class="toggle-btn" onclick="switchLeaderboard('trainer')">My Trainer</button>
-                <button class="toggle-btn" onclick="switchLeaderboard('challenges')">Challenges</button>
-            </div>
-            <div id="leaderboardContent"></div>
-        </div>
-        
-        <!-- Stats Tab -->
-        <div id="stats" class="tab-content">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalPoints">0</div>
-                    <div class="stat-label">Total Points</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="winRate">0%</div>
-                    <div class="stat-label">Win Rate</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="bestStreak">0</div>
-                    <div class="stat-label">Best Streak</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="challenges">0</div>
-                    <div class="stat-label">Challenges</div>
-                </div>
-            </div>
-            
-            <h3 style="margin: 20px 0 10px; padding: 0 5px;">Badges Earned</h3>
-            <div class="badge-grid" id="badgeGrid"></div>
-        </div>
-        
-        <!-- Notifications Tab -->
-        <div id="notifications" class="tab-content">
-            <div class="setting-row">
-                <span class="setting-label">Daily Digest</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="dailyDigest" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label">Challenge Updates</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="challengeUpdates" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label">Digest Time</span>
-                <input type="time" value="07:00" style="padding: 5px; border-radius: 5px; border: 1px solid #ddd;">
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label">Quiet Hours</span>
-                <span style="font-size: 14px; color: #666;">20:00 - 06:00</span>
-            </div>
-            
-            <button class="btn-primary" style="margin-top: 20px;" onclick="testNotification()">
-                Test Notification
-            </button>
-        </div>
-        
-        <!-- Create Challenge Tab (Trainers Only) -->
-        {% if user_type == 'trainer' %}
-        <div id="create" class="tab-content">
-            <h3 style="margin-bottom: 20px;">Create New Challenge</h3>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Challenge Type</label>
-                <select id="challengeType" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd;">
-                    <option value="water_intake">Water Intake</option>
-                    <option value="steps">Daily Steps</option>
-                    <option value="workout">Workout Completion</option>
-                    <option value="habits">Habit Tracking</option>
-                    <option value="custom">Custom</option>
-                </select>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Duration</label>
-                <select id="duration" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd;">
-                    <option value="1">1 Day</option>
-                    <option value="3">3 Days</option>
-                    <option value="7">1 Week</option>
-                    <option value="14">2 Weeks</option>
-                    <option value="30">1 Month</option>
-                </select>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Target</label>
-                <input type="number" id="target" placeholder="e.g., 10000 steps" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd;">
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px; font-weight: 600;">Invite Clients</label>
-                <div id="clientList" style="max-height: 200px; overflow-y: auto;"></div>
-            </div>
-            
-            <button class="btn-primary" onclick="createChallenge()">Create Challenge</button>
-        </div>
-        {% endif %}
     </div>
     
     <script>
         const token = '{{ token }}';
-        let currentTab = 'upcoming';
-        let currentLeaderboard = 'global';
         
-        function switchTab(tab) {
-            currentTab = tab;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        // Load active challenges
+        fetch('/api/dashboard/challenges/active', {
+            headers: {'Authorization': 'Bearer ' + token}
+        })
+        .then(r => r.json())
+        .then(data => {
+            const grid = document.getElementById('active-challenges-grid');
+            document.getElementById('active-challenges').textContent = data.length;
             
-            event.target.classList.add('active');
-            document.getElementById(tab).classList.add('active');
-            
-            // Load tab data
-            loadTabData(tab);
-        }
-        
-        function switchLeaderboard(type) {
-            currentLeaderboard = type;
-            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            loadLeaderboard(type);
-        }
-        
-        async function loadTabData(tab) {
-            switch(tab) {
-                case 'active':
-                    await loadActiveChallenges();
-                    break;
-                case 'upcoming':
-                    await loadUpcomingChallenges();
-                    break;
-                case 'leaderboard':
-                    await loadLeaderboard(currentLeaderboard);
-                    break;
-                case 'stats':
-                    await loadStats();
-                    break;
-                case 'create':
-                    await loadClients();
-                    break;
-            }
-        }
-        
-        async function loadActiveChallenges() {
-            const res = await fetch('/api/dashboard/challenges/active', {
-                headers: {'Authorization': `Bearer ${token}`}
+            data.forEach(challenge => {
+                const card = document.createElement('div');
+                card.className = 'challenge-card';
+                card.innerHTML = `
+                    <div class="challenge-name">${challenge.name}</div>
+                    <p>${challenge.description}</p>
+                    <div class="challenge-progress">
+                        <div class="progress-fill" style="width: ${challenge.percentage}%"></div>
+                    </div>
+                    <p>${challenge.progress} / ${challenge.target}</p>
+                `;
+                grid.appendChild(card);
             });
-            const challenges = await res.json();
+        });
+        
+        // Load upcoming challenges
+        fetch('/api/dashboard/challenges/upcoming', {
+            headers: {'Authorization': 'Bearer ' + token}
+        })
+        .then(r => r.json())
+        .then(data => {
+            const grid = document.getElementById('upcoming-challenges-grid');
             
-            const container = document.getElementById('activeChallengesList');
-            
-            if (challenges.length === 0) {
-                container.innerHTML = '<p style="text-align: center; padding: 40px; color: #999;">No active challenges</p>';
-                return;
-            }
-            
-            container.innerHTML = challenges.map(c => `
-                <div class="challenge-card">
-                    <div class="challenge-header">
-                        <div>
-                            <div class="challenge-title">${c.name}</div>
-                            <div class="challenge-meta">${c.progress}/${c.target} completed</div>
-                        </div>
-                        <div class="countdown">${getDaysRemaining(c.end_date)} days left</div>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${c.percentage}%">${c.percentage}%</div>
-                    </div>
-                    <div class="quick-log">
-                        <button class="log-btn" onclick="quickLog('water', '${c.participant_id}')">💧 Water ✓</button>
-                        <button class="log-btn" onclick="quickLog('steps', '${c.participant_id}')">👟 Steps ✓</button>
-                        <button class="log-btn" onclick="quickLog('workout', '${c.participant_id}')">💪 Workout ✓</button>
-                    </div>
-                    <button class="btn-primary" style="margin-top: 15px; background: #dc3545;" onclick="leaveChallenge('${c.participant_id}')">
-                        Leave Challenge
+            data.forEach(challenge => {
+                const card = document.createElement('div');
+                card.className = 'challenge-card';
+                card.innerHTML = `
+                    <div class="challenge-name">${challenge.name}</div>
+                    <p>${challenge.description}</p>
+                    <p>Starts: ${challenge.start_date}</p>
+                    <button class="btn" onclick="preBook('${challenge.id}')">
+                        ${challenge.is_pre_booked ? 'Pre-booked ✓' : 'Pre-book'}
                     </button>
-                </div>
-            `).join('');
-        }
-        
-        async function loadUpcomingChallenges() {
-            const res = await fetch('/api/dashboard/challenges/upcoming', {
-                headers: {'Authorization': `Bearer ${token}`}
-            });
-            const challenges = await res.json();
-            
-            // Build calendar
-            const today = new Date();
-            const calendarGrid = document.getElementById('calendarGrid');
-            const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-            
-            calendarGrid.innerHTML = days.map(d => `<div style="font-weight: 600; text-align: center;">${d}</div>`).join('');
-            
-            for (let i = 0; i < 7; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() + i);
-                const dayChallenge = challenges.filter(c => 
-                    new Date(c.start_date).toDateString() === date.toDateString()
-                );
-                
-                calendarGrid.innerHTML += `
-                    <div class="calendar-day ${dayChallenge.length > 0 ? 'has-challenge' : ''}">
-                        <div class="calendar-date">${date.getDate()}</div>
-                        ${dayChallenge.length > 0 ? `<div class="calendar-challenge-count">${dayChallenge.length}</div>` : ''}
-                    </div>
                 `;
-            }
-            
-            // Build challenge list
-            const container = document.getElementById('upcomingChallengesList');
-            container.innerHTML = challenges.map(c => `
-                <div class="challenge-card">
-                    <div class="challenge-header">
-                        <div>
-                            <div class="challenge-title">${c.name}</div>
-                            <div class="challenge-meta">
-                                ${c.duration_days} days • Starts ${new Date(c.start_date).toLocaleDateString()}
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 20px; font-weight: 600; color: #667eea;">+${c.points_reward}</div>
-                            <div style="font-size: 12px; color: #999;">points</div>
-                        </div>
-                    </div>
-                    <p style="margin: 10px 0; color: #666; font-size: 14px;">${c.description}</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 14px; color: #999;">${c.participant_count} participants</span>
-                        <button class="btn-primary" style="width: auto; padding: 10px 20px;" 
-                                onclick="preBookChallenge('${c.id}')" 
-                                ${c.is_pre_booked ? 'disabled' : ''}>
-                            ${c.is_pre_booked ? 'Booked ✓' : 'Pre-book'}
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        async function loadLeaderboard(type) {
-            const res = await fetch(`/api/dashboard/leaderboard/${type}`, {
-                headers: {'Authorization': `Bearer ${token}`}
+                grid.appendChild(card);
             });
-            const data = await res.json();
-            
-            const container = document.getElementById('leaderboardContent');
-            
-            if (data.user_stats) {
-                container.innerHTML = `
-                    <div class="rank-card">
-                        <div class="rank-number">#${data.user_stats.rank}</div>
-                        <div>${data.user_stats.points} points</div>
-                        <div class="rank-change">
-                            ${data.user_stats.trend === 'up' ? '↑' : data.user_stats.trend === 'down' ? '↓' : '→'} 
-                            ${data.user_stats.trend_value} positions
-                        </div>
-                        <div style="margin-top: 10px; font-size: 14px;">
-                            ${data.user_stats.points_to_next} points to next rank
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Show top 10
-            if (data.top_10) {
-                container.innerHTML += data.top_10.map(entry => `
-                    <div class="leaderboard-entry ${entry.is_user ? 'user' : ''}">
-                        <div class="rank-position">#${entry.rank}</div>
-                        <div class="user-info">
-                            <div class="user-name">${entry.nickname}</div>
-                            <div class="user-points">${entry.points} points</div>
-                        </div>
-                        <div class="rank-trend">
-                            ${entry.trend === 'up' ? '↑' : entry.trend === 'down' ? '↓' : '→'}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            // Show user context if not in top 10
-            if (data.user_context) {
-                container.innerHTML += '<div style="text-align: center; padding: 20px; color: #999;">...</div>';
-                container.innerHTML += data.user_context.map(entry => `
-                    <div class="leaderboard-entry ${entry.is_user ? 'user' : ''}">
-                        <div class="rank-position">#${entry.rank}</div>
-                        <div class="user-info">
-                            <div class="user-name">${entry.nickname}</div>
-                            <div class="user-points">${entry.points} points</div>
-                        </div>
-                        <div class="rank-trend">
-                            ${entry.trend === 'up' ? '↑' : entry.trend === 'down' ? '↓' : '→'}
-                        </div>
-                    </div>
-                `).join('');
-            }
-        }
+        });
         
-        async function loadStats() {
-            const res = await fetch('/api/dashboard/stats', {
-                headers: {'Authorization': `Bearer ${token}`}
-            });
-            const stats = await res.json();
-            
-            document.getElementById('totalPoints').textContent = stats.points_total || 0;
-            document.getElementById('winRate').textContent = `${stats.win_rate || 0}%`;
-            document.getElementById('bestStreak').textContent = stats.best_streak || 0;
-            document.getElementById('challenges').textContent = stats.challenges_completed || 0;
-            
-            // Display badges
-            const badgeGrid = document.getElementById('badgeGrid');
-            if (stats.badges && stats.badges.length > 0) {
-                badgeGrid.innerHTML = stats.badges.map(badge => `
-                    <div class="badge-item">
-                        <div class="badge-icon">${badge.icon}</div>
-                        <div class="badge-name">${badge.name}</div>
-                    </div>
-                `).join('');
-            } else {
-                badgeGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">No badges earned yet</p>';
-            }
-        }
-        
-        async function preBookChallenge(challengeId) {
-            const res = await fetch('/api/dashboard/challenges/pre-book', {
+        function preBook(challengeId) {
+            fetch('/api/dashboard/challenges/pre-book', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': 'Bearer ' + token,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({challenge_id: challengeId})
+            })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+                location.reload();
             });
-            
-            if (res.ok) {
-                event.target.textContent = 'Booked ✓';
-                event.target.disabled = true;
-                showNotification('Challenge pre-booked! You\'ll be notified when it starts.');
-            }
         }
-        
-        async function leaveChallenge(participantId) {
-            if (!confirm('Are you sure you want to leave this challenge?')) return;
-            
-            const res = await fetch('/api/dashboard/challenges/leave', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({participant_id: participantId})
-            });
-            
-            if (res.ok) {
-                loadActiveChallenges();
-                showNotification('You have left the challenge');
-            }
-        }
-        
-        function getDaysRemaining(endDate) {
-            const end = new Date(endDate);
-            const now = new Date();
-            const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-            return Math.max(0, days);
-        }
-        
-        function showNotification(message) {
-            // Simple notification
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #333;
-                color: white;
-                padding: 15px 20px;
-                border-radius: 10px;
-                z-index: 1000;
-                animation: slideUp 0.3s ease;
-            `;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
-        }
-        
-        // Pull to refresh
-        let startY = 0;
-        let isPulling = false;
-        
-        document.addEventListener('touchstart', (e) => {
-            if (window.scrollY === 0) {
-                startY = e.touches[0].pageY;
-                isPulling = true;
-            }
-        });
-        
-        document.addEventListener('touchmove', (e) => {
-            if (!isPulling) return;
-            
-            const currentY = e.touches[0].pageY;
-            const diff = currentY - startY;
-            
-            if (diff > 50) {
-                document.getElementById('pullIndicator').classList.add('show');
-            }
-        });
-        
-        document.addEventListener('touchend', () => {
-            if (document.getElementById('pullIndicator').classList.contains('show')) {
-                document.getElementById('pullIndicator').classList.remove('show');
-                loadTabData(currentTab);
-            }
-            isPulling = false;
-        });
-        
-        // Initial load
-        loadUpcomingChallenges();
     </script>
 </body>
 </html>

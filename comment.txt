@@ -1,1 +1,2 @@
-@apply @claude @continue
+@claude @apply @continue
+
