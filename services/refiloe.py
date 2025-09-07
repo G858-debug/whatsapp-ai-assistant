@@ -134,6 +134,25 @@ class RefiloeService:
         except Exception as e:
             log_error(f"Error getting user context: {str(e)}")
             return (None, None)
+
+    def _get_user_context_dict(self, phone_number: str) -> Dict:
+        """Get user context as dictionary for backward compatibility"""
+        user_type, user_data = self._get_user_context_dict(phone_number)
+        
+        context = {
+            'phone_number': phone_number,
+            'is_trainer': user_type == 'trainer',
+            'is_client': user_type == 'client',
+            'is_new_user': user_type is None,
+            'user_type': user_type
+        }
+        
+        if user_data:
+            context['user_data'] = user_data
+            context['user_id'] = user_data.get('id')
+            context['user_name'] = user_data.get('name')
+        
+        return context
     
     def _handle_text_message(self, message_data: Dict, user_type: str, user_data: Dict) -> Dict:
         """Handle text messages"""
@@ -1087,9 +1106,10 @@ Just type what you need naturally! 💪"""
             log_error(f"Error getting user context: {str(e)}")
             return {'phone_number': phone_number}
     
-    def _get_help_message(self, user_context: Dict) -> Dict:
+    def _get_help_message(self, user_type: str, user_data: Dict) -> Dict:
         """Get help message based on user type"""
-        if user_context.get('is_trainer'):
+        if user_type == 'trainer':
+        return {
             message = """🤖 *Refiloe AI Assistant - Trainer Commands*
 
 *Session Management:*
@@ -1142,6 +1162,7 @@ Just message naturally, I understand context! 💪"""
 - Help - /help
 
 Just message naturally, I understand! 💪"""
+        }
         
         else:
             message = """🤖 *Welcome to Refiloe AI Assistant!*
