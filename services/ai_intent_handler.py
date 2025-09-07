@@ -20,7 +20,7 @@ class AIIntentHandler:
         
         # Initialize Claude
         if config.ANTHROPIC_API_KEY:
-            self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+            self.client = Anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
             self.model = "claude-3-5-sonnet-20241022"
             log_info("AI Intent Handler initialized with Claude")
         else:
