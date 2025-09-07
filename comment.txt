@@ -1,18 +1,59 @@
-@claude Implement client challenge participation.
+@claude Create a library of pre-defined challenges with dashboard management and smart notifications.
 
 Add to services/gamification.py:
-- join_challenge() - client joins a challenge
-- log_challenge_progress() - automatic tracking from habits/workouts
-- get_my_challenges() - list client's active challenges
-- calculate_points() - award points based on achievement
 
-Integrate with existing habit tracking:
-- When habits are logged, check active challenges
-- Auto-update challenge_progress table
-- Send encouraging messages for milestones
+1. CHALLENGE LIBRARY:
+Create get_challenge_library() that returns:
+- Daily challenges (24 hours): Water Wednesday, Move It Monday, Early Bird, etc.
+- Short challenges (2-4 days): Hydration Hero, Step Up, Core Crusher
+- Weekly challenges (7 days): 7K for 7 Days, Sleep Sanctuary, Zen Week
+- Extended challenges (10-21 days): Consistency King, Habit Former
+- Special pop-ups: Flash challenges, Weekend Warriors
 
-WhatsApp responses:
-"🎯 Great job! You earned 25 points for today's workout!"
-"💪 You're 3rd on the leaderboard! Keep going!"
+2. CHALLENGE SCHEDULING:
+Create schedule_upcoming_challenges() that:
+- Schedules challenges throughout the month (not just day 1)
+- Adds challenges to 'upcoming_challenges' table 7 days before start
+- Sets random start times (Mondays, Wednesdays, Fridays)
+- Ensures mix of challenge lengths each week
+- Maximum 5 active challenges at once per category
+
+3. PRE-BOOKING SYSTEM:
+Add pre_book_challenge() that:
+- Allows users to join challenges up to 7 days early
+- Stores in 'challenge_pre_bookings' table
+- Sends single confirmation via WhatsApp
+- Auto-enrolls when challenge starts
+
+4. NOTIFICATION PREFERENCES:
+Create NotificationManager class with:
+- set_user_preferences(): Daily digest, milestone only, weekly, or quiet mode
+- get_daily_digest(): Combines all updates into one message
+- should_notify(): Checks if notification should be sent based on preferences
+- Default: Daily digest at 7am, no messages after 8pm
+
+5. SMART NOTIFICATION BATCHING:
+- create_daily_digest(): Combines points, challenges, leaderboard into ONE message
+- Only send start notifications for pre-booked challenges
+- Group all challenge invites into weekly preview (Sundays)
+- Never send more than 2 WhatsApp messages per day per user
+
+6. DASHBOARD PRIORITY:
+- All challenge management happens via dashboard
+- WhatsApp only for: daily digest (if enabled), milestone achievements, pre-booked starts
+- Add dashboard_url to messages: "View details at [dashboard_link]"
+
+7. SCHEDULER JOBS:
+Add three scheduled tasks:
+- schedule_weekly_challenges: Runs Sundays at 6pm (preview next week)
+- process_daily_digests: Runs daily at user's preferred time
+- start_scheduled_challenges: Runs hourly to activate challenges
+
+Database tables needed:
+- upcoming_challenges (id, challenge_template_id, start_date, end_date, visible_from)
+- challenge_pre_bookings (user_id, challenge_id, booked_at)
+- notification_preferences (user_id, type, time, enabled)
+
+Keep notifications minimal and respect South African time zones.
 
 @apply
