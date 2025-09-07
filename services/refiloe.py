@@ -1048,7 +1048,7 @@ Just type what you need naturally! 💪"""
             }
     
     def _get_user_context(self, phone_number: str) -> Dict:
-        """Get or create user context"""
+        """Get or create user context and information as dictionary"""
         try:
             # Check if trainer
             trainer = self.db.table('trainers').select('*').eq(
