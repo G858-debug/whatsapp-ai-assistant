@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy & Notification Settings - Refiloe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .section {
+            padding: 30px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title .emoji {
+            margin-right: 10px;
+            font-size: 24px;
+        }
+        
+        .setting-group {
+            margin-bottom: 20px;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .setting-label {
+            flex: 1;
+        }
+        
+        .setting-label h3 {
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        
+        .setting-label p {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+        
+        .nickname-editor {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .nickname-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        
+        .nickname-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .preview-badge {
+            padding: 8px 15px;
+            background: #f0f9ff;
+            border: 2px solid #3b82f6;
+            border-radius: 20px;
+            font-weight: 500;
+            color: #1e40af;
+        }
+        
+        .notification-style {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .style-option {
+            padding: 15px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .style-option:hover {
+            border-color: #667eea;
+            background: #f0f9ff;
+        }
+        
+        .style-option.selected {
+            border-color: #667eea;
+            background: #f0f9ff;
+        }
+        
+        .style-option h4 {
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        
+        .style-option p {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .time-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .time-select {
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .time-range {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .privacy-zone {
+            padding: 15px;
+            background: #fef2f2;
+            border: 2px solid #fecaca;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .privacy-zone h4 {
+            color: #991b1b;
+            margin-bottom: 10px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .btn-test {
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .footer {
+            padding: 30px;
+            background: #f9fafb;
+            text-align: center;
+        }
+        
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .notification-style {
+                grid-template-columns: 1fr;
+            }
+            
+            .time-range {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Privacy & Notification Settings</h1>
+            <p>Control your visibility and how you receive updates</p>
+        </div>
+        
+        <!-- Challenge Visibility Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="emoji">👁️</span>
+                Challenge Visibility
+            </h2>
+            
+            <div class="setting-row">
+                <div class="setting-label">
+                    <h3>Show on Global Leaderboard</h3>
+                    <p>Let everyone see your achievements</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="globalLeaderboard" onchange="saveSetting('globalLeaderboard')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-label">
+                    <h3>Show on Trainer's Leaderboard</h3>
+                    <p>Visible to your trainer and training group</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="trainerLeaderboard" checked onchange="saveSetting('trainerLeaderboard')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-label">
+                    <h3>Display Name</h3>
+                    <p>Choose how your name appears on leaderboards</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="useRealName" checked onchange="toggleNickname()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="setting-row" id="nicknameRow" style="display: none;">
+                <div class="setting-label">
+                    <h3>Nickname</h3>
+                </div>
+                <div class="nickname-editor">
+                    <input type="text" class="nickname-input" id="nickname" placeholder="Enter nickname" maxlength="20" oninput="updatePreview()">
+                    <div class="preview-badge" id="nicknamePreview">Preview</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notification Settings Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="emoji">🔔</span>
+                Notification Settings
+            </h2>
+            
+            <div class="setting-group">
+                <h3 style="margin-bottom: 15px;">Notification Style</h3>
+                <div class="notification-style">
+                    <div class="style-option selected" onclick="selectStyle('daily_digest')" data-style="daily_digest">
+                        <h4>📅 Daily Digest</h4>
+                        <p>One summary per day</p>
+                    </div>
+                    <div class="style-option" onclick="selectStyle('milestones')" data-style="milestones">
+                        <h4>🏆 Milestones</h4>
+                        <p>Only major achievements</p>
+                    </div>
+                    <div class="style-option" onclick="selectStyle('weekly')" data-style="weekly">
+                        <h4>📊 Weekly</h4>
+                        <p>Weekly summary only</p>
+                    </div>
+                    <div class="style-option" onclick="selectStyle('quiet')" data-style="quiet">
+                        <h4>🔇 Quiet</h4>
+                        <p>Dashboard only</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="setting-row" id="digestTimeRow">
+                <div class="setting-label">
+                    <h3>Daily Digest Time</h3>
+                    <p>When to receive your daily summary</p>
+                </div>
+                <div class="time-picker">
+                    <select class="time-select" id="digestTime" onchange="saveSetting('digestTime')">
+                        <option value="05:00">5:00 AM</option>
+                        <option value="06:00">6:00 AM</option>
+                        <option value="07:00" selected>7:00 AM</option>
+                        <option value="08:00">8:00 AM</option>
+                        <option value="09:00">9:00 AM</option>
+                    </select>
+                    <button class="btn btn-test" onclick="testNotification()">Test</button>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-label">
+                    <h3>Quiet Hours</h3>
+                    <p>No notifications during these hours</p>
+                </div>
+                <div class="time-range">
+                    <select class="time-select" id="quietStart" onchange="saveSetting('quietHours')">
+                        <option value="18:00">6:00 PM</option>
+                        <option value="19:00">7:00 PM</option>
+                        <option value="20:00" selected>8:00 PM</option>
+                        <option value="21:00">9:00 PM</option>
+                        <option value="22:00">10:00 PM</option>
+                    </select>
+                    <span>to</span>
+                    <select class="time-select" id="quietEnd" onchange="saveSetting('quietHours')">
+                        <option value="05:00">5:00 AM</option>
+                        <option value="06:00" selected>6:00 AM</option>
+                        <option value="07:00">7:00 AM</option>
+                        <option value="08:00">8:00 AM</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Privacy Zones Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="emoji">🔒</span>
+                Privacy Zones
+            </h2>
+            
+            <div class="privacy-zone">
+                <h4>⛔ Challenge Blocking</h4>
+                <div class="setting-row">
+                    <div class="setting-label">
+                        <h3>Hide from Specific Challenges</h3>
+                        <p>Select challenges to opt out from</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="manageChallenges()">Manage</button>
+                </div>
+            </div>
+            
+            <div class="privacy-zone">
+                <h4>🚫 Invitation Settings</h4>
+                <div class="setting-row">
+                    <div class="setting-label">
+                        <h3>Block Challenge Invites</h3>
+                        <p>Don't receive challenge invitations</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="blockInvites" onchange="saveSetting('blockInvites')">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="privacy-zone">
+                <h4>🕵️ Complete Privacy</h4>
+                <div class="setting-row">
+                    <div class="setting-label">
+                        <h3>Make Profile Private</h3>
+                        <p>Hide all activity from everyone</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="completePrivacy" onchange="toggleCompletePrivacy()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <button class="btn btn-primary" onclick="saveAllSettings()">Save All Changes</button>
+            <p style="margin-top: 15px; color: #6b7280; font-size: 14px;">
+                Changes take effect immediately • Confirmation in next WhatsApp digest
+            </p>
+        </div>
+    </div>
+    
+    <div class="success-message" id="successMessage">
+        ✅ Settings saved successfully!
+    </div>
+    
+    <script>
+        // Load saved preferences on page load
+        window.onload = function() {
+            loadSettings();
+        };
+        
+        function loadSettings() {
+            // Load from localStorage or fetch from API
+            const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+            
+            // Apply saved settings
+            if (settings.globalLeaderboard !== undefined) {
+                document.getElementById('globalLeaderboard').checked = settings.globalLeaderboard;
+            }
+            if (settings.trainerLeaderboard !== undefined) {
+                document.getElementById('trainerLeaderboard').checked = settings.trainerLeaderboard;
+            }
+            if (settings.useRealName !== undefined) {
+                document.getElementById('useRealName').checked = settings.useRealName;
+                toggleNickname();
+            }
+            if (settings.nickname) {
+                document.getElementById('nickname').value = settings.nickname;
+                updatePreview();
+            }
+            if (settings.notificationStyle) {
+                selectStyle(settings.notificationStyle, false);
+            }
+            if (settings.digestTime) {
+                document.getElementById('digestTime').value = settings.digestTime;
+            }
+            if (settings.quietStart) {
+                document.getElementById('quietStart').value = settings.quietStart;
+            }
+            if (settings.quietEnd) {
+                document.getElementById('quietEnd').value = settings.quietEnd;
+            }
+            if (settings.blockInvites !== undefined) {
+                document.getElementById('blockInvites').checked = settings.blockInvites;
+            }
+            if (settings.completePrivacy !== undefined) {
+                document.getElementById('completePrivacy').checked = settings.completePrivacy;
+            }
+        }
+        
+        function saveSetting(settingName) {
+            // Save individual setting
+            const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+            
+            switch(settingName) {
+                case 'globalLeaderboard':
+                    settings.globalLeaderboard = document.getElementById('globalLeaderboard').checked;
+                    break;
+                case 'trainerLeaderboard':
+                    settings.trainerLeaderboard = document.getElementById('trainerLeaderboard').checked;
+                    break;
+                case 'digestTime':
+                    settings.digestTime = document.getElementById('digestTime').value;
+                    break;
+                case 'quietHours':
+                    settings.quietStart = document.getElementById('quietStart').value;
+                    settings.quietEnd = document.getElementById('quietEnd').value;
+                    break;
+                case 'blockInvites':
+                    settings.blockInvites = document.getElementById('blockInvites').checked;
+                    break;
+            }
+            
+            localStorage.setItem('privacySettings', JSON.stringify(settings));
+            showSuccess();
+        }
+        
+        function toggleNickname() {
+            const useRealName = document.getElementById('useRealName').checked;
+            const nicknameRow = document.getElementById('nicknameRow');
+            
+            if (useRealName) {
+                nicknameRow.style.display = 'none';
+            } else {
+                nicknameRow.style.display = 'flex';
+            }
+            
+            const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+            settings.useRealName = useRealName;
+            localStorage.setItem('privacySettings', JSON.stringify(settings));
+        }
+        
+        function updatePreview() {
+            const nickname = document.getElementById('nickname').value;
+            const preview = document.getElementById('nicknamePreview');
+            preview.textContent = nickname || 'Preview';
+            
+            const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+            settings.nickname = nickname;
+            localStorage.setItem('privacySettings', JSON.stringify(settings));
+        }
+        
+        function selectStyle(style, save = true) {
+            // Remove selected class from all
+            document.querySelectorAll('.style-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Add selected class to chosen style
+            document.querySelector(`[data-style="${style}"]`).classList.add('selected');
+            
+            // Show/hide digest time based on style
+            const digestTimeRow = document.getElementById('digestTimeRow');
+            if (style === 'daily_digest') {
+                digestTimeRow.style.display = 'flex';
+            } else {
+                digestTimeRow.style.display = 'none';
+            }
+            
+            if (save) {
+                const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+                settings.notificationStyle = style;
+                localStorage.setItem('privacySettings', JSON.stringify(settings));
+                showSuccess();
+            }
+        }
+        
+        function toggleCompletePrivacy() {
+            const isPrivate = document.getElementById('completePrivacy').checked;
+            
+            if (isPrivate) {
+                // Disable all visibility options
+                document.getElementById('globalLeaderboard').checked = false;
+                document.getElementById('trainerLeaderboard').checked = false;
+                document.getElementById('globalLeaderboard').disabled = true;
+                document.getElementById('trainerLeaderboard').disabled = true;
+            } else {
+                // Re-enable options
+                document.getElementById('globalLeaderboard').disabled = false;
+                document.getElementById('trainerLeaderboard').disabled = false;
+            }
+            
+            const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+            settings.completePrivacy = isPrivate;
+            localStorage.setItem('privacySettings', JSON.stringify(settings));
+            showSuccess();
+        }
+        
+        function testNotification() {
+            // Send test notification
+            showSuccess('Test notification sent! Check WhatsApp.');
+            
+            // In real implementation, this would call an API endpoint
+            fetch('/api/test-notification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: getUserId(),
+                    type: 'test'
+                })
+            });
+        }
+        
+        function manageChallenges() {
+            // Open challenge management modal or redirect
+            window.location.href = '/dashboard/challenges/manage';
+        }
+        
+        function saveAllSettings() {
+            // In real implementation, this would save to database via API
+            const settings = JSON.parse(localStorage.getItem('privacySettings') || '{}');
+            
+            fetch('/api/save-preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settings)
+            }).then(response => {
+                if (response.ok) {
+                    showSuccess('All settings saved successfully!');
+                }
+            });
+        }
+        
+        function showSuccess(message = '✅ Settings saved successfully!') {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        function getUserId() {
+            // Get user ID from session or cookie
+            return 'user_id_placeholder';
+        }
+    </script>
+</body>
+</html>
