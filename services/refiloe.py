@@ -1047,7 +1047,7 @@ Just type what you need naturally! 💪"""
                 'message': "I understand you're asking about that. How can I help you specifically? Try /help for available commands."
             }
     
-    def _get_user_context(self, phone_number: str) -> Dict:
+    def _get_user_context_dict(self, phone_number: str) -> Dict:
         """Get or create user context and information as dictionary"""
         try:
             # Check if trainer
