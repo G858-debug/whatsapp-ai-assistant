@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Dict, Optional, List, Tuple
 from datetime import datetime, timedelta
 import json
@@ -442,7 +443,7 @@ Reply with your choice (1-3)."""
                 
                 total_pending = sum(p['amount'] for p in (pending.data or []))
                 
-                message = f"""💰 *Payment Status*
+                message = f"""*Payment Status*
 
 Pending payments: R{total_pending:.2f}
 This month received: R0.00
@@ -460,13 +461,13 @@ To request payment from client:
                 
                 if outstanding.data:
                     total = sum(p['amount'] for p in outstanding.data)
-                    message = f"""💰 *Payment Status*
+                    message = f"""*Payment Status*
 
 Outstanding: R{total:.2f}
 
 Contact your trainer for payment details."""
                 else:
-                    message = "✅ You're all paid up! No outstanding payments."
+                    message = "You're all paid up! No outstanding payments."
             
             return {
                 'success': True,
