@@ -197,15 +197,15 @@ jobs:
               # Force model if specified
               if force_opus:
                   print("🎯 Force flag: Using Opus 4.1")
-                  return 'claude-opus-4-1-20250805', 16000, 'full', "Opus 4.1 (forced)"
+                  return 'claude-opus-4-1-20250805', 32000, 'full', "Opus 4.1 (forced)"
               
               if force_sonnet:
                   print("🎯 Force flag: Using Sonnet 3.5")
-                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Sonnet 3.5 (forced)"
+                  return 'claude-3-5-sonnet-20241022', 16000, 'targeted', "Sonnet 3.5 (forced)"
               
               if force_haiku:
                   print("🎯 Force flag: Using Haiku 3")
-                  return 'claude-3-haiku-20240307', 4000, 'minimal', "Haiku 3 (forced)"
+                  return 'claude-3-haiku-20240307', 8000, 'minimal', "Haiku 3 (forced)"
               
               # For multi-step tasks, use appropriate model based on step
               if is_multi_step:
