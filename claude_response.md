@@ -1,876 +1,877 @@
 <!-- Model: Opus 4.1 -->
-<!-- Cost: $1.5296 -->
+<!-- Cost: $1.5284 -->
 <!-- Max Tokens: 16000 -->
-<!-- Step 2 of 0 -->
 <!-- CONTINUATION NEEDED -->
 ## ANALYSIS
 
-Step 2 focuses on creating the remaining missing utility files (input_sanitizer.py and validators.py) that are imported in app.py but don't exist. These are critical dependencies that are causing import errors. After creating these, we'll have the foundation needed to proceed with splitting the large files in subsequent steps.
+Step 3 focuses on splitting the large files that exceed 600 lines:
+- `app.py` (1125 lines) - needs to be split into smaller modules
+- `routes/dashboard.py` (817 lines) - needs splitting
+- `services/ai_intent_handler.py` (649 lines) - needs splitting
+- `payment_integration.py` (746 lines) - needs splitting
+- `services/dashboard_sync.py` (640 lines) - needs splitting
+
+Let's start with splitting `app.py` into logical modules by extracting routes into separate blueprint files.
 
 ## CHANGES NEEDED
 
-### NEW FILE: utils/input_sanitizer.py
+### NEW FILE: routes/webhooks.py
 ```python
-"""Input sanitization utilities for Refiloe"""
-import re
-import html
-from typing import Tuple, Optional, List
+"""WhatsApp webhook routes"""
+from flask import Blueprint, request, jsonify
 from datetime import datetime
-import logging
+import traceback
+import pytz
+from utils.logger import log_error, log_info, log_warning
 
-logger = logging.getLogger(__name__)
+webhooks_bp = Blueprint('webhooks', __name__)
 
-class InputSanitizer:
-    """Sanitize and validate user inputs"""
+@webhooks_bp.route('/webhook', methods=['GET', 'POST'])
+def webhook():
+    """Main WhatsApp webhook endpoint"""
+    from app import (
+        Config, whatsapp_service, refiloe_service, 
+        rate_limiter, input_sanitizer
+    )
     
-    def __init__(self, config):
-        self.config = config
+    if request.method == 'GET':
+        verify_token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
         
-        # Define patterns for common malicious inputs
-        self.sql_patterns = [
-            r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE)\b)",
-            r"(--|#|\/\*|\*\/)",
-            r"(\bOR\b.*=.*)",
-            r"(\bAND\b.*=.*)",
-            r"(';|\";\s*--)"
-        ]
-        
-        self.script_patterns = [
-            r"<script[^>]*>.*?</script>",
-            r"javascript:",
-            r"on\w+\s*=",
-            r"<iframe[^>]*>.*?</iframe>"
-        ]
-        
-        # Max message length
-        self.max_message_length = 4096
-        
-        # Profanity list (basic - expand as needed)
-        self.profanity_list = []  # Add words as needed
-        
-        # Suspicious patterns that might indicate spam
-        self.spam_patterns = [
-            r"(viagra|cialis|casino|lottery|winner)",
-            r"(click here|buy now|limited offer)",
-            r"(http[s]?://[^\s]+){3,}",  # Multiple URLs
-            r"(\$\d+[\d,]*\.?\d*){3,}",  # Multiple dollar amounts
-            r"(call now|whatsapp me)"
-        ]
-    
-    def sanitize_message(self, message: str, sender_phone: str) -> Tuple[str, bool, List[str]]:
-        """
-        Sanitize a message from WhatsApp
-        
-        Returns:
-            Tuple of (sanitized_message, is_safe, warnings)
-        """
-        if not message:
-            return "", True, []
-        
-        warnings = []
-        is_safe = True
-        
-        # Check length
-        if len(message) > self.max_message_length:
-            message = message[:self.max_message_length]
-            warnings.append("Message truncated due to length")
-        
-        # Check for SQL injection attempts
-        for pattern in self.sql_patterns:
-            if re.search(pattern, message, re.IGNORECASE):
-                warnings.append("Potential SQL injection detected")
-                is_safe = False
-                logger.warning(f"SQL injection attempt from {sender_phone}: {message[:100]}")
-        
-        # Check for script injection
-        for pattern in self.script_patterns:
-            if re.search(pattern, message, re.IGNORECASE):
-                warnings.append("Script injection detected")
-                is_safe = False
-                logger.warning(f"Script injection attempt from {sender_phone}: {message[:100]}")
-        
-        # Check for spam patterns
-        spam_count = 0
-        for pattern in self.spam_patterns:
-            if re.search(pattern, message, re.IGNORECASE):
-                spam_count += 1
-        
-        if spam_count >= 2:
-            warnings.append("Message appears to be spam")
-            is_safe = False
-        
-        # HTML escape the message
-        sanitized = html.escape(message)
-        
-        # Remove excessive whitespace
-        sanitized = re.sub(r'\s+', ' ', sanitized).strip()
-        
-        # Remove zero-width characters and other invisible Unicode
-        invisible_chars = [
-            '\u200b',  # Zero-width space
-            '\u200c',  # Zero-width non-joiner
-            '\u200d',  # Zero-width joiner
-            '\ufeff',  # Zero-width no-break space
-            '\u2060',  # Word joiner
-        ]
-        for char in invisible_chars:
-            sanitized = sanitized.replace(char, '')
-        
-        return sanitized, is_safe, warnings
-    
-    def sanitize_phone_number(self, phone: str) -> Optional[str]:
-        """
-        Sanitize and validate phone number
-        
-        Returns:
-            Sanitized phone number or None if invalid
-        """
-        if not phone:
-            return None
-        
-        # Remove all non-digit characters
-        phone_digits = re.sub(r'\D', '', phone)
-        
-        # Check for South African format
-        if phone_digits.startswith('27'):
-            if len(phone_digits) == 11:  # International format
-                return f"+{phone_digits}"
-        elif phone_digits.startswith('0'):
-            if len(phone_digits) == 10:  # Local format
-                return f"+27{phone_digits[1:]}"
-        elif len(phone_digits) == 9:  # Missing leading 0
-            return f"+27{phone_digits}"
-        
-        return None
-    
-    def sanitize_email(self, email: str) -> Optional[str]:
-        """
-        Sanitize and validate email address
-        
-        Returns:
-            Sanitized email or None if invalid
-        """
-        if not email:
-            return None
-        
-        # Basic email regex
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        
-        email = email.strip().lower()
-        
-        if re.match(email_pattern, email):
-            return email
-        
-        return None
-    
-    def sanitize_name(self, name: str) -> str:
-        """
-        Sanitize a person's name
-        
-        Returns:
-            Sanitized name
-        """
-        if not name:
-            return ""
-        
-        # Remove numbers and special characters except spaces, hyphens, and apostrophes
-        sanitized = re.sub(r'[^a-zA-Z\s\-\']', '', name)
-        
-        # Remove excessive spaces
-        sanitized = re.sub(r'\s+', ' ', sanitized).strip()
-        
-        # Limit length
-        if len(sanitized) > 100:
-            sanitized = sanitized[:100]
-        
-        # Title case
-        sanitized = sanitized.title()
-        
-        return sanitized
-    
-    def sanitize_amount(self, amount: str) -> Optional[float]:
-        """
-        Sanitize and validate currency amount
-        
-        Returns:
-            Float amount or None if invalid
-        """
-        if not amount:
-            return None
-        
-        # Remove currency symbols and spaces
-        amount = re.sub(r'[R$,\s]', '', amount)
-        
-        try:
-            # Convert to float
-            amount_float = float(amount)
-            
-            # Check reasonable bounds (R1 to R100,000)
-            if 1 <= amount_float <= 100000:
-                return round(amount_float, 2)
-            
-        except ValueError:
-            pass
-        
-        return None
-    
-    def sanitize_date(self, date_str: str) -> Optional[str]:
-        """
-        Sanitize and validate date string
-        
-        Returns:
-            ISO format date string or None if invalid
-        """
-        if not date_str:
-            return None
-        
-        # Common date formats
-        date_formats = [
-            '%Y-%m-%d',
-            '%d/%m/%Y',
-            '%d-%m-%Y',
-            '%Y/%m/%d',
-            '%d %B %Y',
-            '%d %b %Y',
-        ]
-        
-        for fmt in date_formats:
-            try:
-                parsed_date = datetime.strptime(date_str.strip(), fmt)
-                return parsed_date.date().isoformat()
-            except ValueError:
-                continue
-        
-        return None
-    
-    def sanitize_time(self, time_str: str) -> Optional[str]:
-        """
-        Sanitize and validate time string
-        
-        Returns:
-            24-hour format time string or None if invalid
-        """
-        if not time_str:
-            return None
-        
-        # Remove spaces
-        time_str = time_str.strip()
-        
-        # Common time formats
-        time_formats = [
-            '%H:%M',
-            '%H:%M:%S',
-            '%I:%M %p',
-            '%I:%M%p',
-            '%I %p',
-            '%I%p',
-        ]
-        
-        for fmt in time_formats:
-            try:
-                parsed_time = datetime.strptime(time_str, fmt)
-                return parsed_time.strftime('%H:%M')
-            except ValueError:
-                continue
-        
-        # Try to handle simple formats like "9am" or "3pm"
-        simple_match = re.match(r'^(\d{1,2})\s*(am|pm)$', time_str.lower())
-        if simple_match:
-            hour = int(simple_match.group(1))
-            meridiem = simple_match.group(2)
-            
-            if meridiem == 'pm' and hour != 12:
-                hour += 12
-            elif meridiem == 'am' and hour == 12:
-                hour = 0
-            
-            if 0 <= hour <= 23:
-                return f"{hour:02d}:00"
-        
-        return None
-    
-    def sanitize_url(self, url: str) -> Optional[str]:
-        """
-        Sanitize and validate URL
-        
-        Returns:
-            Sanitized URL or None if invalid
-        """
-        if not url:
-            return None
-        
-        # Basic URL validation
-        url_pattern = r'^https?://[^\s<>"{}|\\^`\[\]]+$'
-        
-        url = url.strip()
-        
-        if re.match(url_pattern, url):
-            # Additional checks for malicious URLs
-            suspicious_domains = [
-                'bit.ly', 'tinyurl', 'goo.gl',  # URL shorteners
-                'phishing', 'malware', 'virus'
-            ]
-            
-            for domain in suspicious_domains:
-                if domain in url.lower():
-                    return None
-            
-            return url
-        
-        return None
-    
-    def detect_language(self, text: str) -> str:
-        """
-        Detect if text contains South African languages
-        
-        Returns:
-            Language code (en, af, zu, xh, etc.)
-        """
-        # Basic detection for South African languages
-        afrikaans_words = ['jy', 'ek', 'is', 'die', 'en', 'van', 'vir', 'met']
-        zulu_words = ['ngiyabonga', 'sawubona', 'yebo', 'cha', 'mina']
-        xhosa_words = ['molo', 'enkosi', 'ewe', 'hayi']
-        
-        text_lower = text.lower()
-        words = text_lower.split()
-        
-        # Count occurrences
-        af_count = sum(1 for word in words if word in afrikaans_words)
-        zu_count = sum(1 for word in words if word in zulu_words)
-        xh_count = sum(1 for word in words if word in xhosa_words)
-        
-        if af_count > 2:
-            return 'af'
-        elif zu_count > 0:
-            return 'zu'
-        elif xh_count > 0:
-            return 'xh'
+        if verify_token == Config.VERIFY_TOKEN:
+            log_info("Webhook verified successfully")
+            return challenge
         else:
-            return 'en'
+            log_warning("Invalid verification token")
+            return 'Invalid verification token', 403
     
-    def is_command(self, message: str) -> bool:
-        """
-        Check if message appears to be a command
+    elif request.method == 'POST':
+        try:
+            if Config.ENABLE_RATE_LIMITING:
+                ip_address = request.remote_addr
+                if not rate_limiter.check_webhook_rate(ip_address):
+                    log_warning(f"Rate limit exceeded for IP: {ip_address}")
+                    return jsonify({"error": "Rate limit exceeded"}), 429
+            
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "No data provided"}), 400
+            
+            if 'entry' in data:
+                for entry in data['entry']:
+                    if 'changes' in entry:
+                        for change in entry['changes']:
+                            if 'value' in change and 'messages' in change['value']:
+                                for message in change['value']['messages']:
+                                    process_message(message, change['value'].get('contacts', []))
+            
+            return jsonify({"status": "success"}), 200
+            
+        except Exception as e:
+            log_error(f"Webhook processing error: {str(e)}\n{traceback.format_exc()}")
+            return jsonify({"error": "Internal server error"}), 500
+
+def process_message(message: dict, contacts: list):
+    """Process incoming WhatsApp message"""
+    from app import (
+        Config, whatsapp_service, refiloe_service,
+        rate_limiter, input_sanitizer
+    )
+    
+    try:
+        from_number = message['from']
+        message_type = message.get('type', 'text')
         
-        Returns:
-            True if message looks like a command
-        """
-        command_prefixes = ['/', '!', '#', '.']
+        if Config.ENABLE_RATE_LIMITING:
+            allowed, error_msg = rate_limiter.check_message_rate(from_number, message_type)
+            if not allowed:
+                if error_msg:
+                    whatsapp_service.send_message(from_number, error_msg)
+                return
         
-        message = message.strip()
+        contact_name = "User"
+        if contacts:
+            contact = next((c for c in contacts if c['wa_id'] == from_number), None)
+            if contact:
+                contact_name = contact.get('profile', {}).get('name', 'User')
         
-        if message and message[0] in command_prefixes:
-            return True
+        message_data = {
+            'from': from_number,
+            'type': message_type,
+            'contact_name': contact_name
+        }
         
-        # Check for common command keywords at start
-        command_starts = [
-            'add', 'remove', 'delete', 'show', 'list', 
-            'view', 'cancel', 'book', 'schedule', 'send'
-        ]
+        if message_type == 'text':
+            text_body = message.get('text', {}).get('body', '')
+            sanitized, is_safe, warnings = input_sanitizer.sanitize_message(text_body, from_number)
+            if not is_safe:
+                whatsapp_service.send_message(from_number, "Sorry, your message contained invalid content.")
+                return
+            message_data['text'] = {'body': sanitized}
+        elif message_type == 'audio':
+            message_data['audio'] = message.get('audio', {})
+        elif message_type == 'image':
+            message_data['image'] = message.get('image', {})
+        elif message_type == 'interactive':
+            message_data['interactive'] = message.get('interactive', {})
+        elif message_type == 'button':
+            message_data['button'] = message.get('button', {})
         
-        first_word = message.lower().split()[0] if message else ""
+        response = refiloe_service.process_message(message_data)
         
-        return first_word in command_starts
+        if response.get('success') and response.get('message'):
+            whatsapp_service.send_message(from_number, response['message'])
+            
+            if response.get('media_url'):
+                whatsapp_service.send_media_message(from_number, response['media_url'], 'image')
+            
+            if response.get('buttons'):
+                whatsapp_service.send_message_with_buttons(
+                    from_number,
+                    response.get('header', 'Options'),
+                    response['buttons']
+                )
+            
+    except Exception as e:
+        log_error(f"Message processing error: {str(e)}")
+        try:
+            whatsapp_service.send_message(
+                from_number,
+                "Sorry, I encountered an error processing your message. Please try again."
+            )
+        except:
+            pass
 ```
 
-### NEW FILE: utils/validators.py
+### NEW FILE: routes/calendar.py
 ```python
-"""Validation utilities for Refiloe"""
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta, date
-import re
+"""Calendar and client view routes"""
+from flask import Blueprint, request, jsonify, send_file
+from datetime import datetime, timedelta
 import pytz
+import secrets
+from io import BytesIO
+from jinja2 import Template
+from utils.logger import log_error
 
-class Validators:
-    """Data validation utilities"""
+calendar_bp = Blueprint('calendar', __name__)
+
+def generate_calendar_token(client_id: str) -> str:
+    """Generate a secure token for calendar access"""
+    import hashlib
+    token_data = f"{client_id}:{datetime.now().isoformat()}:{secrets.token_hex(16)}"
+    return hashlib.sha256(token_data.encode()).hexdigest()
+
+def verify_calendar_token(token: str, client_id: str) -> bool:
+    """Verify calendar access token"""
+    from app import supabase
+    try:
+        result = supabase.table('calendar_access_tokens').select('*').eq(
+            'token', token
+        ).eq('client_id', client_id).eq('is_valid', True).execute()
+        
+        if result.data:
+            created_at = datetime.fromisoformat(result.data[0]['created_at'])
+            if (datetime.now(pytz.UTC) - created_at).total_seconds() < 86400:
+                return True
+        return False
+    except:
+        return False
+
+@calendar_bp.route('/api/client/calendar/<client_id>')
+def client_calendar_view(client_id):
+    """Client calendar view endpoint"""
+    from app import supabase, Config
     
-    def __init__(self, config=None):
-        self.config = config
-        self.sa_tz = pytz.timezone('Africa/Johannesburg')
-    
-    # ============= PHONE VALIDATION =============
-    
-    def validate_phone_number(self, phone: str) -> Tuple[bool, Optional[str], Optional[str]]:
-        """
-        Validate South African phone number
+    try:
+        token = request.args.get('token')
+        if not token or not verify_calendar_token(token, client_id):
+            return "Access denied. Please request a new calendar link.", 403
         
-        Returns:
-            Tuple of (is_valid, formatted_number, error_message)
-        """
-        if not phone:
-            return False, None, "Phone number is required"
+        client = supabase.table('clients').select('*, trainers(*)').eq(
+            'id', client_id
+        ).single().execute()
         
-        # Remove all non-digit characters
-        phone_digits = re.sub(r'\D', '', phone)
+        if not client.data:
+            return "Client not found", 404
         
-        # Check for valid South African mobile number patterns
-        valid_prefixes = ['60', '61', '62', '63', '64', '65', '66', '67', '68', '69',
-                         '71', '72', '73', '74', '76', '78', '79',
-                         '81', '82', '83', '84', '85']
+        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
+        end_date = today + timedelta(days=30)
         
-        # International format (27XXXXXXXXX)
-        if phone_digits.startswith('27'):
-            if len(phone_digits) != 11:
-                return False, None, "Invalid phone number length"
-            
-            prefix = phone_digits[2:4]
-            if prefix not in valid_prefixes:
-                return False, None, "Invalid mobile number prefix"
-            
-            return True, f"+{phone_digits}", None
+        sessions = supabase.table('bookings').select('*').eq(
+            'client_id', client_id
+        ).gte('session_date', today.isoformat()).lte(
+            'session_date', end_date.isoformat()
+        ).order('session_date').order('session_time').execute()
         
-        # Local format (0XXXXXXXXX)
-        elif phone_digits.startswith('0'):
-            if len(phone_digits) != 10:
-                return False, None, "Invalid phone number length"
-            
-            prefix = phone_digits[1:3]
-            if prefix not in valid_prefixes:
-                return False, None, "Invalid mobile number prefix"
-            
-            return True, f"+27{phone_digits[1:]}", None
+        past_sessions = supabase.table('bookings').select('*').eq(
+            'client_id', client_id
+        ).lt('session_date', today.isoformat()).order(
+            'session_date', desc=True
+        ).limit(10).execute()
         
-        # Without leading 0 (XXXXXXXXX)
-        elif len(phone_digits) == 9:
-            prefix = phone_digits[0:2]
-            if prefix not in valid_prefixes:
-                return False, None, "Invalid mobile number prefix"
-            
-            return True, f"+27{phone_digits}", None
+        next_session = None
+        for session in (sessions.data or []):
+            if session['status'] in ['confirmed', 'rescheduled']:
+                next_session = session
+                break
         
-        return False, None, "Invalid South African phone number format"
-    
-    # ============= EMAIL VALIDATION =============
-    
-    def validate_email(self, email: str) -> Tuple[bool, Optional[str]]:
-        """
-        Validate email address
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        if not email:
-            return False, "Email is required"
-        
-        # RFC 5322 compliant email regex (simplified)
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        
-        email = email.strip().lower()
-        
-        if not re.match(email_pattern, email):
-            return False, "Invalid email format"
-        
-        # Check for common typos
-        if email.endswith('.con') or email.endswith('.cpm'):
-            return False, "Invalid email domain (did you mean .com?)"
-        
-        # Check length
-        if len(email) > 254:  # RFC 5321
-            return False, "Email address too long"
-        
-        return True, None
-    
-    # ============= NAME VALIDATION =============
-    
-    def validate_name(self, name: str, field_name: str = "Name") -> Tuple[bool, Optional[str]]:
-        """
-        Validate person's name
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        if not name or not name.strip():
-            return False, f"{field_name} is required"
-        
-        name = name.strip()
-        
-        # Check length
-        if len(name) < 2:
-            return False, f"{field_name} is too short"
-        
-        if len(name) > 100:
-            return False, f"{field_name} is too long"
-        
-        # Check for valid characters (letters, spaces, hyphens, apostrophes)
-        if not re.match(r"^[a-zA-Z\s\-\'\.]+$", name):
-            return False, f"{field_name} contains invalid characters"
-        
-        # Check for excessive spaces
-        if '  ' in name:
-            return False, f"{field_name} contains excessive spaces"
-        
-        return True, None
-    
-    # ============= DATE/TIME VALIDATION =============
-    
-    def validate_date(self, date_str: str, 
-                     min_date: Optional[date] = None,
-                     max_date: Optional[date] = None) -> Tuple[bool, Optional[date], Optional[str]]:
-        """
-        Validate date string
-        
-        Returns:
-            Tuple of (is_valid, parsed_date, error_message)
-        """
-        if not date_str:
-            return False, None, "Date is required"
-        
-        # Try to parse the date
-        try:
-            if isinstance(date_str, date):
-                parsed_date = date_str
-            else:
-                parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return False, None, "Invalid date format (use YYYY-MM-DD)"
-        
-        # Check bounds
-        if min_date and parsed_date < min_date:
-            return False, None, f"Date cannot be before {min_date}"
-        
-        if max_date and parsed_date > max_date:
-            return False, None, f"Date cannot be after {max_date}"
-        
-        return True, parsed_date, None
-    
-    def validate_time(self, time_str: str,
-                     min_time: Optional[str] = None,
-                     max_time: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
-        """
-        Validate time string
-        
-        Returns:
-            Tuple of (is_valid, formatted_time, error_message)
-        """
-        if not time_str:
-            return False, None, "Time is required"
-        
-        # Try to parse the time
-        try:
-            # Handle various formats
-            for fmt in ['%H:%M', '%H:%M:%S', '%I:%M %p', '%I:%M%p']:
-                try:
-                    parsed_time = datetime.strptime(time_str.strip(), fmt)
-                    formatted = parsed_time.strftime('%H:%M')
-                    break
-                except ValueError:
-                    continue
-            else:
-                return False, None, "Invalid time format"
-            
-        except Exception:
-            return False, None, "Invalid time format"
-        
-        # Check bounds
-        if min_time and formatted < min_time:
-            return False, None, f"Time cannot be before {min_time}"
-        
-        if max_time and formatted > max_time:
-            return False, None, f"Time cannot be after {max_time}"
-        
-        return True, formatted, None
-    
-    def validate_business_hours(self, time_str: str) -> Tuple[bool, Optional[str]]:
-        """
-        Validate that time is within business hours
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        is_valid, formatted_time, error = self.validate_time(time_str)
-        
-        if not is_valid:
-            return False, error
-        
-        # Check if within business hours (6:00 - 20:00)
-        hour = int(formatted_time.split(':')[0])
-        
-        if hour < 6 or hour >= 20:
-            return False, "Time must be between 6:00 AM and 8:00 PM"
-        
-        return True, None
-    
-    # ============= AMOUNT VALIDATION =============
-    
-    def validate_amount(self, amount: Any,
-                       min_amount: float = 0,
-                       max_amount: float = 100000) -> Tuple[bool, Optional[float], Optional[str]]:
-        """
-        Validate currency amount
-        
-        Returns:
-            Tuple of (is_valid, parsed_amount, error_message)
-        """
-        if amount is None or amount == '':
-            return False, None, "Amount is required"
-        
-        # Convert to string and clean
-        amount_str = str(amount)
-        
-        # Remove currency symbols and spaces
-        amount_str = re.sub(r'[R$,\s]', '', amount_str)
-        
-        try:
-            amount_float = float(amount_str)
-        except ValueError:
-            return False, None, "Invalid amount format"
-        
-        # Check bounds
-        if amount_float < min_amount:
-            return False, None, f"Amount cannot be less than R{min_amount}"
-        
-        if amount_float > max_amount:
-            return False, None, f"Amount cannot exceed R{max_amount}"
-        
-        # Round to 2 decimal places
-        amount_float = round(amount_float, 2)
-        
-        return True, amount_float, None
-    
-    # ============= PACKAGE VALIDATION =============
-    
-    def validate_package_type(self, package: str) -> Tuple[bool, Optional[str]]:
-        """
-        Validate training package type
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        valid_packages = ['single', 'weekly_4', 'weekly_8', 'monthly_12', 'monthly_16']
-        
-        if not package:
-            return False, "Package type is required"
-        
-        if package not in valid_packages:
-            return False, f"Invalid package. Must be one of: {', '.join(valid_packages)}"
-        
-        return True, None
-    
-    # ============= SESSION VALIDATION =============
-    
-    def validate_session_type(self, session_type: str) -> Tuple[bool, Optional[str]]:
-        """
-        Validate session type
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        valid_types = ['standard', 'assessment', 'consultation', 'group', 'online']
-        
-        if not session_type:
-            return False, "Session type is required"
-        
-        if session_type not in valid_types:
-            return False, f"Invalid session type. Must be one of: {', '.join(valid_types)}"
-        
-        return True, None
-    
-    # ============= HABIT VALIDATION =============
-    
-    def validate_habit_type(self, habit_type: str) -> Tuple[bool, Optional[str]]:
-        """
-        Validate habit tracking type
-        
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        valid_habits = [
-            'water_intake', 'sleep_hours', 'steps', 'calories',
-            'workout_completed', 'meals_logged', 'weight', 'mood'
-        ]
-        
-        if not habit_type:
-            return False, "Habit type is required"
-        
-        if habit_type not in valid_habits:
-            return False, f"Invalid habit type. Must be one of: {', '.join(valid_habits)}"
-        
-        return True, None
-    
-    def validate_habit_value(self, habit_type: str, value: Any) -> Tuple[bool, Any, Optional[str]]:
-        """
-        Validate habit tracking value based on type
-        
-        Returns:
-            Tuple of (is_valid, parsed_value, error_message)
-        """
-        if value is None or value == '':
-            return False, None, "Value is required"
-        
-        try:
-            if habit_type == 'water_intake':
-                # Expect liters (0-10)
-                val = float(value)
-                if not 0 <= val <= 10:
-                    return False, None, "Water intake must be between 0 and 10 liters"
-                return True, val, None
-            
-            elif habit_type == 'sleep_hours':
-                # Expect hours (0-24)
-                val = float(value)
-                if not 0 <= val <= 24:
-                    return False, None, "Sleep hours must be between 0 and 24"
-                return True, val, None
-            
-            elif habit_type == 'steps':
-                # Expect integer (0-100000)
-                val = int(value)
-                if not 0 <= val <= 100000:
-                    return False, None, "Steps must be between 0 and 100,000"
-                return True, val, None
-            
-            elif habit_type == 'calories':
-                # Expect integer (0-10000)
-                val = int(value)
-                if not 0 <= val <= 10000:
-                    return False, None, "Calories must be between 0 and 10,000"
-                return True, val, None
-            
-            elif habit_type == 'workout_completed':
-                # Expect boolean (0 or 1)
-                if str(value).lower() in ['yes', 'true', '1', 'done', 'completed']:
-                    return True, 1, None
-                elif str(value).lower() in ['no', 'false', '0', 'skip', 'missed']:
-                    return True, 0, None
-                return False, None, "Workout status must be yes/no"
-            
-            elif habit_type == 'weight':
-                # Expect kg (20-300)
-                val = float(value)
-                if not 20 <= val <= 300:
-                    return False, None, "Weight must be between 20 and 300 kg"
-                return True, val, None
-            
-            elif habit_type == 'mood':
-                # Expect 1-10 scale
-                val = int(value)
-                if not 1 <= val <= 10:
-                    return False, None, "Mood must be between 1 and 10"
-                return True, val, None
-            
-            else:
-                # Default: accept as string
-                return True, str(value), None
+        html_template = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>My Training Calendar - {{ client_name }}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 500px;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px 20px;
+                    text-align: center;
+                }
+                .header h1 {
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }
+                .header p {
+                    opacity: 0.9;
+                    font-size: 14px;
+                }
+                .next-session {
+                    background: #f0f9ff;
+                    border-left: 4px solid #3b82f6;
+                    margin: 20px;
+                    padding: 15px;
+                    border-radius: 10px;
+                }
+                .next-session h2 {
+                    color: #1e40af;
+                    font-size: 16px;
+                    margin-bottom: 10px;
+                }
+                .session-card {
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    margin: 10px 20px;
+                    padding: 15px;
+                    border-radius: 10px;
+                    position: relative;
+                }
+                .session-card.completed {
+                    opacity: 0.6;
+                    background: #f9fafb;
+                }
+                .session-date {
+                    font-weight: 600;
+                    color: #374151;
+                    margin-bottom: 5px;
+                }
+                .session-time {
+                    color: #6b7280;
+                    font-size: 14px;
+                }
+                .session-status {
+                    position: absolute;
+                    top: 15px;
+                    right: 15px;
+                    padding: 4px 8px;
+                    border-radius: 5px;
+                    font-size: 12px;
+                    font-weight: 500;
+                }
+                .status-confirmed {
+                    background: #d1fae5;
+                    color: #065f46;
+                }
+                .status-completed {
+                    background: #e0e7ff;
+                    color: #3730a3;
+                }
+                .status-cancelled {
+                    background: #fee2e2;
+                    color: #991b1b;
+                }
+                .section-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin: 30px 20px 15px;
+                    color: #1f2937;
+                }
+                .action-buttons {
+                    padding: 20px;
+                    display: flex;
+                    gap: 10px;
+                }
+                .btn {
+                    flex: 1;
+                    padding: 12px;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    text-align: center;
+                    text-decoration: none;
+                    cursor: pointer;
+                }
+                .btn-primary {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                .btn-secondary {
+                    background: #f3f4f6;
+                    color: #374151;
+                }
+                .empty-state {
+                    text-align: center;
+                    padding: 40px 20px;
+                    color: #6b7280;
+                }
+                .stats {
+                    display: flex;
+                    justify-content: space-around;
+                    padding: 20px;
+                    background: #f9fafb;
+                }
+                .stat {
+                    text-align: center;
+                }
+                .stat-value {
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: #1f2937;
+                }
+                .stat-label {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📅 My Training Calendar</h1>
+                    <p>{{ client_name }} • {{ trainer_name }}</p>
+                </div>
                 
-        except (ValueError, TypeError) as e:
-            return False, None, f"Invalid value format for {habit_type}"
-    
-    # ============= PASSWORD VALIDATION =============
-    
-    def validate_password(self, password: str) -> Tuple[bool, List[str]]:
+                {% if next_session %}
+                <div class="next-session">
+                    <h2>🎯 Next Session</h2>
+                    <div class="session-date">{{ next_session.formatted_date }}</div>
+                    <div class="session-time">{{ next_session.session_time }}</div>
+                </div>
+                {% endif %}
+                
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-value">{{ upcoming_count }}</div>
+                        <div class="stat-label">Upcoming</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ completed_count }}</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ total_count }}</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+                
+                <h2 class="section-title">📍 Upcoming Sessions</h2>
+                {% if upcoming_sessions %}
+                    {% for session in upcoming_sessions %}
+                    <div class="session-card">
+                        <div class="session-date">{{ session.formatted_date }}</div>
+                        <div class="session-time">🕐 {{ session.session_time }}</div>
+                        <span class="session-status status-{{ session.status }}">{{ session.status|upper }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No upcoming sessions scheduled</p>
+                    </div>
+                {% endif %}
+                
+                <h2 class="section-title">✅ Recent Sessions</h2>
+                {% if past_sessions %}
+                    {% for session in past_sessions %}
+                    <div class="session-card completed">
+                        <div class="session-date">{{ session.formatted_date }}</div>
+                        <div class="session-time">{{ session.session_time }}</div>
+                        <span class="session-status status-{{ session.status }}">{{ session.status|upper }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No past sessions</p>
+                    </div>
+                {% endif %}
+                
+                <div class="action-buttons">
+                    <a href="/api/client/trainer-availability/{{ trainer_id }}?client_id={{ client_id }}&token={{ token }}" class="btn btn-primary">
+                        Check Availability
+                    </a>
+                    <a href="/api/client/calendar/{{ client_id }}/ics?token={{ token }}" class="btn btn-secondary">
+                        📥 Download Calendar
+                    </a>
+                </div>
+            </div>
+        </body>
+        </html>
         """
-        Validate password strength
         
-        Returns:
-            Tuple of (is_valid, list_of_issues)
-        """
-        issues = []
+        def format_date(date_str):
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_obj.strftime('%A, %d %B')
         
-        if not password:
-            return False, ["Password is required"]
+        upcoming_sessions = []
+        for session in (sessions.data or []):
+            session['formatted_date'] = format_date(session['session_date'])
+            upcoming_sessions.append(session)
         
-        if len(password) < 8:
-            issues.append("Password must be at least 8 characters")
+        past_sessions_formatted = []
+        for session in (past_sessions.data or []):
+            session['formatted_date'] = format_date(session['session_date'])
+            past_sessions_formatted.append(session)
         
-        if not re.search(r'[A-Z]', password):
-            issues.append("Password must contain at least one uppercase letter")
+        if next_session:
+            next_session['formatted_date'] = format_date(next_session['session_date'])
         
-        if not re.search(r'[a-z]', password):
-            issues.append("Password must contain at least one lowercase letter")
+        completed_count = len([s for s in past_sessions.data if s['status'] == 'completed'])
+        upcoming_count = len([s for s in sessions.data if s['status'] in ['confirmed', 'rescheduled']])
         
-        if not re.search(r'\d', password):
-            issues.append("Password must contain at least one number")
+        template = Template(html_template)
+        return template.render(
+            client_name=client.data['name'],
+            client_id=client_id,
+            trainer_name=client.data['trainers']['name'],
+            trainer_id=client.data['trainer_id'],
+            next_session=next_session,
+            upcoming_sessions=upcoming_sessions,
+            past_sessions=past_sessions_formatted,
+            upcoming_count=upcoming_count,
+            completed_count=completed_count,
+            total_count=upcoming_count + completed_count,
+            token=token
+        )
         
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            issues.append("Password must contain at least one special character")
-        
-        return len(issues) == 0, issues
+    except Exception as e:
+        log_error(f"Error in client calendar view: {str(e)}")
+        return "Error loading calendar", 500
+
+@calendar_bp.route('/api/client/calendar/<client_id>/ics')
+def download_calendar_ics(client_id):
+    """Download calendar in ICS format"""
+    from app import supabase, calendar_service, Config
     
-    # ============= COMPOSITE VALIDATION =============
+    try:
+        token = request.args.get('token')
+        if not token or not verify_calendar_token(token, client_id):
+            return "Access denied", 403
+        
+        client = supabase.table('clients').select('*, trainers(*)').eq(
+            'id', client_id
+        ).single().execute()
+        
+        if not client.data:
+            return "Client not found", 404
+        
+        today = datetime.now(pytz.timezone(Config.TIMEZONE)).date()
+        sessions = supabase.table('bookings').select('*').eq(
+            'client_id', client_id
+        ).gte('session_date', today.isoformat()).order('session_date').execute()
+        
+        ics_content = calendar_service.generate_ics_file({
+            'client': client.data,
+            'sessions': sessions.data or [],
+            'trainer': client.data['trainers']
+        })
+        
+        output = BytesIO()
+        output.write(ics_content.encode('utf-8'))
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='text/calendar',
+            as_attachment=True,
+            download_name=f'training_calendar_{client.data["name"].replace(" ", "_")}.ics'
+        )
+        
+    except Exception as e:
+        log_error(f"Error generating ICS file: {str(e)}")
+        return "Error generating calendar file", 500
+```
+
+### NEW FILE: routes/payment.py
+```python
+"""Payment related routes"""
+from flask import Blueprint, request, jsonify
+from datetime import datetime
+from utils.logger import log_error, log_warning
+
+payment_bp = Blueprint('payment', __name__)
+
+@payment_bp.route('/webhook/payfast', methods=['POST'])
+def payfast_webhook():
+    """Handle PayFast payment webhooks"""
+    from app import payment_manager, payfast_handler
     
-    def validate_booking_request(self, data: Dict) -> Tuple[bool, Dict[str, str]]:
-        """
-        Validate a complete booking request
+    try:
+        data = request.form.to_dict()
+        signature = request.headers.get('X-PayFast-Signature', '')
         
-        Returns:
-            Tuple of (is_valid, dict_of_errors)
-        """
-        errors = {}
+        if not payment_manager.verify_webhook_signature(data, signature):
+            log_warning("Invalid PayFast signature")
+            return 'Invalid signature', 403
         
-        # Validate date
-        if 'session_date' in data:
-            is_valid, parsed_date, error = self.validate_date(
-                data['session_date'],
-                min_date=datetime.now().date(),
-                max_date=datetime.now().date() + timedelta(days=90)
-            )
-            if not is_valid:
-                errors['session_date'] = error
+        result = payfast_handler.process_payment_notification(data)
+        
+        if result['success']:
+            return 'OK', 200
         else:
-            errors['session_date'] = "Session date is required"
+            return 'Processing failed', 500
+            
+    except Exception as e:
+        log_error(f"PayFast webhook error: {str(e)}")
+        return 'Internal error', 500
+```
+
+### EDIT: app.py
+
+**Change 1:** Replace the entire file with a much smaller version that imports blueprints
+Location: Lines 1-1125
+```python
+# REMOVE (lines 1-1125):
+[entire current content]
+
+# ADD:
+import os
+from datetime import datetime
+from flask import Flask, jsonify
+from supabase import create_client
+from dotenv import load_dotenv
+import pytz
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+# Import services and utilities
+from services.whatsapp import WhatsAppService
+from services.refiloe import RefiloeService
+from services.ai_intent_handler import AIIntentHandler
+from services.scheduler import SchedulerService
+from services.assessment import EnhancedAssessmentService
+from services.habits import HabitTrackingService
+from services.workout import WorkoutService
+from services.subscription_manager import SubscriptionManager
+from services.analytics import AnalyticsService
+from services.calendar_service import CalendarService
+from models.trainer import TrainerModel
+from models.client import ClientModel
+from models.booking import BookingModel
+from utils.logger import setup_logger, log_error, log_info
+from utils.rate_limiter import RateLimiter
+from utils.input_sanitizer import InputSanitizer
+from config import Config
+from payment_manager import PaymentManager
+from payfast_webhook import PayFastWebhookHandler
+
+# Import route blueprints
+from routes.dashboard import dashboard_bp
+from routes.webhooks import webhooks_bp
+from routes.calendar import calendar_bp
+from routes.payment import payment_bp
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# Setup logger
+logger = setup_logger()
+
+# Validate configuration
+try:
+    Config.validate()
+    log_info("Configuration validated successfully")
+except ValueError as e:
+    log_error(f"Configuration error: {str(e)}")
+    raise
+
+# Initialize Supabase client
+supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+
+# Initialize services with proper parameters
+whatsapp_service = WhatsAppService(Config, supabase, logger)
+ai_handler = AIIntentHandler(Config, supabase)
+scheduler_service = SchedulerService(supabase, whatsapp_service)
+assessment_service = EnhancedAssessmentService(supabase)
+habit_service = HabitTrackingService(supabase)
+workout_service = WorkoutService(Config, supabase)
+subscription_manager = SubscriptionManager(supabase)
+analytics_service = AnalyticsService(supabase)
+payment_manager = PaymentManager(supabase)
+payfast_handler = PayFastWebhookHandler()
+rate_limiter = RateLimiter(Config, supabase)
+input_sanitizer = InputSanitizer(Config)
+calendar_service = CalendarService(supabase, Config)
+
+# Initialize Refiloe service after other services
+refiloe_service = RefiloeService(supabase)
+
+# Initialize models with proper parameters
+trainer_model = TrainerModel(supabase, Config)
+client_model = ClientModel(supabase, Config)
+booking_model = BookingModel(supabase, Config)
+
+# Initialize background scheduler
+scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
+
+def send_daily_reminders():
+    """Send daily workout and payment reminders"""
+    try:
+        log_info("Running daily reminders task")
+        results = scheduler_service.check_and_send_reminders()
+        log_info(f"Daily reminders completed: {results}")
+    except Exception as e:
+        log_error(f"Error in daily reminders task: {str(e)}")
+
+def check_subscription_status():
+    """Check and update subscription statuses"""
+    try:
+        log_info("Checking subscription statuses")
+        active_subs = supabase.table('trainer_subscriptions').select('*').eq(
+            'status', 'active'
+        ).execute()
         
-        # Validate time
-        if 'session_time' in data:
-            is_valid, error = self.validate_business_hours(data['session_time'])
-            if not is_valid:
-                errors['session_time'] = error
-        else:
-            errors['session_time'] = "Session time is required"
+        expired_count = 0
+        for sub in (active_subs.data or []):
+            if sub.get('end_date'):
+                end_date = datetime.fromisoformat(sub['end_date'])
+                if end_date < datetime.now(pytz.timezone(Config.TIMEZONE)):
+                    supabase.table('trainer_subscriptions').update({
+                        'status': 'expired'
+                    }).eq('id', sub['id']).execute()
+                    expired_count += 1
         
-        # Validate session type
-        if 'session_type' in data:
-            is_valid, error = self.validate_session_type(data['session_type'])
-            if not is_valid:
-                errors['session_type'] = error
-        
-        return len(errors) == 0, errors
+        log_info(f"Processed {expired_count} expired subscriptions")
+    except Exception as e:
+        log_error(f"Error checking subscriptions: {str(e)}")
+
+# Schedule background tasks
+scheduler.add_job(
+    send_daily_reminders,
+    CronTrigger(hour=8, minute=0),
+    id='daily_reminders',
+    replace_existing=True
+)
+
+scheduler.add_job(
+    check_subscription_status,
+    CronTrigger(hour=0, minute=0),
+    id='check_subscriptions',
+    replace_existing=True
+)
+
+# Start the scheduler
+scheduler.start()
+log_info("Background scheduler started")
+
+# Register blueprints
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(webhooks_bp)
+app.register_blueprint(calendar_bp)
+app.register_blueprint(payment_bp)
+
+@app.route('/')
+def home():
+    """Home page"""
+    return jsonify({
+        "status": "active",
+        "service": "Refiloe AI Assistant",
+        "version": "2.0",
+        "timestamp": datetime.now().isoformat()
+    })
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    try:
+        supabase.table('trainers').select('id').limit(1).execute()
+        db_status = "connected"
+    except:
+        db_status = "error"
     
-    def validate_client_registration(self, data: Dict) -> Tuple[bool, Dict[str, str]]:
-        """
-        Validate client registration data
+    return jsonify({
+        "status": "healthy" if db_status == "connected" else "degraded",
+        "database": db_status,
+        "timestamp": datetime.now().isoformat()
+    })
+
+@app.route('/dashboard')
+def dashboard():
+    """Simple web dashboard for trainers"""
+    from flask import render_template_string
+    
+    if not Config.ENABLE_WEB_DASHBOARD:
+        return "Dashboard is disabled", 404
+    
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Refiloe Dashboard</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1 { color: #333; }
+            .status { padding: 10px; background: #e8f5e9; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1>Refiloe AI Assistant Dashboard</h1>
+        <div class="status">
+            <p>✅ System is running</p>
+            <p>📊 View your analytics and manage clients</p>
+        </div>
+    </body>
+    </html>
+    """)
+
+@app.route('/api/assessment/<assessment_id>')
+def view_assessment(assessment_id):
+    """View assessment results"""
+    try:
+        assessment = supabase.table('fitness_assessments').select(
+            """
+            *,
+            clients (name, trainer_id),
+            trainers (name, business_name),
+            physical_measurements (*),
+            fitness_goals (*),
+            fitness_test_results (*),
+            health_conditions (*),
+            lifestyle_factors (*)
+            """
+        ).eq('id', assessment_id).single().execute()
         
-        Returns:
-            Tuple of (is_valid, dict_of_errors)
-        """
-        errors = {}
+        if not assessment.data:
+            return "Assessment not found", 404
         
-        # Validate name
-        if 'name' in data:
-            is_valid, error = self.validate_name(data['name'])
-            if not is_valid:
-                errors['name'] = error
-        else:
-            errors['name'] = "Name is required"
+        token = request.args.get('token')
+        if token:
+            token_valid = supabase.table('assessment_access_tokens').select('*').eq(
+                'token', token
+            ).eq('assessment_id', assessment_id).eq('is_valid', True).execute()
+            
+            if not token_valid.data:
+                return "Invalid or expired access token", 403
         
-        # Validate phone
-        if 'phone' in data:
-            is_valid, formatted, error = self.validate_phone_number(data['phone'])
-            if not is_valid:
-                errors['phone'] = error
-        else:
-            errors['phone'] = "Phone number is required"
+        return assessment_service.render_assessment_results(assessment.data)
         
-        # Validate email (optional)
-        if 'email' in data and data['email']:
-            is_valid, error = self.validate_email(data['email'])
-            if not is_valid:
-                errors['email'] = error
+    except Exception as e:
+        log_error(f"Error viewing assessment: {str(e)}")
+        return "Error loading assessment", 500
+
+@app.route('/api/admin/metrics')
+def admin_metrics():
+    """Admin metrics endpoint"""
+    try:
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != Config.ADMIN_KEY:
+            return jsonify({'error': 'Unauthorized'}), 401
         
-        # Validate package
-        if 'package' in data:
-            is_valid, error = self.validate_package_type(data['package'])
-            if not is_valid:
-                errors['package'] = error
+        metrics = {
+            'trainers': {
+                'total': supabase.table('trainers').select('id', count='exact').execute().count,
+                'active': supabase.table('trainers').select('id', count='exact').eq(
+                    'subscription_status', 'active'
+                ).execute().count
+            },
+            'clients': {
+                'total': supabase.table('clients').select('id', count='exact').execute().count,
+                'active': supabase.table('clients').select('id', count='exact').eq(
+                    'status', 'active'
+                ).execute().count
+            },
+            'bookings': {
+                'total': supabase.table('bookings').select('id', count='exact').execute().count,
+                'this_month': supabase.table('bookings').select('id', count='exact').gte(
+                    'session_date',
+                    datetime.now().replace(day=1).date().isoformat()
+                ).execute().count
+            }
+        }
         
-        return len(errors) == 0, errors
+        return jsonify(metrics)
+        
+    except Exception as e:
+        log_error(f"Error getting admin metrics: {str(e)}")
+        return jsonify({'error': 'Error fetching metrics'}), 500
+
+@app.errorhandler(404)
+def not_found(e):
+    """Handle 404 errors"""
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    """Handle 500 errors"""
+    log_error(f"Server error: {str(e)}")
+    return jsonify({'error': 'Internal server error'}), 500
+
+# Cleanup on shutdown
+def cleanup():
+    """Cleanup resources on shutdown"""
+    try:
+        scheduler.shutdown()
+        log_info("Scheduler shut down successfully")
+    except Exception as e:
+        log_error(f"Error during cleanup: {str(e)}")
+
+import atexit
+atexit.register(cleanup)
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('DEBUG', 'False').lower() == 'true'
+    
+    log_info(f"Starting Refiloe AI Assistant on port {port}")
+    log_info(f"Debug mode: {debug_mode}")
+    log_info(f"Environment: {os.environ.get('ENVIRONMENT', 'production')}")
+    
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=debug_mode
+    )
 ```
 
 ## SUMMARY
 
-✅ **Step 2 Completed:** Created the remaining missing utility files that are critical dependencies:
-- Created `utils/input_sanitizer.py` - Comprehensive input sanitization with SQL injection detection, XSS prevention, spam detection, and South African language support
-- Created `utils/validators.py` - Complete validation utilities for phone numbers, emails, dates, amounts, and composite validations with South African context
+✅ **Step 3 Completed:** Started splitting large files by:
+- Created `routes/webhooks.py` - Extracted WhatsApp webhook handling from app.py
+- Created `routes/calendar.py` - Extracted calendar routes from app.py
+- Created `routes/payment.py` - Extracted payment routes from app.py
+- Reduced `app.py` from 1125 lines to ~350 lines by extracting routes into blueprints
 
-These utilities provide essential security and validation features that were missing and causing import errors in app.py. The files are under 600 lines each and follow best practices for input handling and validation.
+The main app.py file is now much smaller and cleaner, with routes properly organized into separate blueprint modules. Each new file is under 600 lines and follows a logical separation of concerns.
 
-**CONTINUE_NEEDED** - Next step will focus on splitting the large files (app.py, routes/dashboard.py, services/dashboard_sync.py, services/ai_intent_handler.py, payment_integration.py) into smaller modules.
+**CONTINUE_NEEDED** - Next steps will split the remaining large files (routes/dashboard.py, services/ai_intent_handler.py, payment_integration.py, services/dashboard_sync.py).
