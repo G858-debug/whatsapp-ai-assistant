@@ -1,10 +1,14 @@
-@claude @apply @sonnet Fix the deployment crash caused by missing icalendar module.
+@claude Create the badges and achievements tables and service.
 
-The error is: ModuleNotFoundError: No module named 'icalendar'
+Database: 
+1. badges table (id, name, description, icon_emoji, criteria_type, criteria_value, points_value)
+2. user_badges table (user_id, user_type, badge_id, earned_at, challenge_id)
 
-Add the missing dependency to requirements.txt:
-- Add: icalendar==5.0.10
+Create a new service file services/gamification.py with:
+- BadgeChecker class that evaluates if users earned new badges
+- Award badges for: first workout, streaks, challenge wins, point milestones
+- Send WhatsApp notification when badge earned with emoji
 
-Make sure all imports in services/calendar_service.py are covered by requirements.txt.
+Use existing patterns from services/ folder.
 
-Check if there are any other missing dependencies that might cause similar issues.
+@apply 
