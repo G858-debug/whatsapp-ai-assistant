@@ -543,28 +543,21 @@ jobs:
                   print(f"✓ Received response: {len(response_text)} chars")
                   
               except Exception as api_error:
-                  # Better error handling
+                  # Better error handling - building string line by line to avoid YAML issues
                   error_str = str(api_error).lower()
                   if "streaming" in error_str or "timeout" in error_str:
                       print("⏱️ Request timed out - task too complex")
-                      response_text = """## ANALYSIS
-The task is too complex for a single operation. Breaking it down:
-
-## RECOMMENDATION
-This task should be split into smaller parts
-
-1. First - Run `@claude` (without @apply) to analyze the requirements
-2. Then - Apply fixes one at a time
-   - `@claude @apply fix syntax errors in services/refiloe.py`
-   - `@claude @apply fix imports in app.py`
-   - etc.
-
-Or use the multi-step approach:
-`@claude @apply step 1: analyze and fix critical errors`
-
-Then continue with:
-`@claude @continue @apply`
-"""
+                      response_text = "## ANALYSIS\n"
+                      response_text += "The task is too complex for a single operation.\n\n"
+                      response_text += "## RECOMMENDATION\n"
+                      response_text += "Break the task into smaller parts.\n\n"
+                      response_text += "Option 1 - Analyze first without applying\n"
+                      response_text += "@claude (without @apply) to analyze\n\n"
+                      response_text += "Option 2 - Fix one file at a time\n"
+                      response_text += "@claude @apply fix syntax errors in services/refiloe.py\n\n"
+                      response_text += "Option 3 - Use multi-step approach\n"
+                      response_text += "@claude @apply step 1 analyze and fix critical errors\n"
+                      response_text += "Then run @claude @continue @apply\n"
                   else:
                       raise api_error
               
