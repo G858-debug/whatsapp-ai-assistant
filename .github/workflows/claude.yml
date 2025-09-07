@@ -504,14 +504,69 @@ jobs:
               if is_multi_step:
                   print(f"📍 Working on step {current_step} of {len(steps)}")
               
-              response = client.messages.create(
-                  model=selected_model,
-                  max_tokens=max_tokens,
-                  messages=[{'role': 'user', 'content': prompt}]
-              )
-              
-              response_text = response.content[0].text
-              print(f"✓ Received response: {len(response_text)} chars")
+              # FIX FOR STREAMING ERROR - Use streaming for long operations
+              response_text = ""
+              try:
+                  # Determine if streaming is needed
+                  use_streaming = (
+                      "opus" in selected_model or 
+                      is_multi_step or 
+                      estimated_tokens > 50000 or
+                      len(context) > 100000
+                  )
+                  
+                  if use_streaming:
+                      print("📡 Using streaming mode for long operation...")
+                      
+                      # Stream the response
+                      with client.messages.stream(
+                          model=selected_model,
+                          max_tokens=max_tokens,
+                          messages=[{'role': 'user', 'content': prompt}]
+                      ) as stream:
+                          for text in stream.text_stream:
+                              response_text += text
+                              # Show progress
+                              if len(response_text) % 1000 == 0:
+                                  print(".", end="", flush=True)
+                      print()  # New line after progress dots
+                  else:
+                      # Use regular non-streaming for simple tasks
+                      print("⚡ Using standard mode for quick operation...")
+                      response = client.messages.create(
+                          model=selected_model,
+                          max_tokens=max_tokens,
+                          messages=[{'role': 'user', 'content': prompt}]
+                      )
+                      response_text = response.content[0].text
+                  
+                  print(f"✓ Received response: {len(response_text)} chars")
+                  
+              except Exception as api_error:
+                  # Better error handling
+                  error_str = str(api_error).lower()
+                  if "streaming" in error_str or "timeout" in error_str:
+                      print("⏱️ Request timed out - task too complex")
+                      response_text = """## ANALYSIS
+The task is too complex for a single operation. Breaking it down:
+
+## RECOMMENDATION
+This task should be split into smaller parts:
+
+1. **First**: Run `@claude` (without @apply) to analyze the requirements
+2. **Then**: Apply fixes one at a time:
+   - `@claude @apply fix syntax errors in services/refiloe.py`
+   - `@claude @apply fix imports in app.py`
+   - etc.
+
+Or use the multi-step approach:
+`@claude @apply step 1: analyze and fix critical errors`
+
+Then continue with:
+`@claude @continue @apply`
+"""
+                  else:
+                      raise api_error
               
               # Check if continuation is needed
               continue_needed = "CONTINUE_NEEDED" in response_text or (is_multi_step and current_step < len(steps))
