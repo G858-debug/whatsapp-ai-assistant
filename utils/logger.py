@@ -1,38 +1,38 @@
-"""Logger utility for Refiloe application"""
+"""Logging utilities for Refiloe"""
 import logging
 import sys
 from datetime import datetime
+import pytz
 
-def setup_logger():
-    """Setup application logger"""
-    logger = logging.getLogger('refiloe')
-    logger.setLevel(logging.INFO)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    
-    # Format
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    console_handler.setFormatter(formatter)
-    
-    logger.addHandler(console_handler)
-    
-    return logger
+# Configure logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
-def log_info(message):
+def setup_logger(name='refiloe'):
+    """Setup and return a logger instance"""
+    return logging.getLogger(name)
+
+def log_info(message, **kwargs):
     """Log info message"""
     logger = logging.getLogger('refiloe')
-    logger.info(message)
+    logger.info(message, **kwargs)
 
-def log_error(message, exc_info=False):
+def log_error(message, exc_info=False, **kwargs):
     """Log error message"""
     logger = logging.getLogger('refiloe')
-    logger.error(message, exc_info=exc_info)
+    logger.error(message, exc_info=exc_info, **kwargs)
 
-def log_warning(message):
+def log_warning(message, **kwargs):
     """Log warning message"""
     logger = logging.getLogger('refiloe')
-    logger.warning(message)
+    logger.warning(message, **kwargs)
+
+def log_debug(message, **kwargs):
+    """Log debug message"""
+    logger = logging.getLogger('refiloe')
+    logger.debug(message, **kwargs)

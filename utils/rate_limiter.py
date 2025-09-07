@@ -1,59 +1,56 @@
-"""Rate limiting utility"""
+"""Rate limiting utilities"""
 from datetime import datetime, timedelta
+from collections import defaultdict
 from typing import Tuple
 
 class RateLimiter:
-    """Handle rate limiting for API calls"""
+    """Handle rate limiting for messages and webhooks"""
     
     def __init__(self, config, supabase_client):
         self.config = config
         self.db = supabase_client
-        self.cache = {}
-    
-    def check_webhook_rate(self, ip_address: str) -> bool:
-        """Check if IP has exceeded webhook rate limit"""
-        # Simple in-memory rate limiting
-        now = datetime.now()
-        
-        if ip_address not in self.cache:
-            self.cache[ip_address] = []
-        
-        # Clean old entries
-        self.cache[ip_address] = [
-            t for t in self.cache[ip_address] 
-            if now - t < timedelta(minutes=1)
-        ]
-        
-        # Check limit
-        if len(self.cache[ip_address]) >= 100:  # 100 requests per minute
-            return False
-        
-        self.cache[ip_address].append(now)
-        return True
+        # In-memory tracking for quick checks
+        self.message_counts = defaultdict(list)
+        self.webhook_counts = defaultdict(list)
     
     def check_message_rate(self, phone_number: str, message_type: str) -> Tuple[bool, str]:
-        """Check if user has exceeded message rate limit"""
-        limit = self.config.MESSAGE_RATE_LIMIT
-        
-        if message_type == 'audio':
-            limit = self.config.VOICE_MESSAGE_RATE_LIMIT
-        
-        # Check in cache first
-        cache_key = f"{phone_number}:{message_type}"
+        """Check if message rate is within limits"""
         now = datetime.now()
-        
-        if cache_key not in self.cache:
-            self.cache[cache_key] = []
+        window = timedelta(minutes=1)
         
         # Clean old entries
-        self.cache[cache_key] = [
-            t for t in self.cache[cache_key] 
-            if now - t < timedelta(minutes=1)
+        self.message_counts[phone_number] = [
+            t for t in self.message_counts[phone_number]
+            if now - t < window
         ]
         
-        # Check limit
-        if len(self.cache[cache_key]) >= limit:
-            return False, f"Rate limit exceeded. Please wait before sending more {message_type} messages."
+        # Check limits based on type
+        if message_type == 'voice':
+            limit = self.config.VOICE_MESSAGE_RATE_LIMIT
+        else:
+            limit = self.config.MESSAGE_RATE_LIMIT
         
-        self.cache[cache_key].append(now)
-        return True, None
+        if len(self.message_counts[phone_number]) >= limit:
+            return False, f"Rate limit exceeded. Please wait a moment before sending more messages."
+        
+        # Add current request
+        self.message_counts[phone_number].append(now)
+        return True, ""
+    
+    def check_webhook_rate(self, ip_address: str) -> bool:
+        """Check if webhook rate is within limits"""
+        now = datetime.now()
+        window = timedelta(seconds=10)
+        
+        # Clean old entries
+        self.webhook_counts[ip_address] = [
+            t for t in self.webhook_counts[ip_address]
+            if now - t < window
+        ]
+        
+        # Allow 10 webhooks per 10 seconds
+        if len(self.webhook_counts[ip_address]) >= 10:
+            return False
+        
+        self.webhook_counts[ip_address].append(now)
+        return True

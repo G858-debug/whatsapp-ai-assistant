@@ -1,38 +1,66 @@
-"""Input sanitization utility"""
+"""Input sanitization utilities"""
 import re
 from typing import Tuple
 
 class InputSanitizer:
-    """Sanitize user inputs"""
+    """Sanitize user input for security"""
     
     def __init__(self, config):
         self.config = config
-        self.max_message_length = 5000
-        self.blocked_patterns = [
+        # Patterns to block
+        self.sql_patterns = [
+            r'(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER)\b)',
+            r'(--|#|\/\*|\*\/)',
+        ]
+        self.script_patterns = [
             r'<script[^>]*>.*?</script>',
             r'javascript:',
             r'on\w+\s*=',
         ]
     
     def sanitize_message(self, message: str, sender: str) -> Tuple[str, bool, list]:
-        """Sanitize incoming message"""
+        """
+        Sanitize message text
+        Returns: (sanitized_text, is_safe, warnings)
+        """
         warnings = []
+        is_safe = True
+        sanitized = message
         
-        # Check length
-        if len(message) > self.max_message_length:
-            message = message[:self.max_message_length]
-            warnings.append("Message truncated")
-        
-        # Remove dangerous patterns
-        for pattern in self.blocked_patterns:
+        # Check for SQL injection attempts
+        for pattern in self.sql_patterns:
             if re.search(pattern, message, re.IGNORECASE):
-                message = re.sub(pattern, '', message, flags=re.IGNORECASE)
-                warnings.append("Potentially harmful content removed")
+                warnings.append("Potential SQL injection detected")
+                is_safe = False
         
-        # Basic XSS prevention
-        message = message.replace('<', '&lt;').replace('>', '&gt;')
+        # Check for script injection
+        for pattern in self.script_patterns:
+            if re.search(pattern, message, re.IGNORECASE):
+                warnings.append("Script injection detected")
+                is_safe = False
         
-        # Check if message is safe
-        is_safe = len(warnings) == 0 or (len(warnings) == 1 and warnings[0] == "Message truncated")
+        # Remove potentially harmful characters
+        if not is_safe:
+            # Remove special characters that could be harmful
+            sanitized = re.sub(r'[<>\"\'`;]', '', message)
         
-        return message, is_safe, warnings
+        # Limit message length
+        max_length = 4096
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length]
+            warnings.append("Message truncated due to length")
+        
+        return sanitized, is_safe, warnings
+    
+    def sanitize_phone(self, phone: str) -> str:
+        """Sanitize phone number"""
+        # Remove all non-numeric characters
+        cleaned = re.sub(r'\D', '', phone)
+        
+        # Handle South African format
+        if cleaned.startswith('27'):
+            return f"+{cleaned}"
+        elif cleaned.startswith('0'):
+            return f"+27{cleaned[1:]}"
+        else:
+            return f"+27{cleaned}"

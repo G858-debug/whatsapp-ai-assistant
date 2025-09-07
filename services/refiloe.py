@@ -20,7 +20,7 @@ from payment_manager import PaymentManager
 class RefiloeService:
     """Main service orchestrator for Refiloe AI assistant"""
     
-    def __init__(self, supabase_client):
+    def __init__(self, supabase_client, dashboard_sync_service=None):
         """Initialize Refiloe with all required services"""
         self.db = supabase_client
         self.config = Config
