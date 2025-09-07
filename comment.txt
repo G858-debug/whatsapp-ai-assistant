@@ -1,14 +1,66 @@
-@claude Create the badges and achievements tables and service.
+@claude Implement the leaderboard system with personal ranking visibility and context window.
 
-Database: 
-1. badges table (id, name, description, icon_emoji, criteria_type, criteria_value, points_value)
-2. user_badges table (user_id, user_type, badge_id, earned_at, challenge_id)
+Database:
+1. leaderboards table (id, name, type, scope, start_date, end_date, is_active)
+2. leaderboard_entries table (leaderboard_id, user_id, user_type, nickname, points, rank, last_updated, previous_rank, trend)
 
-Create a new service file services/gamification.py with:
-- BadgeChecker class that evaluates if users earned new badges
-- Award badges for: first workout, streaks, challenge wins, point milestones
-- Send WhatsApp notification when badge earned with emoji
+Create LeaderboardService in services/gamification.py that:
+- Updates rankings hourly (store previous_rank for trend tracking)
+- Handles different scopes (global, trainer-only, client-group)
+- Respects privacy settings from gamification_profiles
+- Returns formatted WhatsApp-friendly leaderboard text with emojis
+- ALWAYS shows the requesting user's position with nearby competitors
+- Tracks position changes (trend: up/down/same)
 
-Use existing patterns from services/ folder.
+Leaderboard display for users ranked in TOP 10:
+🏆 Water Challenge Leaderboard
+1. 🥇 SpeedyGonzales - 1,250 pts
+2. 🥈 FitnessFanatic - 1,100 pts
+3. 🥉 WaterWarrior - 950 pts
+4. IronWill - 900 pts
+5. ➡️ You (GymRat) - 850 pts ↑2
+6. HealthyHabits - 800 pts
+7. StrongSoul - 750 pts
+8. PowerPlayer - 700 pts
+9. FitFam - 650 pts
+10. BeastMode - 600 pts
+
+📊 Your Stats:
+Position: #5 (↑ moved up 2 spots today!)
+Points to #4: 50 pts
+Keep it up! 💪
+
+Leaderboard display for users NOT in top 10:
+🏆 Water Challenge Leaderboard
+1. 🥇 SpeedyGonzales - 1,250 pts
+2. 🥈 FitnessFanatic - 1,100 pts
+3. 🥉 WaterWarrior - 950 pts
+...
+10. BeastMode - 600 pts
+
+📍 Your Neighborhood:
+133. MorningRunner - 130 pts
+134. FitLife - 128 pts
+➡️ 135. You (FitnessRookie) - 125 pts ↑3
+136. HealthJourney - 123 pts
+137. ActiveLife - 120 pts
+
+📊 Your Stats:
+Position: #135 (↑ moved up 3 spots today!)
+Points to next: 3 pts
+Points to top 10: 475 pts
+Points to top 100: 85 pts
+Great progress! Keep pushing! 🎯
+
+Additional features:
+- If user is between rank 11-15, show top 10 AND their context window
+- If user climbs into new tier (top 100, top 50, top 10), send celebration message
+- Show percentage ranking (e.g., "Top 25% of all participants")
+
+Milestone notifications (auto-send via WhatsApp):
+- Entering top 100: "🎉 Amazing! You've broken into the TOP 100!"
+- Entering top 50: "🌟 Incredible! You're in the TOP 50!"
+- Entering top 10: "🏆 CHAMPION STATUS! You've made the TOP 10!"
+- Personal best rank: "🎯 New personal best! Rank #135 is your highest yet!"
 
 @apply 
