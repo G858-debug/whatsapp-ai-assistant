@@ -68,14 +68,8 @@ class RefiloeService:
             user_type, user_data = self._get_user_context(from_number)
             
             if not user_data:
-                return {
-                    'success': True,
-                    'message': "👋 Welcome to Refiloe! I'm your AI fitness assistant.\n\nAre you a trainer or a client?\n\nReply 'trainer' to set up your business or 'client' if you're looking for a trainer.",
-                    'buttons': [
-                        {'id': 'register_trainer', 'title': 'I\'m a Trainer'},
-                        {'id': 'register_client', 'title': 'I\'m a Client'}
-                    ]
-                }
+                # For new users, use AI to understand their intent
+                return self._handle_new_user_registration(message_data)
             
             # Handle different message types
             message_type = message_data.get('type', 'text')
@@ -100,6 +94,63 @@ class RefiloeService:
                 'success': False,
                 'message': "Sorry, I encountered an error processing your message. Please try again.",
                 'error': str(e)
+            }
+
+    def _handle_new_user_registration(self, message_data: Dict) -> Dict:
+        """
+        Handle registration for new users using AI to understand intent
+        Supports trainers, clients, and prospects
+        """
+        try:
+            # Extract the message text
+            text = message_data.get('text', {}).get('body', '')
+            from_number = message_data.get('from')
+            
+            # If it's just "hi" or a greeting, give a smart welcome
+            if not text or text.strip().lower() in ['hi', 'hello', 'hey']:
+                return {
+                    'success': True,
+                    'message': """👋 Welcome to Refiloe! I'm your AI fitness assistant.
+    
+    I help personal trainers manage their business and connect clients with great trainers.
+    
+    How can I help you today? You can:
+    - Set up your trainer business 
+    - Find a personal trainer
+    - Learn about our platform
+    
+    Just tell me what you're looking for! 💪"""
+                }
+            
+            # Use AI to understand what they want
+            registration_intent = self._understand_registration_intent(text)
+            
+            # Route based on what they want
+            if registration_intent['user_type'] == 'trainer':
+                return self._start_trainer_registration(from_number, registration_intent)
+                
+            elif registration_intent['user_type'] == 'client':
+                return self._start_client_registration(from_number, registration_intent)
+                
+            elif registration_intent['user_type'] == 'prospect':
+                return self._handle_prospect_inquiry(from_number, registration_intent)
+                
+            else:
+                # We're not sure - ask clarifying questions
+                return self._ask_registration_clarification(text)
+                
+        except Exception as e:
+            log_error(f"Error in new user registration: {str(e)}")
+            return {
+                'success': True,
+                'message': """I'm here to help! 😊
+    
+    Are you:
+    - A trainer wanting to manage your business?
+    - Looking for a personal trainer?
+    - Just exploring what we offer?
+    
+    Let me know how I can assist you!"""
             }
     
     def _get_user_context(self, phone_number: str) -> Tuple[Optional[str], Optional[Dict]]:
