@@ -68,6 +68,8 @@ class AIIntentHandler:
             
             # Parse the response
             intent_data = self._parse_ai_response(response.content[0].text)
+            intent_data.setdefault('extracted_data', {})
+            intent_data['extracted_data']['original_message'] = message
             
             # Validate and enrich the intent
             validated_intent = self._validate_intent(intent_data, sender_data, sender_type)
