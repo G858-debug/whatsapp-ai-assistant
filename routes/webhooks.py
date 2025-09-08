@@ -10,10 +10,15 @@ webhooks_bp = Blueprint('webhooks', __name__)
 @webhooks_bp.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     """Main WhatsApp webhook endpoint"""
-    from app import (
-        Config, whatsapp_service, refiloe_service, 
-        rate_limiter, input_sanitizer
-    )
+    from flask import current_app
+    from config import Config
+    
+    # Get services from app context
+    services = current_app.config.get('services', {})
+    whatsapp_service = services.get('whatsapp')
+    refiloe_service = services.get('refiloe')
+    rate_limiter = services.get('rate_limiter')
+    input_sanitizer = services.get('input_sanitizer')
     
     if request.method == 'GET':
         verify_token = request.args.get('hub.verify_token')
@@ -55,10 +60,15 @@ def webhook():
 
 def process_message(message: dict, contacts: list):
     """Process incoming WhatsApp message"""
-    from app import (
-        Config, whatsapp_service, refiloe_service,
-        rate_limiter, input_sanitizer
-    )
+    from flask import current_app
+    from config import Config
+    
+    # Get services from app context
+    services = current_app.config.get('services', {})
+    whatsapp_service = services.get('whatsapp')
+    refiloe_service = services.get('refiloe')
+    rate_limiter = services.get('rate_limiter')
+    input_sanitizer = services.get('input_sanitizer')
     
     try:
         from_number = message['from']
