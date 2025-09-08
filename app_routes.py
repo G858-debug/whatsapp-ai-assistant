@@ -33,13 +33,9 @@ def setup_routes(app):
             "timestamp": datetime.now().isoformat()
         })
     
-    # Import existing blueprint that we know exists
-    try:
-        from routes.dashboard import dashboard_bp
-        app.register_blueprint(dashboard_bp)
-        log_info("Dashboard routes registered")
-    except ImportError as e:
-        log_warning(f"Could not import dashboard routes: {e}")
+    # Dashboard blueprint is already registered in app_core.py
+    # No need to register it again here
+    log_info("Dashboard routes already registered in app_core")
     
     # Try to import other route modules if they exist
     # Comment these out for now since they don't exist yet
