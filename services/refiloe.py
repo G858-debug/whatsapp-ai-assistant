@@ -185,11 +185,9 @@ class RefiloeService:
             
             # Log the interaction
             self._log_interaction(
-                user_id=user_data.get('id'),
-                user_type=user_type,
-                message=text,
-                intent=intent_result.get('primary_intent'),
-                response_type='text'
+                phone_number=message_data.get('from'),
+                message_data={'text': text},
+                response={'intent': intent_result.get('primary_intent')}
             )
             
             # Route to appropriate handler based on intent
@@ -909,7 +907,7 @@ Just type what you need naturally! 💪"""
             ).order('created_at', desc=True).limit(limit).execute()
             
             if messages.data:
-                return [msg['content'] for msg in reversed(messages.data)]
+                return [msg.get('message_text', '') for msg in reversed(messages.data)]
             return []
             
         except Exception as e:
