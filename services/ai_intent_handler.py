@@ -112,6 +112,16 @@ Refiloe should be conversational and human-like, not always task-focused.
 
 SENDER: {sender_type} ({context.get('name', 'Unknown')})
 
+# Add registration intents to the possible intents list
+if sender_type == 'unknown' or not sender_data:
+    prompt += """
+POSSIBLE INTENTS FOR NEW USERS:
+- registration_trainer: Wants to register as a trainer
+- registration_client: Wants to find a trainer
+- registration_inquiry: Asking about the service
+- general_inquiry: General question about fitness or the platform
+"""
+
 CONTEXT:
 {json.dumps(context, indent=2)}
 
