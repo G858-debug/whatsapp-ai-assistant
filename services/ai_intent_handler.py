@@ -121,9 +121,13 @@ RECENT CONVERSATION:
 CURRENT MESSAGE: "{message}"
 
 TASK: Understand what the {sender_type} wants. Remember:
+- Refiloe can help with ANY topic, not just fitness
+- Detect if they're asking about coding, general knowledge, or creative tasks
 - Sometimes people just want to chat or check in
-- Not every message needs a task response
+- Not every message needs a fitness-related response
 - Be conversational and natural
+- If someone asks about web development, coding, or technical topics, mark it as 'technical_question'
+- If someone asks general knowledge questions, mark it as 'knowledge_question'
 - Recognize habit tracking responses (numbers, yes/no patterns, done/skip)
 
 Analyze and return ONLY valid JSON with this structure:
@@ -180,6 +184,11 @@ POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
 - update_availability: Changing available times
 - view_clients: Listing all clients
 - general_question: General query
+- general_question: General query about fitness or training
+- technical_question: Programming, coding, technical help
+- knowledge_question: General knowledge, facts, explanations
+- creative_request: Writing, ideas, creative content
+- other_assistance: Any other non-fitness help needed
 - help: Asking for help/commands
 
 HABIT SETUP PATTERNS:
