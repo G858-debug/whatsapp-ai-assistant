@@ -58,8 +58,6 @@ def signal_handler(signum, frame):
     exit(0)
 
 # Register signal handlers
-signal.signal(signal.SIGTERM, signal_handler)
-signal.signal(signal.SIGINT, signal_handler)
 atexit.register(cleanup)
 
 if __name__ == '__main__':
