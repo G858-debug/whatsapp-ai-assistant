@@ -597,6 +597,7 @@ For habit tracking:
         name = sender_data.get('name', 'there')
         tone = intent_data.get('conversation_tone', 'friendly')
         response_type = intent_data.get('suggested_response_type', 'conversational')
+        sentiment = intent_data.get('sentiment', 'neutral')
         
         # Handle casual conversation intents
         casual_responses = {
@@ -631,20 +632,62 @@ For habit tracking:
         if intent in casual_responses:
             return random.choice(casual_responses[intent])
         
+        # Handle responses to "I'm doing good thanks" type messages
+        positive_sentiment_responses = [
+            "I'm doing well",
+            "I'm good",
+            "doing good",
+            "great thanks",
+            "all good",
+            "can't complain",
+            "not bad"
+        ]
+        
+        message_lower = intent_data.get('extracted_data', {}).get('original_message', '').lower()
+        
+        # Check if this is a response to "how are you" type question
+        if any(phrase in message_lower for phrase in positive_sentiment_responses):
+            helpful_responses = [
+                f"That's great to hear, {name}! 😊 Is there anything I can help you with today?",
+                f"Glad you're doing well! What can I do for you today, {name}?",
+                f"Awesome! 💪 How can I assist you today?",
+                f"Good to hear! Is there something specific you'd like help with?",
+                f"That's wonderful! What brings you to chat with me today?"
+            ]
+            return random.choice(helpful_responses)
+        
         # Default responses based on response type
         if response_type == 'conversational':
             if intent == 'greeting':
                 greetings = [
-                    f"Hey {name}! 👋",
-                    f"Hi {name}! Good to hear from you 😊",
-                    f"Hello {name}! How's it going?",
-                    f"Hey there {name}! 🙌"
+                    f"Hey {name}! 👋 How can I help you today?",
+                    f"Hi {name}! Good to hear from you 😊 What can I do for you?",
+                    f"Hello {name}! How's it going? What brings you here today?",
+                    f"Hey there {name}! 🙌 What's on your fitness agenda?"
                 ]
                 return random.choice(greetings)
             elif intent == 'unclear':
-                return f"I didn't quite catch that, {name}. Could you rephrase that for me?"
+                clarification_responses = [
+                    f"I didn't quite catch that, {name}. Could you rephrase that for me?",
+                    f"Hmm, not sure I understood that correctly. What would you like help with?",
+                    f"Sorry {name}, I'm a bit confused. What can I help you with today?"
+                ]
+                return random.choice(clarification_responses)
+            elif sentiment in ['neutral', 'positive'] and intent == 'general_question':
+                # For general chat that seems to be winding down
+                pivot_responses = [
+                    f"That's interesting, {name}! By the way, is there anything specific I can help you with today?",
+                    f"Cool! So {name}, what can I assist you with? Bookings, workouts, or something else?",
+                    f"Nice! How can I make your fitness journey easier today?",
+                    f"Got it! What would you like to work on today - scheduling, habits, or something else?"
+                ]
+                return random.choice(pivot_responses)
             else:
-                return f"Interesting, {name}! Tell me more about that."
+                # Fallback that still pivots to help
+                return f"I see! So {name}, what can I help you with today? I can assist with bookings, workouts, habits, and more!"
         
         # Task-based but still friendly
-        return f"Let me help you with that, {name}. What specifically would you like to know?"
+        if sender_type == 'trainer':
+            return f"Let me help you with that, {name}. Are you looking to manage clients, check your schedule, or something else?"
+        else:
+            return f"Let me help you with that, {name}. Would you like to book a session, check your progress, or something else?"
