@@ -289,3 +289,163 @@ class RefiloeHelpers:
             return 'monthly_16'
         else:
             return 'single'  # Default
+
+    def _understand_registration_intent(self, message: str) -> Dict:
+        """
+        Use AI to understand registration intent from natural language
+        """
+        try:
+            # Use Claude to understand the intent
+            prompt = f"""Analyze this message from someone contacting a fitness platform for the first time.
+            
+    MESSAGE: "{message}"
+    
+    Determine their intent and categorize them:
+    
+    1. TRAINER - They want to register as a personal trainer
+       - Keywords: "I'm a trainer", "personal trainer", "PT", "fitness coach", "I train people"
+       
+    2. CLIENT - They want to find/work with a trainer
+       - Keywords: "looking for trainer", "need trainer", "want to get fit", "join gym"
+       
+    3. PROSPECT - They're asking about the service/platform
+       - Keywords: "how does this work", "what is this", "tell me more", "pricing", "information"
+       
+    4. UNCLEAR - Can't determine from message
+    
+    Return ONLY a JSON object:
+    {{
+        "user_type": "trainer/client/prospect/unclear",
+        "confidence": 0.0-1.0,
+        "detected_intent": "what they seem to want",
+        "name": "their name if mentioned",
+        "business_name": "business name if mentioned"
+    }}"""
+    
+            response = self.anthropic.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
+            
+            import json
+            result = json.loads(response.content[0].text)
+            return result
+            
+        except Exception as e:
+            log_error(f"Error understanding registration intent: {str(e)}")
+            # Fallback to basic keyword matching
+            message_lower = message.lower()
+            
+            if any(word in message_lower for word in ['trainer', 'pt', 'coach', 'i train']):
+                return {'user_type': 'trainer', 'confidence': 0.7}
+            elif any(word in message_lower for word in ['looking for', 'need trainer', 'want trainer', 'get fit']):
+                return {'user_type': 'client', 'confidence': 0.7}
+            elif any(word in message_lower for word in ['how', 'what', 'information', 'tell me', 'pricing']):
+                return {'user_type': 'prospect', 'confidence': 0.6}
+            else:
+                return {'user_type': 'unclear', 'confidence': 0.3}
+    
+    def _start_trainer_registration(self, phone: str, intent_data: Dict) -> Dict:
+        """Start the trainer registration flow"""
+        name = intent_data.get('name', '')
+        
+        if name:
+            message = f"""Great to meet you, {name}! 🎉
+    
+    Let's set up your trainer account. I just need a few details:
+    
+    1. Your business name (or personal brand name)
+    2. Your location (city)
+    3. Your specialization (e.g., weight loss, strength, personal training, sports)
+    
+    For example: "My business is FitLife PT, based in Johannesburg, specializing in weight loss"
+    """
+        else:
+            message = """Awesome! Let's get you set up as a trainer! 💪
+    
+    I'll need a few details to create your account:
+    
+    1. Your name
+    2. Your business/brand name
+    3. Your location
+    4. Your specialization
+    
+    Just tell me about yourself and your training business!"""
+        
+        return {'success': True, 'message': message}
+    
+    def _start_client_registration(self, phone: str, intent_data: Dict) -> Dict:
+        """Start the client registration flow"""
+        return {
+            'success': True,
+            'message': """Great! I'll help you find the perfect trainer! 🏋️‍♂️
+    
+    To match you with the right trainer, tell me:
+    - What are your fitness goals?
+    - What's your preferred training location?
+    - Any specific requirements or preferences?
+    
+    Or if you already have a trainer in mind, just give me their name!"""
+        }
+    
+    def _handle_prospect_inquiry(self, phone: str, intent_data: Dict) -> Dict:
+        """Handle prospects asking about the service"""
+        detected_intent = intent_data.get('detected_intent', '')
+        
+        if 'pricing' in detected_intent.lower():
+            message = """💰 *Refiloe Pricing*
+    
+    For Trainers:
+    - Free trial to get started
+    - R299/month for up to 10 clients
+    - R599/month for unlimited clients
+    - Includes: Client management, automated bookings, payment processing
+    
+    For Clients:
+    - Free to join!
+    - Pay your trainer directly through the app or 
+    - Track workouts and progress at no cost
+    
+    Want to get started? Just let me know if you're a trainer or looking for one!"""
+        else:
+            message = """🌟 *I am Refiloe!*
+    
+    I'm your personal AI assistant. I serve you in the following ways: 
+    
+    *For Personal Trainers:*
+    ✅ Manage all your clients in one place
+    ✅ Automated scheduling & reminders
+    ✅ Payment collection made easy
+    ✅ AI-powered workout creation
+    ✅ Professional assessment tools
+    
+    *For Fitness Enthusiasts:*
+    ✅ Find qualified trainers near you
+    ✅ Book sessions easily
+    ✅ Track your progress
+    ✅ Get personalized workouts
+    ✅ Join fitness challenges
+    
+    Ready to transform your fitness journey? 
+    
+    Just tell me: Are you a trainer or looking for training?"""
+        
+        return {'success': True, 'message': message}
+    
+    def _ask_registration_clarification(self, original_message: str) -> Dict:
+        """Ask for clarification when intent is unclear"""
+        return {
+            'success': True,
+            'message': """I'd love to help you! 😊
+    
+    To point you in the right direction, could you tell me:
+    
+    Are you:
+    1️⃣ A fitness professional who trains clients?
+    2️⃣ Someone looking for a personal trainer?
+    3️⃣ Just exploring what Refiloe offers?
+    
+    Just reply with 1, 2, or 3, or tell me in your own words!"""
+        }
