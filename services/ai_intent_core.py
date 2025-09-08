@@ -33,14 +33,17 @@ class AIIntentCore:
             context = self._build_context(sender_type, sender_data)
             prompt = self._create_intent_prompt(message, sender_type, context, conversation_history)
             
-            response = self.client.completions.create(
+            # Get AI understanding
+            response = self.client.messages.create(
                 model=self.model,
-                prompt=prompt,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
                 max_tokens=500,
                 temperature=0.3
             )
             
-            intent_data = self._parse_ai_response(response.completion)
+            intent_data = self._parse_ai_response(response.content[0].text)
             validated_intent = self._validate_intent(intent_data, sender_data, sender_type)
             
             log_info(f"AI Intent detected: {validated_intent.get('primary_intent')} "
