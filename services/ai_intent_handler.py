@@ -57,15 +57,17 @@ class AIIntentHandler:
             )
             
             # Get AI understanding
-            response = self.client.completions.create(
+            response = self.client.messages.create(
                 model=self.model,
-                prompt=prompt,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
                 max_tokens=500,
                 temperature=0.3
             )
             
             # Parse the response
-            intent_data = self._parse_ai_response(response.completion)
+            intent_data = self._parse_ai_response(response.content[0].text)
             
             # Validate and enrich the intent
             validated_intent = self._validate_intent(intent_data, sender_data, sender_type)
