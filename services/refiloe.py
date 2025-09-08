@@ -218,8 +218,13 @@ class RefiloeService:
                 'view_client_price': self._handle_pricing_intent
             }
             
-            handler = intent_handlers.get(primary_intent, self._handle_general_query)
-            return handler(intent_result, user_type, user_data)
+            # Check if this is a general question that needs Claude's full capabilities
+            if primary_intent == 'general_question' or primary_intent not in intent_handlers:
+                # Use Claude for any non-fitness specific questions
+                return self._handle_general_query_with_claude(intent_result, user_type, user_data)
+            else:
+                handler = intent_handlers.get(primary_intent, self._handle_general_query)
+                return handler(intent_result, user_type, user_data)
             
         except Exception as e:
             log_error(f"Error handling text message: {str(e)}")
@@ -960,6 +965,48 @@ Just type what you need naturally! 💪"""
                 'success': True,
                 'message': "I'm not sure how to help with that. Type '/help' to see what I can do!"
             }
+
+    def _handle_general_query_with_claude(self, intent_data: Dict, user_type: str, user_data: Dict) -> Dict:
+        """Handle ANY general query using Claude's full capabilities"""
+        try:
+            message = intent_data.get('extracted_data', {}).get('original_message', '')
+            name = user_data.get('name', 'there')
+            
+            # Create a prompt for Claude to answer ANY question
+            prompt = f"""You are Refiloe, an AI assistant who primarily helps with fitness and personal training, 
+            but you're also knowledgeable about everything else - coding, general knowledge, creative tasks, etc.
+            
+            The user {name} (a {user_type}) has asked: "{message}"
+            
+            If this is fitness/training related, provide helpful fitness advice.
+            If it's about something else (coding, general knowledge, etc.), answer just as helpfully.
+            
+            Keep your response WhatsApp-friendly (use emojis appropriately, keep it concise but complete).
+            If it's a complex technical question, provide a clear, practical answer.
+            
+            Important: You can help with ANY topic - not just fitness. Be as helpful as Claude would be."""
+            
+            # Get Claude's response
+            response = self.anthropic.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=1000,
+                temperature=0.7
+            )
+            
+            claude_response = response.content[0].text
+            
+            return {
+                'success': True,
+                'message': claude_response
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling general query with Claude: {str(e)}")
+            # Fallback to the simpler response
+            return self._handle_general_query(intent_data, user_type, user_data)
     
     def _get_help_message(self, user_type: str, user_data: Dict) -> Dict:
         """Get help message based on user type"""
