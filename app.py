@@ -31,6 +31,14 @@ app, scheduler = setup_app_core(app)
 # Setup routes
 setup_routes(app)
 
+# Register webhook routes
+from routes.webhooks import webhooks_bp
+app.register_blueprint(webhooks_bp)
+
+# Register payment routes
+from routes.payment import payment_bp
+app.register_blueprint(payment_bp)
+
 # Cleanup on shutdown
 def cleanup():
     """Cleanup resources on shutdown"""
