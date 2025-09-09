@@ -107,152 +107,133 @@ class AIIntentHandler:
                              context: Dict, history: List[str]) -> str:
         """Create a comprehensive prompt for Claude"""
         
-        prompt = f"""You are analyzing a WhatsApp message to Refiloe, a friendly AI assistant for personal trainers. 
-Refiloe should be conversational and human-like, not always task-focused.
-
-SENDER: {sender_type} ({context.get('name', 'Unknown')})
-
-# Add registration intents to the possible intents list
-if sender_type == 'unknown' or not sender_data:
-    prompt += """
-POSSIBLE INTENTS FOR NEW USERS:
-- registration_trainer: Wants to register as a trainer
-- registration_client: Wants to find a trainer
-- registration_inquiry: Asking about the service
-- general_inquiry: General question about fitness or the platform
-"""
-
-CONTEXT:
-{json.dumps(context, indent=2)}
-
-RECENT CONVERSATION:
-{chr(10).join(history[-5:]) if history else 'No recent messages'}
-
-CURRENT MESSAGE: "{message}"
-
-TASK: Understand what the {sender_type} wants. Remember:
-- Refiloe can help with ANY topic, not just fitness
-- Detect if they're asking about coding, general knowledge, or creative tasks
-- Sometimes people just want to chat or check in
-- Not every message needs a fitness-related response
-- Be conversational and natural
-- If someone asks about web development, coding, or technical topics, mark it as 'technical_question'
-- If someone asks general knowledge questions, mark it as 'knowledge_question'
-- Recognize habit tracking responses (numbers, yes/no patterns, done/skip)
-
-Analyze and return ONLY valid JSON with this structure:
-{{
-    "primary_intent": "string - main action or conversation type",
-    "secondary_intents": ["list of other detected intents"],
-    "confidence": 0.0-1.0,
-    "extracted_data": {{
-        "client_name": "if mentioned",
-        "date_time": "if mentioned",
-        "exercises": ["if workout mentioned"],
-        "duration": "if mentioned",
-        "price": "if mentioned",
-        "custom_price": "if setting client price",
-        "phone_number": "if mentioned",
-        "email": "if mentioned",
-        "habit_type": "if setting up habit (water/steps/sleep/veggies/etc)",
-        "habit_responses": ["array of habit check responses if logging"],
-        "habit_values": ["numeric values for habits if provided"],
-        "target_value": "if mentioned for habit setup"
-    }},
-    "sentiment": "positive/neutral/negative/urgent/casual/friendly",
-    "requires_confirmation": true/false,
-    "suggested_response_type": "task/conversational/mixed",
-    "is_follow_up": true/false,
-    "conversation_tone": "casual/business/friendly/concerned"
-}}
-
-POSSIBLE PRIMARY INTENTS FOR {sender_type.upper()}:
-"""
-        
+        # Build the base prompt
+        base_prompt = f"""You are analyzing a WhatsApp message to Refiloe, a friendly AI assistant for personal trainers. 
+    Refiloe should be conversational and human-like, not always task-focused.
+    
+    SENDER: {sender_type} ({context.get('name', 'Unknown')})
+    
+    CONTEXT:
+    {json.dumps(context, indent=2)}
+    
+    RECENT CONVERSATION:
+    {chr(10).join(history[-5:]) if history else 'No recent messages'}
+    
+    CURRENT MESSAGE: "{message}"
+    
+    TASK: Understand what the {sender_type} wants."""
+    
+        # Add registration intents for unknown users
+        if sender_type == 'unknown' or not context:
+            base_prompt += """
+    
+    POSSIBLE INTENTS FOR NEW USERS:
+    - registration_trainer: Wants to register as a trainer
+    - registration_client: Wants to find a trainer
+    - registration_inquiry: Asking about the service
+    - general_inquiry: General question about fitness or the platform"""
+    
+        base_prompt += """
+    
+    Remember:
+    - Refiloe can help with ANY topic, not just fitness
+    - Detect if they're asking about coding, general knowledge, or creative tasks
+    - Sometimes people just want to chat or check in
+    - Not every message needs a fitness-related response
+    - Be conversational and natural
+    - If someone asks about web development, coding, or technical topics, mark it as 'technical_question'
+    - If someone asks general knowledge questions, mark it as 'knowledge_question'
+    - Recognize habit tracking responses (numbers, yes/no patterns, done/skip)
+    
+    Analyze and return ONLY valid JSON with this structure:
+    {
+        "primary_intent": "string - main action or conversation type",
+        "secondary_intents": ["list of other detected intents"],
+        "confidence": 0.0-1.0,
+        "extracted_data": {
+            "client_name": "if mentioned",
+            "date_time": "if mentioned",
+            "exercises": ["if workout mentioned"],
+            "duration": "if mentioned",
+            "price": "if mentioned",
+            "custom_price": "if setting client price",
+            "phone_number": "if mentioned",
+            "email": "if mentioned",
+            "habit_type": "if setting up habit (water/steps/sleep/veggies/etc)",
+            "habit_responses": ["array of habit check responses if logging"],
+            "habit_values": ["numeric values for habits if provided"],
+            "target_value": "if mentioned for habit setup"
+        },
+        "sentiment": "positive/neutral/negative/urgent/casual/friendly",
+        "requires_confirmation": true/false,
+        "suggested_response_type": "task/conversational/mixed",
+        "is_follow_up": true/false,
+        "conversation_tone": "casual/business/friendly/concerned"
+    }"""
+    
+        # Add role-specific intents
         if sender_type == 'trainer':
-            prompt += """
-- casual_chat: Just checking in, casual conversation
-- greeting: Just saying hello (no task needed)
-- status_check: Asking if Refiloe is there/working
-- thanks: Expressing gratitude
-- farewell: Saying goodbye
-- small_talk: Weather, how are you, etc.
-- set_client_price: Setting custom price for a client (e.g., "Set Sarah's rate to R450")
-- view_client_price: Checking a client's custom price (e.g., "What is John's rate?")
-- setup_habit: Setting up habit tracking for a client (water, steps, sleep, etc)
-- check_habit_compliance: Viewing client habit progress/compliance
-- modify_habit: Changing habit targets or settings
-- send_habit_reminder: Manually trigger habit check for clients
-- view_habit_report: Get habit tracking summary/reports
-- add_client: Adding a new client
-- view_schedule: Checking their schedule/bookings
-- send_workout: Sending a workout to a client
-- start_assessment: Starting a fitness assessment
-- view_dashboard: Accessing their dashboard
-- check_revenue: Checking payments/earnings
-- send_reminder: Sending reminders to clients
-- update_availability: Changing available times
-- view_clients: Listing all clients
-- general_question: General query
-- general_question: General query about fitness or training
-- technical_question: Programming, coding, technical help
-- knowledge_question: General knowledge, facts, explanations
-- creative_request: Writing, ideas, creative content
-- other_assistance: Any other non-fitness help needed
-- help: Asking for help/commands
-
-HABIT SETUP PATTERNS:
-- "Set up water tracking for [client]"
-- "Add habit for [client]"
-- "[client] needs to track [habit]"
-- "Start [client] on [habit] tracking"
-"""
-        else:  # client
-            prompt += """
-- casual_chat: Just checking in, casual conversation
-- greeting: Just saying hello (no task needed)
-- status_check: Asking if Refiloe is there/working
-- thanks: Expressing gratitude
-- farewell: Saying goodbye
-- small_talk: Weather, how are you, etc.
-- log_habits: Recording daily habit completion (responding to habit check)
-- check_streak: Asking about their habit streak
-- view_habits: What habits they need to track
-- skip_habits: Skipping today's habit tracking
-- modify_habit_target: Requesting to change their habit goals
-- book_session: Booking a training session
-- view_schedule: Checking their upcoming sessions
-- cancel_session: Cancelling a booking
-- reschedule_session: Moving a booking
-- view_assessment: Checking fitness assessment results
-- check_progress: Viewing their progress
-- request_workout: Asking for a workout plan
-- payment_query: Question about payment
-- general_question: General query
-- help: Asking for help
-
-HABIT LOGGING PATTERNS:
-- Simple responses: "yes yes no", "7 yes no", "done done skip"
-- Numbers: "6", "8 glasses", "10000 steps"
-- Natural language: "I drank 6 glasses and ate my veggies"
-- Emojis: "✅ ✅ ❌", "👍 👍 👎"
-- Mixed: "6/8 water, veggies yes, no walk"
-"""
+            base_prompt += """
+    
+    POSSIBLE PRIMARY INTENTS FOR TRAINER:
+    - casual_chat: Just checking in, casual conversation
+    - greeting: Just saying hello (no task needed)
+    - status_check: Asking if Refiloe is there/working
+    - thanks: Expressing gratitude
+    - farewell: Saying goodbye
+    - small_talk: Weather, how are you, etc.
+    - set_client_price: Setting custom price for a client (e.g., "Set Sarah's rate to R450")
+    - view_client_price: Checking a client's custom price (e.g., "What is John's rate?")
+    - add_client: Adding new client
+    - view_clients: Viewing client list
+    - book_session: Booking a training session
+    - view_schedule: Checking schedule
+    - send_workout: Sending workout to client
+    - request_payment: Requesting payment from client
+    - check_revenue: Checking earnings/revenue
+    - start_assessment: Starting fitness assessment
+    - challenges: Managing challenges
+    - general_question: General questions
+    - technical_question: Coding or technical help
+    - knowledge_question: General knowledge queries"""
+            
+        elif sender_type == 'client':
+            base_prompt += """
+    
+    POSSIBLE PRIMARY INTENTS FOR CLIENT:
+    - casual_chat: Just checking in, casual conversation
+    - greeting: Just saying hello (no task needed)
+    - status_check: Asking if Refiloe is there/working
+    - thanks: Expressing gratitude
+    - farewell: Saying goodbye
+    - small_talk: Weather, how are you, etc.
+    - book_session: Want to book training
+    - view_schedule: Check their schedule
+    - cancel_session: Cancel a booking
+    - reschedule: Change session time
+    - log_habits: Recording habit tracking
+    - view_progress: Check fitness progress
+    - request_workout: Ask for workout plan
+    - check_payments: Payment status
+    - join_challenge: Join fitness challenge
+    - view_leaderboard: Check rankings
+    - general_question: General questions
+    - technical_question: Coding or technical help
+    - knowledge_question: General knowledge queries"""
         
-        prompt += """
-Be precise and extract ALL mentioned information. 
-Consider South African context (ZA phone numbers, Rand currency, local slang).
-The message might be informal or use WhatsApp shorthand.
-Recognize casual conversation - not everything needs a task response.
-
-For habit tracking:
-- Detect when someone is responding to a habit check
-- Extract specific values (numbers for water, steps, etc)
-- Understand various response formats (yes/no, numbers, done/skip, emojis)
-- Identify which habits are being set up or tracked
-"""
-        
-        return prompt
+        else:
+            base_prompt += """
+    
+    POSSIBLE PRIMARY INTENTS:
+    - registration_trainer: Wants to register as trainer
+    - registration_client: Wants to find trainer
+    - registration_inquiry: Asking about the service
+    - exploring: Just exploring what's offered
+    - pricing_inquiry: Asking about costs
+    - feature_inquiry: Asking about features
+    - general_question: General questions"""
+    
+        return base_prompt
     
     def _parse_ai_response(self, response_text: str) -> Dict:
         """Parse the AI's JSON response"""
