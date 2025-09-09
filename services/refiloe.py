@@ -1564,3 +1564,230 @@ Keep going! 💪"""
             }).execute()
         except Exception as e:
             log_error(f"Error logging interaction: {str(e)}")
+
+    def _provide_platform_info(self, specific_interest: str = None) -> Dict:
+        """Provide comprehensive platform information"""
+        
+        # Check what they're specifically interested in
+        if specific_interest and 'about' in str(specific_interest).lower():
+            message = """👋 **Hi! I'm Refiloe** 
+    
+    I'm your personal AI fitness assistant, living right here in WhatsApp! 🤖💪
+    
+    **My Story:**
+    I was created specifically for South African fitness professionals and enthusiasts. My name means "we are given" in Sesotho - because I'm here to give you back your time and energy to focus on what matters: FITNESS!
+    
+    **What Makes Me Special:**
+    🧠 **I'm Smart** - I understand natural language, no complex commands needed
+    ⚡ **I'm Fast** - Instant responses, 24/7 availability
+    📱 **I'm Accessible** - No app downloads, I work in WhatsApp
+    🇿🇦 **I'm Local** - Built for SA, I understand Rands, local areas, and our context
+    ❤️ **I'm Friendly** - I remember your preferences and adapt to your style
+    
+    **My Personality:**
+    - I'm encouraging but not pushy
+    - Professional yet warm
+    - I celebrate your wins (big and small!)
+    - I'm here to make fitness management effortless
+    
+    Ready to experience the difference? Tell me if you're a trainer or looking for one!"""
+    
+        elif specific_interest and 'benefit' in str(specific_interest).lower():
+            message = """🎯 **Why People Love Using Refiloe**
+    
+    **Trainers Save 10+ Hours Per Week:**
+    ❌ **BEFORE:** Juggling WhatsApp chats, spreadsheets, calendars, payment follow-ups
+    ✅ **AFTER:** Everything automated through me - one simple chat!
+    
+    **Real Trainer Testimonial:**
+    "Refiloe changed my business! I went from 5 to 20 clients in 2 months because I could finally focus on training instead of admin" - Sarah, JHB
+    
+    **Client Success Story:**
+    "I love that I can just message Refiloe to book sessions, check my progress, and even join challenges. It's like having a PA!" - Mike, CPT
+    
+    **The Magic:**
+    📊 Trainers see 40% increase in client retention
+    ⏰ Clients never miss sessions with smart reminders
+    💰 98% faster payment collection
+    🎯 3x more consistent workout adherence
+    
+    **Try me FREE for 14 days!** No credit card needed.
+    Just say "I'm a trainer" or "I need a trainer" to start!"""
+    
+        elif specific_interest and 'how' in str(specific_interest).lower():
+            message = """⚙️ **How Refiloe Works - It's SO Simple!**
+    
+    **Step 1: Start Chatting** 💬
+    Just message me on WhatsApp - that's it! No apps, no passwords, no hassle.
+    
+    **Step 2: I Learn About You** 🧠
+    Tell me if you're a trainer or client. I'll ask a few quick questions to personalize your experience.
+    
+    **Step 3: Everything Happens Here** 📱
+    From this chat, you can:
+    - Book/manage sessions
+    - Track workouts & progress
+    - Handle payments
+    - Get AI-generated workouts
+    - Join fitness challenges
+    - And so much more!
+    
+    **For Trainers - Your Business Dashboard:**
+    Every morning I'll send you:
+    📅 Today's schedule
+    💰 Pending payments
+    📊 Client progress alerts
+    🎯 Business insights
+    
+    **For Clients - Your Fitness Journey:**
+    I'll help you:
+    🏃‍♂️ Never miss a session
+    📈 Track your progress
+    💪 Get personalized workouts
+    🏆 Stay motivated with challenges
+    
+    **Real Example:**
+    Trainer: "Book Sarah for tomorrow 6am"
+    Me: "✅ Booked! Sarah confirmed for 6am. I'll remind both of you!"
+    
+    That easy! Want to try? Just tell me your role!"""
+    
+        elif specific_interest and 'pricing' in str(specific_interest).lower():
+            message = """💰 **Refiloe Pricing - Incredible Value!**
+    
+    **For Personal Trainers:**
+    🎁 **FREE 14-Day Trial** - No credit card required!
+    
+    Then choose:
+    📱 **Starter (R299/month)**
+    - Up to 10 clients
+    - All core features
+    - Perfect for new trainers
+    - Less than R1 per client per day!
+    
+    🚀 **Professional (R599/month)**
+    - Unlimited clients
+    - Priority support
+    - Advanced analytics
+    - Custom branding coming soon
+    - Still less than 1 session's income!
+    
+    **ROI Calculator:**
+    If you charge R400/session and Refiloe helps you:
+    - Keep just 2 clients from canceling = R800 saved
+    - Book 2 extra sessions = R800 earned
+    That's R1,600 value for R299-599 investment! 📈
+    
+    **For Clients:**
+    ✅ **100% FREE FOREVER!**
+    - No hidden fees
+    - No premium features to unlock
+    - Your trainer covers the platform
+    - You just pay for your sessions
+    
+    **Why So Affordable?**
+    We believe every trainer deserves professional tools, and every client deserves a great fitness experience. We're building the future of fitness in SA! 🇿🇦
+    
+    Ready to join? Say "I'm a trainer" or "Find me a trainer"!"""
+    
+        elif specific_interest and 'features' in str(specific_interest).lower():
+            message = """🚀 **Refiloe's Powerful Features**
+    
+    **📅 Smart Scheduling**
+    - Book sessions in seconds
+    - Automatic conflict detection
+    - Smart reminders (never miss sessions!)
+    - Rescheduling made easy
+    
+    **💳 Payment Management**
+    - Track who owes what
+    - Send payment reminders
+    - Payment confirmation
+    - Monthly financial reports
+    
+    **🏋️‍♂️ AI Workout Creator**
+    - Personalized programs in seconds
+    - Adapts to equipment available
+    - Progressive difficulty
+    - Exercise library with demos
+    
+    **📊 Progress Tracking**
+    - Visual progress charts
+    - Body measurements
+    - Fitness assessments
+    - Before/after photos
+    
+    **🎮 Gamification & Challenges**
+    - Points for consistency
+    - Achievement badges
+    - Group challenges
+    - Leaderboards
+    - Motivation rewards
+    
+    **📱 Client Management**
+    - All client info in one place
+    - Session history
+    - Automated check-ins
+    - Birthday reminders
+    
+    **🤖 AI Intelligence**
+    - Understands natural language
+    - Learns your preferences
+    - Predictive scheduling
+    - Smart suggestions
+    
+    **📈 Business Analytics**
+    - Revenue tracking
+    - Client retention metrics
+    - Popular time slots
+    - Growth insights
+    
+    All this from one WhatsApp chat! 🤯
+    Ready to experience it? Let's get started!"""
+    
+        else:
+            # Default comprehensive overview
+            message = """🌟 **Meet Refiloe - Your AI Fitness Assistant!**
+    
+    **Who Am I?** 🤖
+    I'm Refiloe (ray-fee-lou-way), your friendly AI assistant living in WhatsApp! I make fitness simple for trainers and clients across South Africa.
+    
+    **My Superpowers:**
+    ⚡ **Instant Everything** - Book sessions, create workouts, track progress in seconds
+    🧠 **Super Smart** - I understand what you mean, not just commands
+    📱 **Always Here** - 24/7 in your WhatsApp, no app needed
+    💪 **Fitness Focused** - Built specifically for personal training
+    
+    **For Trainers, I'm Your:**
+    - Virtual assistant (R299/month)
+    - Booking manager
+    - Payment tracker
+    - Workout creator
+    - Client database
+    - Business analyst
+    
+    **For Clients, I'm Your:**
+    - Personal fitness companion (FREE!)
+    - Session scheduler
+    - Progress tracker
+    - Motivation partner
+    - Workout library
+    - Challenge buddy
+    
+    **Success Numbers:**
+    📈 Trainers grow 3x faster with Refiloe
+    ⏰ Save 10+ hours per week on admin
+    💰 Get paid 98% faster
+    🎯 Clients are 3x more consistent
+    
+    **Ready to Transform Your Fitness Journey?**
+    
+    Just tell me:
+    1️⃣ "I'm a trainer" - Start your FREE trial
+    2️⃣ "Find me a trainer" - Get matched
+    3️⃣ "Tell me more about [topic]" - Learn more
+    
+    What would you like to know? 😊"""
+        
+        return {'success': True, 'message': message}
+    
