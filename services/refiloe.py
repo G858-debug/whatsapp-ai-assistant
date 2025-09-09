@@ -123,17 +123,24 @@ class RefiloeService:
                 }
             
             # Use AI to understand what they want
-            registration_intent = self._understand_registration_intent(text)
+            registration_intent = self._understand_registration_intent_fixed(text)
             
-            # Route based on what they want
-            if registration_intent['user_type'] == 'trainer':
+            # Route based on what they want - check both user_type and intent
+            intent = registration_intent.get('intent', registration_intent.get('user_type', 'unclear'))
+            
+            if intent == 'registration_trainer' or registration_intent.get('user_type') == 'trainer':
                 return self._start_trainer_registration(from_number, registration_intent)
                 
-            elif registration_intent['user_type'] == 'client':
+            elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
                 return self._start_client_registration(from_number, registration_intent)
                 
-            elif registration_intent['user_type'] == 'prospect':
-                return self._handle_prospect_inquiry(from_number, registration_intent)
+            elif intent == 'exploring' or registration_intent.get('user_type') == 'prospect':
+                # They said they're exploring - show them information!
+                return self._provide_platform_info(None)
+                
+            elif intent == 'has_question':
+                # They have a specific question
+                return self._answer_specific_question(registration_intent.get('question', ''))
                 
             else:
                 # We're not sure - ask clarifying questions
@@ -152,6 +159,106 @@ class RefiloeService:
     
     Let me know how I can assist you!"""
             }
+
+    def _understand_registration_intent_fixed(self, message: str) -> Dict:
+        """
+        Use AI to understand registration intent from natural language
+        This method uses the RefiloeService's anthropic client
+        """
+        try:
+            # Handle simple keyword responses first
+            message_lower = message.lower().strip()
+            
+            # Handle numbered choices
+            if message_lower == '1':
+                return {'user_type': 'trainer', 'confidence': 1.0, 'intent': 'registration_trainer'}
+            elif message_lower == '2':
+                return {'user_type': 'client', 'confidence': 1.0, 'intent': 'registration_client'}
+            elif message_lower == '3':
+                return {'user_type': 'prospect', 'confidence': 1.0, 'intent': 'exploring'}
+            
+            # Handle direct keywords
+            if message_lower in ['trainer', "i'm a trainer", 'i am a trainer']:
+                return {'user_type': 'trainer', 'confidence': 0.9, 'intent': 'registration_trainer'}
+            elif message_lower in ['client', "i'm a client", 'i need a trainer']:
+                return {'user_type': 'client', 'confidence': 0.9, 'intent': 'registration_client'}
+            elif any(phrase in message_lower for phrase in ['exploring', 'just looking', 'what you offer', 'tell me more']):
+                return {'user_type': 'prospect', 'confidence': 0.9, 'intent': 'exploring'}
+            
+            # Use Claude for more complex understanding
+            if self.anthropic and self.anthropic.api_key:
+                prompt = f"""Analyze this message from someone contacting a fitness platform:
+                
+    MESSAGE: "{message}"
+    
+    Determine their intent:
+    1. TRAINER - They want to register as a trainer (e.g., "I'm a PT", "personal trainer")
+    2. CLIENT - They want to find a trainer (e.g., "looking for trainer", "need help getting fit")
+    3. EXPLORING - They're exploring/want information (e.g., "exploring what you offer", "how does this work")
+    4. UNCLEAR - Can't determine
+    
+    Return ONLY valid JSON:
+    {{
+        "user_type": "trainer/client/prospect/unclear",
+        "intent": "registration_trainer/registration_client/exploring/unclear",
+        "confidence": 0.0-1.0,
+        "detected_intent": "what they want"
+    }}"""
+    
+                try:
+                    response = self.anthropic.messages.create(
+                        model="claude-3-5-sonnet-20241022",
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=200,
+                        temperature=0.3
+                    )
+                    
+                    # Parse JSON from response
+                    import re
+                    response_text = response.content[0].text
+                    json_match = re.search(r'\{.*?\}', response_text, re.DOTALL)
+                    
+                    if json_match:
+                        result = json.loads(json_match.group())
+                        # Map 'prospect' to 'exploring' for consistency
+                        if result.get('intent') == 'prospect' or result.get('user_type') == 'prospect':
+                            result['intent'] = 'exploring'
+                        return result
+                        
+                except Exception as e:
+                    log_error(f"Error parsing Claude response: {str(e)}")
+            
+        except Exception as e:
+            log_error(f"Error in registration intent understanding: {str(e)}")
+        
+        # Final fallback - enhanced keyword matching
+        message_lower = message.lower()
+        
+        # Check for exploring/information seeking
+        if any(word in message_lower for word in ['exploring', 'explore', 'looking around', 'browsing', 
+                                                    'what you offer', 'tell me', 'information', 
+                                                    'how does', 'what is this', 'learn more']):
+            return {'user_type': 'prospect', 'confidence': 0.7, 'intent': 'exploring'}
+        
+        # Check for trainer keywords
+        elif any(word in message_lower for word in ['trainer', 'pt', 'coach', 'i train', 
+                                                     'fitness professional', 'instructor']):
+            return {'user_type': 'trainer', 'confidence': 0.7, 'intent': 'registration_trainer'}
+        
+        # Check for client keywords
+        elif any(word in message_lower for word in ['looking for trainer', 'need trainer', 
+                                                     'want trainer', 'get fit', 'lose weight',
+                                                     'find trainer', 'personal training']):
+            return {'user_type': 'client', 'confidence': 0.7, 'intent': 'registration_client'}
+        
+        # Check for questions about the service
+        elif any(word in message_lower for word in ['how much', 'cost', 'price', 'features',
+                                                     'what can', 'benefits', 'why should']):
+            return {'user_type': 'prospect', 'confidence': 0.6, 'intent': 'exploring'}
+        
+        # Default to unclear
+        else:
+            return {'user_type': 'unclear', 'confidence': 0.3, 'intent': 'unclear'}
     
     def _get_user_context(self, phone_number: str) -> Tuple[Optional[str], Optional[Dict]]:
         """
