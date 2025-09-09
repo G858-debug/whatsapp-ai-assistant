@@ -213,8 +213,11 @@ class RefiloeService:
         try:
             # Extract text from message
             text = message_data.get('text', {}).get('body', '')
-
-            # Add this right after extracting the text
+            
+            # Extract the phone number for reset command
+            from_number = message_data.get('from')  # ADD THIS LINE
+            
+            # Reset command - check this BEFORE the empty text check
             if text.strip().lower() == '/reset_me':
                 # Delete user from database
                 self.db.table('trainers').delete().eq('whatsapp', from_number).execute()
@@ -233,6 +236,8 @@ class RefiloeService:
             # Check for special commands first
             if text.strip().lower() == '/help':
                 return self._get_help_message(user_type, user_data)
+        
+        # Rest of your existing code...
             
             # Use AI to understand intent
             conversation_history = self._get_conversation_history(user_data.get('id'), user_type)
