@@ -213,6 +213,16 @@ class RefiloeService:
         try:
             # Extract text from message
             text = message_data.get('text', {}).get('body', '')
+
+            # Add this right after extracting the text
+            if text.strip().lower() == '/reset_me':
+                # Delete user from database
+                self.db.table('trainers').delete().eq('whatsapp', from_number).execute()
+                self.db.table('clients').delete().eq('whatsapp', from_number).execute()
+                return {
+                    'success': True,
+                    'message': "✨ Your profile has been reset! You can start fresh. Say 'Hi' to begin!"
+                }
             
             if not text:
                 return {
