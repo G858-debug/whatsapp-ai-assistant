@@ -1790,4 +1790,128 @@ Keep going! 💪"""
     What would you like to know? 😊"""
         
         return {'success': True, 'message': message}
+
+    def _handle_prospect_inquiry(self, phone: str, intent_data: Dict) -> Dict:
+        """Handle prospects with engaging, benefit-focused responses"""
+        
+        detected_intent = intent_data.get('detected_intent', '').lower()
+        
+        # Create a response map for common inquiries
+        responses = {
+            'why_refiloe': """🤔 **Why Choose Refiloe Over Other Options?**
     
+    **vs. Manual WhatsApp Management:**
+    ❌ Lost in message chaos
+    ✅ Organized, automated, efficient
+    
+    **vs. Expensive Gym Software:**
+    ❌ R2000+/month, complex setup
+    ✅ R299/month, works instantly
+    
+    **vs. Generic Booking Apps:**
+    ❌ Not fitness-specific
+    ✅ Built for trainers, understands fitness
+    
+    **vs. Spreadsheets:**
+    ❌ Hours of data entry
+    ✅ Everything updates automatically
+    
+    **The Refiloe Difference:**
+    - Made in SA, for SA 🇿🇦
+    - Works in WhatsApp (where your clients already are)
+    - AI that actually understands fitness
+    - Affordable for every trainer
+    - Free for all clients
+    
+    Join 500+ SA trainers already using Refiloe!""",
+    
+            'testimonial': """⭐ **What Our Users Say**
+    
+    **Trainer Success Stories:**
+    
+    "I doubled my client base in 3 months! Refiloe handles all my admin so I can focus on training." 
+    - Thabo M., Johannesburg
+    
+    "My clients love how easy booking is now. My retention rate went from 60% to 90%!"
+    - Sarah K., Cape Town
+    
+    "I save at least 2 hours every day. That's 10 extra training sessions per week!"
+    - David L., Durban
+    
+    **Client Reviews:**
+    
+    "So much better than trying to coordinate on WhatsApp groups!"
+    - Precious N.
+    
+    "I love the workout library and progress tracking!"
+    - Michael R.
+    
+    "The challenges keep me motivated!"
+    - Lisa T.
+    
+    **Join our growing community!**""",
+    
+            'problems_solved': """💡 **Problems Refiloe Solves**
+    
+    **For Trainers:**
+    😫 "I spend more time on admin than training"
+    → Automate everything with Refiloe!
+    
+    😤 "Clients ghost me after trials"
+    → Automated follow-ups increase retention 40%
+    
+    😰 "Chasing payments is awkward"
+    → Refiloe handles payment reminders
+    
+    🤯 "Double-bookings are killing me"
+    → Smart scheduling prevents conflicts
+    
+    **For Clients:**
+    😕 "I forget my session times"
+    → Smart reminders keep you on track
+    
+    😢 "I don't see my progress"
+    → Visual tracking shows your gains
+    
+    😴 "I lose motivation"
+    → Challenges and rewards keep you going
+    
+    🤷 "My trainer is always fully booked"
+    → Easy booking shows available slots
+    
+    **One solution, everyone wins!**"""
+        }
+        
+        # Check for specific inquiry types
+        for key, response in responses.items():
+            if key in detected_intent or key in str(intent_data.get('specific_interest', '')):
+                return {'success': True, 'message': response}
+        
+        # Default to main platform info
+        return self._provide_platform_info(intent_data.get('specific_interest'))
+
+
+    def _ask_registration_clarification(self, original_message: str) -> Dict:
+        """Ask for clarification with specific options"""
+        return {
+            'success': True,
+            'message': """I'd love to help you! 😊
+    
+    **Quick Options:**
+    1️⃣ Start FREE trainer trial
+    2️⃣ Find a personal trainer
+    3️⃣ See how Refiloe works
+    4️⃣ Check pricing
+    5️⃣ Read success stories
+    6️⃣ Learn about features
+    
+    Just reply with a number or ask me anything!
+    
+    **Popular Questions:**
+    - "Why should I use Refiloe?"
+    - "How much time will this save me?"
+    - "What problems does this solve?"
+    - "Show me testimonials"
+    
+    What interests you most?"""
+        }        
