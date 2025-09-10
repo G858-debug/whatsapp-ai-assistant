@@ -38,6 +38,7 @@ class RefiloeService:
         self.subscription = SubscriptionManager(supabase_client)
         self.payment = PaymentManager(supabase_client)
         self.ai_handler = AIIntentHandler(self.config, supabase_client)
+        self.helpers = RefiloeHelpers(self.db, self.config)
         
         # Initialize Anthropic client
         self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
