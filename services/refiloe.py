@@ -15,6 +15,7 @@ from services.analytics import AnalyticsService
 from services.subscription_manager import SubscriptionManager
 from services.ai_intent_handler import AIIntentHandler
 from payment_manager import PaymentManager
+from services.refiloe_helpers import RefiloeHelpers
 
 
 class RefiloeService:
