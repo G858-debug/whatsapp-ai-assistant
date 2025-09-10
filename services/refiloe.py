@@ -137,15 +137,15 @@ class RefiloeService:
                 
             elif intent == 'exploring' or registration_intent.get('user_type') == 'prospect':
                 # They said they're exploring - show them information!
-                return self._provide_platform_info(None)
+                self.helpers._provide_platform_info(None)
                 
             elif intent == 'has_question':
                 # They have a specific question
-                return self._answer_specific_question(registration_intent.get('question', ''))
+                return self.helpers._answer_specific_question(registration_intent.get('question', ''))
                 
             else:
                 # We're not sure - ask clarifying questions
-                return self._ask_registration_clarification(text)
+                return self.helpers._ask_registration_clarification(text)
                 
         except Exception as e:
             log_error(f"Error in new user registration: {str(e)}")
