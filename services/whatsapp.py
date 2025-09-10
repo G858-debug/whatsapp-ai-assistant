@@ -306,3 +306,86 @@ class WhatsAppService:
                 'success': False,
                 'error': str(e)
             }
+
+    def send_interactive_list(self, phone: str, header: str, body: str, 
+                              button_text: str, sections: list) -> Dict:
+        """Send an interactive list message to WhatsApp"""
+        try:
+            url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
+            
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "list",
+                    "header": {
+                        "type": "text",
+                        "text": header
+                    },
+                    "body": {
+                        "text": body
+                    },
+                    "footer": {
+                        "text": "Powered by Refiloe AI 💪"
+                    },
+                    "action": {
+                        "button": button_text,
+                        "sections": sections
+                    }
+                }
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            log_info(f"Interactive list sent to {phone}")
+            return {'success': True, 'response': response.json()}
+            
+        except Exception as e:
+            log_error(f"Error sending interactive list: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def send_button_message(self, phone: str, body: str, buttons: list) -> Dict:
+        """Send a button message to WhatsApp"""
+        try:
+            url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
+            
+            # WhatsApp allows maximum 3 buttons
+            if len(buttons) > 3:
+                buttons = buttons[:3]
+            
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {
+                        "text": body
+                    },
+                    "action": {
+                        "buttons": buttons
+                    }
+                }
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            log_info(f"Button message sent to {phone}")
+            return {'success': True, 'response': response.json()}
+            
+        except Exception as e:
+            log_error(f"Error sending button message: {str(e)}")
+            return {'success': False, 'error': str(e)}
