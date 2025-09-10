@@ -177,19 +177,13 @@ class RefiloeService:
                     'message': """Awesome! Let's get you set up as a trainer! 💪
     
     Please provide your details in this order:
-    1. Your name
-    2. Your city (anywhere in the world)
+    1. Your name & surname
+    2. Your city
     3. Your business name  
     4. Your specialisation
     
     Example: 
-    Howard
-    Sasolburg
-    Gugu Growth
-    Personal Training
-    
-    Or all in one message:
-    "I'm Howard from Sasolburg, running Gugu Growth, specialising in personal training" """
+    "I'm Howard Nkosi from Sasolburg, running Gugu Growth, specialising in personal training" """
                 }
                     
             elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
