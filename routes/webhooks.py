@@ -133,3 +133,104 @@ def process_message(message: dict, contacts: list):
             )
         except:
             pass
+
+def process_whatsapp_message(data: dict, refiloe_service) -> dict:
+    """Process incoming WhatsApp messages including interactive responses"""
+    try:
+        # Extract message details
+        entry = data.get('entry', [{}])[0]
+        changes = entry.get('changes', [{}])[0]
+        value = changes.get('value', {})
+        messages = value.get('messages', [])
+        
+        if not messages:
+            return {'status': 'no_message'}
+        
+        message = messages[0]
+        from_number = message.get('from')
+        message_type = message.get('type')
+        
+        # Build message data structure
+        message_data = {
+            'from': from_number,
+            'type': message_type,
+            'timestamp': message.get('timestamp')
+        }
+        
+        # Handle different message types
+        if message_type == 'text':
+            message_data['text'] = message.get('text', {})
+            
+        elif message_type == 'interactive':
+            # Handle interactive message responses
+            interactive = message.get('interactive', {})
+            interactive_type = interactive.get('type')
+            
+            message_data['interactive'] = {
+                'type': interactive_type
+            }
+            
+            if interactive_type == 'button_reply':
+                # User clicked a button
+                button_reply = interactive.get('button_reply', {})
+                message_data['interactive']['button_reply'] = {
+                    'id': button_reply.get('id'),
+                    'title': button_reply.get('title')
+                }
+                
+                # Also add as text for backward compatibility
+                message_data['text'] = {
+                    'body': button_reply.get('title', '')
+                }
+                
+            elif interactive_type == 'list_reply':
+                # User selected from a list
+                list_reply = interactive.get('list_reply', {})
+                message_data['interactive']['list_reply'] = {
+                    'id': list_reply.get('id'),
+                    'title': list_reply.get('title'),
+                    'description': list_reply.get('description')
+                }
+                
+                # Also add as text for backward compatibility
+                message_data['text'] = {
+                    'body': list_reply.get('title', '')
+                }
+                
+        elif message_type == 'button':
+            # Legacy button response (from older WhatsApp versions)
+            button = message.get('button', {})
+            message_data['button'] = button
+            message_data['text'] = {
+                'body': button.get('text', '')
+            }
+            
+        elif message_type == 'image':
+            message_data['image'] = message.get('image', {})
+            
+        elif message_type == 'document':
+            message_data['document'] = message.get('document', {})
+            
+        elif message_type == 'audio':
+            message_data['audio'] = message.get('audio', {})
+            
+        elif message_type == 'location':
+            message_data['location'] = message.get('location', {})
+        
+        # Process the message with Refiloe
+        response = refiloe_service.process_message(message_data)
+        
+        # Send response if not an interactive message (those are sent directly)
+        if response.get('success') and not response.get('interactive_sent'):
+            if response.get('message'):
+                # Send the response message
+                refiloe_service.whatsapp.send_message(
+                    from_number,
+                    response['message']
+                )
+        
+        return {'status': 'processed', 'response': response}
+        
+    except Exception as e:
+        log_error(f"Error processing WhatsApp message: {str(e)}")
+        return {'status': 'error', 'error': str(e)}
