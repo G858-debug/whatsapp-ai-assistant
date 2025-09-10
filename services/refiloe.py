@@ -101,24 +101,48 @@ class RefiloeService:
     def _handle_new_user_registration(self, message_data: Dict) -> Dict:
         """
         Handle registration for new users using AI to understand intent
+        FIXED: Now properly handles multi-step registration
         """
         try:
             text = message_data.get('text', {}).get('body', '')
             from_number = message_data.get('from')
             
-            # Check if the message contains all registration details
-            # Look for patterns that suggest complete registration info
-            text_lower = text.lower()
-            has_location = any(city in text_lower for city in ['johannesburg', 'cape town', 'durban', 'pretoria'])
-            has_specialization = any(spec in text_lower for spec in ['training', 'weight', 'strength', 'fitness'])
-            has_commas = text.count(',') >= 2  # Multiple pieces of info
+            # CRITICAL FIX: Check if user is already in registration process
+            reg_state = self.db.table('registration_state').select('*').eq(
+                'phone', from_number
+            ).execute()
             
-            # If it looks like complete registration details, process it directly
-            if has_location and has_specialization and (has_commas or 'specializing' in text_lower):
+            if reg_state.data:
+                # User is already registering - process their response!
+                current_step = reg_state.data[0].get('step')
+                stored_data = reg_state.data[0].get('data', {})
+                
+                # They're providing registration details
+                if current_step == 'awaiting_details':
+                    # Process the registration details they just sent
+                    return self.helpers.process_complete_registration_text(from_number, text)
+            
+            # Check if message looks like registration details
+            # (multiple lines or contains city + other info)
+            lines = text.strip().split('\n')
+            if len(lines) >= 3:  # They provided info on multiple lines
+                # This looks like registration details!
                 return self.helpers.process_complete_registration_text(from_number, text)
             
-            # If it's just "hi" or a greeting, give welcome message
+            # Check if it contains all registration info in one line
+            text_lower = text.lower()
+            has_location = any(city in text_lower for city in ['johannesburg', 'cape town', 'durban', 'pretoria'])
+            has_specialization = any(spec in text_lower for spec in ['training', 'trainer', 'weight', 'strength', 'fitness'])
+            has_commas = text.count(',') >= 2
+            
+            if has_location and (has_specialization or has_commas):
+                return self.helpers.process_complete_registration_text(from_number, text)
+            
+            # Handle greetings
             if text.strip().lower() in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'how are you']:
+                # Clear any stale registration state
+                self.db.table('registration_state').delete().eq('phone', from_number).execute()
+                
                 return {
                     'success': True,
                     'message': """👋 Welcome to Refiloe! I'm your AI fitness assistant.
@@ -138,26 +162,33 @@ class RefiloeService:
             intent = registration_intent.get('intent', registration_intent.get('user_type', 'unclear'))
             
             if intent == 'registration_trainer' or registration_intent.get('user_type') == 'trainer':
-                # First, try to extract any details they might have already provided
-                if len(text.split()) > 3:  # They said more than just "I'm a trainer"
-                    # Check if they provided some details
-                    return self.helpers.process_complete_registration_text(from_number, text)
-                else:
-                    # Just said they're a trainer, ask for details
-                    return {
-                        'success': True,
-                        'message': """Awesome! Let's get you set up as a trainer! 💪
+                # Store registration state
+                self.db.table('registration_state').upsert({
+                    'phone': from_number,
+                    'user_type': 'trainer',
+                    'step': 'awaiting_details',
+                    'data': {},
+                    'updated_at': datetime.now().isoformat()
+                }, on_conflict='phone').execute()
+                
+                return {
+                    'success': True,
+                    'message': """Awesome! Let's get you set up as a trainer! 💪
     
     Please provide all your details in one message:
+    • Your name and surname
     • Your city
-    • Your name
     • Your business name  
-    • Your specialization
+    • Your specialisation
     
-    Example: "I'm in Johannesburg, John Smith, FitLife PT, specializing in personal training"
+    Example: "I'm in Johannesburg, John Smith, FitLife PT, specialising in personal training"
     
-    Or you can tell me each detail separately if you prefer!"""
-                    }
+    Or you can list them like:
+    Johannesburg
+    John Smith
+    FitLife PT
+    Personal Training"""
+                }
                     
             elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
                 return self.helpers._start_client_registration(from_number, registration_intent)
@@ -167,6 +198,14 @@ class RefiloeService:
                 
             else:
                 # We're not sure - ask clarifying questions
+                # BUT FIRST - check if this might be registration details
+                if len(text.split()) > 5:  # More than just a few words
+                    # Try to parse it as registration details
+                    result = self.helpers.process_complete_registration_text(from_number, text)
+                    if result.get('success') and 'still need' not in result.get('message', ''):
+                        return result
+                
+                # Otherwise ask for clarification
                 return self.helpers._ask_registration_clarification(text)
                 
         except Exception as e:
@@ -181,34 +220,6 @@ class RefiloeService:
     - Just exploring what we offer?
     
     Let me know how I can assist you!"""
-            }
-    
-    # Also add a /reset_me command handler if not already present
-    def _handle_reset_command(self, phone: str) -> Dict:
-        """Handle /reset_me command to clear user data"""
-        try:
-            # Delete from trainers table
-            self.db.table('trainers').delete().eq('whatsapp', phone).execute()
-            
-            # Delete from clients table
-            self.db.table('clients').delete().eq('whatsapp', phone).execute()
-            
-            # Clear registration state
-            self.db.table('registration_state').delete().eq('phone', phone).execute()
-            
-            return {
-                'success': True,
-                'message': """✅ Your data has been reset!
-    
-    You can now start fresh. Say "Hi" to begin registration again.
-    
-    Welcome back to Refiloe! 👋"""
-            }
-        except Exception as e:
-            log_error(f"Error resetting user: {str(e)}")
-            return {
-                'success': True,
-                'message': "I had trouble resetting your data. Please try again."
             }
     
     def _show_welcome_options(self, phone: str) -> Dict:
