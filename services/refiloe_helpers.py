@@ -831,8 +831,8 @@ class RefiloeHelpers:
             if len(lines) == 4:
                 # Assume order: City, Name, Business, Specialization
                 details = {
-                    'location': lines[0],
-                    'name': lines[1],
+                    'name': lines[0],
+                    'location': lines[1],
                     'business_name': lines[2],
                     'specialization': lines[3]
                 }
@@ -858,21 +858,21 @@ class RefiloeHelpers:
     - Natural language sentences
     
     Look for these 4 pieces of information:
-    1. Location/City (e.g., Johannesburg, Cape Town)
-    2. Person's name (e.g., Howard, John Smith)
+    1. Person's name (e.g., Howard, John Smith)
+    2. Location/City (e.g., Johannesburg, Cape Town)
     3. Business name (e.g., Gugu Growth, FitLife PT)
     4. Specialization (e.g., personal training, weight loss, strength training)
     
     If the message has 4 lines, they're likely in this order:
-    Line 1: City
-    Line 2: Name
+    Line 1: Name
+    Line 2: City
     Line 3: Business name
     Line 4: Specialization
     
     Return ONLY valid JSON:
     {{
-        "location": "extracted city or null",
         "name": "person's name or null",
+        "location": "extracted city or null",
         "business_name": "business name or null",
         "specialization": "training type or null"
     }}"""
@@ -902,8 +902,8 @@ class RefiloeHelpers:
             
             # Check if we have all required fields
             missing = []
-            if not details.get('location'): missing.append('location/city')
             if not details.get('name'): missing.append('your name')
+            if not details.get('location'): missing.append('location/city')
             if not details.get('business_name'): missing.append('business name')
             if not details.get('specialization'): missing.append('specialization')
             
@@ -999,8 +999,8 @@ class RefiloeHelpers:
                 'message': """I had trouble understanding your registration details.
     
     Please provide them like this:
-    Johannesburg
     John Smith
+    Johannesburg
     FitLife PT
     Personal Training
     
