@@ -348,33 +348,404 @@ class RefiloeHelpers:
                 return {'user_type': 'unclear', 'confidence': 0.3}
     
     def _start_trainer_registration(self, phone: str, intent_data: Dict) -> Dict:
-        """Start the trainer registration flow"""
-        name = intent_data.get('name', '')
-        
-        if name:
-            message = f"""Great to meet you, {name}! 🎉
+        """Start interactive trainer registration flow"""
+        try:
+            # Store initial registration state
+            self.db.table('registration_state').upsert({
+                'phone': phone,
+                'user_type': 'trainer',
+                'step': 'location',
+                'data': {},
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }, on_conflict='phone').execute()
+            
+            # Send interactive list for city selection
+            sections = [
+                {
+                    "title": "Major Cities",
+                    "rows": [
+                        {
+                            "id": "loc_johannesburg",
+                            "title": "Johannesburg",
+                            "description": "Gauteng Province"
+                        },
+                        {
+                            "id": "loc_cape_town",
+                            "title": "Cape Town", 
+                            "description": "Western Cape"
+                        },
+                        {
+                            "id": "loc_durban",
+                            "title": "Durban",
+                            "description": "KwaZulu-Natal"
+                        },
+                        {
+                            "id": "loc_pretoria",
+                            "title": "Pretoria",
+                            "description": "Gauteng Province"
+                        },
+                        {
+                            "id": "loc_port_elizabeth",
+                            "title": "Port Elizabeth",
+                            "description": "Eastern Cape"
+                        }
+                    ]
+                },
+                {
+                    "title": "Other Options",
+                    "rows": [
+                        {
+                            "id": "loc_other",
+                            "title": "Other City",
+                            "description": "I'll type my city"
+                        }
+                    ]
+                }
+            ]
+            
+            # Use the WhatsApp service to send the interactive list
+            from services.whatsapp import WhatsAppService
+            whatsapp = WhatsAppService(self.config, self.db, None)
+            
+            result = whatsapp.send_interactive_list(
+                phone=phone,
+                header="🏋️ Trainer Registration",
+                body="Welcome! Let's set up your trainer profile.\n\nFirst, where are you based?",
+                button_text="Select City",
+                sections=sections
+            )
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': "Registration started - check the list above",
+                    'interactive_sent': True
+                }
+            else:
+                # Fallback to text-based registration
+                return {
+                    'success': True,
+                    'message': """Let's get you registered! 🎉
+                    
+    Please tell me:
+    1. Your city/location
+    2. Your name
+    3. Your business name
+    4. Your specialization
     
-    Let's set up your trainer account. I just need a few details:
+    Example: "I'm in Johannesburg, John Smith, FitLife PT, specializing in weight loss" """
+                }
+                
+        except Exception as e:
+            log_error(f"Error starting interactive registration: {str(e)}")
+            # Fallback to text registration
+            return self._start_trainer_registration_text(phone, intent_data)
     
-    1. Your business name (or personal brand name)
-    2. Your location (city)
-    3. Your specialization (e.g., weight loss, strength, personal training, sports)
+    def process_registration_interactive_response(self, message_data: Dict) -> Dict:
+        """Process interactive responses during registration"""
+        try:
+            from_number = message_data.get('from')
+            
+            # Get current registration state
+            state_result = self.db.table('registration_state').select('*').eq(
+                'phone', from_number
+            ).execute()
+            
+            if not state_result.data:
+                return {
+                    'success': False,
+                    'message': "No active registration found. Say 'hi' to start!"
+                }
+            
+            state = state_result.data[0]
+            current_step = state.get('step')
+            stored_data = state.get('data', {})
+            
+            # Extract the interactive response
+            interactive = message_data.get('interactive', {})
+            response_type = interactive.get('type')
+            
+            if response_type == 'list_reply':
+                list_reply = interactive.get('list_reply', {})
+                selected_id = list_reply.get('id')
+                selected_title = list_reply.get('title')
+                
+                if current_step == 'location':
+                    return self._handle_location_selection(
+                        from_number, selected_id, selected_title, stored_data
+                    )
+                    
+            elif response_type == 'button_reply':
+                button_reply = interactive.get('button_reply', {})
+                selected_id = button_reply.get('id')
+                selected_title = button_reply.get('title')
+                
+                if current_step == 'specialization':
+                    return self._handle_specialization_selection(
+                        from_number, selected_id, selected_title, stored_data
+                    )
+            
+            # Handle text responses for name/business step
+            elif message_data.get('type') == 'text' and current_step == 'details':
+                text = message_data.get('text', {}).get('body', '')
+                return self._handle_details_input(from_number, text, stored_data)
+                
+        except Exception as e:
+            log_error(f"Error processing interactive response: {str(e)}")
+            return {
+                'success': False,
+                'message': "Sorry, I had trouble processing that. Please try again."
+            }
     
-    For example: "My business is FitLife PT, based in Johannesburg, specializing in weight loss"
-    """
-        else:
-            message = """Awesome! Let's get you set up as a trainer! 💪
+    def _handle_location_selection(self, phone: str, selected_id: str, 
+                                   selected_title: str, stored_data: Dict) -> Dict:
+        """Handle location selection from interactive list"""
+        try:
+            # Handle "Other City" selection
+            if selected_id == 'loc_other':
+                # Update state to expect text input
+                self.db.table('registration_state').update({
+                    'step': 'location_text',
+                    'data': stored_data,
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('phone', phone).execute()
+                
+                return {
+                    'success': True,
+                    'message': "Please type your city name:"
+                }
+            
+            # Extract city name from selection
+            city = selected_title
+            stored_data['location'] = city
+            
+            # Update state to specialization step
+            self.db.table('registration_state').update({
+                'step': 'specialization',
+                'data': stored_data,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('phone', phone).execute()
+            
+            # Send specialization buttons
+            from services.whatsapp import WhatsAppService
+            whatsapp = WhatsAppService(self.config, self.db, None)
+            
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "spec_personal",
+                        "title": "Personal Training"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "spec_weight",
+                        "title": "Weight Loss"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "spec_strength",
+                        "title": "Strength Training"
+                    }
+                }
+            ]
+            
+            whatsapp.send_button_message(
+                phone=phone,
+                body=f"Great! You're in {city} 📍\n\nWhat's your training specialization?",
+                buttons=buttons
+            )
+            
+            return {
+                'success': True,
+                'message': "Location saved",
+                'interactive_sent': True
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling location selection: {str(e)}")
+            return {
+                'success': False,
+                'message': "Error processing location. Please try again."
+            }
     
-    I'll need a few details to create your account:
+    def _handle_specialization_selection(self, phone: str, selected_id: str,
+                                        selected_title: str, stored_data: Dict) -> Dict:
+        """Handle specialization selection from buttons"""
+        try:
+            # Store specialization
+            stored_data['specialization'] = selected_title
+            
+            # Update state to details step
+            self.db.table('registration_state').update({
+                'step': 'details',
+                'data': stored_data,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('phone', phone).execute()
+            
+            return {
+                'success': True,
+                'message': f"""Perfect! You specialize in {selected_title} 💪
+                
+    Last step! Please provide:
+    • Your full name
+    • Your business name
     
-    1. Your name
-    2. Your business/brand name
-    3. Your city
-    4. Any specialisation
+    Example: "John Smith, FitLife PT"
+    or "I'm John Smith from FitLife Personal Training" """
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling specialization: {str(e)}")
+            return {
+                'success': False,
+                'message': "Error processing specialization. Please try again."
+            }
     
-    Just tell me about yourself and your training business!"""
-        
-        return {'success': True, 'message': message}
+    def _handle_details_input(self, phone: str, text: str, stored_data: Dict) -> Dict:
+        """Handle name and business name input"""
+        try:
+            # Use AI to extract name and business
+            prompt = f"""Extract the person's name and business name from this message:
+            
+    MESSAGE: "{text}"
+    
+    Previous context:
+    - They are registering as a trainer
+    - Location: {stored_data.get('location')}
+    - Specialization: {stored_data.get('specialization')}
+    
+    Return ONLY JSON:
+    {{
+        "name": "person's full name",
+        "business_name": "business or brand name"
+    }}"""
+            
+            # Use the anthropic client from the parent service
+            if hasattr(self, 'anthropic'):
+                response = self.anthropic.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=200,
+                    temperature=0.3
+                )
+                
+                import json
+                extracted = json.loads(response.content[0].text)
+            else:
+                # Fallback: Simple parsing
+                parts = text.split(',')
+                if len(parts) >= 2:
+                    extracted = {
+                        'name': parts[0].strip(),
+                        'business_name': parts[1].strip()
+                    }
+                else:
+                    # Try to parse "I'm X from Y" pattern
+                    import re
+                    match = re.search(r"(?:I'm|I am|My name is)\s+([^,]+?)(?:\s+from\s+|\s+,\s*)(.+)", text, re.IGNORECASE)
+                    if match:
+                        extracted = {
+                            'name': match.group(1).strip(),
+                            'business_name': match.group(2).strip()
+                        }
+                    else:
+                        return {
+                            'success': True,
+                            'message': """I couldn't understand that format. Please try:
+                            
+    "John Smith, FitLife PT"
+    or
+    "I'm John Smith from FitLife Gym" """
+                        }
+            
+            if extracted.get('name') and extracted.get('business_name'):
+                # Create the trainer account
+                trainer_data = {
+                    'name': extracted['name'],
+                    'business_name': extracted['business_name'],
+                    'location': stored_data.get('location'),
+                    'whatsapp': phone,
+                    'email': f"{extracted['name'].lower().replace(' ', '.')}@temp.com",
+                    'status': 'active',
+                    'created_at': datetime.now(self.sa_tz).isoformat()
+                }
+                
+                # Add specialization to settings
+                trainer_data['settings'] = {
+                    'specialization': stored_data.get('specialization')
+                }
+                
+                # Insert into trainers table
+                result = self.db.table('trainers').insert(trainer_data).execute()
+                
+                if result.data:
+                    # Clear registration state
+                    self.db.table('registration_state').delete().eq(
+                        'phone', phone
+                    ).execute()
+                    
+                    # Send success message with quick action buttons
+                    from services.whatsapp import WhatsAppService
+                    whatsapp = WhatsAppService(self.config, self.db, None)
+                    
+                    buttons = [
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": "add_client",
+                                "title": "➕ Add First Client"
+                            }
+                        },
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": "view_features",
+                                "title": "🌟 View Features"
+                            }
+                        },
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": "get_help",
+                                "title": "❓ Get Help"
+                            }
+                        }
+                    ]
+                    
+                    whatsapp.send_button_message(
+                        phone=phone,
+                        body=f"""🎉 Welcome to Refiloe, {extracted['name']}!
+    
+    ✅ {extracted['business_name']} is now active
+    📍 Location: {stored_data.get('location')}
+    💪 Specialization: {stored_data.get('specialization')}
+    
+    What would you like to do first?""",
+                        buttons=buttons
+                    )
+                    
+                    return {
+                        'success': True,
+                        'message': "Registration complete!",
+                        'interactive_sent': True
+                    }
+            else:
+                return {
+                    'success': True,
+                    'message': "Please provide both your name and business name. Example: 'John Smith, FitLife PT'"
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling details input: {str(e)}")
+            return {
+                'success': False,
+                'message': "Error creating your account. Please try again."
+            }
     
     def _start_client_registration(self, phone: str, intent_data: Dict) -> Dict:
         """Start the client registration flow"""
