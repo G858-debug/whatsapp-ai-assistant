@@ -369,8 +369,8 @@ class RefiloeHelpers:
     
     1. Your name
     2. Your business/brand name
-    3. Your location
-    4. Your specialization
+    3. Your city
+    4. Any specialisation
     
     Just tell me about yourself and your training business!"""
         
@@ -398,9 +398,8 @@ class RefiloeHelpers:
             message = """💰 *Refiloe Pricing*
     
     For Trainers:
-    - Free trial to get started
-    - R299/month for up to 10 clients
-    - R599/month for unlimited clients
+    - Free for up to 2 clients
+    - R199/month for unlimited clients
     - Includes: Client management, automated bookings, payment processing
     
     For Clients:
@@ -438,7 +437,7 @@ class RefiloeHelpers:
         """Ask for clarification when intent is unclear"""
         return {
             'success': True,
-            'message': """I'd love to help you! 😊
+            'message': """A lovely day to you and thank you for contacting me! 😊
     
     To point you in the right direction, could you tell me:
     
@@ -446,6 +445,5 @@ class RefiloeHelpers:
     1️⃣ A fitness professional who trains clients?
     2️⃣ Someone looking for a personal trainer?
     3️⃣ Just exploring what Refiloe offers?
-    
-    Just reply with 1, 2, or 3, or tell me in your own words!"""
+    """
         }
