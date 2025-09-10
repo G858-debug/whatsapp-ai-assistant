@@ -818,3 +818,219 @@ class RefiloeHelpers:
     3️⃣ Just exploring what Refiloe offers?
     """
         }
+
+    def process_complete_registration_text(self, phone: str, text: str) -> Dict:
+        """Process complete registration details from a single message"""
+        try:
+            # Use AI to extract all registration details
+            prompt = f"""Extract trainer registration details from this message:
+            
+    MESSAGE: "{text}"
+    
+    Look for these 4 pieces of information:
+    1. Location/City (e.g., Johannesburg, Cape Town)
+    2. Person's name (e.g., Howard, John Smith)
+    3. Business name (e.g., Gugu Growth, FitLife PT)
+    4. Specialization (e.g., personal training, weight loss, strength training)
+    
+    The message might be formatted like:
+    - "I'm in [city], [name], [business], specializing in [specialization]"
+    - "[city], [name], [business], [specialization]"
+    - "My name is [name], business is [business], in [city], I do [specialization]"
+    
+    Return ONLY valid JSON:
+    {{
+        "location": "extracted city or null",
+        "name": "person's name or null",
+        "business_name": "business name or null",
+        "specialization": "training type or null"
+    }}"""
+    
+            # Initialize anthropic if not already done
+            if not hasattr(self, 'anthropic'):
+                from anthropic import Anthropic
+                from config import Config
+                self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+            
+            response = self.anthropic.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
+            
+            import json
+            import re
+            
+            # Extract JSON from response
+            response_text = response.content[0].text
+            json_match = re.search(r'\{.*?\}', response_text, re.DOTALL)
+            
+            if json_match:
+                details = json.loads(json_match.group())
+            else:
+                # Fallback: Try manual parsing
+                details = self._manual_parse_registration(text)
+            
+            # Check if we have all required fields
+            missing = []
+            if not details.get('location'): missing.append('location/city')
+            if not details.get('name'): missing.append('your name')
+            if not details.get('business_name'): missing.append('business name')
+            if not details.get('specialization'): missing.append('specialization')
+            
+            if missing:
+                return {
+                    'success': True,
+                    'message': f"""I got most of your details but I still need: {', '.join(missing)}
+    
+    Could you please provide the missing information?
+    
+    For example: "My {missing[0]} is..." """
+                }
+            
+            # All details present - create trainer account!
+            trainer_data = {
+                'name': details['name'],
+                'business_name': details['business_name'],
+                'location': details['location'],
+                'whatsapp': phone,
+                'email': f"{details['name'].lower().replace(' ', '.')}@temp.com",
+                'status': 'active',
+                'pricing_per_session': 300.00,  # Default pricing
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            # Add specialization to settings
+            trainer_data['settings'] = {
+                'specialization': details['specialization']
+            }
+            
+            # Check if trainer already exists
+            existing = self.db.table('trainers').select('id').eq(
+                'whatsapp', phone
+            ).execute()
+            
+            if existing.data:
+                return {
+                    'success': True,
+                    'message': f"""Welcome back, {details['name']}! 👋
+    
+    You're already registered. Here's what you can do:
+    • Add clients: "Add client Sarah 0821234567"
+    • Book sessions: "Book Sarah for Tuesday 3pm"
+    • Check schedule: "Show my schedule"
+    • Send workouts: "Send workout to Sarah"
+    
+    How can I help you today? 💪"""
+                }
+            
+            # Insert into trainers table
+            result = self.db.table('trainers').insert(trainer_data).execute()
+            
+            if result.data:
+                # Clear any registration state
+                self.db.table('registration_state').delete().eq(
+                    'phone', phone
+                ).execute()
+                
+                return {
+                    'success': True,
+                    'message': f"""🎉 Welcome to Refiloe, {details['name']}!
+    
+    Your trainer account is now active! 
+    
+    ✅ Business: {details['business_name']}
+    📍 Location: {details['location']}
+    💪 Specialization: {details['specialization']}
+    
+    Here's what you can do now:
+    • Add your first client: "Add client Sarah 0821234567"
+    • Set your rates: "Set my rate to R350"
+    • Book a session: "Book Sarah for Tuesday 3pm"
+    • Send workouts: "Send workout to Sarah"
+    • Check your schedule: "Show my schedule"
+    
+    What would you like to do first? I'm here to help! 💪"""
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "I had trouble creating your account. Please try again or contact support."
+                }
+                
+        except Exception as e:
+            log_error(f"Error processing registration text: {str(e)}")
+            return {
+                'success': True,
+                'message': """I had trouble understanding your registration details.
+    
+    Please provide them in this format:
+    "I'm in Johannesburg, John Smith, FitLife PT, specializing in personal training"
+    
+    Or just tell me each detail:
+    1. Your city
+    2. Your name  
+    3. Your business name
+    4. Your specialization"""
+            }
+    
+    def _manual_parse_registration(self, text: str) -> Dict:
+        """Manually parse registration details as fallback"""
+        details = {}
+        text_lower = text.lower()
+        
+        # Try to find city
+        cities = ['johannesburg', 'cape town', 'durban', 'pretoria', 'port elizabeth', 
+                  'bloemfontein', 'east london', 'polokwane', 'nelspruit', 'kimberley']
+        for city in cities:
+            if city in text_lower:
+                details['location'] = city.title()
+                break
+        
+        # Try to find specialization
+        specializations = {
+            'personal training': 'Personal Training',
+            'weight loss': 'Weight Loss',
+            'strength training': 'Strength Training',
+            'strength and conditioning': 'Strength & Conditioning',
+            'fitness': 'General Fitness',
+            'crossfit': 'CrossFit',
+            'yoga': 'Yoga',
+            'pilates': 'Pilates'
+        }
+        for spec_key, spec_value in specializations.items():
+            if spec_key in text_lower:
+                details['specialization'] = spec_value
+                break
+        
+        # Try to extract name and business using patterns
+        import re
+        
+        # Pattern 1: "I'm [name], [business]"
+        pattern1 = r"(?:i'm|i am|my name is)\s+([^,]+),\s*([^,]+?)(?:,|$)"
+        match1 = re.search(pattern1, text, re.IGNORECASE)
+        if match1:
+            potential_name = match1.group(1).strip()
+            potential_business = match1.group(2).strip()
+            
+            # Check if these look like name/business
+            if len(potential_name.split()) <= 3:  # Names are usually 1-3 words
+                details['name'] = potential_name.title()
+            if len(potential_business.split()) <= 4:  # Business names are usually short
+                details['business_name'] = potential_business.title()
+        
+        # Pattern 2: Look for comma-separated values
+        if not details.get('name'):
+            parts = [p.strip() for p in text.split(',')]
+            for part in parts:
+                # Skip parts that are cities or specializations
+                if part.lower() not in [c.lower() for c in cities] and \
+                   not any(s in part.lower() for s in specializations.keys()):
+                    # This might be name or business
+                    if not details.get('name') and len(part.split()) <= 3:
+                        details['name'] = part.title()
+                    elif not details.get('business_name') and len(part.split()) <= 4:
+                        details['business_name'] = part.title()
+        
+        return details
