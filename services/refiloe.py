@@ -101,15 +101,53 @@ class RefiloeService:
     def _handle_new_user_registration(self, message_data: Dict) -> Dict:
         """
         Handle registration for new users using AI to understand intent
-        Supports trainers, clients, and prospects
+        Now supports interactive messages!
         """
         try:
-            # Extract the message text
-            text = message_data.get('text', {}).get('body', '')
             from_number = message_data.get('from')
+            message_type = message_data.get('type', 'text')
+            
+            # Check if there's an active registration in progress
+            reg_state = self.db.table('registration_state').select('*').eq(
+                'phone', from_number
+            ).execute()
+            
+            if reg_state.data:
+                # User is in the middle of registration
+                if message_type == 'interactive':
+                    # Handle interactive response
+                    return self.helpers.process_registration_interactive_response(message_data)
+                else:
+                    # Handle text response during registration
+                    current_step = reg_state.data[0].get('step')
+                    
+                    if current_step == 'location_text':
+                        # They selected "Other" and are typing their city
+                        text = message_data.get('text', {}).get('body', '')
+                        stored_data = reg_state.data[0].get('data', {})
+                        stored_data['location'] = text
+                        
+                        # Move to specialization step
+                        self.db.table('registration_state').update({
+                            'step': 'specialization',
+                            'data': stored_data,
+                            'updated_at': datetime.now().isoformat()
+                        }).eq('phone', from_number).execute()
+                        
+                        # Send specialization buttons
+                        return self._send_specialization_buttons(from_number, text)
+                        
+                    elif current_step == 'details':
+                        # They're providing name and business
+                        text = message_data.get('text', {}).get('body', '')
+                        stored_data = reg_state.data[0].get('data', {})
+                        return self.helpers._handle_details_input(from_number, text, stored_data)
+            
+            # No active registration - start fresh
+            text = message_data.get('text', {}).get('body', '') if message_type == 'text' else ''
             
             # If it's just "hi" or a greeting, give a smart welcome
-            if not text or text.strip().lower() in ['hi', 'hello', 'hey']:
+            if not text or text.strip().lower() in ['hi', 'hello', 'hey', 'good morning', 'good afternoon']:
                 return {
                     'success': True,
                     'message': """👋 Welcome to Refiloe! I'm your AI fitness assistant.
@@ -127,26 +165,22 @@ class RefiloeService:
             # Use AI to understand what they want
             registration_intent = self._understand_registration_intent_fixed(text)
             
-            # Route based on what they want - check both user_type and intent
+            # Route based on intent
             intent = registration_intent.get('intent', registration_intent.get('user_type', 'unclear'))
             
             if intent == 'registration_trainer' or registration_intent.get('user_type') == 'trainer':
+                # Start interactive trainer registration
                 return self.helpers._start_trainer_registration(from_number, registration_intent)
                 
             elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
                 return self.helpers._start_client_registration(from_number, registration_intent)
                 
             elif intent == 'exploring' or registration_intent.get('user_type') == 'prospect':
-                # They said they're exploring - show them information!
-                self.helpers._provide_platform_info(None)
-                
-            elif intent == 'has_question':
-                # They have a specific question
-                return self.helpers._answer_specific_question(registration_intent.get('question', ''))
+                return self.helpers._provide_platform_info(None)
                 
             else:
-                # We're not sure - ask clarifying questions
-                return self.helpers._ask_registration_clarification(text)
+                # Show interactive options
+                return self._show_welcome_options(from_number)
                 
         except Exception as e:
             log_error(f"Error in new user registration: {str(e)}")
@@ -160,6 +194,104 @@ class RefiloeService:
     - Just exploring what we offer?
     
     Let me know how I can assist you!"""
+            }
+    
+    def _show_welcome_options(self, phone: str) -> Dict:
+        """Show interactive welcome options"""
+        try:
+            from services.whatsapp import WhatsAppService
+            whatsapp = WhatsAppService(self.config, self.db, None)
+            
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "start_trainer",
+                        "title": "👨‍🏫 I'm a Trainer"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "find_trainer",
+                        "title": "🔍 Find a Trainer"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "learn_more",
+                        "title": "📚 Learn More"
+                    }
+                }
+            ]
+            
+            whatsapp.send_button_message(
+                phone=phone,
+                body="""I'd love to help you! 😊
+    
+    What brings you to Refiloe today?""",
+                buttons=buttons
+            )
+            
+            return {
+                'success': True,
+                'message': "Options sent",
+                'interactive_sent': True
+            }
+            
+        except Exception as e:
+            log_error(f"Error showing welcome options: {str(e)}")
+            # Fallback to text
+            return self.helpers._ask_registration_clarification("")
+    
+    def _send_specialization_buttons(self, phone: str, city: str) -> Dict:
+        """Send specialization selection buttons"""
+        try:
+            from services.whatsapp import WhatsAppService
+            whatsapp = WhatsAppService(self.config, self.db, None)
+            
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "spec_personal",
+                        "title": "Personal Training"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "spec_weight", 
+                        "title": "Weight Loss"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "spec_strength",
+                        "title": "Strength Training"
+                    }
+                }
+            ]
+            
+            whatsapp.send_button_message(
+                phone=phone,
+                body=f"Great! You're in {city} 📍\n\nWhat's your training specialization?",
+                buttons=buttons
+            )
+            
+            return {
+                'success': True,
+                'message': "Specialization options sent",
+                'interactive_sent': True
+            }
+            
+        except Exception as e:
+            log_error(f"Error sending specialization buttons: {str(e)}")
+            return {
+                'success': True,
+                'message': "What's your training specialization? (e.g., Personal Training, Weight Loss, Strength Training)"
             }
 
     def _understand_registration_intent_fixed(self, message: str) -> Dict:
