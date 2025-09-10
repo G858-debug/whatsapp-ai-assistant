@@ -827,24 +827,15 @@ class RefiloeHelpers:
             
             details = {}
             
-            # If we have exactly 4 lines, assume they're in order
+            # If we have exactly 4 lines, assume they're in the correct order
             if len(lines) == 4:
-                # Assume order: City, Name, Business, Specialization
+                # Order: Name, City, Business, Specialisation
                 details = {
                     'name': lines[0],
                     'location': lines[1],
                     'business_name': lines[2],
-                    'specialization': lines[3]
+                    'specialisation': lines[3]
                 }
-                
-                # Validate that these make sense
-                # City should be a known city or short
-                cities = ['johannesburg', 'cape town', 'durban', 'pretoria', 'port elizabeth', 
-                         'bloemfontein', 'east london', 'polokwane', 'nelspruit', 'kimberley']
-                
-                if details['location'].lower() not in cities and len(details['location'].split()) > 3:
-                    # First line doesn't look like a city, try AI parsing
-                    details = {}
             
             # If we couldn't parse from lines, use AI
             if not details or not all(details.values()):
@@ -857,24 +848,26 @@ class RefiloeHelpers:
     - Comma-separated values
     - Natural language sentences
     
-    Look for these 4 pieces of information:
+    Look for these 4 pieces of information IN THIS ORDER:
     1. Person's name (e.g., Howard, John Smith)
-    2. Location/City (e.g., Johannesburg, Cape Town)
+    2. Location/City (ANY city name, e.g., Johannesburg, Sasolburg, any city worldwide)
     3. Business name (e.g., Gugu Growth, FitLife PT)
-    4. Specialization (e.g., personal training, weight loss, strength training)
+    4. Specialisation (e.g., personal training, weight loss, strength training)
     
     If the message has 4 lines, they're likely in this order:
     Line 1: Name
-    Line 2: City
+    Line 2: City (accept ANY city name provided)
     Line 3: Business name
-    Line 4: Specialization
+    Line 4: Specialisation
+    
+    IMPORTANT: Accept ANY city name the user provides - do not validate against a list.
     
     Return ONLY valid JSON:
     {{
         "name": "person's name or null",
-        "location": "extracted city or null",
+        "location": "ANY city/location provided or null",
         "business_name": "business name or null",
-        "specialization": "training type or null"
+        "specialisation": "training type or null"
     }}"""
     
                 # Initialize anthropic if not already done
@@ -903,9 +896,9 @@ class RefiloeHelpers:
             # Check if we have all required fields
             missing = []
             if not details.get('name'): missing.append('your name')
-            if not details.get('location'): missing.append('location/city')
+            if not details.get('location'): missing.append('your city')
             if not details.get('business_name'): missing.append('business name')
-            if not details.get('specialization'): missing.append('specialization')
+            if not details.get('specialisation'): missing.append('specialisation')
             
             if missing:
                 # Store what we have so far in registration state
@@ -928,7 +921,7 @@ class RefiloeHelpers:
             trainer_data = {
                 'name': details['name'],
                 'business_name': details['business_name'],
-                'location': details['location'],
+                'location': details['location'],  # Accept ANY location provided
                 'whatsapp': phone,
                 'email': f"{details['name'].lower().replace(' ', '.')}@temp.com",
                 'status': 'active',
@@ -936,9 +929,9 @@ class RefiloeHelpers:
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
             
-            # Add specialization to settings
+            # Add specialisation to settings
             trainer_data['settings'] = {
-                'specialization': details['specialization']
+                'specialisation': details['specialisation']
             }
             
             # Check if trainer already exists
@@ -976,7 +969,7 @@ class RefiloeHelpers:
     
     ✅ Business: {details['business_name']}
     📍 Location: {details['location']}
-    💪 Specialization: {details['specialization']}
+    💪 Specialisation: {details['specialisation']}
     
     Quick Start Commands:
     • "Add client Sarah 0821234567" - Add your first client
@@ -998,15 +991,65 @@ class RefiloeHelpers:
                 'success': True,
                 'message': """I had trouble understanding your registration details.
     
-    Please provide them like this:
-    John Smith
-    Johannesburg
-    FitLife PT
+    Please provide them in this order:
+    Your Name
+    Your City
+    Your Business Name
+    Your Specialisation
+    
+    For example:
+    Howard
+    Sasolburg
+    Gugu Growth
+    Personal Training"""
+            }
+    
+    def _start_trainer_registration(self, phone: str, intent_data: Dict) -> Dict:
+        """Start the trainer registration flow with correct order"""
+        
+        # Store registration state
+        self.db.table('registration_state').upsert({
+            'phone': phone,
+            'user_type': 'trainer',
+            'step': 'awaiting_details',
+            'data': {},
+            'updated_at': datetime.now(self.sa_tz).isoformat()
+        }, on_conflict='phone').execute()
+        
+        return {
+            'success': True,
+            'message': """Awesome! Let's get you set up as a trainer! 💪
+    
+    Please provide your details in this order:
+    1. Your name
+    2. Your city (anywhere in the world)
+    3. Your business name
+    4. Your specialisation
+    
+    You can list them like:
+    Howard
+    Sasolburg
+    Gugu Growth
     Personal Training
     
-    Or in one line:
-    "I'm in Johannesburg, John Smith, FitLife PT, specializing in personal training" """
-            }
+    Or in one message:
+    "I'm Howard from Sasolburg, business is Gugu Growth, specialising in personal training" """
+        }
+    
+    def _ask_registration_clarification(self, original_message: str) -> Dict:
+        """Ask for clarification when intent is unclear"""
+        return {
+            'success': True,
+            'message': """I'd love to help you! 😊
+    
+    To point you in the right direction, could you tell me:
+    
+    Are you:
+    1️⃣ A fitness professional who trains clients?
+    2️⃣ Someone looking for a personal trainer?
+    3️⃣ Just exploring what Refiloe offers?
+    """
+        }
     
     def _manual_parse_registration(self, text: str) -> Dict:
         """Manually parse registration details as fallback"""
