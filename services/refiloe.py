@@ -101,13 +101,13 @@ class RefiloeService:
     def _handle_new_user_registration(self, message_data: Dict) -> Dict:
         """
         Handle registration for new users using AI to understand intent
-        FIXED: Now properly handles multi-step registration
+        FIXED: Now properly handles multi-step registration with correct order
         """
         try:
             text = message_data.get('text', {}).get('body', '')
             from_number = message_data.get('from')
             
-            # CRITICAL FIX: Check if user is already in registration process
+            # Check if user is already in registration process
             reg_state = self.db.table('registration_state').select('*').eq(
                 'phone', from_number
             ).execute()
@@ -123,19 +123,20 @@ class RefiloeService:
                     return self.helpers.process_complete_registration_text(from_number, text)
             
             # Check if message looks like registration details
-            # (multiple lines or contains city + other info)
+            # (multiple lines or contains multiple pieces of info)
             lines = text.strip().split('\n')
             if len(lines) >= 3:  # They provided info on multiple lines
                 # This looks like registration details!
                 return self.helpers.process_complete_registration_text(from_number, text)
             
-            # Check if it contains all registration info in one line
+            # Check if it contains registration info with commas or "from/in" patterns
             text_lower = text.lower()
-            has_location = any(city in text_lower for city in ['johannesburg', 'cape town', 'durban', 'pretoria'])
-            has_specialization = any(spec in text_lower for spec in ['training', 'trainer', 'weight', 'strength', 'fitness'])
+            has_from_pattern = ' from ' in text_lower or ' in ' in text_lower
+            has_business_pattern = 'business' in text_lower or 'company' in text_lower
+            has_specialisation = 'specialis' in text_lower or 'training' in text_lower
             has_commas = text.count(',') >= 2
             
-            if has_location and (has_specialization or has_commas):
+            if (has_from_pattern or has_business_pattern) and (has_specialisation or has_commas):
                 return self.helpers.process_complete_registration_text(from_number, text)
             
             # Handle greetings
@@ -175,19 +176,20 @@ class RefiloeService:
                     'success': True,
                     'message': """Awesome! Let's get you set up as a trainer! 💪
     
-    Please provide all your details in one message:
-    • Your name and surname
-    • Your city
-    • Your business name  
-    • Your specialisation
+    Please provide your details in this order:
+    1. Your name
+    2. Your city (anywhere in the world)
+    3. Your business name  
+    4. Your specialisation
     
-    Example: "I'm in Johannesburg, John Smith, FitLife PT, specialising in personal training"
+    Example: 
+    Howard
+    Sasolburg
+    Gugu Growth
+    Personal Training
     
-    Or you can list them like:
-    Johannesburg
-    John Smith
-    FitLife PT
-    Personal Training"""
+    Or all in one message:
+    "I'm Howard from Sasolburg, running Gugu Growth, specialising in personal training" """
                 }
                     
             elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
