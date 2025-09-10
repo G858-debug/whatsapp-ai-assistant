@@ -129,10 +129,10 @@ class RefiloeService:
             intent = registration_intent.get('intent', registration_intent.get('user_type', 'unclear'))
             
             if intent == 'registration_trainer' or registration_intent.get('user_type') == 'trainer':
-                return self._start_trainer_registration(from_number, registration_intent)
+                return self.helpers._start_trainer_registration(from_number, registration_intent)
                 
             elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
-                return self._start_client_registration(from_number, registration_intent)
+                return self.helpers._start_client_registration(from_number, registration_intent)
                 
             elif intent == 'exploring' or registration_intent.get('user_type') == 'prospect':
                 # They said they're exploring - show them information!
