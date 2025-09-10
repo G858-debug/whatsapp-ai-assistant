@@ -820,12 +820,42 @@ class RefiloeHelpers:
         }
 
     def process_complete_registration_text(self, phone: str, text: str) -> Dict:
-        """Process complete registration details from a single message"""
+        """Process complete registration details from a single or multi-line message"""
         try:
-            # Use AI to extract all registration details
-            prompt = f"""Extract trainer registration details from this message:
+            # Check if it's multi-line input (each detail on its own line)
+            lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
             
+            details = {}
+            
+            # If we have exactly 4 lines, assume they're in order
+            if len(lines) == 4:
+                # Assume order: City, Name, Business, Specialization
+                details = {
+                    'location': lines[0],
+                    'name': lines[1],
+                    'business_name': lines[2],
+                    'specialization': lines[3]
+                }
+                
+                # Validate that these make sense
+                # City should be a known city or short
+                cities = ['johannesburg', 'cape town', 'durban', 'pretoria', 'port elizabeth', 
+                         'bloemfontein', 'east london', 'polokwane', 'nelspruit', 'kimberley']
+                
+                if details['location'].lower() not in cities and len(details['location'].split()) > 3:
+                    # First line doesn't look like a city, try AI parsing
+                    details = {}
+            
+            # If we couldn't parse from lines, use AI
+            if not details or not all(details.values()):
+                prompt = f"""Extract trainer registration details from this message:
+                
     MESSAGE: "{text}"
+    
+    This might be formatted as:
+    - Each detail on its own line
+    - Comma-separated values
+    - Natural language sentences
     
     Look for these 4 pieces of information:
     1. Location/City (e.g., Johannesburg, Cape Town)
@@ -833,10 +863,11 @@ class RefiloeHelpers:
     3. Business name (e.g., Gugu Growth, FitLife PT)
     4. Specialization (e.g., personal training, weight loss, strength training)
     
-    The message might be formatted like:
-    - "I'm in [city], [name], [business], specializing in [specialization]"
-    - "[city], [name], [business], [specialization]"
-    - "My name is [name], business is [business], in [city], I do [specialization]"
+    If the message has 4 lines, they're likely in this order:
+    Line 1: City
+    Line 2: Name
+    Line 3: Business name
+    Line 4: Specialization
     
     Return ONLY valid JSON:
     {{
@@ -846,31 +877,28 @@ class RefiloeHelpers:
         "specialization": "training type or null"
     }}"""
     
-            # Initialize anthropic if not already done
-            if not hasattr(self, 'anthropic'):
-                from anthropic import Anthropic
-                from config import Config
-                self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
-            
-            response = self.anthropic.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=200,
-                temperature=0.3
-            )
-            
-            import json
-            import re
-            
-            # Extract JSON from response
-            response_text = response.content[0].text
-            json_match = re.search(r'\{.*?\}', response_text, re.DOTALL)
-            
-            if json_match:
-                details = json.loads(json_match.group())
-            else:
-                # Fallback: Try manual parsing
-                details = self._manual_parse_registration(text)
+                # Initialize anthropic if not already done
+                if not hasattr(self, 'anthropic'):
+                    from anthropic import Anthropic
+                    from config import Config
+                    self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+                
+                response = self.anthropic.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=200,
+                    temperature=0.3
+                )
+                
+                import json
+                import re
+                
+                # Extract JSON from response
+                response_text = response.content[0].text
+                json_match = re.search(r'\{.*?\}', response_text, re.DOTALL)
+                
+                if json_match:
+                    details = json.loads(json_match.group())
             
             # Check if we have all required fields
             missing = []
@@ -880,13 +908,20 @@ class RefiloeHelpers:
             if not details.get('specialization'): missing.append('specialization')
             
             if missing:
+                # Store what we have so far in registration state
+                self.db.table('registration_state').upsert({
+                    'phone': phone,
+                    'user_type': 'trainer',
+                    'step': 'awaiting_missing',
+                    'data': details,
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }, on_conflict='phone').execute()
+                
                 return {
                     'success': True,
-                    'message': f"""I got most of your details but I still need: {', '.join(missing)}
+                    'message': f"""Almost there! I just need: {', '.join(missing)}
     
-    Could you please provide the missing information?
-    
-    For example: "My {missing[0]} is..." """
+    Please provide the missing information."""
                 }
             
             # All details present - create trainer account!
@@ -897,7 +932,7 @@ class RefiloeHelpers:
                 'whatsapp': phone,
                 'email': f"{details['name'].lower().replace(' ', '.')}@temp.com",
                 'status': 'active',
-                'pricing_per_session': 300.00,  # Default pricing
+                'pricing_per_session': 300.00,
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
             
@@ -920,7 +955,6 @@ class RefiloeHelpers:
     • Add clients: "Add client Sarah 0821234567"
     • Book sessions: "Book Sarah for Tuesday 3pm"
     • Check schedule: "Show my schedule"
-    • Send workouts: "Send workout to Sarah"
     
     How can I help you today? 💪"""
                 }
@@ -929,7 +963,7 @@ class RefiloeHelpers:
             result = self.db.table('trainers').insert(trainer_data).execute()
             
             if result.data:
-                # Clear any registration state
+                # Clear registration state
                 self.db.table('registration_state').delete().eq(
                     'phone', phone
                 ).execute()
@@ -944,14 +978,13 @@ class RefiloeHelpers:
     📍 Location: {details['location']}
     💪 Specialization: {details['specialization']}
     
-    Here's what you can do now:
-    • Add your first client: "Add client Sarah 0821234567"
-    • Set your rates: "Set my rate to R350"
-    • Book a session: "Book Sarah for Tuesday 3pm"
-    • Send workouts: "Send workout to Sarah"
-    • Check your schedule: "Show my schedule"
+    Quick Start Commands:
+    • "Add client Sarah 0821234567" - Add your first client
+    • "Set my rate to R350" - Update your session rate
+    • "Show my schedule" - View your calendar
+    • "Send workout to Sarah" - Send a workout plan
     
-    What would you like to do first? I'm here to help! 💪"""
+    What would you like to do first? Type 'help' for more commands."""
                 }
             else:
                 return {
@@ -965,14 +998,14 @@ class RefiloeHelpers:
                 'success': True,
                 'message': """I had trouble understanding your registration details.
     
-    Please provide them in this format:
-    "I'm in Johannesburg, John Smith, FitLife PT, specializing in personal training"
+    Please provide them like this:
+    Johannesburg
+    John Smith
+    FitLife PT
+    Personal Training
     
-    Or just tell me each detail:
-    1. Your city
-    2. Your name  
-    3. Your business name
-    4. Your specialization"""
+    Or in one line:
+    "I'm in Johannesburg, John Smith, FitLife PT, specializing in personal training" """
             }
     
     def _manual_parse_registration(self, text: str) -> Dict:
