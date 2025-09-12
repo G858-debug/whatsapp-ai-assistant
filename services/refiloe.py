@@ -495,9 +495,22 @@ class RefiloeService:
             
             # Reset command - check this BEFORE the empty text check
             if text.strip().lower() == '/reset_me':
-                # Delete user from database
-                self.db.table('trainers').delete().eq('whatsapp', from_number).execute()
-                self.db.table('clients').delete().eq('whatsapp', from_number).execute()
+                # Soft delete - just mark as inactive
+                self.db.table('trainers').update({
+                    'status': 'deleted',
+                    'deleted_at': datetime.now().isoformat()
+                }).eq('whatsapp', from_number).execute()
+                
+                self.db.table('clients').update({
+                    'status': 'deleted', 
+                    'deleted_at': datetime.now().isoformat()
+                }).eq('whatsapp', from_number).execute()
+                
+                # Clear any active registration
+                self.db.table('registration_state').delete().eq(
+                    'phone', from_number
+                ).execute()
+                
                 return {
                     'success': True,
                     'message': "✨ Your profile has been reset! You can start fresh. Say 'Hi' to begin!"
