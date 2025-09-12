@@ -16,6 +16,10 @@ class WhatsAppService:
         self.db = supabase_client
         self.logger = logger
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+
+        # Store WhatsApp credentials as instance attributes
+       self.access_token = config.ACCESS_TOKEN
+       self.phone_number_id = config.PHONE_NUMBER_ID
         
         # Track processed messages to prevent duplicates
         self.processed_messages = set()
