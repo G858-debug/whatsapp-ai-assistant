@@ -347,6 +347,14 @@ class WhatsAppService:
             }
             
             response = requests.post(url, json=payload, headers=headers)
+
+            # Add detailed logging
+            if response.status_code != 200:
+                log_error(f"WhatsApp API Error Details:")
+                log_error(f"Status Code: {response.status_code}")
+                log_error(f"Response Body: {response.text}")
+                log_error(f"Payload sent: {json.dumps(payload, indent=2)}")
+                
             response.raise_for_status()
             
             log_info(f"Interactive list sent to {phone}")
@@ -386,6 +394,14 @@ class WhatsAppService:
             }
             
             response = requests.post(url, json=payload, headers=headers)
+
+            # Add detailed logging
+            if response.status_code != 200:
+                log_error(f"WhatsApp API Error Details:")
+                log_error(f"Status Code: {response.status_code}")
+                log_error(f"Response Body: {response.text}")
+                log_error(f"Payload sent: {json.dumps(payload, indent=2)}")
+                
             response.raise_for_status()
             
             log_info(f"Button message sent to {phone}")
