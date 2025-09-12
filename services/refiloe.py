@@ -199,25 +199,25 @@ class RefiloeService:
                 
                 # Handle welcome button selections
                 if button_id == 'reg_trainer':
-                    return self._start_trainer_registration_interactive(from_number)
+                    return self.helpers._start_trainer_registration_interactive(from_number)  # ADD helpers.
                 elif button_id == 'reg_client':
-                    return self._start_client_registration_interactive(from_number)
+                    return self.helpers._start_client_registration_interactive(from_number)  # ADD helpers.
                 elif button_id == 'reg_explore':
-                    return self._show_platform_info_interactive(from_number)
+                    return self.helpers._show_platform_info_interactive(from_number)  # ADD helpers.
                 
                 # Handle registration flow buttons
                 elif button_id.startswith('city_'):
-                    return self._handle_city_selection(from_number, button_id)
+                    return self.helpers._handle_city_selection(from_number, button_id)  # ADD helpers.
                 elif button_id.startswith('spec_'):
-                    return self._handle_specialisation_selection(from_number, button_id)
+                    return self.helpers._handle_specialisation_selection(from_number, button_id)  # ADD helpers.
                 elif button_id == 'confirm_yes':
-                    return self._complete_registration(from_number)
+                    return self.helpers._complete_registration(from_number)  # ADD helpers.
                 elif button_id == 'confirm_edit':
-                    return self._restart_registration(from_number)
+                    return self.helpers._restart_registration(from_number)  # ADD helpers.
                     
             elif interactive.get('type') == 'list_reply':
                 list_id = interactive.get('list_reply', {}).get('id')
-                return self._handle_list_selection(from_number, list_id)
+                return self.helpers._handle_list_selection(from_number, list_id)  # ADD helpers.
                 
         except Exception as e:
             log_error(f"Error handling interactive: {str(e)}")
@@ -225,6 +225,7 @@ class RefiloeService:
                 'success': True,
                 'message': "I had trouble with that selection. Let's try again!"
             }
+
     
     def _show_welcome_options(self, phone: str) -> Dict:
         """Show interactive welcome options"""
