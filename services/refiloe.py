@@ -158,7 +158,7 @@ class RefiloeService:
                     "type": "reply",
                     "reply": {
                         "id": "reg_explore",
-                        "title": "📚 Learn More"
+                        "title": "📚 Learn More about me"
                     }
                 }
             ]
