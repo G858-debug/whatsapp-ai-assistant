@@ -1,7 +1,5 @@
-
-
 import os
-from flask import Flask, jsonify  # ADD jsonify import
+from flask import Flask, jsonify
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
@@ -9,7 +7,7 @@ from config import Config
 from app_core import setup_app_core
 from app_routes import setup_routes
 from utils.logger import setup_logger, log_info, log_error
-import traceback  # ADD this import
+import traceback
 
 # Load environment variables
 load_dotenv()
@@ -28,7 +26,7 @@ except ValueError as e:
     log_error(f"Configuration error: {str(e)}")
     raise
 
-# Initialize core services and models
+# Initialize core services and models - this returns tuple (app, scheduler)
 app, scheduler = setup_app_core(app)
 
 # Setup routes
@@ -42,7 +40,22 @@ app.register_blueprint(webhooks_bp)
 from routes.payment import payment_bp
 app.register_blueprint(payment_bp)
 
-# ADD TEST ENDPOINTS HERE (with proper imports)
+# TEST ENDPOINTS
+@app.route('/test', methods=['GET'])
+def test():
+    """Simple test endpoint"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'Test endpoints are working',
+        'available_endpoints': [
+            '/',
+            '/health',
+            '/test',
+            '/test-config',
+            '/test-buttons/<phone_number>'
+        ]
+    })
+
 @app.route('/test-config', methods=['GET'])
 def test_config():
     """Test endpoint to check configuration"""
@@ -61,8 +74,8 @@ def test_config():
             'ANTHROPIC_configured': bool(Config.ANTHROPIC_API_KEY)
         },
         'environment': {
-            'DEBUG': Config.DEBUG if hasattr(Config, 'DEBUG') else False,
-            'TIMEZONE': Config.TIMEZONE
+            'TIMEZONE': Config.TIMEZONE,
+            'PORT': os.environ.get('PORT', '5000')
         }
     })
 
@@ -73,25 +86,23 @@ def test_buttons(phone):
         # Import inside the function to avoid circular imports
         from services.whatsapp import WhatsAppService
         
-        # Get the supabase client from app
-        supabase = getattr(app, 'supabase', None)
-        if not supabase:
-            # Try to get it from app.config
-            supabase = app.config.get('supabase')
+        # Get the supabase client from app config
+        supabase = app.config.get('supabase')
         
         if not supabase:
             return jsonify({
                 'test_status': 'error',
-                'error': 'Supabase client not found in app context'
+                'error': 'Supabase client not found in app context',
+                'hint': 'Check app_core.py setup'
             }), 500
         
         # Create WhatsApp service instance
         whatsapp = WhatsAppService(Config, supabase, logger)
         
         # Log what we're about to do
-        logger.info(f"TEST: Attempting to send buttons to {phone}")
-        logger.info(f"TEST: ACCESS_TOKEN present: {bool(Config.ACCESS_TOKEN)}")
-        logger.info(f"TEST: PHONE_NUMBER_ID: {Config.PHONE_NUMBER_ID}")
+        log_info(f"TEST: Attempting to send buttons to {phone}")
+        log_info(f"TEST: ACCESS_TOKEN present: {bool(Config.ACCESS_TOKEN)}")
+        log_info(f"TEST: PHONE_NUMBER_ID: {Config.PHONE_NUMBER_ID}")
         
         # Try to send a simple button message
         result = whatsapp.send_button_message(
@@ -132,8 +143,8 @@ def test_buttons(phone):
         })
         
     except Exception as e:
-        logger.error(f"Test endpoint error: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        log_error(f"Test endpoint error: {str(e)}")
+        log_error(f"Traceback: {traceback.format_exc()}")
         
         return jsonify({
             'test_status': 'error',
@@ -142,23 +153,10 @@ def test_buttons(phone):
             'whatsapp_configured': bool(Config.ACCESS_TOKEN and Config.PHONE_NUMBER_ID),
             'config_check': {
                 'has_token': bool(Config.ACCESS_TOKEN),
-                'has_phone_id': bool(Config.PHONE_NUMBER_ID)
+                'has_phone_id': bool(Config.PHONE_NUMBER_ID),
+                'phone_id_value': Config.PHONE_NUMBER_ID[:10] + '...' if Config.PHONE_NUMBER_ID else None
             }
         }), 500
-
-# Simple test endpoint to verify the app is running
-@app.route('/test', methods=['GET'])
-def test():
-    """Simple test endpoint"""
-    return jsonify({
-        'status': 'ok',
-        'message': 'Test endpoints are working',
-        'available_endpoints': [
-            '/test',
-            '/test-config',
-            '/test-buttons/<phone_number>'
-        ]
-    })
 
 # Cleanup on shutdown
 def cleanup():
@@ -179,16 +177,23 @@ def signal_handler(signum, frame):
     exit(0)
 
 # Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 atexit.register(cleanup)
 
 if __name__ == '__main__':
     # Run the Flask app
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     debug_mode = os.environ.get('DEBUG', 'False').lower() == 'true'
     
     log_info(f"Starting Refiloe AI Assistant on port {port}")
     log_info(f"Debug mode: {debug_mode}")
     log_info(f"Environment: {os.environ.get('ENVIRONMENT', 'production')}")
+    
+    # Log available routes
+    log_info("Available routes:")
+    for rule in app.url_map.iter_rules():
+        log_info(f"  {rule.endpoint}: {rule.rule}")
     
     app.run(
         host='0.0.0.0',
