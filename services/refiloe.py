@@ -226,6 +226,10 @@ class RefiloeService:
                 'message': "I had trouble with that selection. Let's try again!"
             }
 
+    def _continue_registration(self, from_number: str, text: str, state: Dict) -> Dict:
+        """Continue registration based on current step"""
+        return self.helpers._continue_registration(from_number, text, state) 
+
     
     def _show_welcome_options(self, phone: str) -> Dict:
         """Show interactive welcome options"""
