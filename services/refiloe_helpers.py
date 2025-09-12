@@ -346,6 +346,464 @@ class RefiloeHelpers:
                 return {'user_type': 'prospect', 'confidence': 0.6}
             else:
                 return {'user_type': 'unclear', 'confidence': 0.3}
+
+    def _start_trainer_registration_interactive(self, phone: str) -> Dict:
+        """Start interactive trainer registration"""
+        try:
+            # Save registration state
+            self.db.table('registration_state').upsert({
+                'phone': phone,
+                'user_type': 'trainer',
+                'step': 'city',
+                'data': {},
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }, on_conflict='phone').execute()
+            
+            # Send city selection buttons
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "city_johannesburg",
+                        "title": "Johannesburg"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "city_cape_town",
+                        "title": "Cape Town"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "city_other",
+                        "title": "Other City"
+                    }
+                }
+            ]
+            
+            result = self.whatsapp.send_button_message(
+                phone=phone,
+                body="""🎉 Awesome! Let's get you set up as a trainer!
+    
+    First, where are you based?
+    
+    Select your city or choose 'Other' to type it:""",
+                buttons=buttons
+            )
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': None,
+                    'interactive_sent': True
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "Let's set you up! Please tell me your city:"
+                }
+                
+        except Exception as e:
+            log_error(f"Error starting trainer registration: {str(e)}")
+            return {
+                'success': True,
+                'message': "Let's get you registered! Please provide your details."
+            }
+    
+    def _handle_city_selection(self, phone: str, button_id: str) -> Dict:
+        """Handle city selection from buttons"""
+        try:
+            # Get registration state
+            state = self.db.table('registration_state').select('*').eq(
+                'phone', phone
+            ).execute()
+            
+            if not state.data:
+                return self._show_interactive_welcome(phone)
+            
+            stored_data = state.data[0].get('data', {})
+            
+            # Handle city selection
+            if button_id == 'city_other':
+                # Ask them to type their city
+                self.db.table('registration_state').update({
+                    'step': 'city_text',
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('phone', phone).execute()
+                
+                return {
+                    'success': True,
+                    'message': "Please type your city name:"
+                }
+            else:
+                # Extract city from button_id
+                city = button_id.replace('city_', '').replace('_', ' ').title()
+                stored_data['location'] = city
+                
+                # Update state and move to specialisation
+                self.db.table('registration_state').update({
+                    'step': 'specialisation',
+                    'data': stored_data,
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('phone', phone).execute()
+                
+                # Send specialisation buttons
+                buttons = [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "spec_personal",
+                            "title": "Personal Training"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "spec_weight",
+                            "title": "Weight Loss"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "spec_strength",
+                            "title": "Strength Training"
+                        }
+                    }
+                ]
+                
+                result = self.whatsapp.send_button_message(
+                    phone=phone,
+                    body=f"""📍 Great! You're in {city}.
+    
+    What's your training specialisation?""",
+                    buttons=buttons
+                )
+                
+                if result.get('success'):
+                    return {
+                        'success': True,
+                        'message': None,
+                        'interactive_sent': True
+                    }
+                else:
+                    return {
+                        'success': True,
+                        'message': "What's your specialisation? (e.g., Personal Training, Weight Loss)"
+                    }
+                    
+        except Exception as e:
+            log_error(f"Error handling city: {str(e)}")
+            return {
+                'success': True,
+                'message': "Please tell me your city:"
+            }
+    
+    def _handle_specialisation_selection(self, phone: str, button_id: str) -> Dict:
+        """Handle specialisation selection"""
+        try:
+            # Get registration state
+            state = self.db.table('registration_state').select('*').eq(
+                'phone', phone
+            ).execute()
+            
+            if not state.data:
+                return self._show_interactive_welcome(phone)
+            
+            stored_data = state.data[0].get('data', {})
+            
+            # Extract specialisation
+            spec_map = {
+                'spec_personal': 'Personal Training',
+                'spec_weight': 'Weight Loss',
+                'spec_strength': 'Strength Training'
+            }
+            
+            specialisation = spec_map.get(button_id, 'Personal Training')
+            stored_data['specialisation'] = specialisation
+            
+            # Update state to collect name and business
+            self.db.table('registration_state').update({
+                'step': 'details',
+                'data': stored_data,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('phone', phone).execute()
+            
+            return {
+                'success': True,
+                'message': f"""💪 Perfect! You specialise in {specialisation}.
+    
+    Now I need your details:
+    
+    Please type your name and business name.
+    
+    For example:
+    "Howard from Gugu Growth"
+    or
+    "Howard, Gugu Growth" """
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling specialisation: {str(e)}")
+            return {
+                'success': True,
+                'message': "What's your specialisation?"
+            }
+    
+    def _continue_registration(self, phone: str, text: str, state: Dict) -> Dict:
+        """Continue registration based on current step"""
+        try:
+            current_step = state.get('step')
+            stored_data = state.get('data', {})
+            
+            if current_step == 'city_text':
+                # They typed their city after selecting "Other"
+                stored_data['location'] = text.strip()
+                
+                # Move to specialisation
+                self.db.table('registration_state').update({
+                    'step': 'specialisation',
+                    'data': stored_data,
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('phone', phone).execute()
+                
+                # Send specialisation buttons
+                buttons = [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "spec_personal",
+                            "title": "Personal Training"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "spec_weight",
+                            "title": "Weight Loss"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "spec_strength",
+                            "title": "Strength Training"
+                        }
+                    }
+                ]
+                
+                result = self.whatsapp.send_button_message(
+                    phone=phone,
+                    body=f"""📍 Great! You're in {text.strip()}.
+    
+    What's your training specialisation?""",
+                    buttons=buttons
+                )
+                
+                if result.get('success'):
+                    return {'success': True, 'message': None, 'interactive_sent': True}
+                else:
+                    return {'success': True, 'message': "What's your specialisation?"}
+                    
+            elif current_step == 'details':
+                # Parse name and business from text
+                import re
+                
+                # Try different patterns
+                # Pattern 1: "Name from Business"
+                match = re.search(r"(.+?)\s+from\s+(.+)", text, re.IGNORECASE)
+                if match:
+                    name = match.group(1).strip()
+                    business = match.group(2).strip()
+                else:
+                    # Pattern 2: "Name, Business"
+                    parts = text.split(',')
+                    if len(parts) >= 2:
+                        name = parts[0].strip()
+                        business = parts[1].strip()
+                    else:
+                        # Ask again if we can't parse
+                        return {
+                            'success': True,
+                            'message': """I couldn't catch that. Please provide:
+    
+    Your name and business name
+    
+    For example:
+    "Howard from Gugu Growth"
+    or
+    "Howard, Gugu Growth" """
+                        }
+                
+                stored_data['name'] = name
+                stored_data['business_name'] = business
+                
+                # Update state to confirmation
+                self.db.table('registration_state').update({
+                    'step': 'confirmation',
+                    'data': stored_data,
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('phone', phone).execute()
+                
+                # Send confirmation with buttons
+                buttons = [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "confirm_yes",
+                            "title": "✅ Yes, Create Account"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "confirm_edit",
+                            "title": "✏️ Edit Details"
+                        }
+                    }
+                ]
+                
+                result = self.whatsapp.send_button_message(
+                    phone=phone,
+                    body=f"""Please confirm your details:
+    
+    👤 Name: {name}
+    🏢 Business: {business}
+    📍 Location: {stored_data.get('location')}
+    💪 Specialisation: {stored_data.get('specialisation')}
+    
+    Is this correct?""",
+                    buttons=buttons
+                )
+                
+                if result.get('success'):
+                    return {'success': True, 'message': None, 'interactive_sent': True}
+                else:
+                    return {
+                        'success': True,
+                        'message': f"""Please confirm your details:
+                        
+    Name: {name}
+    Business: {business}
+    Location: {stored_data.get('location')}
+    Specialisation: {stored_data.get('specialisation')}
+    
+    Reply 'yes' to confirm or 'edit' to change."""
+                    }
+                    
+        except Exception as e:
+            log_error(f"Error continuing registration: {str(e)}")
+            return {
+                'success': True,
+                'message': "Let's continue with your registration. What's your next detail?"
+            }
+    
+    def _complete_registration(self, phone: str) -> Dict:
+        """Complete the registration and create trainer account"""
+        try:
+            # Get registration state
+            state = self.db.table('registration_state').select('*').eq(
+                'phone', phone
+            ).execute()
+            
+            if not state.data:
+                return self._show_interactive_welcome(phone)
+            
+            stored_data = state.data[0].get('data', {})
+            
+            # Create trainer account
+            trainer_data = {
+                'name': stored_data.get('name'),
+                'business_name': stored_data.get('business_name'),
+                'location': stored_data.get('location'),
+                'whatsapp': phone,
+                'email': f"{stored_data.get('name', '').lower().replace(' ', '.')}@temp.com",
+                'status': 'active',
+                'pricing_per_session': 300.00,
+                'created_at': datetime.now(self.sa_tz).isoformat(),
+                'settings': {
+                    'specialisation': stored_data.get('specialisation')
+                }
+            }
+            
+            # Insert into database
+            result = self.db.table('trainers').insert(trainer_data).execute()
+            
+            if result.data:
+                # Clear registration state
+                self.db.table('registration_state').delete().eq(
+                    'phone', phone
+                ).execute()
+                
+                # Send success message with quick start buttons
+                buttons = [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "add_client",
+                            "title": "➕ Add Client"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "view_help",
+                            "title": "📚 View Commands"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "set_rates",
+                            "title": "💰 Set Rates"
+                        }
+                    }
+                ]
+                
+                self.whatsapp.send_button_message(
+                    phone=phone,
+                    body=f"""🎉 Welcome to Refiloe, {stored_data.get('name')}!
+    
+    Your trainer account is now active!
+    
+    ✅ {stored_data.get('business_name')}
+    📍 {stored_data.get('location')}
+    💪 {stored_data.get('specialisation')}
+    
+    What would you like to do first?""",
+                    buttons=buttons
+                )
+                
+                return {
+                    'success': True,
+                    'message': None,
+                    'interactive_sent': True
+                }
+            else:
+                return {
+                    'success': True,
+                    'message': "There was an issue creating your account. Please try again or contact support."
+                }
+                
+        except Exception as e:
+            log_error(f"Error completing registration: {str(e)}")
+            return {
+                'success': True,
+                'message': "Error creating account. Please try again."
+            }
+    
+    def _restart_registration(self, phone: str) -> Dict:
+        """Restart registration from the beginning"""
+        # Clear registration state
+        self.db.table('registration_state').delete().eq(
+            'phone', phone
+        ).execute()
+        
+        # Start over
+        return self._start_trainer_registration_interactive(phone)
     
     def _start_trainer_registration(self, phone: str, intent_data: Dict) -> Dict:
         """Start interactive trainer registration flow"""
