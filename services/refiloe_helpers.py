@@ -804,6 +804,124 @@ class RefiloeHelpers:
         
         # Start over
         return self._start_trainer_registration_interactive(phone)
+
+    # ========================================
+    # PART 3: Client Registration Flow
+    # ========================================
+    
+    def _start_client_registration_interactive(self, phone: str) -> Dict:
+        """Start interactive client registration"""
+        try:
+            # Save registration state
+            self.db.table('registration_state').upsert({
+                'phone': phone,
+                'user_type': 'client',
+                'step': 'goals',
+                'data': {},
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }, on_conflict='phone').execute()
+            
+            # Send goal selection buttons
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "goal_weight",
+                        "title": "🎯 Lose Weight"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "goal_muscle",
+                        "title": "💪 Build Muscle"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "goal_fitness",
+                        "title": "🏃 Get Fit"
+                    }
+                }
+            ]
+            
+            result = self.whatsapp.send_button_message(
+                phone=phone,
+                body="""Great! Let's find you the perfect trainer! 🏋️‍♂️
+    
+    First, what's your main fitness goal?""",
+                buttons=buttons
+            )
+            
+            if result.get('success'):
+                return {'success': True, 'message': None, 'interactive_sent': True}
+            else:
+                return {
+                    'success': True,
+                    'message': "What's your main fitness goal? (e.g., Lose weight, Build muscle, Get fit)"
+                }
+                
+        except Exception as e:
+            log_error(f"Error starting client registration: {str(e)}")
+            return {
+                'success': True,
+                'message': "Let's find you a trainer! What are your fitness goals?"
+            }
+    
+    # ========================================
+    # PART 4: Platform Info with Buttons
+    # ========================================
+    
+    def _show_platform_info_interactive(self, phone: str) -> Dict:
+        """Show platform information with interactive options"""
+        try:
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "info_trainers",
+                        "title": "For Trainers"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "info_clients",
+                        "title": "For Clients"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "info_pricing",
+                        "title": "Pricing"
+                    }
+                }
+            ]
+            
+            result = self.whatsapp.send_button_message(
+                phone=phone,
+                body="""🌟 Welcome to Refiloe!
+    
+    I'm your AI-powered fitness assistant, revolutionizing fitness in South Africa!
+    
+    ✅ Trainers: Manage clients, automate bookings, collect payments
+    ✅ Clients: Find trainers, track progress, join challenges
+    ✅ Everyone: 24/7 AI support via WhatsApp
+    
+    What would you like to know more about?""",
+                buttons=buttons
+            )
+            
+            if result.get('success'):
+                return {'success': True, 'message': None, 'interactive_sent': True}
+            else:
+                return self.helpers._provide_platform_info(None)
+                
+        except Exception as e:
+            log_error(f"Error showing platform info: {str(e)}")
+            return self.helpers._provide_platform_info(None)
     
     def _start_trainer_registration(self, phone: str, intent_data: Dict) -> Dict:
         """Start interactive trainer registration flow"""
