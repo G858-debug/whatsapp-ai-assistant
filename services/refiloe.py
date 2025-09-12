@@ -100,122 +100,130 @@ class RefiloeService:
 
     def _handle_new_user_registration(self, message_data: Dict) -> Dict:
         """
-        Handle registration for new users using AI to understand intent
-        FIXED: Now properly handles multi-step registration with correct order
+        Handle registration for new users with interactive buttons
         """
         try:
             text = message_data.get('text', {}).get('body', '')
             from_number = message_data.get('from')
+            message_type = message_data.get('type', 'text')
             
-            # Check if user is already in registration process
+            # Handle interactive button responses
+            if message_type == 'interactive':
+                return self._handle_registration_interactive(message_data)
+            
+            # Check if user is in registration process
             reg_state = self.db.table('registration_state').select('*').eq(
                 'phone', from_number
             ).execute()
             
             if reg_state.data:
-                # User is already registering - process their response!
-                current_step = reg_state.data[0].get('step')
-                stored_data = reg_state.data[0].get('data', {})
-                
-                # They're providing registration details
-                if current_step == 'awaiting_details':
-                    # Process the registration details they just sent
-                    return self.helpers.process_complete_registration_text(from_number, text)
+                # Continue registration based on current step
+                return self._continue_registration(from_number, text, reg_state.data[0])
             
-            # Check if message looks like registration details
-            # (multiple lines or contains multiple pieces of info)
-            lines = text.strip().split('\n')
-            if len(lines) >= 3:  # They provided info on multiple lines
-                # This looks like registration details!
-                return self.helpers.process_complete_registration_text(from_number, text)
-            
-            # Check if it contains registration info with commas or "from/in" patterns
-            text_lower = text.lower()
-            has_from_pattern = ' from ' in text_lower or ' in ' in text_lower
-            has_business_pattern = 'business' in text_lower or 'company' in text_lower
-            has_specialisation = 'specialis' in text_lower or 'training' in text_lower
-            has_commas = text.count(',') >= 2
-            
-            if (has_from_pattern or has_business_pattern) and (has_specialisation or has_commas):
-                return self.helpers.process_complete_registration_text(from_number, text)
-            
-            # Handle greetings
-            if text.strip().lower() in ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'how are you']:
-                # Clear any stale registration state
-                self.db.table('registration_state').delete().eq('phone', from_number).execute()
-                
-                return {
-                    'success': True,
-                    'message': """👋 Welcome to Refiloe! I'm your AI fitness assistant.
-    
-    I help personal trainers manage their business and connect clients with great trainers.
-    
-    How can I help you today? You can:
-    - Set up your trainer business 
-    - Find a personal trainer
-    - Learn about our platform
-    
-    Just tell me what you're looking for! 💪"""
-                }
-            
-            # Use AI to understand intent
-            registration_intent = self._understand_registration_intent_fixed(text)
-            intent = registration_intent.get('intent', registration_intent.get('user_type', 'unclear'))
-            
-            if intent == 'registration_trainer' or registration_intent.get('user_type') == 'trainer':
-                # Store registration state
-                self.db.table('registration_state').upsert({
-                    'phone': from_number,
-                    'user_type': 'trainer',
-                    'step': 'awaiting_details',
-                    'data': {},
-                    'updated_at': datetime.now().isoformat()
-                }, on_conflict='phone').execute()
-                
-                return {
-                    'success': True,
-                    'message': """Awesome! Let's get you set up as a trainer! 💪
-    
-    Please provide your details in this order:
-    1. Your name & surname
-    2. Your city
-    3. Your business name  
-    4. Your specialisation
-    
-    Example: 
-    "I'm Howard Nkosi from Sasolburg, running Gugu Growth, specialising in personal training" """
-                }
-                    
-            elif intent == 'registration_client' or registration_intent.get('user_type') == 'client':
-                return self.helpers._start_client_registration(from_number, registration_intent)
-                
-            elif intent == 'exploring' or registration_intent.get('user_type') == 'prospect':
-                return self.helpers._provide_platform_info(None)
-                
-            else:
-                # We're not sure - ask clarifying questions
-                # BUT FIRST - check if this might be registration details
-                if len(text.split()) > 5:  # More than just a few words
-                    # Try to parse it as registration details
-                    result = self.helpers.process_complete_registration_text(from_number, text)
-                    if result.get('success') and 'still need' not in result.get('message', ''):
-                        return result
-                
-                # Otherwise ask for clarification
-                return self.helpers._ask_registration_clarification(text)
+            # New user - show welcome with buttons
+            return self._show_interactive_welcome(from_number)
                 
         except Exception as e:
-            log_error(f"Error in new user registration: {str(e)}")
+            log_error(f"Error in registration: {str(e)}")
+            # Fallback to text
             return {
                 'success': True,
-                'message': """I'm here to help! 😊
+                'message': """Welcome to Refiloe! 👋
     
-    Are you:
-    - A trainer wanting to manage your business?
-    - Looking for a personal trainer?
-    - Just exploring what we offer?
+    I'm your AI fitness assistant. Are you:
+    1️⃣ A fitness trainer
+    2️⃣ Looking for a trainer
+    3️⃣ Just exploring"""
+            }
     
-    Let me know how I can assist you!"""
+    def _show_interactive_welcome(self, phone: str) -> Dict:
+        """Show interactive welcome with buttons"""
+        try:
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "reg_trainer",
+                        "title": "👨‍🏫 I'm a Trainer"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "reg_client",
+                        "title": "🏃 Find a Trainer"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "reg_explore",
+                        "title": "📚 Learn More"
+                    }
+                }
+            ]
+            
+            # Send welcome message with buttons
+            result = self.whatsapp.send_button_message(
+                phone=phone,
+                body="""👋 Welcome to Refiloe!
+    
+    I'm your AI fitness assistant, here to revolutionize how fitness works in South Africa! 
+    
+    What brings you here today?""",
+                buttons=buttons
+            )
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': None,  # Don't send duplicate
+                    'interactive_sent': True
+                }
+            else:
+                # Fallback
+                return self.helpers._ask_registration_clarification("")
+                
+        except Exception as e:
+            log_error(f"Error showing welcome: {str(e)}")
+            return self.helpers._ask_registration_clarification("")
+    
+    def _handle_registration_interactive(self, message_data: Dict) -> Dict:
+        """Handle interactive button responses during registration"""
+        try:
+            from_number = message_data.get('from')
+            interactive = message_data.get('interactive', {})
+            
+            if interactive.get('type') == 'button_reply':
+                button_id = interactive.get('button_reply', {}).get('id')
+                
+                # Handle welcome button selections
+                if button_id == 'reg_trainer':
+                    return self._start_trainer_registration_interactive(from_number)
+                elif button_id == 'reg_client':
+                    return self._start_client_registration_interactive(from_number)
+                elif button_id == 'reg_explore':
+                    return self._show_platform_info_interactive(from_number)
+                
+                # Handle registration flow buttons
+                elif button_id.startswith('city_'):
+                    return self._handle_city_selection(from_number, button_id)
+                elif button_id.startswith('spec_'):
+                    return self._handle_specialisation_selection(from_number, button_id)
+                elif button_id == 'confirm_yes':
+                    return self._complete_registration(from_number)
+                elif button_id == 'confirm_edit':
+                    return self._restart_registration(from_number)
+                    
+            elif interactive.get('type') == 'list_reply':
+                list_id = interactive.get('list_reply', {}).get('id')
+                return self._handle_list_selection(from_number, list_id)
+                
+        except Exception as e:
+            log_error(f"Error handling interactive: {str(e)}")
+            return {
+                'success': True,
+                'message': "I had trouble with that selection. Let's try again!"
             }
     
     def _show_welcome_options(self, phone: str) -> Dict:
