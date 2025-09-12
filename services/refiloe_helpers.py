@@ -700,17 +700,17 @@ or
                     'success': True,
                     'message': "Let's start over! Say 'Hi' to begin registration."
                 }
-        
-        current_step = state.get('step')
-        stored_data = state.get('data', {})
-        
-        # Another safety check
-        if not self.whatsapp:
-            log_error(f"WhatsApp service not initialized for phone {phone}")
-            return {
-                'success': True,
-                'message': "Sorry, I'm having technical difficulties. Please try again in a moment."
-            }
+            
+            current_step = state.get('step')
+            stored_data = state.get('data', {})
+            
+            # Another safety check for WhatsApp service
+            if not self.whatsapp:
+                log_error(f"WhatsApp service not initialized for phone {phone}")
+                return {
+                    'success': True,
+                    'message': "Sorry, I'm having technical difficulties. Please try again in a moment."
+                }
             
             if current_step == 'city_text':
                 # They typed their city after selecting "Other"
@@ -846,6 +846,12 @@ or
     
     Reply 'yes' to confirm or 'edit' to change."""
                     }
+            
+            # Default case if step doesn't match
+            return {
+                'success': True,
+                'message': "Let's continue with your registration. What information would you like to provide?"
+            }
                     
         except Exception as e:
             log_error(f"Error continuing registration: {str(e)}")
