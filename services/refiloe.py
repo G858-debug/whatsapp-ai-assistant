@@ -116,7 +116,7 @@ class RefiloeService:
                 'phone', from_number
             ).execute()
             
-            if reg_state.data:
+            if reg_state and reg_state.data and len(reg_state.data) > 0:
                 # Continue registration based on current step
                 return self._continue_registration(from_number, text, reg_state.data[0])
             
