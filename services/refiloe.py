@@ -256,11 +256,13 @@ class RefiloeService:
                 buttons=buttons
             )
             
-            return {
-                'success': True,
-                'message': "Options sent",
-                'interactive_sent': True
-            }
+            # When buttons are sent successfully, return NO message
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': None,  # DON'T send text message too!
+                    'interactive_sent': True
+                }
             
         except Exception as e:
             log_error(f"Error showing welcome options: {str(e)}")
