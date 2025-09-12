@@ -47,10 +47,9 @@ class RefiloeHelpers:
             
             result = self.whatsapp.send_button_message(
                 phone=phone,
-                body="""🌟 Welcome to Refiloe!
+                body="""🌟 Hi, I'm Refiloe! I'm your AI-powered fitness assistant. 
 
-I'm your AI-powered fitness assistant, revolutionizing fitness in South Africa!
-
+I do the following for -
 ✅ Trainers: Manage clients, automate bookings, collect payments
 ✅ Clients: Find trainers, track progress, join challenges
 ✅ Everyone: 24/7 AI support via WhatsApp
