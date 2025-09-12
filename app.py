@@ -1,5 +1,7 @@
+
+
 import os
-from flask import Flask
+from flask import Flask, jsonify  # ADD jsonify import
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
@@ -7,6 +9,7 @@ from config import Config
 from app_core import setup_app_core
 from app_routes import setup_routes
 from utils.logger import setup_logger, log_info, log_error
+import traceback  # ADD this import
 
 # Load environment variables
 load_dotenv()
@@ -39,21 +42,51 @@ app.register_blueprint(webhooks_bp)
 from routes.payment import payment_bp
 app.register_blueprint(payment_bp)
 
+# ADD TEST ENDPOINTS HERE (with proper imports)
+@app.route('/test-config', methods=['GET'])
+def test_config():
+    """Test endpoint to check configuration"""
+    return jsonify({
+        'whatsapp': {
+            'ACCESS_TOKEN_configured': bool(Config.ACCESS_TOKEN),
+            'PHONE_NUMBER_ID_configured': bool(Config.PHONE_NUMBER_ID),
+            'PHONE_NUMBER_ID_value': Config.PHONE_NUMBER_ID if Config.PHONE_NUMBER_ID else 'NOT SET',
+            'TOKEN_length': len(Config.ACCESS_TOKEN) if Config.ACCESS_TOKEN else 0
+        },
+        'database': {
+            'SUPABASE_URL_configured': bool(Config.SUPABASE_URL),
+            'SUPABASE_KEY_configured': bool(Config.SUPABASE_SERVICE_KEY)
+        },
+        'ai': {
+            'ANTHROPIC_configured': bool(Config.ANTHROPIC_API_KEY)
+        },
+        'environment': {
+            'DEBUG': Config.DEBUG if hasattr(Config, 'DEBUG') else False,
+            'TIMEZONE': Config.TIMEZONE
+        }
+    })
+
 @app.route('/test-buttons/<phone>', methods=['GET'])
 def test_buttons(phone):
     """Test endpoint to send buttons directly"""
     try:
-        # Get the WhatsApp service from the app context
-        # The WhatsApp service should already be initialized in app_core
+        # Import inside the function to avoid circular imports
         from services.whatsapp import WhatsAppService
-        from config import Config
         
-        # Get the supabase client that was initialized in app_core
-        from app_core import setup_app_core
+        # Get the supabase client from app
+        supabase = getattr(app, 'supabase', None)
+        if not supabase:
+            # Try to get it from app.config
+            supabase = app.config.get('supabase')
         
-        # Since app_core returns (app, scheduler), we need to get services differently
-        # Access the refiloe_service that was set up
-        whatsapp = WhatsAppService(Config, app.supabase, logger)
+        if not supabase:
+            return jsonify({
+                'test_status': 'error',
+                'error': 'Supabase client not found in app context'
+            }), 500
+        
+        # Create WhatsApp service instance
+        whatsapp = WhatsAppService(Config, supabase, logger)
         
         # Log what we're about to do
         logger.info(f"TEST: Attempting to send buttons to {phone}")
@@ -69,21 +102,21 @@ def test_buttons(phone):
                     "type": "reply", 
                     "reply": {
                         "id": "test_yes", 
-                        "title": "✅ Yes, I see them!"
+                        "title": "✅ Yes!"
                     }
                 },
                 {
                     "type": "reply", 
                     "reply": {
                         "id": "test_no", 
-                        "title": "❌ No buttons"
+                        "title": "❌ No"
                     }
                 },
                 {
                     "type": "reply", 
                     "reply": {
                         "id": "test_help", 
-                        "title": "📞 Need help"
+                        "title": "📞 Help"
                     }
                 }
             ]
@@ -113,31 +146,18 @@ def test_buttons(phone):
             }
         }), 500
 
-# ALSO ADD A SIMPLER CONFIG CHECK ENDPOINT:
-
-@app.route('/test-config', methods=['GET'])
-def test_config():
-    """Test endpoint to check configuration"""
-    from config import Config
-    
+# Simple test endpoint to verify the app is running
+@app.route('/test', methods=['GET'])
+def test():
+    """Simple test endpoint"""
     return jsonify({
-        'whatsapp': {
-            'ACCESS_TOKEN_configured': bool(Config.ACCESS_TOKEN),
-            'PHONE_NUMBER_ID_configured': bool(Config.PHONE_NUMBER_ID),
-            'PHONE_NUMBER_ID_value': Config.PHONE_NUMBER_ID if Config.PHONE_NUMBER_ID else 'NOT SET',
-            'TOKEN_length': len(Config.ACCESS_TOKEN) if Config.ACCESS_TOKEN else 0
-        },
-        'database': {
-            'SUPABASE_URL_configured': bool(Config.SUPABASE_URL),
-            'SUPABASE_KEY_configured': bool(Config.SUPABASE_SERVICE_KEY)
-        },
-        'ai': {
-            'ANTHROPIC_configured': bool(Config.ANTHROPIC_API_KEY)
-        },
-        'environment': {
-            'DEBUG': Config.DEBUG,
-            'TIMEZONE': Config.TIMEZONE
-        }
+        'status': 'ok',
+        'message': 'Test endpoints are working',
+        'available_endpoints': [
+            '/test',
+            '/test-config',
+            '/test-buttons/<phone_number>'
+        ]
     })
 
 # Cleanup on shutdown
