@@ -11,6 +11,143 @@ class RefiloeHelpers:
         self.db = db
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+
+        # Initialize WhatsApp service for sending buttons
+        from services.whatsapp import WhatsAppService
+        from utils.logger import setup_logger
+        logger = setup_logger()
+        self.whatsapp = WhatsAppService(config, db, logger)
+
+    def _show_platform_info_interactive(self, phone: str) -> Dict:
+        """Show platform information with interactive options"""
+        try:
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "info_trainers",
+                        "title": "For Trainers"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "info_clients",
+                        "title": "For Clients"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": "info_pricing",
+                        "title": "Pricing"
+                    }
+                }
+            ]
+            
+            result = self.whatsapp.send_button_message(
+                phone=phone,
+                body="""🌟 Welcome to Refiloe!
+
+I'm your AI-powered fitness assistant, revolutionizing fitness in South Africa!
+
+✅ Trainers: Manage clients, automate bookings, collect payments
+✅ Clients: Find trainers, track progress, join challenges
+✅ Everyone: 24/7 AI support via WhatsApp
+
+What would you like to know more about?""",
+                buttons=buttons
+            )
+            
+            if result.get('success'):
+                return {'success': True, 'message': None, 'interactive_sent': True}
+            else:
+                # Fallback to text version
+                return {
+                    'success': True,
+                    'message': """🌟 Welcome to Refiloe!
+
+I'm your AI-powered fitness assistant!
+
+For Trainers:
+• Manage all clients in one place
+• Automated scheduling & reminders
+• Easy payment collection
+
+For Clients:
+• Find qualified trainers
+• Track your progress
+• Join fitness challenges
+
+Would you like to register as a trainer or find a trainer?"""
+                }
+                
+        except Exception as e:
+            log_error(f"Error showing platform info: {str(e)}")
+            return {
+                'success': True,
+                'message': "Let me tell you about Refiloe! Are you a trainer or looking for one?"
+            }
+
+    def _handle_list_selection(self, phone: str, list_id: str) -> Dict:
+        """Handle list selection during registration"""
+        # This is a placeholder - implement based on your needs
+        return {
+            'success': True,
+            'message': f"You selected: {list_id}"
+        }
+
+    def _handle_specialisation_selection(self, phone: str, button_id: str) -> Dict:
+        """Handle specialisation selection"""
+        try:
+            # Get registration state
+            state = self.db.table('registration_state').select('*').eq(
+                'phone', phone
+            ).execute()
+            
+            if not state.data:
+                # No state, start over
+                return self._start_trainer_registration_interactive(phone)
+            
+            stored_data = state.data[0].get('data', {})
+            
+            # Extract specialisation
+            spec_map = {
+                'spec_personal': 'Personal Training',
+                'spec_weight': 'Weight Loss',
+                'spec_strength': 'Strength Training'
+            }
+            
+            specialisation = spec_map.get(button_id, 'Personal Training')
+            stored_data['specialisation'] = specialisation
+            
+            # Update state to collect name and business
+            self.db.table('registration_state').update({
+                'step': 'details',
+                'data': stored_data,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('phone', phone).execute()
+            
+            return {
+                'success': True,
+                'message': f"""💪 Perfect! You specialise in {specialisation}.
+
+Now I need your details:
+
+Please type your name and business name.
+
+For example:
+"Howard from Gugu Growth"
+or
+"Howard, Gugu Growth" """
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling specialisation: {str(e)}")
+            return {
+                'success': True,
+                'message': "What's your specialisation?"
+            }
     
     def get_user_context(self, phone: str) -> Tuple[str, Optional[Dict]]:
         """Get user context from phone number"""
