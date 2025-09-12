@@ -166,9 +166,7 @@ class RefiloeService:
             # Send welcome message with buttons
             result = self.whatsapp.send_button_message(
                 phone=phone,
-                body="""👋 Welcome to Refiloe!
-    
-    I'm your AI fitness assistant, here to revolutionize how fitness works in South Africa! 
+                body="""👋 Hello, I'm Refiloe! I'm your AI fitness assistant.  
     
     What brings you here today?""",
                 buttons=buttons
