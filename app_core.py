@@ -47,7 +47,7 @@ def setup_app_core(app):
     rate_limiter = RateLimiter(Config, supabase)
     input_sanitizer = InputSanitizer(Config)
     calendar_service = CalendarService(supabase, Config)
-    # Line already correctly initialized at line 31
+    refiloe_service = RefiloeService(supabase)
     
     # Initialize models
     trainer_model = TrainerModel(supabase, Config)
