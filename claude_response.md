@@ -1,146 +1,35 @@
 <!-- Model: Opus 4.1 -->
-<!-- Cost: $1.5402 -->
-<!-- Max Tokens: 32000 -->
+<!-- Cost: $1.5369 -->
+<!-- Max Tokens: 16000 -->
 ## ANALYSIS
 
-Looking at Step 3 completion and the current task, I need to continue with Step 4 to finalize the registration system integration. The main issues to address are:
+Looking at the task, I need to add client registration flow handlers to `services/refiloe_helpers.py`. However, I notice that `services/refiloe_helpers.py` doesn't exist in the codebase. The registration functionality is already present in `services/registration/client_registration.py`, but it appears incomplete based on the error in the summary file.
 
-1. Fix the method name mismatch in the registration handlers (using underscore prefix for public methods)
-2. Ensure the RefiloeService properly integrates with the new registration system
-3. Add missing imports and fix any integration issues
-4. Create the registration_state.py and edit_handlers.py files that are imported but don't exist
+I need to:
+1. Create the missing `services/refiloe_helpers.py` file with the specified client registration handlers
+2. These handlers will work with the existing `ClientRegistrationHandler` class
 
 ## CHANGES NEEDED
 
-### NEW FILE: services/registration/registration_state.py
+### NEW FILE: services/refiloe_helpers.py
 ```python
-"""Registration state management for multi-step flows"""
+"""Helper functions for Refiloe service - client registration flows"""
 from typing import Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 from utils.logger import log_error, log_info
 
-class RegistrationStateManager:
-    """Manages registration session state"""
+class RefiloeHelpers:
+    """Helper functions for client registration flows"""
     
-    def __init__(self, supabase_client, config):
+    def __init__(self, supabase_client, whatsapp_service, config):
         self.db = supabase_client
+        self.whatsapp = whatsapp_service
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
     
-    def create_session(self, phone: str, user_type: str, initial_step: str = 'name') -> str:
-        """Create a new registration session"""
-        try:
-            # Expire any existing sessions for this phone
-            self.db.table('registration_sessions').update({
-                'status': 'expired'
-            }).eq('phone', phone).eq('status', 'active').execute()
-            
-            # Create new session
-            result = self.db.table('registration_sessions').insert({
-                'phone': phone,
-                'user_type': user_type,
-                'status': 'active',
-                'step': initial_step,
-                'data': {},
-                'created_at': datetime.now(self.sa_tz).isoformat(),
-                'updated_at': datetime.now(self.sa_tz).isoformat()
-            }).execute()
-            
-            return result.data[0]['id'] if result.data else None
-            
-        except Exception as e:
-            log_error(f"Error creating registration session: {str(e)}")
-            return None
-    
-    def get_session(self, session_id: str) -> Optional[Dict]:
-        """Get registration session by ID"""
-        try:
-            result = self.db.table('registration_sessions').select('*').eq(
-                'id', session_id
-            ).single().execute()
-            
-            return result.data
-            
-        except Exception as e:
-            log_error(f"Error getting session: {str(e)}")
-            return None
-    
-    def update_session(self, session_id: str, step: str = None, 
-                      data_update: Dict = None) -> bool:
-        """Update registration session"""
-        try:
-            update_data = {
-                'updated_at': datetime.now(self.sa_tz).isoformat()
-            }
-            
-            if step:
-                update_data['step'] = step
-            
-            if data_update:
-                # Get current data
-                session = self.get_session(session_id)
-                if session:
-                    current_data = session.get('data', {})
-                    current_data.update(data_update)
-                    update_data['data'] = current_data
-            
-            result = self.db.table('registration_sessions').update(
-                update_data
-            ).eq('id', session_id).execute()
-            
-            return bool(result.data)
-            
-        except Exception as e:
-            log_error(f"Error updating session: {str(e)}")
-            return False
-    
-    def complete_session(self, session_id: str) -> bool:
-        """Mark session as completed"""
-        try:
-            result = self.db.table('registration_sessions').update({
-                'status': 'completed',
-                'updated_at': datetime.now(self.sa_tz).isoformat()
-            }).eq('id', session_id).execute()
-            
-            return bool(result.data)
-            
-        except Exception as e:
-            log_error(f"Error completing session: {str(e)}")
-            return False
-    
-    def expire_old_sessions(self):
-        """Expire sessions older than 24 hours"""
-        try:
-            cutoff = datetime.now(self.sa_tz) - timedelta(hours=24)
-            
-            self.db.table('registration_sessions').update({
-                'status': 'expired'
-            }).eq('status', 'active').lt(
-                'updated_at', cutoff.isoformat()
-            ).execute()
-            
-            log_info("Expired old registration sessions")
-            
-        except Exception as e:
-            log_error(f"Error expiring sessions: {str(e)}")
-```
-
-### NEW FILE: services/registration/edit_handlers.py
-```python
-"""Handlers for editing registration data"""
-from typing import Dict, Optional
-from utils.logger import log_error, log_info
-
-class EditHandlers:
-    """Handle editing of registration information"""
-    
-    def __init__(self, supabase_client, config):
-        self.db = supabase_client
-        self.config = config
-    
-    def handle_edit_request(self, session_id: str, field_to_edit: str) -> Dict:
-        """Handle request to edit a specific field"""
+    def _handle_client_goal_selection(self, session_id: str, goal: str) -> Dict:
+        """Process fitness goal and show training preference buttons"""
         try:
             # Get session
             session = self.db.table('registration_sessions').select('*').eq(
@@ -150,235 +39,428 @@ class EditHandlers:
             if not session.data:
                 return {
                     'success': False,
-                    'message': 'Session not found'
+                    'message': 'Session expired. Please start over by saying "hi"'
                 }
             
-            # Map edit keywords to fields
-            field_map = {
-                'name': 'name',
-                'email': 'email',
-                'phone': 'phone',
-                'business': 'business_name',
-                'location': 'location',
-                'specialization': 'specialization',
-                'price': 'pricing',
-                'trainer': 'trainer_choice'
-            }
+            # Update session with goal
+            session_data = session.data.get('data', {})
+            session_data['fitness_goal'] = goal
             
-            # Find which field to edit
-            field = None
-            for key, value in field_map.items():
-                if key in field_to_edit.lower():
-                    field = value
-                    break
-            
-            if not field:
-                return {
-                    'success': False,
-                    'message': "I'm not sure which field you want to edit. You can edit: name, email, phone, business name, location, specialization, or price."
-                }
-            
-            # Update session to go back to that step
-            step_map = {
-                'name': 'name',
-                'email': 'email',
-                'phone': 'phone',
-                'business_name': 'business',
-                'location': 'location',
-                'specialization': 'specialization',
-                'pricing': 'pricing',
-                'trainer_choice': 'trainer_selection'
-            }
-            
-            new_step = step_map.get(field, 'name')
-            
-            # Update session step
             self.db.table('registration_sessions').update({
-                'step': new_step
+                'data': session_data,
+                'step': 'training_preference',
+                'updated_at': datetime.now(self.sa_tz).isoformat()
             }).eq('id', session_id).execute()
             
-            # Get prompt for the field
-            prompts = {
-                'name': "What's your full name?",
-                'email': "What's your email address?",
-                'phone': "What's your phone number?",
-                'business_name': "What's your business name? (or 'skip' if you don't have one)",
-                'location': "Where are you located? (area/suburb)",
-                'specialization': "What's your training specialization?",
-                'pricing': "What's your rate per session? (e.g., R350)",
-                'trainer_choice': "Would you like me to find trainers in your area? Reply YES or NO"
-            }
+            # Create training preference buttons
+            buttons = [
+                {'id': 'pref_gym', 'title': '🏋️ Gym Training'},
+                {'id': 'pref_home', 'title': '🏠 Home Workouts'},
+                {'id': 'pref_outdoor', 'title': '🌳 Outdoor'}
+            ]
             
             return {
                 'success': True,
-                'message': f"Let's update that. {prompts.get(field, 'Please provide the new value:')}"
+                'message': f"Great! Your goal is {goal}. 🎯\n\nWhat's your preferred training style?",
+                'buttons': buttons,
+                'session_id': session_id
             }
             
         except Exception as e:
-            log_error(f"Error handling edit request: {str(e)}")
+            log_error(f"Error handling goal selection: {str(e)}")
             return {
                 'success': False,
-                'message': 'Error processing edit request'
+                'message': 'Error processing your goal. Please try again.'
             }
     
-    def validate_edit(self, field: str, value: str) -> Dict:
-        """Validate edited field value"""
+    def _handle_client_training_preference(self, session_id: str, preference: str) -> Dict:
+        """Process training preference and ask for city"""
         try:
-            if field == 'email':
-                from services.helpers.validation_helpers import ValidationHelpers
-                validator = ValidationHelpers()
-                if not validator.validate_email(value):
-                    return {
-                        'valid': False,
-                        'message': 'Please provide a valid email address'
-                    }
+            # Get session
+            session = self.db.table('registration_sessions').select('*').eq(
+                'id', session_id
+            ).single().execute()
             
-            elif field == 'phone':
-                from services.helpers.validation_helpers import ValidationHelpers
-                validator = ValidationHelpers()
-                formatted = validator.format_phone_number(value)
-                if not formatted:
-                    return {
-                        'valid': False,
-                        'message': 'Please provide a valid South African phone number'
-                    }
+            if not session.data:
                 return {
-                    'valid': True,
-                    'formatted_value': formatted
+                    'success': False,
+                    'message': 'Session expired. Please start over by saying "hi"'
                 }
             
-            elif field == 'pricing':
-                from services.helpers.validation_helpers import ValidationHelpers
-                validator = ValidationHelpers()
-                price = validator.extract_price(value)
-                if not price:
-                    return {
-                        'valid': False,
-                        'message': 'Please provide a valid price (e.g., R350)'
-                    }
-                return {
-                    'valid': True,
-                    'formatted_value': price
-                }
+            # Map preference ID to readable format
+            preference_map = {
+                'pref_gym': 'Gym Training',
+                'pref_home': 'Home Workouts',
+                'pref_outdoor': 'Outdoor Training'
+            }
             
-            return {'valid': True}
+            # Update session with preference
+            session_data = session.data.get('data', {})
+            session_data['training_preference'] = preference_map.get(preference, preference)
+            
+            self.db.table('registration_sessions').update({
+                'data': session_data,
+                'step': 'city',
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('id', session_id).execute()
+            
+            return {
+                'success': True,
+                'message': f"Perfect! You prefer {preference_map.get(preference, preference)}. 💪\n\nWhich city are you in? (e.g., Cape Town, Johannesburg, Durban)",
+                'session_id': session_id
+            }
             
         except Exception as e:
-            log_error(f"Error validating edit: {str(e)}")
+            log_error(f"Error handling training preference: {str(e)}")
             return {
-                'valid': False,
-                'message': 'Error validating input'
+                'success': False,
+                'message': 'Error processing your preference. Please try again.'
             }
-```
+    
+    def _handle_client_city_input(self, session_id: str, city: str) -> Dict:
+        """Process city and ask for personal information"""
+        try:
+            # Get session
+            session = self.db.table('registration_sessions').select('*').eq(
+                'id', session_id
+            ).single().execute()
+            
+            if not session.data:
+                return {
+                    'success': False,
+                    'message': 'Session expired. Please start over by saying "hi"'
+                }
+            
+            # Update session with city
+            session_data = session.data.get('data', {})
+            session_data['city'] = city.strip().title()
+            
+            self.db.table('registration_sessions').update({
+                'data': session_data,
+                'step': 'personal_info',
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('id', session_id).execute()
+            
+            return {
+                'success': True,
+                'message': f"Great! I'll find trainers in {city.strip().title()}. 📍\n\nNow I need a few personal details:\n\n• Your full name\n• Your age\n• Your email (optional)\n\nPlease share in this format:\nJohn Doe, 28, john@email.com",
+                'session_id': session_id
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling city input: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error processing your location. Please try again.'
+            }
+    
+    def _handle_client_personal_info(self, session_id: str, info_text: str) -> Dict:
+        """Process personal info and show confirmation"""
+        try:
+            # Get session
+            session = self.db.table('registration_sessions').select('*').eq(
+                'id', session_id
+            ).single().execute()
+            
+            if not session.data:
+                return {
+                    'success': False,
+                    'message': 'Session expired. Please start over by saying "hi"'
+                }
+            
+            # Parse personal info
+            parts = [p.strip() for p in info_text.split(',')]
+            
+            if len(parts) < 2:
+                return {
+                    'success': False,
+                    'message': 'Please provide at least your name and age, separated by commas.\n\nExample: John Doe, 28, john@email.com'
+                }
+            
+            # Extract info
+            name = parts[0]
+            age = None
+            email = None
+            
+            # Try to extract age
+            for part in parts[1:]:
+                if part.isdigit():
+                    age = int(part)
+                elif '@' in part:
+                    email = part
+                elif not age and any(c.isdigit() for c in part):
+                    # Try to extract age from text like "28 years"
+                    import re
+                    age_match = re.search(r'\d+', part)
+                    if age_match:
+                        age = int(age_match.group())
+            
+            if not age:
+                return {
+                    'success': False,
+                    'message': 'Please include your age. Example: John Doe, 28, john@email.com'
+                }
+            
+            # Update session with personal info
+            session_data = session.data.get('data', {})
+            session_data['name'] = name
+            session_data['age'] = age
+            if email:
+                session_data['email'] = email
+            
+            self.db.table('registration_sessions').update({
+                'data': session_data,
+                'step': 'confirmation',
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('id', session_id).execute()
+            
+            # Build confirmation message
+            confirmation = f"""📋 *Registration Summary*
 
-### EDIT: services/refiloe.py
+*Name:* {name}
+*Age:* {age}
+*Email:* {email if email else 'Not provided'}
+*City:* {session_data.get('city', 'Not specified')}
+*Goal:* {session_data.get('fitness_goal', 'Not specified')}
+*Training:* {session_data.get('training_preference', 'Not specified')}
 
-**Change 1:** Fix the method call name
-Location: Lines 86-90 (in _handle_registration_flow method)
-```python
-# REMOVE (lines 86-90):
-            if current_step == 'confirmation':
-                if user_type == 'trainer':
-                    return self.trainer_registration._confirm_trainer_registration(
-                        session_id, input_text
-                    )
+Is this information correct?"""
+            
+            # Create confirmation buttons
+            buttons = [
+                {'id': 'confirm_yes', 'title': '✅ Yes, Find Trainers'},
+                {'id': 'confirm_edit', 'title': '✏️ Edit Info'},
+                {'id': 'confirm_cancel', 'title': '❌ Cancel'}
+            ]
+            
+            return {
+                'success': True,
+                'message': confirmation,
+                'buttons': buttons,
+                'session_id': session_id
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling personal info: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error processing your information. Please try again.'
+            }
+    
+    def confirm_client_registration(self, session_id: str, confirmation: str) -> Dict:
+        """Handle final confirmation and create client record"""
+        try:
+            # Get session
+            session = self.db.table('registration_sessions').select('*').eq(
+                'id', session_id
+            ).single().execute()
+            
+            if not session.data:
+                return {
+                    'success': False,
+                    'message': 'Session expired. Please start over by saying "hi"'
+                }
+            
+            session_data = session.data.get('data', {})
+            phone = session.data.get('phone')
+            
+            # Handle different confirmation responses
+            if confirmation.lower() in ['yes', 'confirm', 'confirm_yes', '✅']:
+                # Find matching trainers
+                trainers = self._find_matching_trainers(session_data)
+                
+                if trainers:
+                    # Create client record
+                    client_record = {
+                        'name': session_data.get('name'),
+                        'whatsapp': phone,
+                        'email': session_data.get('email'),
+                        'age': session_data.get('age'),
+                        'city': session_data.get('city'),
+                        'fitness_goal': session_data.get('fitness_goal'),
+                        'training_preference': session_data.get('training_preference'),
+                        'status': 'searching',
+                        'created_at': datetime.now(self.sa_tz).isoformat()
+                    }
+                    
+                    # Check if client already exists
+                    existing = self.db.table('clients').select('id').eq(
+                        'whatsapp', phone
+                    ).execute()
+                    
+                    if not existing.data:
+                        result = self.db.table('clients').insert(client_record).execute()
+                        
+                        if result.data:
+                            client_id = result.data[0]['id']
+                            log_info(f"Client registered: {client_id}")
+                    
+                    # Complete session
+                    self.db.table('registration_sessions').update({
+                        'status': 'completed',
+                        'updated_at': datetime.now(self.sa_tz).isoformat()
+                    }).eq('id', session_id).execute()
+                    
+                    # Format trainer list
+                    trainer_list = self._format_trainer_list(trainers[:3])
+                    
+                    return {
+                        'success': True,
+                        'message': f"""🎉 *Registration Complete!*
 
-# ADD:
-            if current_step == 'confirmation':
-                if user_type == 'trainer':
-                    return self.trainer_registration.confirm_trainer_registration(
-                        session_id, input_text
-                    )
-```
+I found {len(trainers)} trainers in {session_data.get('city')} that match your needs:
 
-**Change 2:** Fix client confirmation method call
-Location: Lines 91-93
-```python
-# REMOVE (lines 91-93):
+{trainer_list}
+
+Would you like to:
+• Contact a trainer
+• See more options
+• Get more info
+
+Just let me know! 💪""",
+                        'trainers': trainers
+                    }
                 else:
-                    return self.client_registration._confirm_client_registration(
-                        session_id, input_text
+                    return {
+                        'success': True,
+                        'message': f"""I couldn't find trainers in {session_data.get('city')} yet, but I've saved your information.
 
-# ADD:
-                else:
-                    return self.client_registration.confirm_client_registration(
-                        session_id, input_text
-```
+I'll notify you as soon as trainers become available in your area!
 
-**Change 3:** Add missing imports
-Location: Lines 5-10 (after existing imports)
-```python
-# REMOVE (lines 5-10):
-from services.ai_intent_handler import AIIntentHandler
-from services.whatsapp import WhatsAppService
-from services.assessment import EnhancedAssessmentService
-from services.habits import HabitTrackingService
-from services.payment_commands import PaymentCommandHandler
-from services.gamification import ChallengeManager
+In the meantime, would you like to:
+• Search in a nearby city
+• Start with online training
+• Get workout tips
 
-# ADD:
-from services.ai_intent_handler import AIIntentHandler
-from services.whatsapp import WhatsAppService
-from services.assessment import EnhancedAssessmentService
-from services.habits import HabitTrackingService
-from services.payment_commands import PaymentCommandHandler
-from services.gamification import ChallengeManager
-from services.registration import (
-    TrainerRegistrationHandler,
-    ClientRegistrationHandler,
-    RegistrationStateManager,
-    EditHandlers
-)
-```
-
-**Change 4:** Fix initialization with proper config parameter
-Location: Lines 30-34 (in __init__ method)
-```python
-# REMOVE (lines 30-34):
-        # Initialize registration handlers
-        self.trainer_registration = TrainerRegistrationHandler(supabase_client, config)
-        self.client_registration = ClientRegistrationHandler(supabase_client, config)
-        self.registration_state = RegistrationStateManager(supabase_client, config)
-        self.edit_handler = EditHandlers(supabase_client, config)
-
-# ADD:
-        # Initialize registration handlers
-        self.trainer_registration = TrainerRegistrationHandler(supabase_client, whatsapp_service, ai_handler)
-        self.client_registration = ClientRegistrationHandler(supabase_client, whatsapp_service, ai_handler)
-        self.registration_state = RegistrationStateManager(supabase_client, config)
-        self.edit_handler = EditHandlers(supabase_client, config)
-```
-
-### EDIT: app_core.py
-
-**Change 1:** Fix the RefiloeService initialization
-Location: Line 38 (remove duplicate)
-```python
-# REMOVE (line 38):
-    refiloe_service = RefiloeService(supabase)
-
-# ADD:
-    # Line already correctly initialized at line 31
-```
-
-**Change 2:** Pass correct parameters to RefiloeService
-Location: Line 31
-```python
-# REMOVE (line 31):
-    refiloe_service = RefiloeService(supabase)
-
-# ADD:
-    refiloe_service = RefiloeService(supabase, whatsapp_service, ai_handler)
+What would help you most? 🤔"""
+                    }
+            
+            elif confirmation.lower() in ['edit', 'confirm_edit', '✏️']:
+                return {
+                    'success': True,
+                    'message': "What would you like to edit?\n\n• Name\n• Age\n• Email\n• City\n• Goal\n• Training preference\n\nJust tell me what to change!"
+                }
+            
+            elif confirmation.lower() in ['cancel', 'confirm_cancel', '❌', 'no']:
+                # Cancel session
+                self.db.table('registration_sessions').update({
+                    'status': 'cancelled',
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('id', session_id).execute()
+                
+                return {
+                    'success': True,
+                    'message': "No problem! Registration cancelled. 👍\n\nFeel free to come back anytime you're ready to find a trainer. Just say 'hi' to start again!"
+                }
+            
+            else:
+                return {
+                    'success': False,
+                    'message': "Please click one of the buttons or reply: Yes, Edit, or Cancel"
+                }
+            
+        except Exception as e:
+            log_error(f"Error confirming registration: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error completing registration. Please try again.'
+            }
+    
+    def _find_matching_trainers(self, client_data: Dict) -> list:
+        """Find trainers matching client preferences"""
+        try:
+            city = client_data.get('city', '').lower()
+            
+            # Query trainers
+            query = self.db.table('trainers').select('*').eq('status', 'active')
+            
+            # Filter by location if specified
+            if city:
+                query = query.or_(
+                    f"location.ilike.%{city}%,city.ilike.%{city}%"
+                )
+            
+            result = query.execute()
+            
+            if not result.data:
+                return []
+            
+            # Score and rank trainers
+            scored_trainers = []
+            for trainer in result.data:
+                score = self._calculate_trainer_match_score(trainer, client_data)
+                trainer['match_score'] = score
+                scored_trainers.append(trainer)
+            
+            # Sort by score
+            scored_trainers.sort(key=lambda x: x['match_score'], reverse=True)
+            
+            return scored_trainers
+            
+        except Exception as e:
+            log_error(f"Error finding trainers: {str(e)}")
+            return []
+    
+    def _calculate_trainer_match_score(self, trainer: Dict, client_data: Dict) -> int:
+        """Calculate match score between trainer and client"""
+        score = 0
+        
+        # Location match (highest priority)
+        if trainer.get('location', '').lower() == client_data.get('city', '').lower():
+            score += 50
+        elif client_data.get('city', '').lower() in trainer.get('location', '').lower():
+            score += 30
+        
+        # Specialization match
+        goal = client_data.get('fitness_goal', '').lower()
+        specialization = trainer.get('specialization', '').lower()
+        
+        if goal in specialization:
+            score += 30
+        
+        # Training type match
+        preference = client_data.get('training_preference', '').lower()
+        if 'gym' in preference and 'gym' in trainer.get('training_location', '').lower():
+            score += 20
+        elif 'home' in preference and 'home' in trainer.get('services', '').lower():
+            score += 20
+        elif 'outdoor' in preference and 'outdoor' in trainer.get('services', '').lower():
+            score += 20
+        
+        # Availability bonus
+        if trainer.get('accepting_clients', True):
+            score += 10
+        
+        return score
+    
+    def _format_trainer_list(self, trainers: list) -> str:
+        """Format trainer list for WhatsApp display"""
+        formatted = []
+        
+        for i, trainer in enumerate(trainers, 1):
+            name = trainer.get('name', 'Unknown')
+            business = trainer.get('business_name', '')
+            location = trainer.get('location', 'Location not specified')
+            specialization = trainer.get('specialization', 'General fitness')
+            price = trainer.get('pricing_per_session', 0)
+            
+            trainer_info = f"""*{i}. {name}*{f' - {business}' if business else ''}
+📍 {location}
+🎯 {specialization}
+💰 R{price}/session"""
+            
+            formatted.append(trainer_info)
+        
+        return '\n\n'.join(formatted)
 ```
 
 ## SUMMARY
 
-In Step 4, I've:
-1. Created the missing `registration_state.py` file with RegistrationStateManager class
-2. Created the missing `edit_handlers.py` file with EditHandlers class  
-3. Fixed method name mismatches in RefiloeService (removed underscore prefix)
-4. Added proper imports for registration modules
-5. Fixed initialization parameters for registration handlers
-6. Removed duplicate RefiloeService initialization in app_core.py
+Created `services/refiloe_helpers.py` with complete client registration flow handlers:
+- `_handle_client_goal_selection`: Processes fitness goals and shows training preference buttons
+- `_handle_client_training_preference`: Handles training preferences and asks for city
+- `_handle_client_city_input`: Processes city input and requests personal information
+- `_handle_client_personal_info`: Processes personal details and shows confirmation
+- `confirm_client_registration`: Handles final confirmation, creates client record, and finds matching trainers
 
-The registration system is now fully integrated and ready to handle both trainer and client registrations through WhatsApp with proper multi-step flows, editing capabilities, and session management.
+The handlers include helper methods for finding and scoring trainer matches, plus proper error handling and session management throughout the registration flow.
