@@ -26,4 +26,6 @@ app.register_blueprint(webhooks_bp)  # NO PREFIX - webhook should be at /webhook
 app.register_blueprint(payfast_webhook_bp)  # PayFast at /webhooks/payfast
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    # Use Railway's PORT environment variable
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
