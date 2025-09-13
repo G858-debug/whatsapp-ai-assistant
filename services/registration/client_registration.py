@@ -8,13 +8,14 @@ from services.helpers.validation_helpers import ValidationHelpers
 class ClientRegistrationHandler:
     """Handles client registration flow"""
     
-    def __init__(self, supabase_client, config):
+    def __init__(self, supabase_client, config, whatsapp_service=None):
         self.db = supabase_client
         self.config = config
+        self.whatsapp_service = whatsapp_service
         self.sa_tz = pytz.timezone(config.TIMEZONE)
         self.validation = ValidationHelpers()
         from services.refiloe_helpers import RefiloeHelpers
-        self.helpers = RefiloeHelpers(supabase_client, None, config)
+        self.helpers = RefiloeHelpers(supabase_client, whatsapp_service, config)
         
         # Registration steps
         self.STEPS = ['fitness_goal', 'training_preference', 'city', 'personal_info', 'confirmation']
