@@ -1,0 +1,7 @@
+{
+  "max_file_size": 400,
+  "preferred_model": "opus",
+  "chunk_strategy": "function",
+  "ignore_files": ["*.log", "*.csv", "node_modules/*"],
+  "focus_directories": ["services/", "routes/"]
+}
