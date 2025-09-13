@@ -1,90 +1,62 @@
 """WhatsApp-specific helper functions"""
-from typing import Dict, List, Optional
-import re
-from utils.logger import log_info, log_error
+from typing import List, Dict
 
 class WhatsAppHelpers:
-    """Helper functions for WhatsApp formatting and parsing"""
+    """Helper functions for WhatsApp formatting and buttons"""
     
-    @staticmethod
-    def format_bold(text: str) -> str:
-        """Format text as bold for WhatsApp"""
-        return f"*{text}*"
-    
-    @staticmethod
-    def format_italic(text: str) -> str:
-        """Format text as italic for WhatsApp"""
-        return f"_{text}_"
-    
-    @staticmethod
-    def format_strikethrough(text: str) -> str:
-        """Format text as strikethrough for WhatsApp"""
-        return f"~{text}~"
-    
-    @staticmethod
-    def format_monospace(text: str) -> str:
-        """Format text as monospace for WhatsApp"""
-        return f"```{text}```"
-    
-    @staticmethod
-    def create_menu(title: str, options: List[Dict[str, str]]) -> str:
-        """Create a formatted menu for WhatsApp"""
-        menu = f"*{title}*\n\n"
-        for i, option in enumerate(options, 1):
-            menu += f"{i}. {option.get('label', '')}\n"
-            if option.get('description'):
-                menu += f"   _{option['description']}_\n"
-        return menu
-    
-    @staticmethod
-    def parse_phone_number(phone: str) -> str:
-        """Parse and format South African phone number"""
-        # Remove all non-digits
-        phone = re.sub(r'\D', '', phone)
+    def format_button_title(self, title: str, max_length: int = 20) -> str:
+        """Ensure button title meets WhatsApp's length requirements"""
+        if len(title) <= max_length:
+            return title
         
-        # Handle different formats
-        if phone.startswith('27'):
-            return phone  # Already in international format
-        elif phone.startswith('0'):
-            return '27' + phone[1:]  # Convert from local format
-        else:
-            return '27' + phone  # Assume it's missing country code
+        # Truncate and add ellipsis
+        return title[:max_length-2] + '..'
     
-    @staticmethod
-    def truncate_message(message: str, max_length: int = 1600) -> str:
-        """Truncate message to WhatsApp's character limit"""
-        if len(message) <= max_length:
-            return message
+    def create_button_list(self, buttons_data: List[Dict]) -> List[Dict]:
+        """Create properly formatted button list"""
+        formatted_buttons = []
         
-        # Find a good break point
-        truncated = message[:max_length - 20]
+        for button in buttons_data[:3]:  # WhatsApp allows max 3 buttons
+            formatted_buttons.append({
+                'type': 'reply',
+                'reply': {
+                    'id': button.get('id', 'button'),
+                    'title': self.format_button_title(button.get('title', 'Option'))
+                }
+            })
         
-        # Try to break at a sentence
-        last_period = truncated.rfind('.')
-        if last_period > max_length - 200:
-            truncated = truncated[:last_period + 1]
-        else:
-            # Break at last space
-            last_space = truncated.rfind(' ')
-            if last_space > 0:
-                truncated = truncated[:last_space]
-        
-        return truncated + "\n\n[Message truncated]"
+        return formatted_buttons
     
-    @staticmethod
-    def extract_command(message: str) -> Optional[str]:
-        """Extract command from message"""
-        message_lower = message.lower().strip()
+    def format_whatsapp_message(self, text: str) -> str:
+        """Format text for WhatsApp with proper styling"""
+        # Ensure message doesn't exceed WhatsApp's limit
+        if len(text) > 1600:
+            text = text[:1597] + '...'
         
-        # Common commands
-        commands = [
-            'help', 'register', 'book', 'cancel', 'schedule',
-            'add client', 'send workout', 'my progress', 'log',
-            'payment', 'settings', 'profile', 'stats'
-        ]
+        return text
+    
+    def split_long_message(self, text: str, max_length: int = 1600) -> List[str]:
+        """Split long message into multiple parts"""
+        if len(text) <= max_length:
+            return [text]
         
-        for command in commands:
-            if message_lower.startswith(command):
-                return command
+        messages = []
+        current = ""
         
-        return None
+        # Split by paragraphs first
+        paragraphs = text.split('\n\n')
+        
+        for para in paragraphs:
+            if len(current) + len(para) + 2 <= max_length:
+                if current:
+                    current += '\n\n'
+                current += para
+            else:
+                if current:
+                    messages.append(current)
+                current = para
+        
+        if current:
+            messages.append(current)
+        
+        return messages

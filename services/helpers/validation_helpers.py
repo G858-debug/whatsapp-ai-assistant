@@ -1,166 +1,86 @@
 """Validation helper functions"""
 import re
-from typing import Dict, Optional, Tuple
-from datetime import datetime, date
-from utils.logger import log_info, log_error
-from datetime import datetime, date, timedelta
+from typing import Optional
 
 class ValidationHelpers:
-    """Helper functions for data validation"""
+    """Helper functions for input validation"""
     
-    @staticmethod
-    def validate_email(email: str) -> Tuple[bool, Optional[str]]:
+    def validate_email(self, email: str) -> bool:
         """Validate email format"""
-        if not email:
-            return False, "Email is required"
-        
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, email.strip()):
-            return False, "Invalid email format"
-        
-        return True, None
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(pattern, email.strip()))
     
-    @staticmethod
-    def validate_phone(phone: str) -> Tuple[bool, Optional[str]]:
-        """Validate South African phone number"""
-        if not phone:
-            return False, "Phone number is required"
-        
+    def format_phone_number(self, phone: str) -> Optional[str]:
+        """Format and validate South African phone number"""
         # Remove all non-digits
-        phone_digits = re.sub(r'\D', '', phone)
+        digits = re.sub(r'\D', '', phone)
         
-        # Check length
-        if len(phone_digits) < 9:
-            return False, "Phone number too short"
+        # Handle different formats
+        if len(digits) == 10 and digits.startswith('0'):
+            # Local format: 0821234567 -> 27821234567
+            return '27' + digits[1:]
+        elif len(digits) == 11 and digits.startswith('27'):
+            # International format: 27821234567
+            return digits
+        elif len(digits) == 9:
+            # Missing leading 0: 821234567 -> 27821234567
+            return '27' + digits
+        elif len(digits) == 12 and digits.startswith('27'):
+            # With country code prefix: +27821234567
+            return digits[2:] if digits.startswith('27') else None
         
-        if len(phone_digits) > 12:
-            return False, "Phone number too long"
-        
-        # Check if it's a valid SA number
-        if phone_digits.startswith('27'):
-            if len(phone_digits) != 11:
-                return False, "Invalid South African phone number"
-        elif phone_digits.startswith('0'):
-            if len(phone_digits) != 10:
-                return False, "Invalid South African phone number"
-        
-        return True, None
+        return None
     
-    @staticmethod
-    def validate_price(price_str: str) -> Tuple[bool, Optional[float], Optional[str]]:
-        """Validate and parse price"""
-        if not price_str:
-            return False, None, "Price is required"
+    def extract_price(self, text: str) -> Optional[float]:
+        """Extract price from text"""
+        # Remove currency symbols and text
+        text = re.sub(r'[Rr](?:and)?s?\.?', '', text)
+        text = re.sub(r'per\s+(session|hour|class|month)', '', text, flags=re.IGNORECASE)
         
-        # Extract numbers
-        numbers = re.findall(r'\d+(?:\.\d{2})?', price_str)
+        # Find numbers (including decimals)
+        numbers = re.findall(r'\d+(?:\.\d{2})?', text)
         
-        if not numbers:
-            return False, None, "No valid price found"
-        
-        try:
-            price = float(numbers[0])
-            
-            if price <= 0:
-                return False, None, "Price must be greater than 0"
-            
-            if price > 10000:
-                return False, None, "Price seems too high. Please check."
-            
-            return True, price, None
-            
-        except ValueError:
-            return False, None, "Invalid price format"
-    
-    @staticmethod
-    def validate_date(date_str: str) -> Tuple[bool, Optional[date], Optional[str]]:
-        """Validate and parse date"""
-        if not date_str:
-            return False, None, "Date is required"
-        
-        # Try different date formats
-        formats = [
-            '%Y-%m-%d',
-            '%d/%m/%Y',
-            '%d-%m-%Y',
-            '%d %B %Y',
-            '%d %b %Y'
-        ]
-        
-        for fmt in formats:
+        if numbers:
             try:
-                parsed_date = datetime.strptime(date_str, fmt).date()
-                
-                # Check if date is not in the past
-                if parsed_date < date.today():
-                    return False, None, "Date cannot be in the past"
-                
-                # Check if date is not too far in future (1 year)
-                max_future = date.today() + timedelta(days=365)
-                if parsed_date > max_future:
-                    return False, None, "Date is too far in the future"
-                
-                return True, parsed_date, None
-                
+                price = float(numbers[0])
+                # Sanity check for reasonable prices
+                if 0 < price < 10000:
+                    return price
             except ValueError:
-                continue
+                pass
         
-        return False, None, "Invalid date format. Use DD/MM/YYYY"
+        return None
     
-    @staticmethod
-    def validate_time(time_str: str) -> Tuple[bool, Optional[str], Optional[str]]:
-        """Validate and parse time"""
-        if not time_str:
-            return False, None, "Time is required"
+    def validate_date(self, date_str: str) -> bool:
+        """Validate date format (YYYY-MM-DD)"""
+        pattern = r'^\d{4}-\d{2}-\d{2}$'
+        if not re.match(pattern, date_str):
+            return False
         
-        # Remove spaces and convert to lowercase
-        time_str = time_str.strip().lower()
-        
-        # Handle am/pm format
-        time_pattern = r'^(\d{1,2}):?(\d{2})?\s*(am|pm)?$'
-        match = re.match(time_pattern, time_str)
-        
-        if not match:
-            return False, None, "Invalid time format. Use HH:MM or HH:MM AM/PM"
-        
-        hour = int(match.group(1))
-        minute = int(match.group(2)) if match.group(2) else 0
-        period = match.group(3)
-        
-        # Convert to 24-hour format if AM/PM specified
-        if period:
-            if period == 'pm' and hour != 12:
-                hour += 12
-            elif period == 'am' and hour == 12:
-                hour = 0
-        
-        # Validate hour and minute
-        if hour < 0 or hour > 23:
-            return False, None, "Invalid hour"
-        
-        if minute < 0 or minute > 59:
-            return False, None, "Invalid minute"
-        
-        # Format as HH:MM
-        formatted_time = f"{hour:02d}:{minute:02d}"
-        
-        return True, formatted_time, None
+        # Check if valid date
+        try:
+            from datetime import datetime
+            datetime.strptime(date_str, '%Y-%m-%d')
+            return True
+        except ValueError:
+            return False
     
-    @staticmethod
-    def sanitize_input(text: str, max_length: int = 500) -> str:
-        """Sanitize user input"""
-        if not text:
-            return ""
-        
-        # Remove leading/trailing whitespace
+    def validate_time(self, time_str: str) -> bool:
+        """Validate time format (HH:MM)"""
+        pattern = r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+        return bool(re.match(pattern, time_str.strip()))
+    
+    def sanitize_input(self, text: str) -> str:
+        """Basic input sanitization"""
+        # Remove control characters
+        text = ''.join(char for char in text if ord(char) >= 32 or char == '\n')
+        # Limit length
+        text = text[:1000]
+        # Strip whitespace
         text = text.strip()
-        
-        # Truncate if too long
-        if len(text) > max_length:
-            text = text[:max_length]
-        
-        # Remove potentially harmful characters (basic sanitization)
-        # Keep alphanumeric, spaces, and common punctuation
-        text = re.sub(r'[^\w\s\-.,!?@#()\'":/]', '', text)
-        
         return text
+    
+    def is_empty_or_skip(self, text: str) -> bool:
+        """Check if user wants to skip a field"""
+        skip_words = ['skip', 'none', 'na', 'n/a', '-', '--', 'nil', 'nothing']
+        return text.lower().strip() in skip_words or len(text.strip()) == 0

@@ -1,207 +1,122 @@
-"""Registration edit handlers"""
+"""Edit handlers for registration flow"""
 from typing import Dict
 from datetime import datetime
 import pytz
 from utils.logger import log_info, log_error
+from services.helpers.validation_helpers import ValidationHelpers
 
 class EditHandlers:
-    """Handles editing during registration"""
+    """Handle editing of registration fields"""
     
     def __init__(self, supabase_client, config):
         self.db = supabase_client
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+        self.validation = ValidationHelpers()
     
-    def process_edit_choice(self, session_id: str, choice: str) -> Dict:
-        """Process edit choice during registration"""
+    def process_edit_value(self, session_id: str, field_name: str, new_value: str) -> Dict:
+        """Process edited field value"""
         try:
             # Get session
-            session = self.db.table('registration_sessions').select('*').eq(
-                'id', session_id
-            ).single().execute()
+            from services.registration.registration_state import RegistrationStateManager
+            state_manager = RegistrationStateManager(self.db, self.config)
             
-            if not session.data:
+            session = state_manager.get_session(session_id)
+            if not session:
                 return {
                     'success': False,
-                    'message': "Session not found."
+                    'message': 'Session expired. Please start over.'
                 }
             
-            user_type = session.data['user_type']
+            # Validate new value based on field
+            validation_result = self._validate_field(field_name, new_value, session['user_type'])
             
-            if user_type == 'trainer':
-                return self._process_trainer_edit(session_id, choice)
+            if not validation_result['valid']:
+                return {
+                    'success': False,
+                    'message': validation_result['message']
+                }
+            
+            # Update session data
+            update_result = state_manager.update_session(
+                session_id,
+                step='confirmation',  # Go back to confirmation
+                data_update={field_name: validation_result['value']}
+            )
+            
+            if update_result['success']:
+                return {
+                    'success': True,
+                    'message': f"✅ {field_name.replace('_', ' ').title()} updated successfully!"
+                }
             else:
-                return self._process_client_edit(session_id, choice)
+                return {
+                    'success': False,
+                    'message': 'Failed to update. Please try again.'
+                }
                 
         except Exception as e:
-            log_error(f"Error processing edit choice: {str(e)}")
+            log_error(f"Error processing edit: {str(e)}")
             return {
                 'success': False,
-                'message': "Error processing edit request."
+                'message': 'An error occurred while updating.'
             }
     
-    def _process_trainer_edit(self, session_id: str, choice: str) -> Dict:
-        """Process trainer field edit"""
-        edit_map = {
-            '1': ('name', "What's your correct name?"),
-            '2': ('email', "What's your correct email?"),
-            '3': ('business_name', "What's your correct business name?"),
-            '4': ('location', "What's your correct location?"),
-            '5': ('pricing', "What's your correct rate per session?"),
-            '6': ('specialties', "What are your specialties?")
-        }
+    def _validate_field(self, field_name: str, value: str, user_type: str) -> Dict:
+        """Validate field value based on field name and user type"""
+        value = value.strip()
         
-        if choice not in edit_map:
-            return {
-                'success': False,
-                'message': "Please choose a number from 1-6"
-            }
+        # Common fields
+        if field_name == 'name':
+            if len(value) < 2:
+                return {'valid': False, 'message': 'Name must be at least 2 characters.'}
+            return {'valid': True, 'value': value}
         
-        step, message = edit_map[choice]
+        elif field_name == 'email':
+            if not self.validation.validate_email(value):
+                return {'valid': False, 'message': 'Please enter a valid email address.'}
+            return {'valid': True, 'value': value.lower()}
         
-        # Update session to editing mode
-        self.db.table('registration_sessions').update({
-            'step': f'edit_{step}',
-            'updated_at': datetime.now(self.sa_tz).isoformat()
-        }).eq('id', session_id).execute()
+        # Trainer-specific fields
+        elif user_type == 'trainer':
+            if field_name == 'business':
+                if len(value) < 2:
+                    return {'valid': False, 'message': 'Business name must be at least 2 characters.'}
+                return {'valid': True, 'value': value}
+            
+            elif field_name == 'location':
+                if len(value) < 2:
+                    return {'valid': False, 'message': 'Location must be at least 2 characters.'}
+                return {'valid': True, 'value': value}
+            
+            elif field_name == 'price':
+                price = self.validation.extract_price(value)
+                if not price or price < 50 or price > 5000:
+                    return {'valid': False, 'message': 'Price must be between R50 and R5000.'}
+                return {'valid': True, 'value': price}
+            
+            elif field_name == 'specialties':
+                if len(value) < 3:
+                    return {'valid': False, 'message': 'Please describe your specialties.'}
+                return {'valid': True, 'value': value}
         
-        return {
-            'success': True,
-            'message': message,
-            'editing': step
-        }
-    
-    def _process_client_edit(self, session_id: str, choice: str) -> Dict:
-        """Process client field edit"""
-        edit_map = {
-            '1': ('name', "What's your correct name?"),
-            '2': ('email', "What's your correct email?"),
-            '3': ('emergency_contact', "Who should we contact in emergency? (Name and phone)"),
-            '4': ('goals', "What are your fitness goals?"),
-            '5': ('fitness_level', "What's your fitness level? (1. Beginner, 2. Intermediate, 3. Advanced)"),
-            '6': ('medical_conditions', "Any medical conditions or injuries?")
-        }
+        # Client-specific fields
+        elif user_type == 'client':
+            if field_name == 'emergency_contact':
+                if len(value) < 2:
+                    return {'valid': False, 'message': 'Emergency contact name required.'}
+                return {'valid': True, 'value': value}
+            
+            elif field_name == 'emergency_phone':
+                phone = self.validation.format_phone_number(value)
+                if not phone:
+                    return {'valid': False, 'message': 'Please enter a valid phone number.'}
+                return {'valid': True, 'value': phone}
+            
+            elif field_name == 'goals':
+                if len(value) < 5:
+                    return {'valid': False, 'message': 'Please describe your goals.'}
+                return {'valid': True, 'value': value}
         
-        if choice not in edit_map:
-            return {
-                'success': False,
-                'message': "Please choose a number from 1-6"
-            }
-        
-        step, message = edit_map[choice]
-        
-        # Update session to editing mode
-        self.db.table('registration_sessions').update({
-            'step': f'edit_{step}',
-            'updated_at': datetime.now(self.sa_tz).isoformat()
-        }).eq('id', session_id).execute()
-        
-        return {
-            'success': True,
-            'message': message,
-            'editing': step
-        }
-    
-    def process_edit_value(self, session_id: str, field: str, value: str) -> Dict:
-        """Process edited value"""
-        try:
-            # Get session
-            session = self.db.table('registration_sessions').select('*').eq(
-                'id', session_id
-            ).single().execute()
-            
-            if not session.data:
-                return {
-                    'success': False,
-                    'message': "Session not found."
-                }
-            
-            current_data = session.data.get('data', {})
-            
-            # Update the specific field
-            if field == 'fitness_level':
-                # Map response to fitness level
-                level_map = {
-                    '1': 'beginner',
-                    '2': 'intermediate',
-                    '3': 'advanced'
-                }
-                value = level_map.get(value, value)
-            elif field == 'pricing':
-                # Extract number
-                import re
-                numbers = re.findall(r'\d+', value)
-                if numbers:
-                    value = float(numbers[0])
-                else:
-                    return {
-                        'success': False,
-                        'message': "Please enter a valid price"
-                    }
-            elif field == 'specialties':
-                # Parse as list
-                value = [s.strip() for s in value.split(',')]
-            
-            current_data[field] = value
-            
-            # Update session back to confirm step
-            self.db.table('registration_sessions').update({
-                'data': current_data,
-                'step': 'confirm',
-                'updated_at': datetime.now(self.sa_tz).isoformat()
-            }).eq('id', session_id).execute()
-            
-            # Build confirmation message
-            return self._build_confirmation_message(session.data['user_type'], current_data)
-            
-        except Exception as e:
-            log_error(f"Error processing edit value: {str(e)}")
-            return {
-                'success': False,
-                'message': "Error updating information."
-            }
-    
-    def _build_confirmation_message(self, user_type: str, data: Dict) -> Dict:
-        """Build confirmation message after edit"""
-        if user_type == 'trainer':
-            confirm_msg = (
-                "✅ *Updated!* Let me confirm your details:\n\n"
-                f"📝 *Name:* {data.get('name', 'Not set')}\n"
-                f"📧 *Email:* {data.get('email', 'Not set')}\n"
-                f"🏢 *Business:* {data.get('business_name', 'Not set')}\n"
-                f"📍 *Location:* {data.get('location', 'Not set')}\n"
-                f"💰 *Rate:* R{data.get('pricing_per_session', 0)}/session\n"
-            )
-            
-            if data.get('specialties'):
-                specialties = data['specialties'] if isinstance(data['specialties'], list) else [data['specialties']]
-                confirm_msg += f"🎯 *Specialties:* {', '.join(specialties)}\n"
-        else:
-            confirm_msg = (
-                "✅ *Updated!* Let me confirm your details:\n\n"
-                f"📝 *Name:* {data.get('name', 'Not set')}\n"
-            )
-            
-            if data.get('email'):
-                confirm_msg += f"📧 *Email:* {data['email']}\n"
-            
-            confirm_msg += (
-                f"🚨 *Emergency:* {data.get('emergency_contact', 'Not set')}\n"
-                f"🎯 *Goals:* {data.get('fitness_goals', 'Not set')}\n"
-                f"💪 *Level:* {data.get('fitness_level', 'Not set').title()}\n"
-            )
-            
-            if data.get('medical_conditions'):
-                confirm_msg += f"⚕️ *Medical:* {data['medical_conditions']}\n"
-        
-        confirm_msg += (
-            "\n*Is everything correct now?*\n"
-            "Reply *YES* to complete ✅\n"
-            "Reply *EDIT* to change more ✏️"
-        )
-        
-        return {
-            'success': True,
-            'message': confirm_msg,
-            'next_step': 'confirmation'  # Changed from 'confirm' to 'confirmation'
-        }
+        # Default validation
+        return {'valid': True, 'value': value}
