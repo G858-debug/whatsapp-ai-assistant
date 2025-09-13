@@ -10,7 +10,7 @@ from services.registration import (
     EditHandlers
 )
 
-class RefiloeRegistrationHelper:
+class RefiloeHelpers:
     """Orchestrates registration flow and handles confirmation/edit logic"""
     
     def __init__(self, supabase_client, config):
