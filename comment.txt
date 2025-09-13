@@ -1,14 +1,8 @@
-@claude @apply split the refiloe_helpers.py file into the following structure
+@claude @apply Fix the registration confirmation step in services/refiloe_helpers.py. Currently when users type "edit" at the confirmation step, the system gets stuck.
 
-services/
-  registration/
-    __init__.py
-    trainer_registration.py  # 300 lines
-    client_registration.py   # 300 lines
-    registration_state.py    # 200 lines
-    edit_handlers.py        # 200 lines
-  
-  refiloe.py               # Main orchestrator
-  helpers/
-    whatsapp_helpers.py
-    validation_helpers.py
+Requirements:
+1. In the _continue_registration method, add handling for the 'confirmation' step that recognizes "yes", "edit", and variations
+2. Enhance _restart_registration to allow editing specific fields instead of starting over completely
+3. When user types "edit", show them their current details and ask which specific field they want to change (name, business, location, or specialisation)
+
+The goal is to let users fix mistakes without redoing the entire registration.

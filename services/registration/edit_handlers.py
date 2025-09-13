@@ -165,39 +165,43 @@ class EditHandlers:
         """Build confirmation message after edit"""
         if user_type == 'trainer':
             confirm_msg = (
-                "Updated! Let me confirm your details:\n\n"
-                f"📝 Name: {data.get('name', 'Not set')}\n"
-                f"📧 Email: {data.get('email', 'Not set')}\n"
-                f"🏢 Business: {data.get('business_name', 'Not set')}\n"
-                f"📍 Location: {data.get('location', 'Not set')}\n"
-                f"💰 Rate: R{data.get('pricing_per_session', 0)}/session\n"
+                "✅ *Updated!* Let me confirm your details:\n\n"
+                f"📝 *Name:* {data.get('name', 'Not set')}\n"
+                f"📧 *Email:* {data.get('email', 'Not set')}\n"
+                f"🏢 *Business:* {data.get('business_name', 'Not set')}\n"
+                f"📍 *Location:* {data.get('location', 'Not set')}\n"
+                f"💰 *Rate:* R{data.get('pricing_per_session', 0)}/session\n"
             )
             
             if data.get('specialties'):
                 specialties = data['specialties'] if isinstance(data['specialties'], list) else [data['specialties']]
-                confirm_msg += f"🎯 Specialties: {', '.join(specialties)}\n"
+                confirm_msg += f"🎯 *Specialties:* {', '.join(specialties)}\n"
         else:
             confirm_msg = (
-                "Updated! Let me confirm your details:\n\n"
-                f"📝 Name: {data.get('name', 'Not set')}\n"
+                "✅ *Updated!* Let me confirm your details:\n\n"
+                f"📝 *Name:* {data.get('name', 'Not set')}\n"
             )
             
             if data.get('email'):
-                confirm_msg += f"📧 Email: {data['email']}\n"
+                confirm_msg += f"📧 *Email:* {data['email']}\n"
             
             confirm_msg += (
-                f"🚨 Emergency: {data.get('emergency_contact', 'Not set')}\n"
-                f"🎯 Goals: {data.get('fitness_goals', 'Not set')}\n"
-                f"💪 Level: {data.get('fitness_level', 'Not set').title()}\n"
+                f"🚨 *Emergency:* {data.get('emergency_contact', 'Not set')}\n"
+                f"🎯 *Goals:* {data.get('fitness_goals', 'Not set')}\n"
+                f"💪 *Level:* {data.get('fitness_level', 'Not set').title()}\n"
             )
             
             if data.get('medical_conditions'):
-                confirm_msg += f"⚕️ Medical: {data['medical_conditions']}\n"
+                confirm_msg += f"⚕️ *Medical:* {data['medical_conditions']}\n"
         
-        confirm_msg += "\nIs everything correct now? (Yes/No)"
+        confirm_msg += (
+            "\n*Is everything correct now?*\n"
+            "Reply *YES* to complete ✅\n"
+            "Reply *EDIT* to change more ✏️"
+        )
         
         return {
             'success': True,
             'message': confirm_msg,
-            'next_step': 'confirm'
+            'next_step': 'confirmation'  # Changed from 'confirm' to 'confirmation'
         }
