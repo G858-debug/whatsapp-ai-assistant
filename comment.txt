@@ -1,1 +1,1 @@
-@claude @continue @apply @Sonnet
+@claude @apply @sonnet keep claude.yml exactly as it is except that you must remove Haiku as an option
