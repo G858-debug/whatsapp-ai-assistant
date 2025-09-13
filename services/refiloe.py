@@ -13,13 +13,56 @@ logger = logging.getLogger(__name__)
 
 class Refiloe:
     INTENT_KEYWORDS = {
-        'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso', 'bhalisa', 'ingoda', 'rejistara', 'ngoliso'],
-        'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng', 'buyekeza', 'fetola', 'shintja'],
-        'payment_request': ['pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR', 'betaal', 'khokha', 'patala', 'lefela', 'bhatala'],
-        'calendar_request': ['book', 'schedule', 'appointment', 'bespreek', 'ukubhukisha', 'tshwaya', 'hlela', 'beya', 'dibuka'],
-        'gamification_request': ['points', 'rewards', 'achievements', 'punte', 'amanqaku', 'meputso', 'dimaka', 'umbuyekezo', 'imivuzo'],
-        'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba', 'mokgwa', 'meetlo', 'isiko', 'inkuliso'],
-        'help_request': ['help', 'support', 'assist', 'hulp', 'nceda', 'thusa', 'siza', 'nncedo']
+        'client_registration': [
+            'register', 'sign up', 'join', 
+            'skryf in', 'registreer', # Afrikaans
+            'ngodiso', 'bhalisa', 'ingoda', # Xhosa
+            'rejistara', 'ngoliso', # Sotho
+            'rejisetara', 'ikwadayisa', # Zulu
+            'ingodiso', 'ngwadisa' # Tswana
+        ],
+        'client_profile_update': [
+            'update profile', 'edit profile', 'change details',
+            'verander profiel', 'wysig profiel', # Afrikaans 
+            'hleng profayile', 'buyekeza', # Xhosa
+            'fetola profaele', 'ntjhafatsa', # Sotho
+            'shintja', 'buyekeza imininingwane' # Zulu
+        ],
+        'payment_request': [
+            'pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR',
+            'betaal', 'betaling', 'rekening', # Afrikaans
+            'khokha', 'intlawulo', # Xhosa
+            'patala', 'tefello', # Sotho
+            'bhatala', 'inkokhelo' # Zulu
+        ],
+        'calendar_request': [
+            'book', 'schedule', 'appointment',
+            'bespreek', 'afspraak', # Afrikaans
+            'ukubhukisha', 'idinga', # Xhosa
+            'buka', 'peeletso', # Sotho
+            'hlela', 'ukuhlela' # Zulu
+        ],
+        'gamification_request': [
+            'points', 'rewards', 'achievements',
+            'punte', 'belonings', # Afrikaans
+            'amanqaku', 'imivuzo', # Xhosa
+            'meputso', 'dikatleho', # Sotho
+            'amaphuzu', 'imiklomelo' # Zulu
+        ],
+        'habits_request': [
+            'habit', 'track', 'progress',
+            'gewoonte', 'vordering', # Afrikaans
+            'umkhuba', 'inkqubela', # Xhosa
+            'meetlo', 'tswellopele', # Sotho
+            'umkhuba', 'intuthuko' # Zulu
+        ],
+        'help_request': [
+            'help', 'support', 'assist',
+            'hulp', 'ondersteuning', # Afrikaans
+            'nceda', 'uncedo', # Xhosa
+            'thusa', 'thuso', # Sotho
+            'siza', 'usizo' # Zulu
+        ]
     }
 
     def handle_message(self, message: Dict[str, Any]) -> str:
