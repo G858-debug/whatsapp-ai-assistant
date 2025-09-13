@@ -247,7 +247,7 @@ Is this information correct?"""
             'next_step': 'confirmation'
         }
     
-    def _confirm_client_registration(self, session_id: str, response: str) -> Dict:
+    def confirm_client_registration(self, session_id: str, response: str) -> Dict:
         """Process confirmation response"""
         try:
             from services.registration.registration_state import RegistrationStateManager
