@@ -170,3 +170,96 @@ class RefiloeService:
         except Exception as e:
             log_error(f"Error getting user context: {str(e)}")
             return {'user_type': 'unknown', 'user_data': None}
+
+    def handle_message(self, phone: str, text: str) -> Dict:
+        """Handle incoming WhatsApp message - main entry point"""
+        try:
+            # Import services we need
+            from app import app
+            ai_handler = app.config['services']['ai_handler']
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Get user context using existing method
+            context = self.get_user_context(phone)
+            
+            # Determine sender type and data from context
+            if context['user_type'] == 'trainer':
+                sender_type = 'trainer'
+                sender_data = context['user_data']
+            elif context['user_type'] == 'client':
+                sender_type = 'client'
+                sender_data = context['user_data']
+            else:
+                sender_type = 'unknown'
+                sender_data = {'name': 'there', 'whatsapp': phone}
+            
+            # Get conversation history using existing method
+            history = self.get_conversation_history(phone)
+            history_text = [h['message'] for h in history] if history else []
+            
+            # Save incoming message using existing method
+            self.save_message(phone, text, 'user')
+            
+            # Process with AI to understand intent
+            intent = ai_handler.understand_message(
+                text,
+                sender_type,
+                sender_data,
+                history_text
+            )
+            
+            # Generate smart response using the EXISTING method in AIIntentHandler
+            response_text = ai_handler.generate_smart_response(
+                intent,
+                sender_type,
+                sender_data
+            )
+            
+            # Send the response
+            whatsapp_service.send_message(phone, response_text)
+            
+            # Save bot response
+            self.save_message(phone, response_text, 'bot', intent.get('primary_intent'))
+            
+            # Check if we should start registration flow
+            if sender_type == 'unknown':
+                if intent.get('primary_intent') == 'registration_trainer':
+                    # Check if registration manager exists
+                    try:
+                        from services.registration.trainer_registration import TrainerRegistration
+                        reg = TrainerRegistration(self.db)
+                        reg_result = reg.start_registration(phone)
+                        if reg_result.get('buttons'):
+                            whatsapp_service.send_button_message(
+                                phone, 
+                                reg_result['message'],
+                                reg_result['buttons']
+                            )
+                    except ImportError:
+                        pass  # Registration module not available
+                
+                elif intent.get('primary_intent') == 'registration_client':
+                    # Similar for client registration
+                    try:
+                        from services.registration.client_registration import ClientRegistration
+                        reg = ClientRegistration(self.db)
+                        reg_result = reg.start_registration(phone)
+                        if reg_result.get('buttons'):
+                            whatsapp_service.send_button_message(
+                                phone,
+                                reg_result['message'], 
+                                reg_result['buttons']
+                            )
+                    except ImportError:
+                        pass
+            
+            return {'success': True, 'response': response_text}
+            
+        except Exception as e:
+            log_error(f"Error handling message: {str(e)}")
+            # Fallback to a friendly error message
+            return {
+                'success': False,
+                'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊"
+            }
+    
