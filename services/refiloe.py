@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 class Refiloe:
     INTENT_KEYWORDS = {
-        'client_registration': ['register', 'sign up', 'join'],
-        'client_profile_update': ['update profile', 'edit profile', 'change details'],
-        'payment_request': ['pay', 'payment', 'invoice'],
-        'calendar_request': ['book', 'schedule', 'appointment'],
-        'gamification_request': ['points', 'rewards', 'achievements'],
-        'habits_request': ['habit', 'track', 'progress']
+        'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso'],
+        'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng'],
+        'payment_request': ['pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR', 'betaal'],
+        'calendar_request': ['book', 'schedule', 'appointment', 'bespreek', 'ukubhukisha'],
+        'gamification_request': ['points', 'rewards', 'achievements', 'punte', 'amanqaku'],
+        'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba']
     }
 
     def handle_message(self, message: Dict[str, Any]) -> str:
