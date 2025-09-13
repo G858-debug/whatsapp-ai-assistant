@@ -6,6 +6,7 @@ Coordinates between core detection, validation, and response generation
 from typing import Dict, Optional, List
 from datetime import datetime
 import pytz
+from anthropic import Anthropic
 from utils.logger import log_info, log_error, log_warning
 
 from services.ai_intent_core import AIIntentCore
