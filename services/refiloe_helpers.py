@@ -49,7 +49,7 @@ class RefiloeHelpers:
                 'message': 'Error processing registration. Please try again.'
             }
 
-     def _handle_client_registration_start(self, session_id: str) -> Dict:
+    def _handle_client_registration_start(self, session_id: str) -> Dict:
         """Start client registration flow"""
         try:
             # Update session
