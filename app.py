@@ -14,7 +14,6 @@ app, scheduler = setup_app_core(app)
 setup_routes(app)
 
 # Import and register blueprints
-from routes.dashboard import dashboard_bp
 from routes.calendar import calendar_bp
 from routes.payment import payment_bp
 from routes.webhooks import webhooks_bp
