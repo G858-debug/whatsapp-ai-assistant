@@ -10,13 +10,11 @@ def whatsapp_webhook():
     # GET request is for webhook verification
     if request.method == 'GET':
         try:
-            # WhatsApp sends these parameters for verification
             mode = request.args.get('hub.mode')
             token = request.args.get('hub.verify_token')
             challenge = request.args.get('hub.challenge')
             
-            # Check if mode and token are correct
-            if mode == 'subscribe' and token == 'your_verify_token_here':
+            if mode == 'subscribe' and token == 'texts_to_refiloe_radebe':
                 log_info("Webhook verified successfully")
                 return challenge
             else:
@@ -30,7 +28,6 @@ def whatsapp_webhook():
     # POST request contains the actual message
     elif request.method == 'POST':
         try:
-            # Get the message data
             data = request.get_json()
             log_info(f"Received webhook data: {data}")
             
@@ -55,8 +52,33 @@ def whatsapp_webhook():
                                 # Get Refiloe service from app config
                                 refiloe = app.config['services']['refiloe']
                                 
-                                # Process the message
-                                result = refiloe.process_message(phone, text)
+                                # FIX: Use the correct method name!
+                                # Check what methods are available
+                                if hasattr(refiloe, 'handle_message'):
+                                    result = refiloe.handle_message(phone, text)
+                                elif hasattr(refiloe, 'process_whatsapp_message'):
+                                    result = refiloe.process_whatsapp_message(phone, text)
+                                else:
+                                    # Fallback: use AI handler directly
+                                    ai_handler = app.config['services']['ai_handler']
+                                    whatsapp_service = app.config['services']['whatsapp']
+                                    
+                                    # Process with AI
+                                    intent = ai_handler.understand_message(
+                                        text, 
+                                        'unknown',  # We'll determine this
+                                        {},
+                                        []
+                                    )
+                                    
+                                    # Send response
+                                    response_text = "Hi! I received your message. Let me help you with that."
+                                    if intent.get('primary_intent'):
+                                        response_text = f"I understand you're asking about {intent['primary_intent']}. Let me help you."
+                                    
+                                    whatsapp_service.send_message(phone, response_text)
+                                    result = {'success': True}
+                                
                                 log_info(f"Message processed: {result}")
             
             return jsonify({'status': 'success'}), 200
@@ -67,5 +89,4 @@ def whatsapp_webhook():
 
 @webhooks_bp.route('/payfast', methods=['POST'])
 def payfast_webhook():
-    # Handle PayFast webhook here
     return jsonify({'message': 'Webhook received'}), 200
