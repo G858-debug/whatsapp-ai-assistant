@@ -2,6 +2,7 @@ from flask import Flask
 from config import Config
 from app_core import setup_app_core
 from app_routes import setup_routes
+import os
 
 # Create Flask app
 app = Flask(__name__)
