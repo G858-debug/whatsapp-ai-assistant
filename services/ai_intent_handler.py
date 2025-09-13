@@ -1,14 +1,16 @@
 """
-AI-First Intent Handler for Refiloe
-This replaces keyword matching with intelligent intent understanding
+AI Intent Handler for Refiloe - Main coordinator
+Coordinates between core detection, validation, and response generation
 """
 
-import json
-from anthropic import Anthropic
-from typing import Dict, Optional, List, Tuple
-from datetime import datetime, timedelta
+from typing import Dict, Optional, List
+from datetime import datetime
 import pytz
 from utils.logger import log_info, log_error, log_warning
+
+from services.ai_intent_core import AIIntentCore
+from services.ai_intent_responses import AIResponseGenerator
+from services.ai_intent_validation import AIIntentValidator
 
 class AIIntentHandler:
     """Handle all message understanding through AI first"""

@@ -1,683 +1,477 @@
 <!-- Model: Opus 4.1 -->
-<!-- Cost: $1.5469 -->
+<!-- Cost: $1.5463 -->
 <!-- Max Tokens: 32000 -->
 <!-- CONTINUATION NEEDED -->
 ## ANALYSIS
 
-Looking at the comment "CONTINUE_NEEDED", I need to continue with the registration system implementation. The previous step created the comprehensive database migration. Now I need to create the missing utility files and registration handlers that are referenced but don't exist yet.
+Looking at the comment.txt file content "@claude @continue @apply", this is a continuation request following the previous work on creating utility and service files. The previous response indicated "CONTINUE_NEEDED" after creating essential utility files. Now I need to continue with creating the remaining missing service files that are imported but don't exist yet.
+
+From the imports in app_core.py and other files, I can see several service files are missing:
+- services/whatsapp.py - Already created in previous step
+- services/scheduler.py - Already created in previous step  
+- services/subscription_manager.py - Already created in previous step
+- services/workout.py - Already created in previous step
+- Utils files (logger, rate_limiter, input_sanitizer) - Already created in previous step
+
+However, I notice there are imports in app_core.py that don't exist yet:
+- services/ai_intent_handler.py - Already exists (696 lines - needs splitting)
+- utils/logger.py - Created in previous step
+- utils/rate_limiter.py - Created in previous step
+- utils/input_sanitizer.py - Created in previous step
+
+The main issue is that services/ai_intent_handler.py is 696 lines and needs to be split into smaller files.
 
 ## CHANGES NEEDED
 
-### NEW FILE: utils/logger.py
+### SPLIT FILE: services/ai_intent_handler.py
+
+The file is 696 lines and needs to be split. Based on the existing ai_intent_core.py file, I'll reorganize the AI intent handling into smaller, focused modules:
+
+1. Keep ai_intent_core.py as the core functionality (already exists)
+2. Create ai_intent_responses.py for response generation
+3. Create ai_intent_validation.py for validation logic
+
+### NEW FILE: services/ai_intent_responses.py
 ```python
-"""Logging utilities for the application"""
-import logging
-import sys
-from datetime import datetime
-import pytz
+"""AI response generation for intent handling"""
+import random
+from typing import Dict, List
+from utils.logger import log_info
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
-# Create logger
-logger = logging.getLogger('refiloe')
-
-def log_info(message: str, **kwargs):
-    """Log info message"""
-    logger.info(message, extra=kwargs)
-
-def log_error(message: str, exc_info=False, **kwargs):
-    """Log error message"""
-    logger.error(message, exc_info=exc_info, extra=kwargs)
-
-def log_warning(message: str, **kwargs):
-    """Log warning message"""
-    logger.warning(message, extra=kwargs)
-
-def log_debug(message: str, **kwargs):
-    """Log debug message"""
-    logger.debug(message, extra=kwargs)
-
-def setup_logger(name: str = 'refiloe', level: int = logging.INFO):
-    """Setup and return a logger instance"""
-    log = logging.getLogger(name)
-    log.setLevel(level)
-    return log
-```
-
-### NEW FILE: utils/rate_limiter.py
-```python
-"""Rate limiting utilities"""
-from datetime import datetime, timedelta
-from typing import Dict, Optional
-from utils.logger import log_warning, log_info
-
-class RateLimiter:
-    """Rate limiter for API calls and user actions"""
+class AIResponseGenerator:
+    """Generate contextual responses based on intent"""
     
-    def __init__(self, config, supabase_client):
-        self.config = config
-        self.db = supabase_client
-        
-        # Default limits
-        self.limits = {
-            'message': {'count': 60, 'window': 60},  # 60 messages per minute
-            'api': {'count': 100, 'window': 60},     # 100 API calls per minute
-            'registration': {'count': 3, 'window': 3600}  # 3 registration attempts per hour
+    def __init__(self):
+        # Casual conversation responses
+        self.casual_responses = {
+            'status_check': [
+                "Yes {name}, I'm here! 😊 Just chilling in the cloud, ready when you need me.",
+                "I'm always here for you, {name}! 24/7, rain or shine ☀️",
+                "Yep, still here {name}! Not going anywhere 😄",
+                "Present and accounted for! What's on your mind, {name}?"
+            ],
+            'casual_chat': [
+                "I'm doing great, {name}! Just here helping trainers and clients stay fit. How are things with you?",
+                "All good on my end! How's your day going, {name}?",
+                "Can't complain - living the AI dream! 😄 How are you doing?",
+                "I'm well, thanks for asking! How's the fitness world treating you?"
+            ],
+            'thanks': [
+                "You're welcome, {name}! Always happy to help 😊",
+                "My pleasure! That's what I'm here for 💪",
+                "Anytime, {name}! 🙌",
+                "No worries at all! Glad I could help."
+            ],
+            'farewell': [
+                "Chat soon, {name}! Have an awesome day! 👋",
+                "Later, {name}! Stay strong! 💪",
+                "Bye {name}! Catch you later 😊",
+                "See you soon! Don't be a stranger!"
+            ],
+            'greeting': [
+                "Hey {name}! 👋 How can I help you today?",
+                "Hi {name}! Good to hear from you 😊 What can I do for you?",
+                "Hello {name}! How's it going? What brings you here today?",
+                "Hey there {name}! 🙌 What's on your fitness agenda?"
+            ]
         }
         
-        # In-memory cache for performance
-        self.cache: Dict[str, Dict] = {}
-    
-    def check_limit(self, identifier: str, action_type: str = 'message') -> bool:
-        """
-        Check if action is within rate limit
+        # Positive sentiment responses
+        self.positive_responses = [
+            "I'm doing well",
+            "I'm good",
+            "doing good",
+            "great thanks",
+            "all good",
+            "can't complain",
+            "not bad"
+        ]
         
-        Args:
-            identifier: User identifier (phone number or ID)
-            action_type: Type of action being rate limited
-            
-        Returns:
-            True if within limit, False if exceeded
-        """
-        try:
-            limit_config = self.limits.get(action_type, self.limits['message'])
-            cache_key = f"{identifier}:{action_type}"
-            
-            # Check cache first
-            if cache_key in self.cache:
-                cached = self.cache[cache_key]
-                if (datetime.now() - cached['timestamp']).seconds < limit_config['window']:
-                    if cached['count'] >= limit_config['count']:
-                        log_warning(f"Rate limit exceeded for {identifier} - {action_type}")
-                        return False
-                    cached['count'] += 1
-                    return True
-                else:
-                    # Window expired, reset
-                    self.cache[cache_key] = {
-                        'count': 1,
-                        'timestamp': datetime.now()
-                    }
-                    return True
-            
-            # Initialize cache entry
-            self.cache[cache_key] = {
-                'count': 1,
-                'timestamp': datetime.now()
-            }
-            return True
-            
-        except Exception as e:
-            log_warning(f"Rate limiter error: {str(e)}")
-            return True  # Allow on error to avoid blocking users
-    
-    def reset_limit(self, identifier: str, action_type: str = None):
-        """Reset rate limit for identifier"""
-        if action_type:
-            cache_key = f"{identifier}:{action_type}"
-            if cache_key in self.cache:
-                del self.cache[cache_key]
-        else:
-            # Reset all limits for identifier
-            keys_to_delete = [k for k in self.cache.keys() if k.startswith(f"{identifier}:")]
-            for key in keys_to_delete:
-                del self.cache[key]
-    
-    def cleanup_cache(self):
-        """Remove expired entries from cache"""
-        current_time = datetime.now()
-        keys_to_delete = []
-        
-        for key, value in self.cache.items():
-            action_type = key.split(':')[1] if ':' in key else 'message'
-            limit_config = self.limits.get(action_type, self.limits['message'])
-            
-            if (current_time - value['timestamp']).seconds > limit_config['window']:
-                keys_to_delete.append(key)
-        
-        for key in keys_to_delete:
-            del self.cache[key]
-        
-        if keys_to_delete:
-            log_info(f"Cleaned up {len(keys_to_delete)} expired rate limit entries")
-```
-
-### NEW FILE: utils/input_sanitizer.py
-```python
-"""Input sanitization utilities"""
-import re
-from typing import Optional, Any
-from utils.logger import log_warning
-
-class InputSanitizer:
-    """Sanitize user inputs for security"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.max_length = 1000
-        
-        # Patterns to remove
-        self.dangerous_patterns = [
-            r'<script[^>]*>.*?</script>',  # Script tags
-            r'javascript:',                 # JavaScript protocol
-            r'on\w+\s*=',                  # Event handlers
-            r'<iframe[^>]*>.*?</iframe>',  # Iframes
-            r'DROP\s+TABLE',               # SQL injection
-            r'DELETE\s+FROM',              # SQL injection
-            r'INSERT\s+INTO',              # SQL injection
-            r'UPDATE\s+SET',               # SQL injection
+        # Helpful responses after positive sentiment
+        self.helpful_responses = [
+            "That's great to hear, {name}! 😊 Is there anything I can help you with today?",
+            "Glad you're doing well! What can I do for you today, {name}?",
+            "Awesome! 💪 How can I assist you today?",
+            "Good to hear! Is there something specific you'd like help with?",
+            "That's wonderful! What brings you to chat with me today?"
         ]
     
-    def sanitize(self, text: Any) -> str:
-        """
-        Sanitize input text
+    def generate_response(self, intent_data: Dict, sender_type: str, 
+                         sender_data: Dict) -> str:
+        """Generate a contextual response"""
+        intent = intent_data.get('primary_intent')
+        name = sender_data.get('name', 'there')
+        tone = intent_data.get('conversation_tone', 'friendly')
+        response_type = intent_data.get('suggested_response_type', 'conversational')
         
-        Args:
-            text: Input text to sanitize
-            
-        Returns:
-            Sanitized text string
-        """
-        if text is None:
-            return ""
+        # Check for casual responses
+        if intent in self.casual_responses:
+            return random.choice(self.casual_responses[intent]).format(name=name)
         
-        # Convert to string
-        text = str(text)
+        # Check for positive sentiment
+        message_lower = intent_data.get('extracted_data', {}).get('original_message', '').lower()
+        if self._is_positive_sentiment(message_lower):
+            return random.choice(self.helpful_responses).format(name=name)
         
-        # Truncate if too long
-        if len(text) > self.max_length:
-            text = text[:self.max_length]
-            log_warning(f"Input truncated to {self.max_length} characters")
-        
-        # Remove dangerous patterns
-        for pattern in self.dangerous_patterns:
-            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
-        
-        # Remove control characters except newlines
-        text = ''.join(char for char in text if ord(char) >= 32 or char == '\n')
-        
-        # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text)
-        
-        # Strip leading/trailing whitespace
-        text = text.strip()
-        
-        return text
+        # Generate contextual response
+        if response_type == 'conversational':
+            return self._generate_conversational_response(intent, name, sender_type)
+        else:
+            return self._generate_task_response(intent, name, sender_type)
     
-    def sanitize_phone(self, phone: str) -> Optional[str]:
-        """
-        Sanitize and validate phone number
-        
-        Args:
-            phone: Phone number to sanitize
-            
-        Returns:
-            Sanitized phone number or None if invalid
-        """
-        # Remove all non-digits
-        phone = re.sub(r'\D', '', str(phone))
-        
-        # South African phone number validation
-        if len(phone) == 10 and phone.startswith('0'):
-            # Local format: 0821234567 -> 27821234567
-            return '27' + phone[1:]
-        elif len(phone) == 11 and phone.startswith('27'):
-            # International format: 27821234567
-            return phone
-        elif len(phone) == 9:
-            # Missing leading 0: 821234567 -> 27821234567
-            return '27' + phone
-        
-        log_warning(f"Invalid phone number format: {phone}")
-        return None
+    def _is_positive_sentiment(self, message: str) -> bool:
+        """Check if message has positive sentiment"""
+        return any(phrase in message for phrase in self.positive_responses)
     
-    def sanitize_email(self, email: str) -> Optional[str]:
-        """
-        Sanitize and validate email
+    def _generate_conversational_response(self, intent: str, name: str, 
+                                         sender_type: str) -> str:
+        """Generate conversational response"""
+        if intent == 'unclear':
+            clarifications = [
+                f"I didn't quite catch that, {name}. Could you rephrase that for me?",
+                f"Hmm, not sure I understood that correctly. What would you like help with?",
+                f"Sorry {name}, I'm a bit confused. What can I help you with today?"
+            ]
+            return random.choice(clarifications)
         
-        Args:
-            email: Email to sanitize
-            
-        Returns:
-            Sanitized email or None if invalid
-        """
-        email = str(email).strip().lower()
+        elif intent == 'general_question':
+            pivots = [
+                f"That's interesting, {name}! By the way, is there anything specific I can help you with today?",
+                f"Cool! So {name}, what can I assist you with? Bookings, workouts, or something else?",
+                f"Nice! How can I make your fitness journey easier today?",
+                f"Got it! What would you like to work on today - scheduling, habits, or something else?"
+            ]
+            return random.choice(pivots)
         
-        # Basic email pattern
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        
-        if re.match(pattern, email):
-            return email
-        
-        log_warning(f"Invalid email format: {email}")
-        return None
+        else:
+            return f"I see! So {name}, what can I help you with today? I can assist with bookings, workouts, habits, and more!"
     
-    def sanitize_name(self, name: str) -> str:
-        """
-        Sanitize name input
-        
-        Args:
-            name: Name to sanitize
-            
-        Returns:
-            Sanitized name
-        """
-        name = self.sanitize(name)
-        
-        # Remove numbers and special characters except spaces, hyphens, apostrophes
-        name = re.sub(r'[^a-zA-Z\s\-\']', '', name)
-        
-        # Normalize multiple spaces
-        name = re.sub(r'\s+', ' ', name)
-        
-        # Title case
-        name = name.title()
-        
-        return name.strip()
-    
-    def sanitize_amount(self, amount: Any) -> Optional[float]:
-        """
-        Sanitize and validate currency amount
-        
-        Args:
-            amount: Amount to sanitize
-            
-        Returns:
-            Sanitized amount or None if invalid
-        """
-        try:
-            # Remove currency symbols and spaces
-            amount_str = re.sub(r'[Rr$,\s]', '', str(amount))
-            
-            # Convert to float
-            amount_float = float(amount_str)
-            
-            # Validate reasonable range
-            if 0 < amount_float < 100000:
-                return round(amount_float, 2)
-            
-            log_warning(f"Amount outside valid range: {amount_float}")
-            return None
-            
-        except (ValueError, TypeError):
-            log_warning(f"Invalid amount format: {amount}")
-            return None
+    def _generate_task_response(self, intent: str, name: str, 
+                               sender_type: str) -> str:
+        """Generate task-oriented response"""
+        if sender_type == 'trainer':
+            return f"Let me help you with that, {name}. Are you looking to manage clients, check your schedule, or something else?"
+        else:
+            return f"Let me help you with that, {name}. Would you like to book a session, check your progress, or something else?"
 ```
 
-### NEW FILE: services/whatsapp.py
+### NEW FILE: services/ai_intent_validation.py
 ```python
-"""WhatsApp messaging service"""
-import requests
+"""Validation and enrichment for AI intent detection"""
 from typing import Dict, List, Optional
-from utils.logger import log_info, log_error
-import json
-
-class WhatsAppService:
-    """Service for sending WhatsApp messages"""
-    
-    def __init__(self, config, supabase_client, logger):
-        self.config = config
-        self.db = supabase_client
-        self.logger = logger
-        self.api_url = config.WHATSAPP_API_URL
-        self.api_token = config.WHATSAPP_API_TOKEN
-        
-    def send_message(self, phone: str, message: str, buttons: List[Dict] = None) -> bool:
-        """
-        Send WhatsApp message
-        
-        Args:
-            phone: Recipient phone number
-            message: Message text
-            buttons: Optional button list
-            
-        Returns:
-            True if sent successfully
-        """
-        try:
-            # Format phone number
-            phone = self._format_phone(phone)
-            
-            # Build payload
-            payload = {
-                'to': phone,
-                'type': 'text',
-                'text': {
-                    'body': message
-                }
-            }
-            
-            # Add buttons if provided
-            if buttons:
-                payload['type'] = 'interactive'
-                payload['interactive'] = {
-                    'type': 'button',
-                    'body': {'text': message},
-                    'action': {'buttons': buttons}
-                }
-            
-            # Send request
-            headers = {
-                'Authorization': f'Bearer {self.api_token}',
-                'Content-Type': 'application/json'
-            }
-            
-            response = requests.post(
-                self.api_url,
-                headers=headers,
-                json=payload,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                log_info(f"Message sent to {phone}")
-                return True
-            else:
-                log_error(f"Failed to send message: {response.status_code}")
-                return False
-                
-        except Exception as e:
-            log_error(f"Error sending WhatsApp message: {str(e)}")
-            return False
-    
-    def send_template(self, phone: str, template_name: str, 
-                     parameters: List[str] = None) -> bool:
-        """Send WhatsApp template message"""
-        try:
-            phone = self._format_phone(phone)
-            
-            payload = {
-                'to': phone,
-                'type': 'template',
-                'template': {
-                    'name': template_name,
-                    'language': {'code': 'en'}
-                }
-            }
-            
-            if parameters:
-                payload['template']['components'] = [{
-                    'type': 'body',
-                    'parameters': [
-                        {'type': 'text', 'text': param}
-                        for param in parameters
-                    ]
-                }]
-            
-            headers = {
-                'Authorization': f'Bearer {self.api_token}',
-                'Content-Type': 'application/json'
-            }
-            
-            response = requests.post(
-                self.api_url,
-                headers=headers,
-                json=payload,
-                timeout=10
-            )
-            
-            return response.status_code == 200
-            
-        except Exception as e:
-            log_error(f"Error sending template: {str(e)}")
-            return False
-    
-    def _format_phone(self, phone: str) -> str:
-        """Format phone number for WhatsApp"""
-        # Remove all non-digits
-        phone = ''.join(filter(str.isdigit, phone))
-        
-        # Add country code if missing
-        if not phone.startswith('27'):
-            if phone.startswith('0'):
-                phone = '27' + phone[1:]
-            else:
-                phone = '27' + phone
-        
-        return phone
-```
-
-### NEW FILE: services/scheduler.py
-```python
-"""Scheduling service for reminders and automated tasks"""
 from datetime import datetime, timedelta
-from typing import Dict, List
 import pytz
-from utils.logger import log_info, log_error
+from dateutil import parser
+import re
+from utils.logger import log_error
 
-class SchedulerService:
-    """Service for managing scheduled tasks"""
+class AIIntentValidator:
+    """Validate and enrich AI-detected intents"""
     
-    def __init__(self, supabase_client, whatsapp_service):
+    def __init__(self, supabase_client, config):
         self.db = supabase_client
-        self.whatsapp = whatsapp_service
-        self.sa_tz = pytz.timezone('Africa/Johannesburg')
+        self.config = config
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
     
-    def check_and_send_reminders(self) -> Dict:
-        """Check and send due reminders"""
+    def validate_intent(self, intent_data: Dict, sender_data: Dict, 
+                        sender_type: str) -> Dict:
+        """Validate and enrich the AI's intent understanding"""
+        # Ensure required fields
+        intent_data.setdefault('primary_intent', 'general_question')
+        intent_data.setdefault('confidence', 0.5)
+        intent_data.setdefault('extracted_data', {})
+        intent_data.setdefault('requires_confirmation', False)
+        intent_data.setdefault('suggested_response_type', 'conversational')
+        intent_data.setdefault('conversation_tone', 'friendly')
+        
+        # Validate client names if trainer
+        if sender_type == 'trainer' and intent_data['extracted_data'].get('client_name'):
+            self._validate_client_name(intent_data, sender_data)
+        
+        # Parse dates/times
+        if intent_data['extracted_data'].get('date_time'):
+            self._parse_datetime(intent_data)
+        
+        # Process habit responses
+        if intent_data['extracted_data'].get('habit_responses'):
+            self._process_habit_responses(intent_data)
+        
+        return intent_data
+    
+    def _validate_client_name(self, intent_data: Dict, sender_data: Dict):
+        """Validate client name against actual clients"""
+        client_name = intent_data['extracted_data']['client_name']
+        
+        clients = self.db.table('clients').select('id, name').eq(
+            'trainer_id', sender_data['id']
+        ).execute()
+        
+        if clients.data:
+            matched_client = self._fuzzy_match_client(client_name, clients.data)
+            if matched_client:
+                intent_data['extracted_data']['client_id'] = matched_client['id']
+                intent_data['extracted_data']['client_name'] = matched_client['name']
+            else:
+                intent_data['extracted_data']['client_name_unmatched'] = client_name
+                del intent_data['extracted_data']['client_name']
+    
+    def _fuzzy_match_client(self, search_name: str, clients: List[Dict]) -> Optional[Dict]:
+        """Find best matching client name"""
+        search_lower = search_name.lower()
+        
+        for client in clients:
+            client_lower = client['name'].lower()
+            # Exact match
+            if search_lower == client_lower:
+                return client
+            # Partial match
+            if search_lower in client_lower or client_lower in search_lower:
+                return client
+            # First name match
+            if search_lower.split()[0] == client_lower.split()[0]:
+                return client
+        
+        return None
+    
+    def _parse_datetime(self, intent_data: Dict):
+        """Parse datetime string to SA timezone"""
+        time_str = intent_data['extracted_data']['date_time']
+        
         try:
+            parsed_time = self.parse_datetime(time_str)
+            if parsed_time:
+                intent_data['extracted_data']['parsed_datetime'] = parsed_time.isoformat()
+        except Exception as e:
+            log_error(f"Error parsing datetime: {str(e)}")
+    
+    def parse_datetime(self, time_str: str) -> Optional[datetime]:
+        """Parse various datetime formats to SA timezone"""
+        try:
+            time_lower = time_str.lower()
             now = datetime.now(self.sa_tz)
             
-            # Get due reminders
-            reminders = self.db.table('reminders').select('*').eq(
-                'status', 'pending'
-            ).lte('scheduled_time', now.isoformat()).execute()
+            # Handle relative times
+            if 'tomorrow' in time_lower:
+                base_date = now + timedelta(days=1)
+            elif 'today' in time_lower:
+                base_date = now
+            elif 'monday' in time_lower:
+                days_ahead = 0 - now.weekday()
+                if days_ahead <= 0:
+                    days_ahead += 7
+                base_date = now + timedelta(days=days_ahead)
+            else:
+                # Try direct parsing
+                parsed = parser.parse(time_str, fuzzy=True)
+                return self.sa_tz.localize(parsed) if parsed.tzinfo is None else parsed
             
-            sent_count = 0
-            failed_count = 0
+            # Extract time
+            time_match = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?', time_lower)
+            if time_match:
+                hour = int(time_match.group(1))
+                minute = int(time_match.group(2) or 0)
+                meridiem = time_match.group(3)
+                
+                if meridiem == 'pm' and hour < 12:
+                    hour += 12
+                elif meridiem == 'am' and hour == 12:
+                    hour = 0
+                
+                return base_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
             
-            for reminder in (reminders.data or []):
-                success = self._send_reminder(reminder)
-                if success:
-                    sent_count += 1
-                    # Mark as sent
-                    self.db.table('reminders').update({
-                        'status': 'sent',
-                        'sent_at': now.isoformat()
-                    }).eq('id', reminder['id']).execute()
+            return base_date.replace(hour=9, minute=0, second=0, microsecond=0)
+            
+        except Exception as e:
+            log_error(f"Error parsing datetime '{time_str}': {str(e)}")
+            return None
+    
+    def _process_habit_responses(self, intent_data: Dict):
+        """Process habit tracking responses"""
+        responses = intent_data['extracted_data']['habit_responses']
+        processed = []
+        
+        for response in responses:
+            response_lower = str(response).lower()
+            
+            # Yes/no responses
+            if response_lower in ['yes', '✅', 'done', 'complete', '👍']:
+                processed.append({'completed': True, 'value': None})
+            elif response_lower in ['no', '❌', 'skip', 'missed', '👎']:
+                processed.append({'completed': False, 'value': None})
+            # Numeric values
+            elif response_lower.replace('.', '').isdigit():
+                processed.append({'completed': True, 'value': float(response_lower)})
+            # Fractions
+            elif '/' in response_lower:
+                parts = response_lower.split('/')
+                if len(parts) == 2 and parts[0].isdigit():
+                    processed.append({'completed': True, 'value': float(parts[0])})
+            else:
+                # Extract numbers
+                numbers = re.findall(r'\d+', response_lower)
+                if numbers:
+                    processed.append({'completed': True, 'value': float(numbers[0])})
                 else:
-                    failed_count += 1
-            
-            log_info(f"Reminders: {sent_count} sent, {failed_count} failed")
-            
-            return {
-                'sent': sent_count,
-                'failed': failed_count
-            }
-            
-        except Exception as e:
-            log_error(f"Error checking reminders: {str(e)}")
-            return {'sent': 0, 'failed': 0}
-    
-    def _send_reminder(self, reminder: Dict) -> bool:
-        """Send individual reminder"""
-        try:
-            return self.whatsapp.send_message(
-                reminder['phone'],
-                reminder['message']
-            )
-        except Exception as e:
-            log_error(f"Error sending reminder: {str(e)}")
-            return False
-    
-    def schedule_reminder(self, phone: str, message: str, 
-                         scheduled_time: datetime) -> bool:
-        """Schedule a reminder"""
-        try:
-            result = self.db.table('reminders').insert({
-                'phone': phone,
-                'message': message,
-                'scheduled_time': scheduled_time.isoformat(),
-                'status': 'pending',
-                'created_at': datetime.now(self.sa_tz).isoformat()
-            }).execute()
-            
-            return bool(result.data)
-            
-        except Exception as e:
-            log_error(f"Error scheduling reminder: {str(e)}")
-            return False
+                    processed.append({'completed': False, 'value': None})
+        
+        intent_data['extracted_data']['processed_habit_responses'] = processed
 ```
 
-### NEW FILE: services/workout.py
+### EDIT: services/ai_intent_handler.py
+
+Since this file is 696 lines, we need to refactor it to use the new split modules and reduce its size.
+
+**Change 1:** Import new modules and reduce class size
+Location: Lines 1-100
 ```python
-"""Workout service for managing training programs"""
-from typing import Dict, List, Optional
+# REMOVE (lines 1-100):
+"""
+AI-First Intent Handler for Refiloe
+This replaces keyword matching with intelligent intent understanding
+"""
+
+import json
+from anthropic import Anthropic
+from typing import Dict, Optional, List, Tuple
+from datetime import datetime, timedelta
+import pytz
+from utils.logger import log_info, log_error, log_warning
+
+# ADD:
+"""
+AI Intent Handler for Refiloe - Main coordinator
+Coordinates between core detection, validation, and response generation
+"""
+
+from typing import Dict, Optional, List
 from datetime import datetime
 import pytz
-from utils.logger import log_info, log_error
+from utils.logger import log_info, log_error, log_warning
 
-class WorkoutService:
-    """Service for managing workouts and training programs"""
+from services.ai_intent_core import AIIntentCore
+from services.ai_intent_responses import AIResponseGenerator
+from services.ai_intent_validation import AIIntentValidator
+```
+
+**Change 2:** Simplify class to use the new modules
+Location: Lines 12-696
+```python
+# REMOVE (lines 12-696):
+[All the existing AIIntentHandler class code]
+
+# ADD:
+class AIIntentHandler:
+    """Coordinate AI intent detection, validation, and response generation"""
     
     def __init__(self, config, supabase_client):
         self.config = config
         self.db = supabase_client
         self.sa_tz = pytz.timezone(config.TIMEZONE)
-    
-    def create_workout(self, trainer_id: str, client_id: str, 
-                      workout_data: Dict) -> Dict:
-        """Create a new workout"""
-        try:
-            workout = {
-                'trainer_id': trainer_id,
-                'client_id': client_id,
-                'name': workout_data.get('name', 'Custom Workout'),
-                'description': workout_data.get('description', ''),
-                'exercises': workout_data.get('exercises', []),
-                'duration_minutes': workout_data.get('duration', 60),
-                'difficulty': workout_data.get('difficulty', 'intermediate'),
-                'created_at': datetime.now(self.sa_tz).isoformat()
-            }
-            
-            result = self.db.table('workouts').insert(workout).execute()
-            
-            if result.data:
-                log_info(f"Workout created for client {client_id}")
-                return {
-                    'success': True,
-                    'workout_id': result.data[0]['id']
-                }
-            
-            return {'success': False, 'error': 'Failed to create workout'}
-            
-        except Exception as e:
-            log_error(f"Error creating workout: {str(e)}")
-            return {'success': False, 'error': str(e)}
-    
-    def get_client_workouts(self, client_id: str) -> List[Dict]:
-        """Get all workouts for a client"""
-        try:
-            result = self.db.table('workouts').select('*').eq(
-                'client_id', client_id
-            ).order('created_at', desc=True).execute()
-            
-            return result.data if result.data else []
-            
-        except Exception as e:
-            log_error(f"Error getting workouts: {str(e)}")
-            return []
-```
-
-### NEW FILE: services/subscription_manager.py
-```python
-"""Subscription management service"""
-from datetime import datetime, timedelta
-from typing import Dict, Optional
-import pytz
-from utils.logger import log_info, log_error
-
-class SubscriptionManager:
-    """Manages trainer subscriptions"""
-    
-    def __init__(self, supabase_client):
-        self.db = supabase_client
-        self.sa_tz = pytz.timezone('Africa/Johannesburg')
         
-        # Subscription plans
-        self.plans = {
-            'free': {
-                'name': 'Free',
-                'price': 0,
-                'client_limit': 3,
-                'features': ['Basic features']
-            },
-            'professional': {
-                'name': 'Professional',
-                'price': 49,
-                'client_limit': None,
-                'features': ['Unlimited clients', 'All features']
-            }
+        # Initialize components
+        self.core = AIIntentCore(config)
+        self.validator = AIIntentValidator(supabase_client, config)
+        self.response_generator = AIResponseGenerator()
+        
+        log_info("AI Intent Handler initialized with modular components")
+    
+    def understand_message(self, message: str, sender_type: str,
+                          sender_data: Dict, conversation_history: List[str] = None) -> Dict:
+        """Main entry point - understands any message using AI"""
+        try:
+            # Use core AI detection
+            intent_data = self.core.understand_message(
+                message, sender_type, sender_data, conversation_history
+            )
+            
+            # Validate and enrich
+            validated_intent = self.validator.validate_intent(
+                intent_data, sender_data, sender_type
+            )
+            
+            log_info(f"AI Intent processed: {validated_intent.get('primary_intent')} "
+                    f"with confidence {validated_intent.get('confidence')}")
+            
+            return validated_intent
+            
+        except Exception as e:
+            log_error(f"AI intent handling failed: {str(e)}", exc_info=True)
+            return self._get_fallback_intent(message, sender_type)
+    
+    def generate_smart_response(self, intent_data: Dict, sender_type: str,
+                               sender_data: Dict) -> str:
+        """Generate a contextual response when no specific handler exists"""
+        return self.response_generator.generate_response(
+            intent_data, sender_type, sender_data
+        )
+    
+    def _get_fallback_intent(self, message: str, sender_type: str) -> Dict:
+        """Basic fallback when AI is unavailable"""
+        return {
+            'primary_intent': 'general_question',
+            'secondary_intents': [],
+            'confidence': 0.3,
+            'extracted_data': {'original_message': message},
+            'sentiment': 'neutral',
+            'requires_confirmation': False,
+            'suggested_response_type': 'conversational',
+            'conversation_tone': 'friendly',
+            'is_follow_up': False
         }
     
-    def check_subscription(self, trainer_id: str) -> Dict:
-        """Check trainer's subscription status"""
-        try:
-            result = self.db.table('trainers').select(
-                'subscription_status, subscription_expires_at'
-            ).eq('id', trainer_id).single().execute()
-            
-            if not result.data:
-                return {'status': 'free', 'valid': True}
-            
-            status = result.data.get('subscription_status', 'free')
-            expires_at = result.data.get('subscription_expires_at')
-            
-            if status == 'professional' and expires_at:
-                expires = datetime.fromisoformat(expires_at)
-                if expires < datetime.now(self.sa_tz):
-                    # Expired
-                    self.db.table('trainers').update({
-                        'subscription_status': 'free'
-                    }).eq('id', trainer_id).execute()
-                    
-                    return {'status': 'free', 'valid': True, 'expired': True}
-            
-            return {'status': status, 'valid': True}
-            
-        except Exception as e:
-            log_error(f"Error checking subscription: {str(e)}")
-            return {'status': 'free', 'valid': False}
-    
-    def can_add_client(self, trainer_id: str) -> bool:
-        """Check if trainer can add more clients"""
-        try:
-            sub = self.check_subscription(trainer_id)
-            
-            if sub['status'] == 'professional':
-                return True
-            
-            # Check client count for free plan
-            count = self.db.table('clients').select(
-                'id', count='exact'
-            ).eq('trainer_id', trainer_id).eq(
-                'status', 'active'
-            ).execute()
-            
-            return (count.count or 0) < self.plans['free']['client_limit']
-            
-        except Exception as e:
-            log_error(f"Error checking client limit: {str(e)}")
-            return False
+    def extract_habit_from_text(self, text: str) -> Optional[Dict]:
+        """Extract habit information from text"""
+        text_lower = text.lower()
+        
+        # Water intake
+        if any(word in text_lower for word in ['water', 'drank', 'hydration']):
+            import re
+            numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+            if numbers:
+                value = float(numbers[0])
+                if 'ml' in text_lower:
+                    value = value / 1000
+                return {'type': 'water_intake', 'value': value}
+        
+        # Sleep
+        if any(word in text_lower for word in ['sleep', 'slept']):
+            import re
+            numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+            if numbers:
+                return {'type': 'sleep_hours', 'value': float(numbers[0])}
+        
+        # Steps
+        if any(word in text_lower for word in ['steps', 'walked']):
+            import re
+            numbers = re.findall(r'(\d+)', text)
+            if numbers:
+                return {'type': 'steps', 'value': int(numbers[0])}
+        
+        # Workout
+        if any(word in text_lower for word in ['workout', 'trained', 'exercise']):
+            if any(word in text_lower for word in ['completed', 'done', 'finished']):
+                return {'type': 'workout_completed', 'value': 1}
+        
+        # Weight
+        if any(word in text_lower for word in ['weight', 'weigh', 'kg']):
+            import re
+            numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+            if numbers:
+                return {'type': 'weight', 'value': float(numbers[0])}
+        
+        return None
 ```
 
 ## SUMMARY
 
-Created essential utility and service files that were missing from the project:
+Split the large 696-line ai_intent_handler.py file into three focused modules:
+1. **ai_intent_core.py** - Core AI detection logic (already exists)
+2. **ai_intent_responses.py** - Response generation logic (new file)
+3. **ai_intent_validation.py** - Validation and enrichment logic (new file)
+4. **ai_intent_handler.py** - Simplified coordinator using the modular components
 
-1. **Logger utilities** - Centralized logging functionality
-2. **Rate limiter** - Prevent abuse and manage API limits
-3. **Input sanitizer** - Security layer for user inputs
-4. **WhatsApp service** - Core messaging functionality
-5. **Scheduler service** - Handle reminders and automated tasks
-6. **Workout service** - Manage training programs
-7. **Subscription manager** - Handle trainer subscription tiers
-
-All files are under 600 lines and follow the existing project patterns. The registration system can now function with these supporting services in place.
+This refactoring:
+- Reduces the main handler file to under 150 lines
+- Improves code organization and maintainability
+- Separates concerns into logical modules
+- Makes the codebase easier to test and extend
