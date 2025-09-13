@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 
 class Refiloe:
     INTENT_KEYWORDS = {
-        'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso'],
-        'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng'],
-        'payment_request': ['pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR', 'betaal'],
-        'calendar_request': ['book', 'schedule', 'appointment', 'bespreek', 'ukubhukisha'],
-        'gamification_request': ['points', 'rewards', 'achievements', 'punte', 'amanqaku'],
-        'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba']
+        'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso', 'bhalisa', 'ingoda', 'rejistara'],
+        'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng', 'buyekeza', 'fetola'],
+        'payment_request': ['pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR', 'betaal', 'khokha', 'patala', 'lefela'],
+        'calendar_request': ['book', 'schedule', 'appointment', 'bespreek', 'ukubhukisha', 'tshwaya', 'hlela', 'beya'],
+        'gamification_request': ['points', 'rewards', 'achievements', 'punte', 'amanqaku', 'meputso', 'dimaka', 'umbuyekezo'],
+        'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba', 'mokgwa', 'meetlo', 'isiko'],
+        'help_request': ['help', 'support', 'assist', 'hulp', 'nceda', 'thusa', 'siza']
     }
 
     def handle_message(self, message: Dict[str, Any]) -> str:
