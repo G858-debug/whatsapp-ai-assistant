@@ -1,7 +1,1 @@
-@claude @apply Add complete client registration flow handlers to services/refiloe_helpers.py:
-
-- _handle_client_goal_selection: Processes fitness goal and shows training preference buttons
-- _handle_client_training_preference: Processes training preference and asks for city
-- _handle_client_city_input: Processes city and asks for personal information
-- _handle_client_personal_info: Processes personal info and shows confirmation
-- confirm_client_registration: Handles final confirmation and creates client record
+@claude @continue @apply
