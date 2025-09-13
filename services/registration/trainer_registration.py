@@ -1,297 +1,279 @@
-"""Trainer registration handler"""
+"""Trainer registration handler with friendly UX"""
 from typing import Dict, Optional
 from datetime import datetime
 import pytz
 from utils.logger import log_info, log_error
 from services.helpers.validation_helpers import ValidationHelpers
-from services.helpers.whatsapp_helpers import WhatsAppHelpers
 
 class TrainerRegistrationHandler:
-    """Handles trainer registration flow"""
+    """Handle trainer registration with delightful experience"""
     
-    def __init__(self, supabase_client, config):
+    def __init__(self, supabase_client, whatsapp_service):
         self.db = supabase_client
-        self.config = config
-        self.sa_tz = pytz.timezone(config.TIMEZONE)
-        self.validation = ValidationHelpers()
-        self.whatsapp_helpers = WhatsAppHelpers()
+        self.whatsapp = whatsapp_service
+        self.sa_tz = pytz.timezone('Africa/Johannesburg')
+        self.validator = ValidationHelpers()
         
-        # Registration steps
-        self.STEPS = ['name', 'email', 'business', 'location', 'price', 'specialties', 'confirmation']
+        self.STEPS = {
+            0: {'field': 'name', 'prompt': self._get_name_prompt},
+            1: {'field': 'business_name', 'prompt': self._get_business_prompt},
+            2: {'field': 'email', 'prompt': self._get_email_prompt},
+            3: {'field': 'specialization', 'prompt': self._get_specialization_prompt},
+            4: {'field': 'experience', 'prompt': self._get_experience_prompt},
+            5: {'field': 'location', 'prompt': self._get_location_prompt},
+            6: {'field': 'pricing', 'prompt': self._get_pricing_prompt}
+        }
     
-    def start_trainer_registration(self, phone: str) -> Dict:
-        """Start trainer registration process"""
-        try:
-            # Check if already registered
-            existing = self.db.table('trainers').select('id').eq(
-                'whatsapp', phone
-            ).execute()
-            
-            if existing.data:
-                return {
-                    'success': True,
-                    'message': "You're already registered as a trainer! 😊\n\nHow can I help you today?",
-                    'already_registered': True
-                }
-            
-            # Create registration session
-            from services.registration.registration_state import RegistrationStateManager
-            state_manager = RegistrationStateManager(self.db, self.config)
-            result = state_manager.create_session(phone, 'trainer')
-            
-            if result['success']:
-                return {
-                    'success': True,
-                    'message': "Welcome to Refiloe! 🎉\n\nLet's get you set up as a trainer.\n\nWhat's your full name?",
-                    'session_id': result['session_id'],
-                    'next_step': 'name'
-                }
-            
-            return {
-                'success': False,
-                'message': "Sorry, I couldn't start the registration. Please try again."
-            }
-            
-        except Exception as e:
-            log_error(f"Error starting trainer registration: {str(e)}")
-            return {
-                'success': False,
-                'message': "An error occurred. Please try again."
-            }
+    def start_registration(self, phone: str) -> str:
+        """Start trainer registration with warm welcome"""
+        return (
+            "🎉 *Welcome to Refiloe!*\n\n"
+            "I'm so excited to help you grow your personal training business! "
+            "Let's get you set up in just a few quick steps.\n\n"
+            "📝 *Step 1 of 7*\n\n"
+            "First things first - what's your name? 😊"
+        )
     
-    def process_trainer_step(self, session_id: str, step: str, input_text: str) -> Dict:
-        """Process a registration step"""
+    def handle_registration_response(self, phone: str, message: str, 
+                                   current_step: int, data: Dict) -> Dict:
+        """Handle registration step response"""
         try:
+            step_info = self.STEPS.get(current_step)
+            if not step_info:
+                return self._complete_registration(phone, data)
+            
             # Validate input
-            validation_result = self._validate_step_input(step, input_text)
-            if not validation_result['valid']:
-                return {
-                    'success': True,
-                    'message': validation_result['message'],
-                    'next_step': step  # Stay on same step
-                }
+            field = step_info['field']
+            validated = self._validate_field(field, message)
             
-            # Update session with validated data
-            from services.registration.registration_state import RegistrationStateManager
-            state_manager = RegistrationStateManager(self.db, self.config)
-            
-            # Get next step
-            next_step = self._get_next_step(step)
-            
-            # Update session
-            update_result = state_manager.update_session(
-                session_id,
-                step=next_step,
-                data_update={step: validation_result['value']}
-            )
-            
-            if not update_result['success']:
+            if not validated['valid']:
                 return {
                     'success': False,
-                    'message': "Session expired. Please start again by saying 'register'."
+                    'message': validated['error'],
+                    'continue': True
                 }
             
-            # Get appropriate response
-            if next_step == 'confirmation':
-                return self._build_confirmation_message(update_result['session']['data'])
-            else:
-                return self._get_step_prompt(next_step)
-                
+            # Store data
+            data[field] = validated['value']
+            
+            # Move to next step
+            next_step = current_step + 1
+            
+            if next_step >= len(self.STEPS):
+                return self._complete_registration(phone, data)
+            
+            # Get next prompt
+            next_prompt = self.STEPS[next_step]['prompt'](next_step + 1)
+            
+            return {
+                'success': True,
+                'message': next_prompt,
+                'next_step': next_step,
+                'data': data,
+                'continue': True
+            }
+            
         except Exception as e:
-            log_error(f"Error processing trainer step: {str(e)}")
+            log_error(f"Error handling registration: {str(e)}")
             return {
                 'success': False,
-                'message': "An error occurred. Please try again."
+                'message': "😅 Oops! Something went wrong. Let's try that again.",
+                'continue': True
             }
     
-    def _validate_step_input(self, step: str, input_text: str) -> Dict:
-        """Validate input for a specific step"""
-        input_text = input_text.strip()
-        
-        if step == 'name':
-            if len(input_text) < 2:
-                return {'valid': False, 'message': "Please enter your full name."}
-            return {'valid': True, 'value': input_text}
-        
-        elif step == 'email':
-            if not self.validation.validate_email(input_text):
-                return {'valid': False, 'message': "Please enter a valid email address (e.g., name@example.com)"}
-            return {'valid': True, 'value': input_text.lower()}
-        
-        elif step == 'business':
-            if len(input_text) < 2:
-                return {'valid': False, 'message': "Please enter your business or gym name."}
-            return {'valid': True, 'value': input_text}
-        
-        elif step == 'location':
-            if len(input_text) < 2:
-                return {'valid': False, 'message': "Please enter your location (e.g., Sandton, Cape Town)"}
-            return {'valid': True, 'value': input_text}
-        
-        elif step == 'price':
-            price = self.validation.extract_price(input_text)
-            if not price:
-                return {'valid': False, 'message': "Please enter a valid price (e.g., R500 or 500)"}
-            if price < 50 or price > 5000:
-                return {'valid': False, 'message': "Please enter a price between R50 and R5000"}
-            return {'valid': True, 'value': price}
-        
-        elif step == 'specialties':
-            if len(input_text) < 3:
-                return {'valid': False, 'message': "Please describe your training specialties."}
-            return {'valid': True, 'value': input_text}
-        
-        return {'valid': True, 'value': input_text}
+    def _get_name_prompt(self, step_num: int) -> str:
+        """Get name prompt - already shown in start"""
+        return ""
     
-    def _get_next_step(self, current_step: str) -> str:
-        """Get the next registration step"""
-        try:
-            current_index = self.STEPS.index(current_step)
-            if current_index < len(self.STEPS) - 1:
-                return self.STEPS[current_index + 1]
-            return 'confirmation'
-        except ValueError:
-            return 'confirmation'
+    def _get_business_prompt(self, step_num: int) -> str:
+        return (
+            "Perfect! 👍\n\n"
+            f"📝 *Step {step_num} of 7*\n\n"
+            "What's your business name? (or just type 'skip' if you don't have one yet)"
+        )
     
-    def _get_step_prompt(self, step: str) -> Dict:
-        """Get prompt for a registration step"""
-        prompts = {
-            'email': {
-                'message': "📧 Great! What's your email address?",
-                'next_step': 'email'
-            },
-            'business': {
-                'message': "🏢 What's your business or gym name?",
-                'next_step': 'business'
-            },
-            'location': {
-                'message': "📍 Where are you located? (City/Area)",
-                'next_step': 'location'
-            },
-            'price': {
-                'message': "💰 What's your standard rate per session?\n(e.g., R500)",
-                'next_step': 'price'
-            },
-            'specialties': {
-                'message': "💪 What are your training specialties?\n(e.g., Weight loss, Strength training, HIIT)",
-                'next_step': 'specialties'
-            }
-        }
-        
-        result = prompts.get(step, {
-            'message': "Please provide the required information.",
-            'next_step': step
-        })
-        
-        result['success'] = True
-        return result
+    def _get_email_prompt(self, step_num: int) -> str:
+        return (
+            "Great! ✨\n\n"
+            f"📝 *Step {step_num} of 7*\n\n"
+            "What's your email address? 📧\n"
+            "(We'll use this for important updates only)"
+        )
     
-    def _build_confirmation_message(self, data: Dict) -> Dict:
-        """Build confirmation message with buttons"""
-        message = f"""✅ *Registration Summary*
-
-*Name:* {data.get('name', 'Not provided')}
-*Email:* {data.get('email', 'Not provided')}
-*Business:* {data.get('business', 'Not provided')}
-*Location:* {data.get('location', 'Not provided')}
-*Rate:* R{data.get('price', 'Not provided')}/session
-*Specialties:* {data.get('specialties', 'Not provided')}
-
-Is this information correct?"""
-        
-        return {
-            'success': True,
-            'message': message,
-            'buttons': [
-                {
-                    'type': 'reply',
-                    'reply': {
-                        'id': 'confirm_yes',
-                        'title': '✅ Yes'  # 5 chars
-                    }
-                },
-                {
-                    'type': 'reply',
-                    'reply': {
-                        'id': 'confirm_edit',
-                        'title': '✏️ Edit'  # 6 chars
-                    }
-                },
-                {
-                    'type': 'reply',
-                    'reply': {
-                        'id': 'confirm_no',
-                        'title': '❌ Cancel'  # 8 chars
-                    }
-                }
-            ],
-            'next_step': 'confirmation'
-        }
+    def _get_specialization_prompt(self, step_num: int) -> str:
+        return (
+            "Awesome! 💪\n\n"
+            f"📝 *Step {step_num} of 7*\n\n"
+            "What's your training specialization?\n\n"
+            "Choose one or type your own:\n"
+            "1️⃣ Weight Loss\n"
+            "2️⃣ Muscle Building\n"
+            "3️⃣ Sports Performance\n"
+            "4️⃣ Functional Fitness\n"
+            "5️⃣ Rehabilitation"
+        )
     
-    def confirm_trainer_registration(self, session_id: str, response: str) -> Dict:
-        """Process confirmation response"""
-        try:
-            from services.registration.registration_state import RegistrationStateManager
-            state_manager = RegistrationStateManager(self.db, self.config)
-            
-            # Get session
-            session = state_manager.get_session(session_id)
-            if not session:
+    def _get_experience_prompt(self, step_num: int) -> str:
+        return (
+            "Nice specialization! 🎯\n\n"
+            f"📝 *Step {step_num} of 7*\n\n"
+            "How many years of experience do you have?\n\n"
+            "Just type a number (e.g., 3)"
+        )
+    
+    def _get_location_prompt(self, step_num: int) -> str:
+        return (
+            "Experience matters! 🌟\n\n"
+            f"📝 *Step {step_num} of 7*\n\n"
+            "Where are you based? (City/Area)\n"
+            "Example: Cape Town, Sea Point"
+        )
+    
+    def _get_pricing_prompt(self, step_num: int) -> str:
+        return (
+            "Almost done! 🏁\n\n"
+            f"📝 *Step {step_num} of 7* (Last one!)\n\n"
+            "What's your standard rate per session?\n"
+            "Just type the amount (e.g., 350)"
+        )
+    
+    def _validate_field(self, field: str, value: str) -> Dict:
+        """Validate registration field with friendly errors"""
+        value = value.strip()
+        
+        if field == 'name':
+            if len(value) < 2:
                 return {
-                    'success': False,
-                    'message': 'Session expired. Please start over.'
+                    'valid': False,
+                    'error': "😊 Please enter your full name (at least 2 characters)"
                 }
+            return {'valid': True, 'value': value}
+        
+        elif field == 'business_name':
+            if value.lower() == 'skip':
+                return {'valid': True, 'value': None}
+            return {'valid': True, 'value': value}
+        
+        elif field == 'email':
+            if not self.validator.validate_email(value):
+                return {
+                    'valid': False,
+                    'error': "📧 Hmm, that doesn't look like a valid email. Please try again!\nExample: john@gmail.com"
+                }
+            return {'valid': True, 'value': value.lower()}
+        
+        elif field == 'specialization':
+            spec_map = {
+                '1': 'Weight Loss',
+                '2': 'Muscle Building',
+                '3': 'Sports Performance',
+                '4': 'Functional Fitness',
+                '5': 'Rehabilitation'
+            }
             
-            if response.lower() == 'yes':
-                # Create trainer account
-                trainer_data = {
-                    'whatsapp': session['phone'],
-                    'name': session['data'].get('name'),
-                    'email': session['data'].get('email'),
-                    'business_name': session['data'].get('business'),
-                    'location': session['data'].get('location'),
-                    'pricing_per_session': session['data'].get('price'),
-                    'specialties': session['data'].get('specialties'),
-                    'status': 'active',
-                    'created_at': datetime.now(self.sa_tz).isoformat()
+            if value in spec_map:
+                return {'valid': True, 'value': spec_map[value]}
+            elif len(value) >= 3:
+                return {'valid': True, 'value': value}
+            else:
+                return {
+                    'valid': False,
+                    'error': "Please choose a number (1-5) or type your specialization"
                 }
-                
-                result = self.db.table('trainers').insert(trainer_data).execute()
-                
-                if result.data:
-                    # Mark session as completed
-                    state_manager.update_session_status(session_id, 'completed')
-                    
-                    return {
-                        'success': True,
-                        'message': """🎉 *Welcome to Refiloe!*
-
-Your trainer account is now active!
-
-Here's what you can do:
-• Add clients: "add client"
-• Create workouts: "create workout"
-• Schedule sessions: "book session"
-• View dashboard: "my dashboard"
-
-Type 'help' anytime for assistance."""
-                    }
+        
+        elif field == 'experience':
+            try:
+                years = int(value)
+                if 0 <= years <= 50:
+                    return {'valid': True, 'value': years}
                 else:
                     return {
-                        'success': False,
-                        'message': 'Failed to create account. Please try again.'
+                        'valid': False,
+                        'error': "🤔 Please enter a valid number of years (0-50)"
                     }
+            except ValueError:
+                return {
+                    'valid': False,
+                    'error': "Please enter just a number (e.g., 5)"
+                }
+        
+        elif field == 'location':
+            if len(value) < 3:
+                return {
+                    'valid': False,
+                    'error': "📍 Please enter your city or area"
+                }
+            return {'valid': True, 'value': value}
+        
+        elif field == 'pricing':
+            price = self.validator.extract_price(value)
+            if price and 50 <= price <= 5000:
+                return {'valid': True, 'value': price}
             else:
-                # User wants to edit or cancel
-                state_manager.update_session_status(session_id, 'cancelled')
+                return {
+                    'valid': False,
+                    'error': "💰 Please enter a valid amount between R50 and R5000\nExample: 350"
+                }
+        
+        return {'valid': True, 'value': value}
+    
+    def _complete_registration(self, phone: str, data: Dict) -> Dict:
+        """Complete registration with celebration"""
+        try:
+            # Create trainer record
+            trainer_data = {
+                'name': data['name'],
+                'whatsapp': phone,
+                'email': data['email'],
+                'business_name': data.get('business_name'),
+                'specialization': data.get('specialization'),
+                'years_experience': data.get('experience', 0),
+                'location': data.get('location'),
+                'pricing_per_session': data.get('pricing', 300),
+                'status': 'active',
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            result = self.db.table('trainers').insert(trainer_data).execute()
+            
+            if result.data:
+                trainer_id = result.data[0]['id']
+                log_info(f"Trainer registered: {data['name']} ({trainer_id})")
+                
+                # Create celebration message with useful quick-start buttons
+                celebration = (
+                    "🎊 *CONGRATULATIONS!* 🎊\n\n"
+                    f"Welcome aboard, {data['name']}! You're all set up and ready to grow "
+                    "your training business with Refiloe! 🚀\n\n"
+                    "Here's what you can do now:\n\n"
+                    "💡 *Quick Actions:*"
+                )
+                
+                # Create buttons with <20 char titles
+                buttons = [
+                    {'id': 'add_client', 'title': '➕ Add First Client'},
+                    {'id': 'view_dashboard', 'title': '📊 View Dashboard'},
+                    {'id': 'help', 'title': '❓ Get Help'}
+                ]
+                
                 return {
                     'success': True,
-                    'message': "Registration cancelled. You can start over anytime by saying 'register'."
+                    'message': celebration,
+                    'buttons': buttons,
+                    'continue': False,
+                    'trainer_id': trainer_id
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': "😔 Registration failed. Please try again or contact support.",
+                    'continue': False
                 }
                 
         except Exception as e:
-            log_error(f"Error confirming registration: {str(e)}")
+            log_error(f"Error completing registration: {str(e)}")
             return {
                 'success': False,
-                'message': 'An error occurred. Please try again.'
+                'message': "😅 Almost there! We hit a small snag. Please try again.",
+                'continue': False
             }

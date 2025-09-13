@@ -1,1 +1,12 @@
-@claude @continue @apply
+@claude @apply Review the entire registration system (both trainer and client) and polish the user experience:
+
+1. Make all messages friendly and encouraging
+2. Use consistent emoji usage in message bodies (not in buttons)
+3. CRITICAL: Ensure ALL button titles are under 20 characters (WhatsApp strict limit)
+4. Add progress indicators (Step 1 of 6) in message text where appropriate
+5. Make error messages helpful, not technical
+6. Add personality to Refiloe's responses
+7. Add celebration messages with emojis upon successful registration
+8. Make the quick-start buttons after registration actually useful and under 20 chars
+
+Focus on making the experience delightful, not just functional.
