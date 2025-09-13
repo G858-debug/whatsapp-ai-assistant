@@ -11,6 +11,8 @@ class RegistrationStateManager:
         self.db = supabase_client
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+        self.SESSION_TIMEOUT_MINUTES = 90  # 90 minutes timeout
+        self.registration_state = {}  # In-memory state cache for recovery
     
     def create_session(self, phone: str, user_type: str, initial_step: str = 'name') -> str:
         """Create a new registration session"""
