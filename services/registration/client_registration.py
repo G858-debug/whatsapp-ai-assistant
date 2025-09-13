@@ -13,9 +13,11 @@ class ClientRegistrationHandler:
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
         self.validation = ValidationHelpers()
+        from services.refiloe_helpers import RefiloeHelpers
+        self.helpers = RefiloeHelpers(supabase_client, None, config)
         
         # Registration steps
-        self.STEPS = ['name', 'emergency_contact', 'emergency_phone', 'fitness_level', 'goals', 'confirmation']
+        self.STEPS = ['fitness_goal', 'training_preference', 'city', 'personal_info', 'confirmation']
     
     def start_client_registration(self, phone: str) -> Dict:
         """Start client registration process"""
@@ -35,31 +37,32 @@ class ClientRegistrationHandler:
             # Create registration session
             from services.registration.registration_state import RegistrationStateManager
             state_manager = RegistrationStateManager(self.db, self.config)
-            result = state_manager.create_session(phone, 'client')
+            session_id = state_manager.create_session(phone, 'client', initial_step='fitness_goal')
             
-            if result['success']:
-                return {
-                    'success': True,
-                    'message': "Welcome! 🎉\n\nLet's find you the perfect trainer.\n\nWhat's your full name?",
-                    'session_id': result['session_id'],
-                    'next_step': 'name'
-                }
+            if session_id:
+                # Delegate to helpers for the first step
+                return self.helpers._handle_client_registration_start(session_id)
             
             return {
                 'success': False,
                 'message': "Sorry, I couldn't start the registration. Please try again."
             }
-            
-        except Exception as e:
-            log_error(f"Error starting client registration: {str(e)}")
-            return {
-                'success': False,
-                'message': "An error occurred. Please try again."
-            }
     
     def process_client_step(self, session_id: str, step: str, input_text: str) -> Dict:
-        """Process a registration step"""
-        try:
+    """Process a registration step - delegates to RefiloeHelpers for special steps"""
+    try:
+        # Special handling for interactive steps
+        if step == 'fitness_goal':
+            return self.helpers._handle_client_goal_selection(session_id, input_text)
+        elif step == 'training_preference':
+            return self.helpers._handle_client_training_preference(session_id, input_text)
+        elif step == 'city':
+            return self.helpers._handle_client_city_input(session_id, input_text)
+        elif step == 'personal_info':
+            return self.helpers._handle_client_personal_info(session_id, input_text)
+        elif step == 'confirmation':
+            return self.helpers.confirm_client_registration(session_id, input_text)
+        
             # Validate input
             validation_result = self._validate_step_input(step, input_text)
             if not validation_result['valid']:
