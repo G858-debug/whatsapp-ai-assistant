@@ -3,6 +3,7 @@ import re
 from typing import Dict, Optional, Tuple
 from datetime import datetime, date
 from utils.logger import log_info, log_error
+from datetime import datetime, date, timedelta
 
 class ValidationHelpers:
     """Helper functions for data validation"""
