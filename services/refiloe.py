@@ -227,7 +227,7 @@ class RefiloeService:
                             'type': 'reply',
                             'reply': {
                                 'id': 'reg_trainer',
-                                'title': '💪 I'm a Trainer'  # 16 chars
+                                'title': '💪 I am a Trainer'  # 17 chars
                             }
                         },
                         {
@@ -241,7 +241,7 @@ class RefiloeService:
                             'type': 'reply',
                             'reply': {
                                 'id': 'info',
-                                'title': 'ℹ️ Learn More'  # 13 chars
+                                'title': 'ℹ️ Learn about me'  # 17 chars
                             }
                         }
                     ]
