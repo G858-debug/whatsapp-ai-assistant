@@ -1,8 +1,11 @@
-@claude @apply Fix the registration confirmation step in services/refiloe_helpers.py. Currently when users type "edit" at the confirmation step, the system gets stuck.
+@claude @apply critical registration flow issues:
 
-Requirements:
-1. In the _continue_registration method, add handling for the 'confirmation' step that recognizes "yes", "edit", and variations
-2. Enhance _restart_registration to allow editing specific fields instead of starting over completely
-3. When user types "edit", show them their current details and ask which specific field they want to change (name, business, location, or specialisation)
-
-The goal is to let users fix mistakes without redoing the entire registration.
+1. Create main services/refiloe.py - The missing orchestration service that handles message routing, session management, and duplicate registration checks
+2. Add TextVariationHandler - Comprehensive handling of text variations, typos
+3. Fix button title lengths - Shorten titles to comply with WhatsApp's 20-character limit
+4. Add input validation - Integrated validation helpers for email, phone, price, and empty inputs
+5. Implement timeout handling - Sessions expire after 24 hours with automatic cleanup
+6. Add duplicate registration checks - Prevents users from registering multiple times
+7. Improv text recognition - Better handling of variations in yes/no/edit responses including local terms
+8. Add graceful error handling - Unexpected inputs to provide helpful guidance instead of breaking the flow
+The system should be more robust and user-friendly, handling edge cases gracefully while maintaining a conversational tone. 
