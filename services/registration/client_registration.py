@@ -50,19 +50,19 @@ class ClientRegistrationHandler:
             }
     
     def process_client_step(self, session_id: str, step: str, input_text: str) -> Dict:
-    """Process a registration step - delegates to RefiloeHelpers for special steps"""
-    try:
-        # Special handling for interactive steps
-        if step == 'fitness_goal':
-            return self.helpers._handle_client_goal_selection(session_id, input_text)
-        elif step == 'training_preference':
-            return self.helpers._handle_client_training_preference(session_id, input_text)
-        elif step == 'city':
-            return self.helpers._handle_client_city_input(session_id, input_text)
-        elif step == 'personal_info':
-            return self.helpers._handle_client_personal_info(session_id, input_text)
-        elif step == 'confirmation':
-            return self.helpers.confirm_client_registration(session_id, input_text)
+        """Process a registration step - delegates to RefiloeHelpers for special steps"""
+        try:
+            # Special handling for interactive steps
+            if step == 'fitness_goal':
+                return self.helpers._handle_client_goal_selection(session_id, input_text)
+            elif step == 'training_preference':
+                return self.helpers._handle_client_training_preference(session_id, input_text)
+            elif step == 'city':
+                return self.helpers._handle_client_city_input(session_id, input_text)
+            elif step == 'personal_info':
+                return self.helpers._handle_client_personal_info(session_id, input_text)
+            elif step == 'confirmation':
+                return self.helpers.confirm_client_registration(session_id, input_text)
         
             # Validate input
             validation_result = self._validate_step_input(step, input_text)
