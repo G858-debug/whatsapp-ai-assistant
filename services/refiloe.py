@@ -32,7 +32,7 @@ class RefiloeService:
         self.ai_handler = AIIntentHandler(Config, supabase_client)
         self.validation = ValidationHelpers()
         self.whatsapp_helpers = WhatsAppHelpers()
-        self.helpers = RefiloeHelpers(supabase_client, whatsapp_service, config)
+        self.helpers = RefiloeHelpers(supabase_client, None, Config)
         
         # Session timeout (24 hours)
         self.SESSION_TIMEOUT_HOURS = 24
