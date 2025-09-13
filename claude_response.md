@@ -1,28 +1,18 @@
 <!-- Model: Sonnet 3.5 -->
-<!-- Cost: $0.0034 -->
+<!-- Cost: $0.0036 -->
 <!-- Max Tokens: 8000 -->
 <!-- CONTINUATION NEEDED -->
 ## ANALYSIS
-Looking at the code, the Refiloe WhatsApp assistant needs enhancements to better handle South African context and multilingual support. The current intent detection is basic and needs expansion for local languages and context.
+The project appears to be a WhatsApp AI assistant for South African personal trainers. Looking at the current files, I notice the Refiloe class could be enhanced to better handle South African languages and context, and improve error handling.
 
 ## CHANGES NEEDED
 
 ### EDIT: services/refiloe.py
 
-**Change 1:** Expand intent keywords with more South African languages and context
-Location: Lines 15-22
+**Change 1:** Enhance language support and error messages with South African context
+Location: Lines 15-23
 ```python
-# REMOVE (lines 15-22):
-    INTENT_KEYWORDS = {
-        'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso'],
-        'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng'],
-        'payment_request': ['pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR', 'betaal'],
-        'calendar_request': ['book', 'schedule', 'appointment', 'bespreek', 'ukubhukisha'],
-        'gamification_request': ['points', 'rewards', 'achievements', 'punte', 'amanqaku'],
-        'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba']
-    }
-
-# ADD:
+# REMOVE:
     INTENT_KEYWORDS = {
         'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso', 'bhalisa', 'ingoda', 'rejistara'],
         'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng', 'buyekeza', 'fetola'],
@@ -32,100 +22,73 @@ Location: Lines 15-22
         'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba', 'mokgwa', 'meetlo', 'isiko'],
         'help_request': ['help', 'support', 'assist', 'hulp', 'nceda', 'thusa', 'siza']
     }
-```
-
-**Change 2:** Enhance intent detection with confidence scoring
-Location: Lines 44-48
-```python
-# REMOVE (lines 44-48):
-    def detect_intent(self, message_text: str) -> str:
-        for intent, keywords in self.INTENT_KEYWORDS.items():
-            if any(keyword in message_text for keyword in keywords):
-                return intent
-        return 'unknown'
 
 # ADD:
-    def detect_intent(self, message_text: str) -> tuple[str, float]:
-        message_text = message_text.lower()
-        best_intent = 'unknown'
-        highest_confidence = 0.0
-        
-        for intent, keywords in self.INTENT_KEYWORDS.items():
-            confidence = 0.0
-            for keyword in keywords:
-                if keyword in message_text:
-                    # Higher confidence for exact matches
-                    if keyword == message_text.strip():
-                        confidence = max(confidence, 1.0)
-                    else:
-                        confidence = max(confidence, 0.7)
-                # Partial matches
-                elif any(part in message_text for part in keyword.split()):
-                    confidence = max(confidence, 0.4)
-            
-            if confidence > highest_confidence:
-                highest_confidence = confidence
-                best_intent = intent
-        
-        return best_intent, highest_confidence
+    INTENT_KEYWORDS = {
+        'client_registration': ['register', 'sign up', 'join', 'skryf in', 'ngodiso', 'bhalisa', 'ingoda', 'rejistara', 'ngoliso'],
+        'client_profile_update': ['update profile', 'edit profile', 'change details', 'verander', 'hleng', 'buyekeza', 'fetola', 'shintja'],
+        'payment_request': ['pay', 'payment', 'invoice', 'EFT', 'rand', 'R', 'ZAR', 'betaal', 'khokha', 'patala', 'lefela', 'bhatala'],
+        'calendar_request': ['book', 'schedule', 'appointment', 'bespreek', 'ukubhukisha', 'tshwaya', 'hlela', 'beya', 'dibuka'],
+        'gamification_request': ['points', 'rewards', 'achievements', 'punte', 'amanqaku', 'meputso', 'dimaka', 'umbuyekezo', 'imivuzo'],
+        'habits_request': ['habit', 'track', 'progress', 'gewoonte', 'umkhuba', 'mokgwa', 'meetlo', 'isiko', 'inkuliso'],
+        'help_request': ['help', 'support', 'assist', 'hulp', 'nceda', 'thusa', 'siza', 'nncedo']
+    }
 ```
 
-### NEW FILE: services/helpers/sa_language_helper.py
+**Change 2:** Improve error handling with localized messages
+Location: Lines 41-43
 ```python
-from typing import Dict, List
+# REMOVE:
+            logger.error(f"Error handling message: {str(e)}")
+            return format_response("I apologize, but I encountered an error. Please try again later.")
 
-class SALanguageHelper:
-    """Helper class for South African language support"""
-    
-    LANGUAGES = {
-        'en': 'English',
-        'af': 'Afrikaans',
-        'zu': 'isiZulu',
-        'xh': 'isiXhosa',
-        'st': 'Sesotho',
-        'tn': 'Setswana',
-        'nso': 'Sepedi',
-        'ts': 'Xitsonga',
-        'ss': 'siSwati',
-        've': 'Tshivenda',
-        'nr': 'isiNdebele'
+# ADD:
+            logger.error(f"Error handling message: {str(e)}")
+            error_messages = [
+                "Eish! Something went wrong. Please try again later.",
+                "Jammer! There was a problem. Can you try that again?",
+                "Ncesi! We hit a snag. Give it another go in a few minutes."
+            ]
+            return format_response(error_messages[hash(str(e)) % len(error_messages)])
+```
+
+### NEW FILE: services/helpers/sa_language_mappings.py
+```python
+"""
+South African language mappings for common phrases and responses
+"""
+
+LANGUAGE_MAPPINGS = {
+    'en': {
+        'greeting': 'Hi there!',
+        'error': 'Eish! Something went wrong.',
+        'success': 'Perfect!',
+        'confirmation': 'Is this correct?'
+    },
+    'af': {
+        'greeting': 'Goeie dag!',
+        'error': 'Jammer! Iets het verkeerd gegaan.',
+        'success': 'Perfek!',
+        'confirmation': 'Is dit reg?'
+    },
+    'zu': {
+        'greeting': 'Sawubona!',
+        'error': 'Ncesi! Kukhona okungahambanga kahle.',
+        'success': 'Kuhle!',
+        'confirmation': 'Kunjalo?'
     }
-    
-    COMMON_PHRASES = {
-        'greeting': {
-            'en': 'Hello',
-            'af': 'Hallo',
-            'zu': 'Sawubona',
-            'xh': 'Molo',
-            'st': 'Dumela',
-            'tn': 'Dumela',
-            'nso': 'Thobela',
-        },
-        'thank_you': {
-            'en': 'Thank you',
-            'af': 'Dankie',
-            'zu': 'Ngiyabonga',
-            'xh': 'Enkosi',
-            'st': 'Ke a leboha',
-            'tn': 'Ke a leboga',
-            'nso': 'Ke a leboga',
-        }
-    }
-    
-    @staticmethod
-    def get_greeting(language_code: str) -> str:
-        return SALanguageHelper.COMMON_PHRASES['greeting'].get(language_code, 'Hello')
-    
-    @staticmethod
-    def get_thank_you(language_code: str) -> str:
-        return SALanguageHelper.COMMON_PHRASES['thank_you'].get(language_code, 'Thank you')
+}
+
+def get_phrase(language: str, key: str) -> str:
+    """Get phrase in specified language, fallback to English if not found"""
+    return LANGUAGE_MAPPINGS.get(language, LANGUAGE_MAPPINGS['en']).get(key, LANGUAGE_MAPPINGS['en'][key])
 ```
 
 ## SUMMARY
-- Enhanced intent detection with more South African language keywords
-- Added confidence scoring for better intent matching
-- Created new language helper for multilingual support
-- Added support for all 11 official SA languages
-- Improved keyword matching with exact and partial match handling
+- Enhanced language support with additional South African language keywords
+- Improved error handling with localized, friendly error messages
+- Added new language mappings file for better multilingual support
+- Maintained file size limits and code organization
+- Added support for more natural South African expressions
 
-CONTINUE_NEEDED: Yes - Next steps would include integrating the language helper with the main Refiloe class and adding more sophisticated NLP features.
+CONTINUE_NEEDED: Would you like me to enhance any other aspects of the system or focus on a specific feature?
