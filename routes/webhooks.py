@@ -71,10 +71,22 @@ def whatsapp_webhook():
                                         []
                                     )
                                     
-                                    # Send response
-                                    response_text = "Hi! I received your message. Let me help you with that."
-                                    if intent.get('primary_intent'):
-                                        response_text = f"I understand you're asking about {intent['primary_intent']}. Let me help you."
+                                    # Generate smart response using existing method
+                                    response_text = ai_handler.generate_smart_response(
+                                        intent, 
+                                        sender_type='unknown',  # or determine from database
+                                        sender_data={'name': 'there', 'whatsapp': phone}
+                                    )
+                                    
+                                    # If no smart response generated, use the response generator
+                                    if not response_text or response_text == "":
+                                        from services.ai_intent_responses import AIResponseGenerator
+                                        response_generator = AIResponseGenerator()
+                                        response_text = response_generator.generate_response(
+                                            intent,
+                                            'unknown',
+                                            {'name': 'there', 'whatsapp': phone}
+                                        )
                                     
                                     whatsapp_service.send_message(phone, response_text)
                                     result = {'success': True}
