@@ -11,6 +11,7 @@ class Config:
     WHATSAPP_TOKEN = os.environ.get('ACCESS_TOKEN') or os.environ.get('WHATSAPP_TOKEN')
     WHATSAPP_PHONE_ID = os.environ.get('PHONE_NUMBER_ID') or os.environ.get('WHATSAPP_PHONE_ID')
     VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'texts_to_refiloe_radebe') 
+    WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'https://graph.facebook.com/v17.0/671257819413918/messages')
 
     # Aliases for backward compatibility
     ACCESS_TOKEN = WHATSAPP_TOKEN
