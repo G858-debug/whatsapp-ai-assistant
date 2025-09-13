@@ -1,12 +1,1 @@
-@claude @apply After all registration improvements, add comprehensive error handling and edge case management:
-
-1. Add a registration timeout (clear registration_state if abandoned for >90 minutes)
-2. Handle database errors gracefully with user-friendly messages
-3. Add logging for all registration steps for debugging
-4. Create a _handle_registration_error method that can gracefully recover from any error state
-5. Add duplicate prevention (check if phone/email already registered)
-6. Add a "help" command that works at any point in registration
-7. Add ability to type "back" to go to previous step
-8. Add ability to type "cancel" to abort registration
-
-Ensure every possible user action has a helpful response and the system never gets "stuck".
+@claude @continue @apply
