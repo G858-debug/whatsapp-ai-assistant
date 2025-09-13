@@ -1,16 +1,17 @@
-from flask import Flask, request, jsonify
+from flask import Flask
 from config import Config
-from services.refiloe import Refiloe
-from services.refiloe_handlers import handle_whatsapp_message
+from routes.dashboard import dashboard_bp
+from routes.calendar import calendar_bp
+from routes.payment import payment_bp
+from routes.webhooks import webhooks_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-@app.route('/webhook', methods=['POST'])
-def handle_webhook():
-    data = request.get_json()
-    handle_whatsapp_message(data)
-    return jsonify({'status': 'success'})
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+app.register_blueprint(calendar_bp, url_prefix='/calendar')
+app.register_blueprint(payment_bp, url_prefix='/payment')
+app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
 
 if __name__ == '__main__':
     app.run()
