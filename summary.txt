@@ -1,8 +1,12 @@
 ✅ **Changes Applied:**
-- Created services/ai_intent_handler.py
-- Created services/calendar_sync_manager.py
-- Created migration supabase/migrations/20250913055220_002_add_calendar_sync_table.sql.sql
+- Created services/registration/__init__.py
+- Created services/registration/trainer_registration.py
+- Created services/registration/client_registration.py
+- Created services/registration/registration_state.py
+- Created services/registration/edit_handlers.py
+- Created services/helpers/whatsapp_helpers.py
+- Created services/helpers/validation_helpers.py
 
-🤖 **Model:** Haiku 3
-💰 **Cost:** $0.0001
-🔢 **Max Tokens:** 4,000
+🤖 **Model:** Opus 4.1
+💰 **Cost:** $1.5373
+🔢 **Max Tokens:** 16,000

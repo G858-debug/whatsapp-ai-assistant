@@ -1,1 +1,14 @@
-@claude @apply the implementation based on your analysis
+@claude @apply split the refiloe_helpers.py file into the following structure
+
+services/
+  registration/
+    __init__.py
+    trainer_registration.py  # 300 lines
+    client_registration.py   # 300 lines
+    registration_state.py    # 200 lines
+    edit_handlers.py        # 200 lines
+  
+  refiloe.py               # Main orchestrator
+  helpers/
+    whatsapp_helpers.py
+    validation_helpers.py
