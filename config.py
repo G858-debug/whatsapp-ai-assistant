@@ -16,3 +16,6 @@ class Config:
 
      # Admin settings
     ADMIN_EMAIL = 'refiloe@refiloeradebe.co.za'
+    
+    # Other settings
+    TIMEZONE = 'Africa/Johannesburg'
