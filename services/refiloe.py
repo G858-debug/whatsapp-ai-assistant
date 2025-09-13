@@ -13,6 +13,7 @@ from services.text_variation_handler import TextVariationHandler
 from services.ai_intent_handler import AIIntentHandler
 from services.helpers.validation_helpers import ValidationHelpers
 from services.helpers.whatsapp_helpers import WhatsAppHelpers
+from services.refiloe_helpers import RefiloeHelpers
 
 class RefiloeService:
     """Main orchestration service for message routing and session management"""
@@ -31,6 +32,7 @@ class RefiloeService:
         self.ai_handler = AIIntentHandler(Config, supabase_client)
         self.validation = ValidationHelpers()
         self.whatsapp_helpers = WhatsAppHelpers()
+        self.helpers = RefiloeHelpers(supabase_client, whatsapp_service, config)
         
         # Session timeout (24 hours)
         self.SESSION_TIMEOUT_HOURS = 24
