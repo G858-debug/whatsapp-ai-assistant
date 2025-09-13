@@ -258,39 +258,6 @@ class RefiloeService:
                 'message': "Sorry, I couldn't start the registration. Please try again."
             }
     
-    def _continue_registration(self, session: Dict, message: str) -> Dict:
-        """Continue registration flow based on current step"""
-        try:
-            step = session.get('step', '')
-            user_type = session.get('user_type', '')
-            session_id = session['id']
-            
-            # Handle confirmation step with text variations
-            if step in ['confirmation', 'confirm']:
-                return self._handle_confirmation(session_id, message, session)
-            
-            # Handle edit mode
-            if step.startswith('edit_'):
-                return self._handle_edit(session_id, message, session)
-            
-            # Regular step processing
-            if user_type == 'trainer':
-                return self.trainer_handler.process_trainer_step(session_id, step, message)
-            elif user_type == 'client':
-                return self.client_handler.process_client_step(session_id, step, message)
-            else:
-                return {
-                    'success': False,
-                    'message': 'Invalid registration session. Please start over.'
-                }
-                
-        except Exception as e:
-            log_error(f"Error continuing registration: {str(e)}")
-            return {
-                'success': False,
-                'message': "Sorry, there was an error. Let's try that again.\n\nWhat would you like to enter?"
-            }
-    
     def _handle_confirmation(self, session_id: str, message: str, session: Dict) -> Dict:
         """Handle confirmation step with text variations"""
         try:
