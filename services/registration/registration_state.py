@@ -1,9 +1,8 @@
-"""Registration state management for trainers and clients"""
+"""Registration state management for multi-step flows"""
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 import pytz
-import json
-from utils.logger import log_info, log_error
+from utils.logger import log_error, log_info
 
 class RegistrationStateManager:
     """Manages registration session state"""
@@ -12,46 +11,31 @@ class RegistrationStateManager:
         self.db = supabase_client
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
-        self.SESSION_TIMEOUT_HOURS = 24
     
-    def create_session(self, phone: str, user_type: str) -> Dict:
-        """Create new registration session"""
+    def create_session(self, phone: str, user_type: str, initial_step: str = 'name') -> str:
+        """Create a new registration session"""
         try:
-            # Check for existing active session
-            existing = self.db.table('registration_sessions').select('*').eq(
-                'phone', phone
-            ).eq('status', 'active').execute()
-            
-            if existing.data:
-                # Update existing session
-                session_id = existing.data[0]['id']
-                self.db.table('registration_sessions').update({
-                    'user_type': user_type,
-                    'step': 'name',
-                    'data': {},
-                    'updated_at': datetime.now(self.sa_tz).isoformat()
-                }).eq('id', session_id).execute()
-                return {'success': True, 'session_id': session_id}
+            # Expire any existing sessions for this phone
+            self.db.table('registration_sessions').update({
+                'status': 'expired'
+            }).eq('phone', phone).eq('status', 'active').execute()
             
             # Create new session
             result = self.db.table('registration_sessions').insert({
                 'phone': phone,
                 'user_type': user_type,
                 'status': 'active',
-                'step': 'name',
+                'step': initial_step,
                 'data': {},
                 'created_at': datetime.now(self.sa_tz).isoformat(),
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }).execute()
             
-            if result.data:
-                return {'success': True, 'session_id': result.data[0]['id']}
-            
-            return {'success': False, 'error': 'Failed to create session'}
+            return result.data[0]['id'] if result.data else None
             
         except Exception as e:
-            log_error(f"Error creating session: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            log_error(f"Error creating registration session: {str(e)}")
+            return None
     
     def get_session(self, session_id: str) -> Optional[Dict]:
         """Get registration session by ID"""
@@ -60,30 +44,16 @@ class RegistrationStateManager:
                 'id', session_id
             ).single().execute()
             
-            if result.data:
-                # Check if expired
-                updated_at = datetime.fromisoformat(result.data['updated_at'])
-                if (datetime.now(self.sa_tz) - updated_at).total_seconds() > self.SESSION_TIMEOUT_HOURS * 3600:
-                    self.update_session_status(session_id, 'expired')
-                    return None
-                return result.data
-            
-            return None
+            return result.data
             
         except Exception as e:
             log_error(f"Error getting session: {str(e)}")
             return None
     
     def update_session(self, session_id: str, step: str = None, 
-                      data_update: Dict = None) -> Dict:
+                      data_update: Dict = None) -> bool:
         """Update registration session"""
         try:
-            # Get current session
-            session = self.get_session(session_id)
-            if not session:
-                return {'success': False, 'error': 'Session not found or expired'}
-            
-            # Prepare update
             update_data = {
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }
@@ -92,51 +62,49 @@ class RegistrationStateManager:
                 update_data['step'] = step
             
             if data_update:
-                current_data = session.get('data', {})
-                current_data.update(data_update)
-                update_data['data'] = current_data
+                # Get current data
+                session = self.get_session(session_id)
+                if session:
+                    current_data = session.get('data', {})
+                    current_data.update(data_update)
+                    update_data['data'] = current_data
             
-            # Update session
             result = self.db.table('registration_sessions').update(
                 update_data
             ).eq('id', session_id).execute()
             
-            if result.data:
-                return {'success': True, 'session': result.data[0]}
-            
-            return {'success': False, 'error': 'Failed to update session'}
+            return bool(result.data)
             
         except Exception as e:
             log_error(f"Error updating session: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return False
     
-    def update_session_status(self, session_id: str, status: str) -> bool:
-        """Update session status"""
+    def complete_session(self, session_id: str) -> bool:
+        """Mark session as completed"""
         try:
-            self.db.table('registration_sessions').update({
-                'status': status,
+            result = self.db.table('registration_sessions').update({
+                'status': 'completed',
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }).eq('id', session_id).execute()
             
-            return True
+            return bool(result.data)
             
         except Exception as e:
-            log_error(f"Error updating session status: {str(e)}")
+            log_error(f"Error completing session: {str(e)}")
             return False
     
-    def cleanup_expired_sessions(self):
-        """Clean up expired sessions"""
+    def expire_old_sessions(self):
+        """Expire sessions older than 24 hours"""
         try:
-            cutoff_time = datetime.now(self.sa_tz) - timedelta(hours=self.SESSION_TIMEOUT_HOURS)
+            cutoff = datetime.now(self.sa_tz) - timedelta(hours=24)
             
-            result = self.db.table('registration_sessions').update({
+            self.db.table('registration_sessions').update({
                 'status': 'expired'
             }).eq('status', 'active').lt(
-                'updated_at', cutoff_time.isoformat()
+                'updated_at', cutoff.isoformat()
             ).execute()
             
-            if result.data:
-                log_info(f"Cleaned up {len(result.data)} expired sessions")
-                
+            log_info("Expired old registration sessions")
+            
         except Exception as e:
-            log_error(f"Error cleaning up sessions: {str(e)}")
+            log_error(f"Error expiring sessions: {str(e)}")

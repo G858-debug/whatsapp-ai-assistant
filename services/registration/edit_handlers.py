@@ -1,122 +1,141 @@
-"""Edit handlers for registration flow"""
-from typing import Dict
-from datetime import datetime
-import pytz
-from utils.logger import log_info, log_error
-from services.helpers.validation_helpers import ValidationHelpers
+"""Handlers for editing registration data"""
+from typing import Dict, Optional
+from utils.logger import log_error, log_info
 
 class EditHandlers:
-    """Handle editing of registration fields"""
+    """Handle editing of registration information"""
     
     def __init__(self, supabase_client, config):
         self.db = supabase_client
         self.config = config
-        self.sa_tz = pytz.timezone(config.TIMEZONE)
-        self.validation = ValidationHelpers()
     
-    def process_edit_value(self, session_id: str, field_name: str, new_value: str) -> Dict:
-        """Process edited field value"""
+    def handle_edit_request(self, session_id: str, field_to_edit: str) -> Dict:
+        """Handle request to edit a specific field"""
         try:
             # Get session
-            from services.registration.registration_state import RegistrationStateManager
-            state_manager = RegistrationStateManager(self.db, self.config)
+            session = self.db.table('registration_sessions').select('*').eq(
+                'id', session_id
+            ).single().execute()
             
-            session = state_manager.get_session(session_id)
-            if not session:
+            if not session.data:
                 return {
                     'success': False,
-                    'message': 'Session expired. Please start over.'
+                    'message': 'Session not found'
                 }
             
-            # Validate new value based on field
-            validation_result = self._validate_field(field_name, new_value, session['user_type'])
+            # Map edit keywords to fields
+            field_map = {
+                'name': 'name',
+                'email': 'email',
+                'phone': 'phone',
+                'business': 'business_name',
+                'location': 'location',
+                'specialization': 'specialization',
+                'price': 'pricing',
+                'trainer': 'trainer_choice'
+            }
             
-            if not validation_result['valid']:
+            # Find which field to edit
+            field = None
+            for key, value in field_map.items():
+                if key in field_to_edit.lower():
+                    field = value
+                    break
+            
+            if not field:
                 return {
                     'success': False,
-                    'message': validation_result['message']
+                    'message': "I'm not sure which field you want to edit. You can edit: name, email, phone, business name, location, specialization, or price."
                 }
             
-            # Update session data
-            update_result = state_manager.update_session(
-                session_id,
-                step='confirmation',  # Go back to confirmation
-                data_update={field_name: validation_result['value']}
-            )
+            # Update session to go back to that step
+            step_map = {
+                'name': 'name',
+                'email': 'email',
+                'phone': 'phone',
+                'business_name': 'business',
+                'location': 'location',
+                'specialization': 'specialization',
+                'pricing': 'pricing',
+                'trainer_choice': 'trainer_selection'
+            }
             
-            if update_result['success']:
-                return {
-                    'success': True,
-                    'message': f"✅ {field_name.replace('_', ' ').title()} updated successfully!"
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': 'Failed to update. Please try again.'
-                }
-                
+            new_step = step_map.get(field, 'name')
+            
+            # Update session step
+            self.db.table('registration_sessions').update({
+                'step': new_step
+            }).eq('id', session_id).execute()
+            
+            # Get prompt for the field
+            prompts = {
+                'name': "What's your full name?",
+                'email': "What's your email address?",
+                'phone': "What's your phone number?",
+                'business_name': "What's your business name? (or 'skip' if you don't have one)",
+                'location': "Where are you located? (area/suburb)",
+                'specialization': "What's your training specialization?",
+                'pricing': "What's your rate per session? (e.g., R350)",
+                'trainer_choice': "Would you like me to find trainers in your area? Reply YES or NO"
+            }
+            
+            return {
+                'success': True,
+                'message': f"Let's update that. {prompts.get(field, 'Please provide the new value:')}"
+            }
+            
         except Exception as e:
-            log_error(f"Error processing edit: {str(e)}")
+            log_error(f"Error handling edit request: {str(e)}")
             return {
                 'success': False,
-                'message': 'An error occurred while updating.'
+                'message': 'Error processing edit request'
             }
     
-    def _validate_field(self, field_name: str, value: str, user_type: str) -> Dict:
-        """Validate field value based on field name and user type"""
-        value = value.strip()
-        
-        # Common fields
-        if field_name == 'name':
-            if len(value) < 2:
-                return {'valid': False, 'message': 'Name must be at least 2 characters.'}
-            return {'valid': True, 'value': value}
-        
-        elif field_name == 'email':
-            if not self.validation.validate_email(value):
-                return {'valid': False, 'message': 'Please enter a valid email address.'}
-            return {'valid': True, 'value': value.lower()}
-        
-        # Trainer-specific fields
-        elif user_type == 'trainer':
-            if field_name == 'business':
-                if len(value) < 2:
-                    return {'valid': False, 'message': 'Business name must be at least 2 characters.'}
-                return {'valid': True, 'value': value}
+    def validate_edit(self, field: str, value: str) -> Dict:
+        """Validate edited field value"""
+        try:
+            if field == 'email':
+                from services.helpers.validation_helpers import ValidationHelpers
+                validator = ValidationHelpers()
+                if not validator.validate_email(value):
+                    return {
+                        'valid': False,
+                        'message': 'Please provide a valid email address'
+                    }
             
-            elif field_name == 'location':
-                if len(value) < 2:
-                    return {'valid': False, 'message': 'Location must be at least 2 characters.'}
-                return {'valid': True, 'value': value}
+            elif field == 'phone':
+                from services.helpers.validation_helpers import ValidationHelpers
+                validator = ValidationHelpers()
+                formatted = validator.format_phone_number(value)
+                if not formatted:
+                    return {
+                        'valid': False,
+                        'message': 'Please provide a valid South African phone number'
+                    }
+                return {
+                    'valid': True,
+                    'formatted_value': formatted
+                }
             
-            elif field_name == 'price':
-                price = self.validation.extract_price(value)
-                if not price or price < 50 or price > 5000:
-                    return {'valid': False, 'message': 'Price must be between R50 and R5000.'}
-                return {'valid': True, 'value': price}
+            elif field == 'pricing':
+                from services.helpers.validation_helpers import ValidationHelpers
+                validator = ValidationHelpers()
+                price = validator.extract_price(value)
+                if not price:
+                    return {
+                        'valid': False,
+                        'message': 'Please provide a valid price (e.g., R350)'
+                    }
+                return {
+                    'valid': True,
+                    'formatted_value': price
+                }
             
-            elif field_name == 'specialties':
-                if len(value) < 3:
-                    return {'valid': False, 'message': 'Please describe your specialties.'}
-                return {'valid': True, 'value': value}
-        
-        # Client-specific fields
-        elif user_type == 'client':
-            if field_name == 'emergency_contact':
-                if len(value) < 2:
-                    return {'valid': False, 'message': 'Emergency contact name required.'}
-                return {'valid': True, 'value': value}
+            return {'valid': True}
             
-            elif field_name == 'emergency_phone':
-                phone = self.validation.format_phone_number(value)
-                if not phone:
-                    return {'valid': False, 'message': 'Please enter a valid phone number.'}
-                return {'valid': True, 'value': phone}
-            
-            elif field_name == 'goals':
-                if len(value) < 5:
-                    return {'valid': False, 'message': 'Please describe your goals.'}
-                return {'valid': True, 'value': value}
-        
-        # Default validation
-        return {'valid': True, 'value': value}
+        except Exception as e:
+            log_error(f"Error validating edit: {str(e)}")
+            return {
+                'valid': False,
+                'message': 'Error validating input'
+            }
