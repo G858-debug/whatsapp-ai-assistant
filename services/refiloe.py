@@ -83,7 +83,8 @@ class Refiloe:
             
         except Exception as e:
             logger.error(f"Error handling message: {str(e)}")
-            return format_response("I apologize, but I encountered an error. Please try again later.")
+            error_msg = get_language_response('error_message', message.get('language', 'en'))
+            return format_response(error_msg)
 
     def detect_intent(self, message_text: str) -> str:
         for intent, keywords in self.INTENT_KEYWORDS.items():
