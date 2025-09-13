@@ -1,158 +1,94 @@
-"""Rate limiting utilities for Refiloe"""
-from typing import Dict, Tuple, Optional
+"""Rate limiting utilities"""
 from datetime import datetime, timedelta
-from collections import defaultdict
-import time
+from typing import Dict, Optional
+from utils.logger import log_warning, log_info
 
 class RateLimiter:
-    """Handle rate limiting for messages and API calls"""
+    """Rate limiter for API calls and user actions"""
     
     def __init__(self, config, supabase_client):
         self.config = config
         self.db = supabase_client
         
-        # In-memory cache for rate limiting (could use Redis in production)
-        self.request_counts = defaultdict(list)
-        self.message_counts = defaultdict(list)
+        # Default limits
+        self.limits = {
+            'message': {'count': 60, 'window': 60},  # 60 messages per minute
+            'api': {'count': 100, 'window': 60},     # 100 API calls per minute
+            'registration': {'count': 3, 'window': 3600}  # 3 registration attempts per hour
+        }
         
-        # Limits from config
-        self.message_limit = config.MESSAGE_RATE_LIMIT
-        self.voice_limit = config.VOICE_MESSAGE_RATE_LIMIT
-        self.webhook_limit = 100  # Per minute
-        
-    def check_message_rate(self, phone_number: str, message_type: str = 'text') -> Tuple[bool, Optional[str]]:
-        """
-        Check if user has exceeded message rate limit
-        
-        Returns:
-            Tuple of (allowed, error_message)
-        """
-        now = time.time()
-        window = 60  # 1 minute window
-        
-        # Get appropriate limit
-        if message_type == 'audio':
-            limit = self.voice_limit
-        else:
-            limit = self.message_limit
-        
-        # Clean old entries
-        self.message_counts[phone_number] = [
-            timestamp for timestamp in self.message_counts[phone_number]
-            if now - timestamp < window
-        ]
-        
-        # Check limit
-        if len(self.message_counts[phone_number]) >= limit:
-            wait_time = window - (now - self.message_counts[phone_number][0])
-            return False, f"Rate limit exceeded. Please wait {int(wait_time)} seconds."
-        
-        # Add current request
-        self.message_counts[phone_number].append(now)
-        return True, None
+        # In-memory cache for performance
+        self.cache: Dict[str, Dict] = {}
     
-    def check_webhook_rate(self, ip_address: str) -> bool:
+    def check_limit(self, identifier: str, action_type: str = 'message') -> bool:
         """
-        Check if IP has exceeded webhook rate limit
+        Check if action is within rate limit
         
+        Args:
+            identifier: User identifier (phone number or ID)
+            action_type: Type of action being rate limited
+            
         Returns:
-            Boolean indicating if request is allowed
-        """
-        now = time.time()
-        window = 60  # 1 minute window
-        
-        # Clean old entries
-        self.request_counts[ip_address] = [
-            timestamp for timestamp in self.request_counts[ip_address]
-            if now - timestamp < window
-        ]
-        
-        # Check limit
-        if len(self.request_counts[ip_address]) >= self.webhook_limit:
-            return False
-        
-        # Add current request
-        self.request_counts[ip_address].append(now)
-        return True
-    
-    def check_daily_limit(self, phone_number: str) -> Tuple[bool, int]:
-        """
-        Check daily message limit (database backed)
-        
-        Returns:
-            Tuple of (within_limit, messages_remaining)
+            True if within limit, False if exceeded
         """
         try:
-            today = datetime.now().date().isoformat()
+            limit_config = self.limits.get(action_type, self.limits['message'])
+            cache_key = f"{identifier}:{action_type}"
             
-            # Get today's message count
-            result = self.db.table('daily_usage').select('message_count').eq(
-                'phone_number', phone_number
-            ).eq('date', today).single().execute()
+            # Check cache first
+            if cache_key in self.cache:
+                cached = self.cache[cache_key]
+                if (datetime.now() - cached['timestamp']).seconds < limit_config['window']:
+                    if cached['count'] >= limit_config['count']:
+                        log_warning(f"Rate limit exceeded for {identifier} - {action_type}")
+                        return False
+                    cached['count'] += 1
+                    return True
+                else:
+                    # Window expired, reset
+                    self.cache[cache_key] = {
+                        'count': 1,
+                        'timestamp': datetime.now()
+                    }
+                    return True
             
-            daily_limit = 500  # Daily limit per user
-            
-            if result.data:
-                count = result.data.get('message_count', 0)
-                remaining = daily_limit - count
-                
-                if count >= daily_limit:
-                    return False, 0
-                
-                # Increment count
-                self.db.table('daily_usage').update({
-                    'message_count': count + 1,
-                    'last_message_at': datetime.now().isoformat()
-                }).eq('phone_number', phone_number).eq('date', today).execute()
-                
-                return True, remaining - 1
-            else:
-                # Create new daily record
-                self.db.table('daily_usage').insert({
-                    'phone_number': phone_number,
-                    'date': today,
-                    'message_count': 1,
-                    'last_message_at': datetime.now().isoformat()
-                }).execute()
-                
-                return True, daily_limit - 1
-                
-        except Exception:
-            # On error, allow the request
-            return True, -1
-    
-    def reset_user_limits(self, phone_number: str):
-        """Reset rate limits for a user (admin function)"""
-        if phone_number in self.message_counts:
-            del self.message_counts[phone_number]
-    
-    def get_user_usage(self, phone_number: str) -> Dict:
-        """Get usage statistics for a user"""
-        try:
-            # Get last 7 days of usage
-            week_ago = (datetime.now() - timedelta(days=7)).date().isoformat()
-            
-            result = self.db.table('daily_usage').select('*').eq(
-                'phone_number', phone_number
-            ).gte('date', week_ago).execute()
-            
-            if result.data:
-                total_messages = sum(r.get('message_count', 0) for r in result.data)
-                days_active = len(result.data)
-                
-                return {
-                    'total_messages_week': total_messages,
-                    'days_active': days_active,
-                    'average_daily': total_messages / 7 if total_messages > 0 else 0,
-                    'current_minute_count': len(self.message_counts.get(phone_number, []))
-                }
-            
-            return {
-                'total_messages_week': 0,
-                'days_active': 0,
-                'average_daily': 0,
-                'current_minute_count': 0
+            # Initialize cache entry
+            self.cache[cache_key] = {
+                'count': 1,
+                'timestamp': datetime.now()
             }
+            return True
             
-        except Exception:
-            return {}
+        except Exception as e:
+            log_warning(f"Rate limiter error: {str(e)}")
+            return True  # Allow on error to avoid blocking users
+    
+    def reset_limit(self, identifier: str, action_type: str = None):
+        """Reset rate limit for identifier"""
+        if action_type:
+            cache_key = f"{identifier}:{action_type}"
+            if cache_key in self.cache:
+                del self.cache[cache_key]
+        else:
+            # Reset all limits for identifier
+            keys_to_delete = [k for k in self.cache.keys() if k.startswith(f"{identifier}:")]
+            for key in keys_to_delete:
+                del self.cache[key]
+    
+    def cleanup_cache(self):
+        """Remove expired entries from cache"""
+        current_time = datetime.now()
+        keys_to_delete = []
+        
+        for key, value in self.cache.items():
+            action_type = key.split(':')[1] if ':' in key else 'message'
+            limit_config = self.limits.get(action_type, self.limits['message'])
+            
+            if (current_time - value['timestamp']).seconds > limit_config['window']:
+                keys_to_delete.append(key)
+        
+        for key in keys_to_delete:
+            del self.cache[key]
+        
+        if keys_to_delete:
+            log_info(f"Cleaned up {len(keys_to_delete)} expired rate limit entries")
