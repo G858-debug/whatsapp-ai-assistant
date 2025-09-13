@@ -1,107 +1,116 @@
-<!-- Model: Haiku 3 -->
-<!-- Cost: $0.0001 -->
-<!-- Max Tokens: 4000 -->
+<!-- Model: Sonnet 3.5 -->
+<!-- Cost: $0.0025 -->
+<!-- Max Tokens: 8000 -->
 <!-- CONTINUATION NEEDED -->
 ## ANALYSIS
-
-The project structure provided does not have any existing files, so this is a new project setup. We need to create the necessary files and directories to set up the initial Flask application.
+The initial project structure shows a basic Flask application with WhatsApp integration. The main Refiloe class needs improvement in intent detection and error handling. We should enhance the intent detection logic and add proper error handling.
 
 ## CHANGES NEEDED
 
-### NEW FILE: app.py
+### EDIT: services/refiloe.py
+
+**Change 1:** Improve intent detection and add error handling
+Location: Lines 8-28
+
 ```python
-from flask import Flask
-from config import Config
-from routes.dashboard import dashboard_bp
-from routes.calendar import calendar_bp
-from routes.payment import payment_bp
-from routes.webhooks import webhooks_bp
+# REMOVE (lines 8-28):
+class Refiloe:
+    def handle_message(self, message):
+        intent = self.detect_intent(message)
+        if intent == 'client_registration':
+            handle_client_registration(message)
+        elif intent == 'client_profile_update':
+            handle_client_profile_update(message)
+        elif intent == 'payment_request':
+            handle_payment_request(message)
+        elif intent == 'calendar_request':
+            handle_calendar_request(message)
+        elif intent == 'gamification_request':
+            handle_gamification_request(message)
+        elif intent == 'habits_request':
+            handle_habits_request(message)
+        else:
+            handle_intent(message)
 
-app = Flask(__name__)
-app.config.from_object(Config)
+    def detect_intent(self, message):
+        # Implement intent detection logic here
+        return 'client_registration'
 
-app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-app.register_blueprint(calendar_bp, url_prefix='/calendar')
-app.register_blueprint(payment_bp, url_prefix='/payment')
-app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
+# ADD:
+from typing import Dict, Any
+import logging
+from services.helpers.whatsapp_helpers import format_response
 
-if __name__ == '__main__':
-    app.run()
+logger = logging.getLogger(__name__)
+
+class Refiloe:
+    INTENT_KEYWORDS = {
+        'client_registration': ['register', 'sign up', 'join'],
+        'client_profile_update': ['update profile', 'edit profile', 'change details'],
+        'payment_request': ['pay', 'payment', 'invoice'],
+        'calendar_request': ['book', 'schedule', 'appointment'],
+        'gamification_request': ['points', 'rewards', 'achievements'],
+        'habits_request': ['habit', 'track', 'progress']
+    }
+
+    def handle_message(self, message: Dict[str, Any]) -> str:
+        try:
+            intent = self.detect_intent(message.get('text', '').lower())
+            
+            intent_handlers = {
+                'client_registration': handle_client_registration,
+                'client_profile_update': handle_client_profile_update,
+                'payment_request': handle_payment_request,
+                'calendar_request': handle_calendar_request,
+                'gamification_request': handle_gamification_request,
+                'habits_request': handle_habits_request
+            }
+            
+            handler = intent_handlers.get(intent, handle_intent)
+            return handler(message)
+            
+        except Exception as e:
+            logger.error(f"Error handling message: {str(e)}")
+            return format_response("I apologize, but I encountered an error. Please try again later.")
+
+    def detect_intent(self, message_text: str) -> str:
+        for intent, keywords in self.INTENT_KEYWORDS.items():
+            if any(keyword in message_text for keyword in keywords):
+                return intent
+        return 'unknown'
 ```
 
-### NEW FILE: config.py
+### NEW FILE: services/helpers/error_handlers.py
 ```python
-import os
+import logging
+from typing import Callable, Any
+from functools import wraps
 
-class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key'
-    SUPABASE_URL = os.environ.get('SUPABASE_URL')
-    SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
-    WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL')
-    WHATSAPP_API_TOKEN = os.environ.get('WHATSAPP_API_TOKEN')
-    PAYFAST_MERCHANT_ID = os.environ.get('PAYFAST_MERCHANT_ID')
-    PAYFAST_MERCHANT_KEY = os.environ.get('PAYFAST_MERCHANT_KEY')
-    PAYFAST_RETURN_URL = os.environ.get('PAYFAST_RETURN_URL')
-    PAYFAST_CANCEL_URL = os.environ.get('PAYFAST_CANCEL_URL')
-```
+logger = logging.getLogger(__name__)
 
-### NEW FILE: routes/dashboard.py
-```python
-from flask import Blueprint, render_template
-
-dashboard_bp = Blueprint('dashboard', __name__)
-
-@dashboard_bp.route('/')
-def dashboard():
-    return render_template('dashboard.html')
-```
-
-### NEW FILE: routes/calendar.py
-```python
-from flask import Blueprint, render_template
-
-calendar_bp = Blueprint('calendar', __name__)
-
-@calendar_bp.route('/')
-def calendar():
-    return render_template('calendar.html')
-```
-
-### NEW FILE: routes/payment.py
-```python
-from flask import Blueprint, render_template, redirect, url_for
-
-payment_bp = Blueprint('payment', __name__)
-
-@payment_bp.route('/checkout')
-def checkout():
-    return render_template('payment/checkout.html')
-
-@payment_bp.route('/success')
-def payment_success():
-    return render_template('payment/success.html')
-
-@payment_bp.route('/cancel')
-def payment_cancel():
-    return render_template('payment/cancel.html')
-```
-
-### NEW FILE: routes/webhooks.py
-```python
-from flask import Blueprint, request, jsonify
-
-webhooks_bp = Blueprint('webhooks', __name__)
-
-@webhooks_bp.route('/payfast', methods=['POST'])
-def payfast_webhook():
-    # Handle PayFast webhook here
-    return jsonify({'message': 'Webhook received'}), 200
+def safe_handle(func: Callable) -> Callable:
+    @wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in {func.__name__}: {str(e)}")
+            return {
+                "success": False,
+                "error": f"An error occurred while processing your request: {str(e)}"
+            }
+    return wrapper
 ```
 
 ## SUMMARY
+- Enhanced the Refiloe class with proper intent detection using keywords
+- Added type hints and error handling
+- Created a dictionary-based intent handler mapping
+- Added a new error handlers module for consistent error handling
+- Improved logging for better debugging
+- Added safe_handle decorator for uniform error handling across handlers
 
-The changes above create the initial Flask application structure with the necessary routes for the dashboard, calendar, payment, and webhooks functionality. The `app.py` file sets up the Flask application and registers the blueprints. The `config.py` file defines the application configuration parameters.
-
-The route files (`dashboard.py`, `calendar.py`, `payment.py`, and `webhooks.py`) define the initial endpoints for the respective features. More functionality can be added to these files as the project progresses.
-
-CONTINUE_NEEDED
+CONTINUE_NEEDED: Next steps should include:
+1. Implementing the format_response helper function
+2. Adding more sophisticated intent detection
+3. Creating unit tests for the new functionality
