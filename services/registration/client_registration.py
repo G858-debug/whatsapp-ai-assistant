@@ -48,6 +48,13 @@ class ClientRegistrationHandler:
                 'success': False,
                 'message': "Sorry, I couldn't start the registration. Please try again."
             }
+            
+        except Exception as e:  # THIS WAS MISSING!
+            log_error(f"Error starting client registration: {str(e)}")
+            return {
+                'success': False,
+                'message': "An error occurred. Please try again."
+            }
     
     def process_client_step(self, session_id: str, step: str, input_text: str) -> Dict:
         """Process a registration step - delegates to RefiloeHelpers for special steps"""
@@ -292,9 +299,9 @@ Your account is ready!
 We'll help you find the perfect trainer.
 
 What would you like to do?
-• Browse trainers: "show trainers"
-• Get matched: "find trainer for me"
-• Learn more: "how it works"
+- Browse trainers: "show trainers"
+- Get matched: "find trainer for me"
+- Learn more: "how it works"
 
 Type 'help' anytime for assistance."""
                     }
