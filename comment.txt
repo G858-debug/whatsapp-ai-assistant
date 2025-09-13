@@ -1,1 +1,1 @@
-@claude @continue @apply @sonnet
+@claude @continue @apply @Sonnet

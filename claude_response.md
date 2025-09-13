@@ -1,92 +1,102 @@
 <!-- Model: Sonnet 3.5 -->
-<!-- Cost: $0.0047 -->
+<!-- Cost: $0.0048 -->
 <!-- Max Tokens: 8000 -->
-<!-- CONTINUATION NEEDED -->
 ## ANALYSIS
-The initial project structure looks solid, but there are a few issues to address:
-1. Missing `refiloe_handlers.py` which is imported in `services/refiloe.py`
-2. Need to improve error handling and response formatting
-3. Should add multi-language support helpers
+Looking at the codebase, `services/refiloe.py` needs some key improvements:
+1. Missing error handler import
+2. Missing language response helper
+3. Better error handling structure needed
+4. Type hints need improvement
 
 ## CHANGES NEEDED
 
-### NEW FILE: services/refiloe_handlers.py
-```python
-from typing import Dict, Any
-from services.helpers.whatsapp_helpers import format_response
-from services.helpers.sa_language_helper import get_language_response
-from models.client import Client
-import logging
-
-logger = logging.getLogger(__name__)
-
-def handle_client_registration(message: Dict[str, Any]) -> str:
-    """Handle new client registration requests"""
-    try:
-        phone = message.get('from', '')
-        if not phone:
-            return format_response("Invalid phone number received")
-            
-        # Check if client already exists
-        existing_client = Client.get_by_phone(phone)
-        if existing_client:
-            return format_response("You are already registered! Need help? Just ask.")
-            
-        # Start registration flow
-        return format_response(
-            "Welcome to Refiloe! Let's get you registered.\n"
-            "Please share your:\n"
-            "1. Full name\n"
-            "2. Preferred language (English/Afrikaans/Xhosa/Zulu/Sotho)\n"
-            "3. Fitness goals"
-        )
-        
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        return format_response("Sorry, there was an error with registration. Please try again.")
-
-def handle_client_profile_update(message: Dict[str, Any]) -> str:
-    """Handle client profile update requests"""
-    try:
-        phone = message.get('from', '')
-        client = Client.get_by_phone(phone)
-        
-        if not client:
-            return format_response("Please register first before updating your profile.")
-            
-        return format_response(
-            "What would you like to update?\n"
-            "1. Name\n"
-            "2. Language preference\n"
-            "3. Fitness goals\n"
-            "Reply with the number of your choice."
-        )
-        
-    except Exception as e:
-        logger.error(f"Profile update error: {str(e)}")
-        return format_response("Sorry, there was an error. Please try again later.")
-```
-
 ### EDIT: services/refiloe.py
 
-**Change 1:** Add error message translations
-Location: Line 86
+**Change 1:** Add missing imports
+Location: After line 10
 ```python
-# REMOVE:
-            return format_response("I apologize, but I encountered an error. Please try again later.")
-
 # ADD:
+from services.helpers.error_handlers import handle_whatsapp_error
+from services.helpers.sa_language_helper import get_language_response
+```
+
+**Change 2:** Improve type hints and error handling
+Location: Lines 68-87
+```python
+# REMOVE (lines 68-87):
+    def handle_message(self, message: Dict[str, Any]) -> str:
+        try:
+            intent = self.detect_intent(message.get('text', '').lower())
+            
+            intent_handlers = {
+                'client_registration': handle_client_registration,
+                'client_profile_update': handle_client_profile_update,
+                'payment_request': handle_payment_request,
+                'calendar_request': handle_calendar_request,
+                'gamification_request': handle_gamification_request,
+                'habits_request': handle_habits_request
+            }
+            
+            handler = intent_handlers.get(intent, handle_intent)
+            return handler(message)
+            
+        except Exception as e:
+            logger.error(f"Error handling message: {str(e)}")
             error_msg = get_language_response('error_message', message.get('language', 'en'))
             return format_response(error_msg)
+
+# ADD:
+    def handle_message(self, message: Dict[str, Any]) -> str:
+        """Handle incoming WhatsApp messages and route to appropriate handler"""
+        try:
+            if not message.get('text'):
+                return format_response(get_language_response('invalid_message', 
+                    message.get('language', 'en')))
+                
+            intent = self.detect_intent(message['text'].lower())
+            
+            intent_handlers: Dict[str, Callable] = {
+                'client_registration': handle_client_registration,
+                'client_profile_update': handle_client_profile_update,
+                'payment_request': handle_payment_request,
+                'calendar_request': handle_calendar_request,
+                'gamification_request': handle_gamification_request,
+                'habits_request': handle_habits_request
+            }
+            
+            handler = intent_handlers.get(intent, handle_intent)
+            return handler(message)
+            
+        except Exception as e:
+            return handle_whatsapp_error(e, message.get('language', 'en'))
+```
+
+**Change 3:** Improve intent detection type hints
+Location: Lines 89-93
+```python
+# REMOVE (lines 89-93):
+    def detect_intent(self, message_text: str) -> str:
+        for intent, keywords in self.INTENT_KEYWORDS.items():
+            if any(keyword in message_text for keyword in keywords):
+                return intent
+        return 'unknown'
+
+# ADD:
+    def detect_intent(self, message_text: str) -> str:
+        """Detect intent from message text using keyword matching"""
+        message_text = message_text.strip().lower()
+        for intent, keywords in self.INTENT_KEYWORDS.items():
+            if any(keyword in message_text for keyword in keywords):
+                return intent
+        return 'unknown'
 ```
 
 ## SUMMARY
-- Created new `refiloe_handlers.py` with implementation for client registration and profile update handlers
-- Added multi-language support for error messages
-- Improved error handling with proper logging
-- Added basic client management functionality
+- Added missing imports for error handling and language helpers
+- Improved type hints throughout the file
+- Added better input validation for messages
+- Improved error handling using dedicated handler
+- Added docstrings for key methods
+- Enhanced intent detection with better text preprocessing
 
-CONTINUE_NEEDED: Yes, next steps should include:
-1. Implementing the Client model
-2. Adding language detection service
-3. Creating SA-specific validation helpers
+These changes make the code more robust, type-safe, and better at handling errors while maintaining the core functionality.

@@ -66,10 +66,15 @@ class Refiloe:
     }
 
     def handle_message(self, message: Dict[str, Any]) -> str:
+        """Handle incoming WhatsApp messages and route to appropriate handler"""
         try:
-            intent = self.detect_intent(message.get('text', '').lower())
+            if not message.get('text'):
+                return format_response(get_language_response('invalid_message', 
+                    message.get('language', 'en')))
+                
+            intent = self.detect_intent(message['text'].lower())
             
-            intent_handlers = {
+            intent_handlers: Dict[str, Callable] = {
                 'client_registration': handle_client_registration,
                 'client_profile_update': handle_client_profile_update,
                 'payment_request': handle_payment_request,
@@ -82,9 +87,7 @@ class Refiloe:
             return handler(message)
             
         except Exception as e:
-            logger.error(f"Error handling message: {str(e)}")
-            error_msg = get_language_response('error_message', message.get('language', 'en'))
-            return format_response(error_msg)
+            return handle_whatsapp_error(e, message.get('language', 'en'))
 
     def detect_intent(self, message_text: str) -> str:
         for intent, keywords in self.INTENT_KEYWORDS.items():
