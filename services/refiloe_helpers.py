@@ -12,6 +12,42 @@ class RefiloeHelpers:
         self.whatsapp = whatsapp_service
         self.config = config
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+
+    def _continue_registration(self, phone: str, message: str) -> Dict:
+        """Continue registration based on current step"""
+        try:
+            # Get active session
+            session = self.db.table('registration_sessions').select('*').eq(
+                'phone', phone
+            ).eq('status', 'active').single().execute()
+            
+            if not session.data:
+                return {
+                    'success': False,
+                    'message': 'No active registration. Please start over by saying "hi"'
+                }
+            
+            session_id = session.data['id']
+            current_step = session.data.get('step', '')
+            user_type = session.data.get('user_type', '')
+            
+            # Route based on user type and step
+            if user_type == 'client':
+                return self._handle_client_registration_step(session_id, current_step, message, phone)
+            elif user_type == 'trainer':
+                return self._handle_trainer_registration_step(session_id, current_step, message, phone)
+            else:
+                return {
+                    'success': False,
+                    'message': 'Invalid registration type. Please start over.'
+                }
+                
+        except Exception as e:
+            log_error(f"Error continuing registration: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error processing registration. Please try again.'
+            }
     
     def _handle_client_goal_selection(self, session_id: str, goal: str) -> Dict:
         """Process fitness goal and show training preference buttons"""
