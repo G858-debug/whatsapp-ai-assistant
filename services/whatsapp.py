@@ -1,11 +1,13 @@
 """WhatsApp messaging service"""
 import requests
-from typing import Dict, List, Optional
-from utils.logger import log_info, log_error
 import json
+from typing import Dict, List, Optional
+from datetime import datetime
+import pytz
+from utils.logger import log_info, log_error, log_warning
 
 class WhatsAppService:
-    """Service for sending WhatsApp messages"""
+    """Handle WhatsApp message sending and receiving"""
     
     def __init__(self, config, supabase_client, logger):
         self.config = config
@@ -13,45 +15,36 @@ class WhatsAppService:
         self.logger = logger
         self.api_url = config.WHATSAPP_API_URL
         self.api_token = config.WHATSAPP_API_TOKEN
-        
-    def send_message(self, phone: str, message: str, buttons: List[Dict] = None) -> bool:
-        """
-        Send WhatsApp message
-        
-        Args:
-            phone: Recipient phone number
-            message: Message text
-            buttons: Optional button list
-            
-        Returns:
-            True if sent successfully
-        """
+        self.sa_tz = pytz.timezone(config.TIMEZONE)
+    
+    def send_message(self, phone_number: str, message: str, 
+                    buttons: List[Dict] = None) -> Dict:
+        """Send WhatsApp message"""
         try:
             # Format phone number
-            phone = self._format_phone(phone)
+            phone = self._format_phone_number(phone_number)
             
-            # Build payload
+            # Build message payload
             payload = {
-                'to': phone,
-                'type': 'text',
-                'text': {
-                    'body': message
-                }
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "text",
+                "text": {"body": message}
             }
             
             # Add buttons if provided
             if buttons:
-                payload['type'] = 'interactive'
-                payload['interactive'] = {
-                    'type': 'button',
-                    'body': {'text': message},
-                    'action': {'buttons': buttons}
+                payload["type"] = "interactive"
+                payload["interactive"] = {
+                    "type": "button",
+                    "body": {"text": message},
+                    "action": {"buttons": buttons[:3]}  # Max 3 buttons
                 }
             
             # Send request
             headers = {
-                'Authorization': f'Bearer {self.api_token}',
-                'Content-Type': 'application/json'
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
             }
             
             response = requests.post(
@@ -63,42 +56,40 @@ class WhatsAppService:
             
             if response.status_code == 200:
                 log_info(f"Message sent to {phone}")
-                return True
+                return {'success': True, 'message_id': response.json().get('messages', [{}])[0].get('id')}
             else:
-                log_error(f"Failed to send message: {response.status_code}")
-                return False
+                log_error(f"Failed to send message: {response.text}")
+                return {'success': False, 'error': response.text}
                 
         except Exception as e:
             log_error(f"Error sending WhatsApp message: {str(e)}")
-            return False
+            return {'success': False, 'error': str(e)}
     
-    def send_template(self, phone: str, template_name: str, 
-                     parameters: List[str] = None) -> bool:
+    def send_template_message(self, phone_number: str, template_name: str, 
+                             parameters: List[str] = None) -> Dict:
         """Send WhatsApp template message"""
         try:
-            phone = self._format_phone(phone)
+            phone = self._format_phone_number(phone_number)
             
             payload = {
-                'to': phone,
-                'type': 'template',
-                'template': {
-                    'name': template_name,
-                    'language': {'code': 'en'}
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "template",
+                "template": {
+                    "name": template_name,
+                    "language": {"code": "en"}
                 }
             }
             
             if parameters:
-                payload['template']['components'] = [{
-                    'type': 'body',
-                    'parameters': [
-                        {'type': 'text', 'text': param}
-                        for param in parameters
-                    ]
+                payload["template"]["components"] = [{
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": p} for p in parameters]
                 }]
             
             headers = {
-                'Authorization': f'Bearer {self.api_token}',
-                'Content-Type': 'application/json'
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
             }
             
             response = requests.post(
@@ -108,22 +99,117 @@ class WhatsAppService:
                 timeout=10
             )
             
+            if response.status_code == 200:
+                log_info(f"Template {template_name} sent to {phone}")
+                return {'success': True}
+            else:
+                log_error(f"Failed to send template: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            log_error(f"Error sending template message: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def send_media_message(self, phone_number: str, media_url: str, 
+                          media_type: str = 'image', caption: str = None) -> Dict:
+        """Send media message (image, document, etc)"""
+        try:
+            phone = self._format_phone_number(phone_number)
+            
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": media_type,
+                media_type: {
+                    "link": media_url
+                }
+            }
+            
+            if caption and media_type in ['image', 'video']:
+                payload[media_type]["caption"] = caption
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                log_info(f"Media sent to {phone}")
+                return {'success': True}
+            else:
+                log_error(f"Failed to send media: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            log_error(f"Error sending media message: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def mark_as_read(self, message_id: str) -> bool:
+        """Mark message as read"""
+        try:
+            payload = {
+                "messaging_product": "whatsapp",
+                "status": "read",
+                "message_id": message_id
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/messages",
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
             return response.status_code == 200
             
         except Exception as e:
-            log_error(f"Error sending template: {str(e)}")
+            log_error(f"Error marking message as read: {str(e)}")
             return False
     
-    def _format_phone(self, phone: str) -> str:
-        """Format phone number for WhatsApp"""
+    def _format_phone_number(self, phone: str) -> str:
+        """Format phone number to WhatsApp format"""
         # Remove all non-digits
-        phone = ''.join(filter(str.isdigit, phone))
+        digits = ''.join(filter(str.isdigit, phone))
         
-        # Add country code if missing
-        if not phone.startswith('27'):
-            if phone.startswith('0'):
-                phone = '27' + phone[1:]
+        # Handle South African numbers
+        if digits.startswith('0'):
+            digits = '27' + digits[1:]
+        elif not digits.startswith('27'):
+            digits = '27' + digits
+        
+        return digits
+    
+    def send_bulk_messages(self, recipients: List[Dict], message: str) -> Dict:
+        """Send bulk messages to multiple recipients"""
+        results = {
+            'sent': [],
+            'failed': []
+        }
+        
+        for recipient in recipients:
+            phone = recipient.get('phone')
+            name = recipient.get('name', 'User')
+            
+            # Personalize message
+            personalized = message.replace('{name}', name)
+            
+            result = self.send_message(phone, personalized)
+            
+            if result['success']:
+                results['sent'].append(phone)
             else:
-                phone = '27' + phone
+                results['failed'].append({'phone': phone, 'error': result.get('error')})
         
-        return phone
+        return results

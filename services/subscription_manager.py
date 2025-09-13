@@ -1,78 +1,160 @@
 """Subscription management service"""
-from datetime import datetime, timedelta
 from typing import Dict, Optional
+from datetime import datetime, timedelta
 import pytz
 from utils.logger import log_info, log_error
 
 class SubscriptionManager:
-    """Manages trainer subscriptions"""
+    """Manage trainer subscriptions"""
     
     def __init__(self, supabase_client):
         self.db = supabase_client
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
         
         # Subscription plans
-        self.plans = {
+        self.PLANS = {
             'free': {
                 'name': 'Free',
                 'price': 0,
-                'client_limit': 3,
-                'features': ['Basic features']
+                'max_clients': 3,
+                'features': ['basic_scheduling', 'whatsapp_bot']
             },
             'professional': {
                 'name': 'Professional',
                 'price': 49,
-                'client_limit': None,
-                'features': ['Unlimited clients', 'All features']
+                'max_clients': None,  # Unlimited
+                'features': ['all_features', 'priority_support', 'analytics']
             }
         }
     
-    def check_subscription(self, trainer_id: str) -> Dict:
-        """Check trainer's subscription status"""
+    def get_trainer_subscription(self, trainer_id: str) -> Dict:
+        """Get trainer's current subscription"""
         try:
-            result = self.db.table('trainers').select(
-                'subscription_status, subscription_expires_at'
-            ).eq('id', trainer_id).single().execute()
+            result = self.db.table('trainer_subscriptions').select('*').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'active').single().execute()
             
-            if not result.data:
-                return {'status': 'free', 'valid': True}
+            if result.data:
+                return result.data
             
-            status = result.data.get('subscription_status', 'free')
-            expires_at = result.data.get('subscription_expires_at')
-            
-            if status == 'professional' and expires_at:
-                expires = datetime.fromisoformat(expires_at)
-                if expires < datetime.now(self.sa_tz):
-                    # Expired
-                    self.db.table('trainers').update({
-                        'subscription_status': 'free'
-                    }).eq('id', trainer_id).execute()
-                    
-                    return {'status': 'free', 'valid': True, 'expired': True}
-            
-            return {'status': status, 'valid': True}
+            # Return free plan by default
+            return {
+                'plan': 'free',
+                'status': 'active',
+                'max_clients': self.PLANS['free']['max_clients']
+            }
             
         except Exception as e:
-            log_error(f"Error checking subscription: {str(e)}")
-            return {'status': 'free', 'valid': False}
+            log_error(f"Error getting subscription: {str(e)}")
+            return {
+                'plan': 'free',
+                'status': 'active',
+                'max_clients': 3
+            }
     
     def can_add_client(self, trainer_id: str) -> bool:
         """Check if trainer can add more clients"""
         try:
-            sub = self.check_subscription(trainer_id)
+            subscription = self.get_trainer_subscription(trainer_id)
             
-            if sub['status'] == 'professional':
+            # Unlimited for professional
+            if subscription['plan'] == 'professional':
                 return True
             
-            # Check client count for free plan
-            count = self.db.table('clients').select(
-                'id', count='exact'
-            ).eq('trainer_id', trainer_id).eq(
-                'status', 'active'
-            ).execute()
+            # Check current client count
+            clients = self.db.table('clients').select('id').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'active').execute()
             
-            return (count.count or 0) < self.plans['free']['client_limit']
+            current_count = len(clients.data) if clients.data else 0
+            max_clients = subscription.get('max_clients', 3)
+            
+            return current_count < max_clients
             
         except Exception as e:
             log_error(f"Error checking client limit: {str(e)}")
             return False
+    
+    def upgrade_subscription(self, trainer_id: str, plan: str) -> Dict:
+        """Upgrade trainer subscription"""
+        try:
+            if plan not in self.PLANS:
+                return {'success': False, 'error': 'Invalid plan'}
+            
+            # Deactivate current subscription
+            self.db.table('trainer_subscriptions').update({
+                'status': 'inactive',
+                'ended_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('trainer_id', trainer_id).eq('status', 'active').execute()
+            
+            # Create new subscription
+            subscription_data = {
+                'trainer_id': trainer_id,
+                'plan': plan,
+                'status': 'active',
+                'price': self.PLANS[plan]['price'],
+                'start_date': datetime.now(self.sa_tz).isoformat(),
+                'end_date': (datetime.now(self.sa_tz) + timedelta(days=30)).isoformat(),
+                'auto_renew': True
+            }
+            
+            result = self.db.table('trainer_subscriptions').insert(
+                subscription_data
+            ).execute()
+            
+            if result.data:
+                log_info(f"Trainer {trainer_id} upgraded to {plan}")
+                return {'success': True, 'subscription': result.data[0]}
+            
+            return {'success': False, 'error': 'Failed to create subscription'}
+            
+        except Exception as e:
+            log_error(f"Error upgrading subscription: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def cancel_subscription(self, trainer_id: str) -> Dict:
+        """Cancel trainer subscription"""
+        try:
+            result = self.db.table('trainer_subscriptions').update({
+                'auto_renew': False,
+                'cancelled_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('trainer_id', trainer_id).eq('status', 'active').execute()
+            
+            if result.data:
+                return {'success': True, 'message': 'Subscription will end at the end of the billing period'}
+            
+            return {'success': False, 'error': 'No active subscription found'}
+            
+        except Exception as e:
+            log_error(f"Error cancelling subscription: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def check_subscription_limits(self, trainer_id: str) -> Dict:
+        """Check current usage against subscription limits"""
+        try:
+            subscription = self.get_trainer_subscription(trainer_id)
+            
+            # Get current usage
+            clients = self.db.table('clients').select('id').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'active').execute()
+            
+            current_clients = len(clients.data) if clients.data else 0
+            max_clients = subscription.get('max_clients')
+            
+            return {
+                'plan': subscription['plan'],
+                'current_clients': current_clients,
+                'max_clients': max_clients,
+                'can_add_clients': max_clients is None or current_clients < max_clients,
+                'usage_percentage': (current_clients / max_clients * 100) if max_clients else 0
+            }
+            
+        except Exception as e:
+            log_error(f"Error checking limits: {str(e)}")
+            return {
+                'plan': 'free',
+                'current_clients': 0,
+                'max_clients': 3,
+                'can_add_clients': True
+            }

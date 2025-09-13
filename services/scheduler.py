@@ -1,11 +1,11 @@
 """Scheduling service for reminders and automated tasks"""
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-from typing import Dict, List
 import pytz
 from utils.logger import log_info, log_error
 
 class SchedulerService:
-    """Service for managing scheduled tasks"""
+    """Handle scheduling of reminders and automated messages"""
     
     def __init__(self, supabase_client, whatsapp_service):
         self.db = supabase_client
@@ -15,64 +15,217 @@ class SchedulerService:
     def check_and_send_reminders(self) -> Dict:
         """Check and send due reminders"""
         try:
-            now = datetime.now(self.sa_tz)
-            
-            # Get due reminders
-            reminders = self.db.table('reminders').select('*').eq(
-                'status', 'pending'
-            ).lte('scheduled_time', now.isoformat()).execute()
-            
-            sent_count = 0
-            failed_count = 0
-            
-            for reminder in (reminders.data or []):
-                success = self._send_reminder(reminder)
-                if success:
-                    sent_count += 1
-                    # Mark as sent
-                    self.db.table('reminders').update({
-                        'status': 'sent',
-                        'sent_at': now.isoformat()
-                    }).eq('id', reminder['id']).execute()
-                else:
-                    failed_count += 1
-            
-            log_info(f"Reminders: {sent_count} sent, {failed_count} failed")
-            
-            return {
-                'sent': sent_count,
-                'failed': failed_count
+            results = {
+                'workout_reminders': self._send_workout_reminders(),
+                'payment_reminders': self._send_payment_reminders(),
+                'assessment_reminders': self._send_assessment_reminders(),
+                'habit_reminders': self._send_habit_reminders()
             }
+            
+            return results
             
         except Exception as e:
             log_error(f"Error checking reminders: {str(e)}")
-            return {'sent': 0, 'failed': 0}
+            return {'error': str(e)}
     
-    def _send_reminder(self, reminder: Dict) -> bool:
-        """Send individual reminder"""
+    def _send_workout_reminders(self) -> Dict:
+        """Send workout reminders"""
         try:
-            return self.whatsapp.send_message(
-                reminder['phone'],
-                reminder['message']
-            )
+            tomorrow = (datetime.now(self.sa_tz) + timedelta(days=1)).date()
+            
+            # Get tomorrow's bookings
+            bookings = self.db.table('bookings').select(
+                '*, clients(name, whatsapp), trainers(name, business_name)'
+            ).eq('session_date', tomorrow.isoformat()).eq(
+                'status', 'confirmed'
+            ).execute()
+            
+            sent_count = 0
+            
+            for booking in (bookings.data or []):
+                client = booking.get('clients', {})
+                trainer = booking.get('trainers', {})
+                
+                if client.get('whatsapp'):
+                    message = (
+                        f"🏋️ *Workout Reminder*\n\n"
+                        f"Hi {client.get('name', 'there')}! Just a reminder about "
+                        f"your training session tomorrow:\n\n"
+                        f"📅 Date: {booking['session_date']}\n"
+                        f"⏰ Time: {booking['session_time']}\n"
+                        f"👤 Trainer: {trainer.get('name', 'Your trainer')}\n\n"
+                        f"See you there! 💪"
+                    )
+                    
+                    result = self.whatsapp.send_message(
+                        client['whatsapp'], 
+                        message
+                    )
+                    
+                    if result['success']:
+                        sent_count += 1
+                        
+                        # Log reminder
+                        self.db.table('reminder_logs').insert({
+                            'booking_id': booking['id'],
+                            'reminder_type': 'workout',
+                            'sent_to': client['whatsapp'],
+                            'sent_at': datetime.now(self.sa_tz).isoformat()
+                        }).execute()
+            
+            return {'sent': sent_count, 'total': len(bookings.data or [])}
+            
         except Exception as e:
-            log_error(f"Error sending reminder: {str(e)}")
-            return False
+            log_error(f"Error sending workout reminders: {str(e)}")
+            return {'error': str(e)}
     
-    def schedule_reminder(self, phone: str, message: str, 
-                         scheduled_time: datetime) -> bool:
-        """Schedule a reminder"""
+    def _send_payment_reminders(self) -> Dict:
+        """Send payment reminders"""
         try:
-            result = self.db.table('reminders').insert({
-                'phone': phone,
+            # Get overdue payments
+            cutoff_date = (datetime.now(self.sa_tz) - timedelta(days=7)).date()
+            
+            payments = self.db.table('payment_requests').select(
+                '*, clients(name, whatsapp), trainers(name, business_name)'
+            ).eq('status', 'pending').lte(
+                'created_at', cutoff_date.isoformat()
+            ).execute()
+            
+            sent_count = 0
+            
+            for payment in (payments.data or []):
+                client = payment.get('clients', {})
+                
+                if client.get('whatsapp'):
+                    message = (
+                        f"💳 *Payment Reminder*\n\n"
+                        f"Hi {client.get('name', 'there')}! You have a pending "
+                        f"payment request:\n\n"
+                        f"Amount: R{payment['amount']}\n"
+                        f"Description: {payment.get('description', 'Training sessions')}\n\n"
+                        f"Please complete the payment at your earliest convenience."
+                    )
+                    
+                    result = self.whatsapp.send_message(
+                        client['whatsapp'],
+                        message
+                    )
+                    
+                    if result['success']:
+                        sent_count += 1
+            
+            return {'sent': sent_count, 'total': len(payments.data or [])}
+            
+        except Exception as e:
+            log_error(f"Error sending payment reminders: {str(e)}")
+            return {'error': str(e)}
+    
+    def _send_assessment_reminders(self) -> Dict:
+        """Send assessment reminders"""
+        try:
+            # Get due assessments
+            result = self.db.table('fitness_assessments').select(
+                '*, clients(name, whatsapp)'
+            ).eq('status', 'pending').lte(
+                'due_date', datetime.now(self.sa_tz).isoformat()
+            ).execute()
+            
+            sent_count = 0
+            
+            for assessment in (result.data or []):
+                client = assessment.get('clients', {})
+                
+                if client.get('whatsapp'):
+                    message = (
+                        f"📋 *Assessment Reminder*\n\n"
+                        f"Hi {client.get('name', 'there')}! Your fitness assessment "
+                        f"is due. Please complete it to track your progress.\n\n"
+                        f"Reply 'start assessment' to begin."
+                    )
+                    
+                    result = self.whatsapp.send_message(
+                        client['whatsapp'],
+                        message
+                    )
+                    
+                    if result['success']:
+                        sent_count += 1
+            
+            return {'sent': sent_count}
+            
+        except Exception as e:
+            log_error(f"Error sending assessment reminders: {str(e)}")
+            return {'error': str(e)}
+    
+    def _send_habit_reminders(self) -> Dict:
+        """Send daily habit tracking reminders"""
+        try:
+            # Get clients with habit tracking enabled
+            clients = self.db.table('clients').select(
+                'id, name, whatsapp'
+            ).eq('habit_tracking_enabled', True).execute()
+            
+            sent_count = 0
+            current_hour = datetime.now(self.sa_tz).hour
+            
+            # Only send between 7am and 8pm
+            if 7 <= current_hour <= 20:
+                for client in (clients.data or []):
+                    # Check if already logged today
+                    today = datetime.now(self.sa_tz).date()
+                    
+                    logged = self.db.table('habit_tracking').select('id').eq(
+                        'client_id', client['id']
+                    ).eq('date', today.isoformat()).execute()
+                    
+                    if not logged.data and client.get('whatsapp'):
+                        message = (
+                            f"📊 *Daily Check-in*\n\n"
+                            f"Hi {client.get('name', 'there')}! Time to log your "
+                            f"daily habits:\n\n"
+                            f"• Water intake (liters)\n"
+                            f"• Sleep hours\n"
+                            f"• Steps taken\n"
+                            f"• Workout completed (yes/no)\n\n"
+                            f"Reply with your numbers separated by commas.\n"
+                            f"Example: 2.5, 7, 8000, yes"
+                        )
+                        
+                        result = self.whatsapp.send_message(
+                            client['whatsapp'],
+                            message
+                        )
+                        
+                        if result['success']:
+                            sent_count += 1
+            
+            return {'sent': sent_count}
+            
+        except Exception as e:
+            log_error(f"Error sending habit reminders: {str(e)}")
+            return {'error': str(e)}
+    
+    def schedule_message(self, phone: str, message: str, 
+                        send_at: datetime) -> Dict:
+        """Schedule a message for future sending"""
+        try:
+            scheduled_data = {
+                'phone_number': phone,
                 'message': message,
-                'scheduled_time': scheduled_time.isoformat(),
+                'scheduled_for': send_at.isoformat(),
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
-            }).execute()
+            }
             
-            return bool(result.data)
+            result = self.db.table('scheduled_messages').insert(
+                scheduled_data
+            ).execute()
+            
+            if result.data:
+                return {'success': True, 'scheduled_id': result.data[0]['id']}
+            
+            return {'success': False, 'error': 'Failed to schedule message'}
             
         except Exception as e:
-            log_error(f"Error scheduling reminder: {str(e)}")
-            return False
+            log_error(f"Error scheduling message: {str(e)}")
+            return {'success': False, 'error': str(e)}
