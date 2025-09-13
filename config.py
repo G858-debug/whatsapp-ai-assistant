@@ -8,11 +8,11 @@ class Config:
     SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
 
     # WhatsApp Configuration - Handle both Railway and standard naming
-    WHATSAPP_API_TOKEN = os.environ.get('ACCESS_TOKEN')
-    WHATSAPP_PHONE_ID = os.environ.get('PHONE_NUMBER_ID') or os.environ.get('WHATSAPP_PHONE_ID')
-    VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'texts_to_refiloe_radebe') 
     WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'https://graph.facebook.com/v17.0/671257819413918/messages')
-
+    WHATSAPP_API_TOKEN = os.environ.get('ACCESS_TOKEN')
+    VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'texts_to_refiloe_radebe') 
+    WHATSAPP_PHONE_ID = os.environ.get('PHONE_NUMBER_ID') or os.environ.get('WHATSAPP_PHONE_ID')
+    
     # Aliases for backward compatibility
     ACCESS_TOKEN = WHATSAPP_TOKEN
     PHONE_NUMBER_ID = WHATSAPP_PHONE_ID
