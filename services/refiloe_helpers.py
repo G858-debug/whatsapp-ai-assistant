@@ -48,6 +48,104 @@ class RefiloeHelpers:
                 'success': False,
                 'message': 'Error processing registration. Please try again.'
             }
+
+     def _handle_client_registration_start(self, session_id: str) -> Dict:
+        """Start client registration flow"""
+        try:
+            # Update session
+            self.db.table('registration_sessions').update({
+                'user_type': 'client',
+                'step': 'fitness_goal',
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('id', session_id).execute()
+            
+            # Create fitness goal buttons
+            buttons = [
+                {'id': 'goal_weight_loss', 'title': '🏃 Weight Loss'},
+                {'id': 'goal_muscle', 'title': '💪 Muscle Building'},
+                {'id': 'goal_fitness', 'title': '✨ General Fitness'}
+            ]
+            
+            return {
+                'success': True,
+                'message': "Great! Let's find you the perfect trainer. 🎯\n\nWhat's your main fitness goal?",
+                'buttons': buttons
+            }
+            
+        except Exception as e:
+            log_error(f"Error starting client registration: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error starting registration. Please try again.'
+            }
+    
+    def _handle_client_registration_step(self, session_id: str, step: str, 
+                                        message: str, phone: str) -> Dict:
+        """Handle text input for client registration steps"""
+        try:
+            if step == 'city':
+                # Process city input
+                result = self.helpers._handle_client_city_input(session_id, message)
+                
+                if result.get('success'):
+                    self.whatsapp.send_message(phone, result['message'])
+                    return {'success': True, 'message_sent': True}
+                return result
+                
+            elif step == 'personal_info':
+                # Process personal information
+                result = self.helpers._handle_client_personal_info(session_id, message)
+                
+                if result.get('success') and result.get('buttons'):
+                    # Send confirmation with buttons
+                    self.whatsapp.send_button_message(
+                        phone,
+                        result['message'],
+                        result['buttons']
+                    )
+                    return {'success': True, 'interactive_sent': True}
+                return result
+                
+            elif step == 'confirmation':
+                # Handle text confirmation responses
+                result = self.helpers.confirm_client_registration(session_id, message)
+                
+                if result.get('success'):
+                    self.whatsapp.send_message(phone, result['message'])
+                    return {'success': True, 'message_sent': True}
+                return result
+                
+            else:
+                return {
+                    'success': False,
+                    'message': 'Invalid registration step. Please start over.'
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling client registration step: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error processing your information. Please try again.'
+            }
+    
+    def _handle_trainer_registration_step(self, session_id: str, step: str, 
+                                         message: str, phone: str) -> Dict:
+        """Handle text input for trainer registration steps"""
+        try:
+            # This method would handle trainer registration steps
+            # Implementation depends on trainer registration flow
+            # For now, return a placeholder
+            return {
+                'success': True,
+                'message': f"Processing trainer registration step: {step}"
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling trainer registration step: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Error processing trainer registration. Please try again.'
+            }
     
     def _handle_client_goal_selection(self, session_id: str, goal: str) -> Dict:
         """Process fitness goal and show training preference buttons"""
