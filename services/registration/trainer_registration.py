@@ -213,7 +213,7 @@ class TrainerRegistrationHandler:
     
     def _get_email_prompt(self, step_num: int) -> str:
         return (
-            "Great! ✨\n\n"
+            "Great ✨\n\n"
             f"📝 *Step {step_num} of 7*\n\n"
             "What's your email address? 📧\n"
             "(We'll use this for important updates only)"
@@ -242,7 +242,7 @@ class TrainerRegistrationHandler:
     
     def _get_location_prompt(self, step_num: int) -> str:
         return (
-            "Experience matters! 🌟\n\n"
+            "Experience matters! 👍\n\n"
             f"📝 *Step {step_num} of 7*\n\n"
             "Where are you based? (City/Area)\n"
             "Example: Cape Town, Sea Point"
@@ -488,7 +488,7 @@ class TrainerRegistrationHandler:
             else:
                 # Unknown step - shouldn't happen but handle gracefully
                 return {
-                    'message': "I'm a bit confused. Let's start over. What's your name?",
+                    'message': "I'm a bit confused. Let's continue with your registration. What's your name?",
                     'next_step': 0,
                     'complete': False
                 }
@@ -496,12 +496,9 @@ class TrainerRegistrationHandler:
             # Save session data after each successful step
             self.save_session(phone, session, next_step)
             
-            # Add step indicator with encouragement
-            total_steps = 7
-            step_message = f"Great! 👍\n\n📝 *Step {next_step + 1} of {total_steps}*\n\n{next_message}"
-            
+            # Return the next message
             return {
-                'message': step_message,
+                'message': next_message,
                 'next_step': next_step,
                 'complete': False
             }
