@@ -27,11 +27,10 @@ class TrainerRegistrationHandler:
     def start_registration(self, phone: str) -> str:
         """Start trainer registration with warm welcome"""
         return (
-            "🎉 *Welcome to Refiloe!*\n\n"
-            "I'm so excited to help you grow your personal training business! "
-            "Let's get you set up in just a few quick steps.\n\n"
+            "🎉 I'm so excited to help you grow your personal training business! "
+            "Let's get you set up in just a few quick steps. Don't worry, this set up is free\n\n"
             "📝 *Step 1 of 7*\n\n"
-            "First things first - what's your name? 😊"
+            "First things first - what's your name and surname? 😊"
         )
     
     def handle_registration_response(self, phone: str, message: str, 
