@@ -219,9 +219,17 @@ class TrainerRegistrationHandler:
     def _complete_registration(self, phone: str, data: Dict) -> Dict:
         """Complete registration with celebration"""
         try:
+            # Split the name into first and last
+            full_name = data['name']
+            name_parts = full_name.strip().split(' ', 1)  # Split on first space only
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
             # Create trainer record
             trainer_data = {
-                'name': data['name'],
+                'name': full_name,  # Keep full name for compatibility
+                'first_name': first_name,  # Store first name separately
+                'last_name': last_name,    # Store last name separately
                 'whatsapp': phone,
                 'email': data['email'],
                 'business_name': data.get('business_name'),
@@ -237,12 +245,12 @@ class TrainerRegistrationHandler:
             
             if result.data:
                 trainer_id = result.data[0]['id']
-                log_info(f"Trainer registered: {data['name']} ({trainer_id})")
+                log_info(f"Trainer registered: {full_name} ({trainer_id})")
                 
-                # Create celebration message with useful quick-start buttons
+                # Create celebration message using first name only for friendliness
                 celebration = (
                     "🎊 *CONGRATULATIONS!* 🎊\n\n"
-                    f"Welcome aboard, {data['name']}! You're all set up and ready to grow "
+                    f"Welcome aboard, {first_name}! You're all set up and ready to grow "
                     "your training business with Refiloe! 🚀\n\n"
                     "Here's what you can do now:\n\n"
                     "💡 *Quick Actions:*"
