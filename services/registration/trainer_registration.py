@@ -325,15 +325,30 @@ class TrainerRegistrationHandler:
                 next_message = self._get_pricing_prompt(7)  # Pass step 7 of 7
                 next_step = 6
             elif current_step == 6:  # Pricing
-                session['pricing'] = response
-                # Complete registration
-                return self._complete_registration(phone, session)
-            else:
-                return {
-                    'message': "I'm a bit confused. Let's start over. What's your name?",
-                    'next_step': 0,
-                    'complete': False
-                }
+                # Try to extract the price intelligently
+                price = self.validator.extract_price(response)
+                
+                if price:
+                    session['pricing'] = price
+                    # Complete registration
+                    result = self._complete_registration(phone, session)
+                    
+                    if result.get('success'):
+                        return result
+                    else:
+                        # If completion failed, show the error but stay on pricing step
+                        return {
+                            'message': "😅 Almost there! There was an issue saving your info. Let's try your rate again (e.g., 350):",
+                            'next_step': 6,  # Stay on pricing step
+                            'complete': False
+                        }
+                else:
+                    # Invalid price format
+                    return {
+                        'message': "💰 I couldn't understand that amount. Please enter your rate per session (e.g., 350, R450, or 250 Rands):",
+                        'next_step': 6,  # Stay on pricing step
+                        'complete': False
+                    }
             
             # Save session data
             self.save_session(phone, session)
