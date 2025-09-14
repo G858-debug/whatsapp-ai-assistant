@@ -294,12 +294,12 @@ class TrainerRegistrationHandler:
             # Handle the current step
             if current_step == 0:  # Name
                 session['name'] = response
-                next_message = self._get_business_prompt()
+                next_message = self._get_business_prompt(2)  # Pass step 2 of 7
                 next_step = 1
             elif current_step == 1:  # Business name
                 if response.lower() != 'skip':
                     session['business_name'] = response
-                next_message = self._get_email_prompt()
+                next_message = self._get_email_prompt(3)  # Pass step 3 of 7
                 next_step = 2
             elif current_step == 2:  # Email
                 # Validate email
@@ -310,19 +310,19 @@ class TrainerRegistrationHandler:
                         'complete': False
                     }
                 session['email'] = response
-                next_message = self._get_specialization_prompt()
+                next_message = self._get_specialization_prompt(4)  # Pass step 4 of 7
                 next_step = 3
             elif current_step == 3:  # Specialization
                 session['specialization'] = response
-                next_message = self._get_experience_prompt()
+                next_message = self._get_experience_prompt(5)  # Pass step 5 of 7
                 next_step = 4
             elif current_step == 4:  # Experience
                 session['experience'] = response
-                next_message = self._get_location_prompt()
+                next_message = self._get_location_prompt(6)  # Pass step 6 of 7
                 next_step = 5
             elif current_step == 5:  # Location
                 session['location'] = response
-                next_message = self._get_pricing_prompt()
+                next_message = self._get_pricing_prompt(7)  # Pass step 7 of 7
                 next_step = 6
             elif current_step == 6:  # Pricing
                 session['pricing'] = response
@@ -338,9 +338,9 @@ class TrainerRegistrationHandler:
             # Save session data
             self.save_session(phone, session)
             
-            # Add step indicator
+            # Add step indicator with encouragement
             total_steps = 7
-            step_message = f"\n\n📝 *Step {next_step + 1} of {total_steps}*\n{next_message}"
+            step_message = f"Great! 👍\n\n📝 *Step {next_step + 1} of {total_steps}*\n\n{next_message}"
             
             return {
                 'message': step_message,
