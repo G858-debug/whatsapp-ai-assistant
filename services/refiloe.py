@@ -326,77 +326,114 @@ class RefiloeService:
             whatsapp_service = app.config['services']['whatsapp']
             
             # Safety check - only allow for specific test numbers
-            # Add your test numbers here
             ALLOWED_RESET_NUMBERS = [
                 '27731863036',  # Your test number from logs
                 '27837896738',  # Add other test numbers as needed
-                # Add more test numbers here
             ]
             
-            # For production, you might want to allow all users to reset
-            # In that case, comment out this check
             if phone not in ALLOWED_RESET_NUMBERS:
                 response = "⚠️ Reset command is currently only available for test accounts.\n\nIf you need to reset your account, please contact support."
                 whatsapp_service.send_message(phone, response)
                 return {'success': True, 'response': response}
             
-            # Delete user records from all tables
+            # Track what happens
+            debug_info = []
             deleted_count = 0
             
             # Delete from trainers
-            result = self.db.table('trainers').delete().eq('whatsapp', phone).execute()
-            if result.data:
-                deleted_count += len(result.data)
-                log_info(f"Deleted trainer record for {phone}")
+            try:
+                result = self.db.table('trainers').delete().eq('whatsapp', phone).execute()
+                if result.data:
+                    deleted_count += len(result.data)
+                    debug_info.append(f"✓ Deleted {len(result.data)} trainer record(s)")
+                else:
+                    debug_info.append("• No trainer records found")
+            except Exception as e:
+                debug_info.append(f"✗ Trainer delete error: {str(e)[:50]}")
             
             # Delete from clients
-            result = self.db.table('clients').delete().eq('whatsapp', phone).execute()
-            if result.data:
-                deleted_count += len(result.data)
-                log_info(f"Deleted client record for {phone}")
+            try:
+                result = self.db.table('clients').delete().eq('whatsapp', phone).execute()
+                if result.data:
+                    deleted_count += len(result.data)
+                    debug_info.append(f"✓ Deleted {len(result.data)} client record(s)")
+                else:
+                    debug_info.append("• No client records found")
+            except Exception as e:
+                debug_info.append(f"✗ Client delete error: {str(e)[:50]}")
             
             # Delete conversation states
-            self.db.table('conversation_states').delete().eq('phone_number', phone).execute()
+            try:
+                result = self.db.table('conversation_states').delete().eq('phone_number', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted conversation state")
+                else:
+                    debug_info.append("• No conversation state found")
+            except Exception as e:
+                debug_info.append(f"✗ Conversation state error: {str(e)[:50]}")
             
             # Delete message history
-            self.db.table('message_history').delete().eq('phone_number', phone).execute()
-            
-            # Delete registration sessions if exists
             try:
-                self.db.table('registration_sessions').delete().eq('phone', phone).execute()
-            except:
-                pass  # Table might not exist
+                result = self.db.table('message_history').delete().eq('phone_number', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted {len(result.data)} messages")
+                else:
+                    debug_info.append("• No message history found")
+            except Exception as e:
+                debug_info.append(f"✗ Message history error: {str(e)[:50]}")
             
-            # Delete processed messages (keep webhook deduplication clean)
+            # Delete registration sessions
             try:
-                self.db.table('processed_messages').delete().eq('phone_number', phone).execute()
-            except:
+                result = self.db.table('registration_sessions').delete().eq('phone', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted registration session")
+            except Exception as e:
+                # Table might not exist, that's okay
                 pass
             
-            log_info(f"Reset complete for {phone} - deleted {deleted_count} user records")
+            # Delete processed messages
+            try:
+                result = self.db.table('processed_messages').delete().eq('phone_number', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted {len(result.data)} processed messages")
+            except Exception as e:
+                # Table might not exist, that's okay
+                pass
             
-            # Send confirmation message
+            log_info(f"Reset for {phone} - Results: {debug_info}")
+            
+            # Send detailed response
             response = (
-                "✅ *Account Reset Complete!*\n\n"
-                "Your account has been completely reset. You're now a new user! 🎉\n\n"
-                "Say 'Hi' to start fresh and I'll help you get set up again.\n\n"
-                "_This reset deleted all your data including:_\n"
-                "• Profile information\n"
-                "• Message history\n"
-                "• Registration status\n"
-                "• Conversation state"
+                "🔧 *Reset Results:*\n\n" +
+                "\n".join(debug_info) +
+                f"\n\nTotal records deleted: {deleted_count}\n\n"
+                "You can now say 'Hi' to start fresh!"
             )
             
             whatsapp_service.send_message(phone, response)
             return {'success': True, 'response': response}
             
         except Exception as e:
-            log_error(f"Error resetting user {phone}: {str(e)}")
-            response = "❌ Sorry, couldn't reset your account. Please try again later or contact support."
+            error_msg = str(e)
+            log_error(f"Error resetting user {phone}: {error_msg}")
             
-            from app import app
-            whatsapp_service = app.config['services']['whatsapp']
-            whatsapp_service.send_message(phone, response)
+            # Send detailed error
+            response = (
+                f"❌ Reset failed!\n\n"
+                f"Error: {error_msg[:200]}\n\n"
+                "This usually means:\n"
+                "• Database connection issue\n"
+                "• Missing tables\n"
+                "• Permission problem\n\n"
+                "Try again or check the logs."
+            )
+            
+            try:
+                from app import app
+                whatsapp_service = app.config['services']['whatsapp']
+                whatsapp_service.send_message(phone, response)
+            except:
+                pass
             
             return {'success': False, 'response': response}
     
