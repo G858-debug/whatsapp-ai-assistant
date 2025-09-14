@@ -642,10 +642,10 @@ class AIIntentHandler:
         if intent == 'greeting':
             import random
             greetings = [
-                f"Hey {name}! 👋 How can I help you today?",
-                f"Hi {name}! Good to hear from you 😊 What can I do for you?",
-                f"Hello {name}! How's it going? What brings you here today?",
-                f"Hey there {name}! 🙌 What's on your fitness agenda?"
+                f"Hey {name}! 👋",
+                f"Hi {name}! Good to hear from you 😊",
+                f"Hello {name}!",
+                f"Hey there {name}! 🙌"
             ]
             return random.choice(greetings)
         
