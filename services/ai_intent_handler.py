@@ -8,6 +8,7 @@ from datetime import datetime
 import pytz
 from anthropic import Anthropic
 from utils.logger import log_info, log_error, log_warning
+import json
 
 from services.ai_intent_core import AIIntentCore
 from services.ai_intent_responses import AIResponseGenerator
