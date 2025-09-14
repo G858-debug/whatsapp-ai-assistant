@@ -213,3 +213,60 @@ class WhatsAppService:
                 results['failed'].append({'phone': phone, 'error': result.get('error')})
         
         return results
+
+    def send_button_message(self, phone_number: str, message: str, 
+                           buttons: List[Dict]) -> Dict:
+        """Send WhatsApp message with buttons"""
+        try:
+            # Format phone number
+            phone = self._format_phone_number(phone_number)
+            
+            # Build interactive message payload with buttons
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {
+                        "text": message
+                    },
+                    "action": {
+                        "buttons": []
+                    }
+                }
+            }
+            
+            # Format buttons (WhatsApp allows max 3 buttons)
+            for i, button in enumerate(buttons[:3]):
+                payload["interactive"]["action"]["buttons"].append({
+                    "type": "reply",
+                    "reply": {
+                        "id": button.get('id', f'button_{i}'),
+                        "title": button.get('title', 'Option')[:20]  # Max 20 chars
+                    }
+                })
+            
+            # Send request
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                log_info(f"Button message sent to {phone}")
+                return {'success': True, 'message_id': response.json().get('messages', [{}])[0].get('id')}
+            else:
+                log_error(f"Failed to send button message: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            log_error(f"Error sending WhatsApp button message: {str(e)}")
+            return {'success': False, 'error': str(e)}
