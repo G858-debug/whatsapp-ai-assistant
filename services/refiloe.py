@@ -221,27 +221,39 @@ class RefiloeService:
                     # Check for trainer registration
                     if any(trigger in text_lower for trigger in ["i'm a trainer", "trainer", "💼"]):
                         try:
-                            from services.registration.trainer_registration import TrainerRegistration
-                            reg = TrainerRegistration(self.db)
-                            reg_result = reg.start_registration(phone)
+                            from services.registration.trainer_registration import TrainerRegistrationHandler
+                            # TrainerRegistrationHandler needs both db and whatsapp_service
+                            reg = TrainerRegistrationHandler(self.db, whatsapp_service)
+                            
+                            # start_registration returns a string message, not a dict
+                            welcome_message = reg.start_registration(phone)
                             
                             # Send the registration welcome message
-                            if reg_result.get('message'):
-                                whatsapp_service.send_message(phone, reg_result['message'])
+                            whatsapp_service.send_message(phone, welcome_message)
+                            
+                            # Create a session ID for tracking (since the handler doesn't return one)
+                            import uuid
+                            session_id = str(uuid.uuid4())
                             
                             # Update conversation state to registration mode
                             self.update_conversation_state(phone, 'REGISTRATION', {
                                 'type': 'trainer',
                                 'step': 'name',
-                                'session_id': reg_result.get('session_id')
+                                'session_id': session_id,
+                                'current_step': 0
                             })
                             
                             # Save bot response
-                            self.save_message(phone, reg_result.get('message', ''), 'bot', 'registration_start')
+                            self.save_message(phone, welcome_message, 'bot', 'registration_start')
                             
                             log_info(f"Started trainer registration for {phone}")
-                            return {'success': True, 'response': reg_result.get('message', 'Registration started')}
+                            return {'success': True, 'response': welcome_message}
                             
+                        except ImportError as e:
+                            log_error(f"Import error: {str(e)}")
+                            error_msg = "Registration module not available. Please contact support."
+                            whatsapp_service.send_message(phone, error_msg)
+                            return {'success': False, 'response': error_msg}
                         except Exception as e:
                             log_error(f"Error starting trainer registration: {str(e)}")
                             error_msg = "Sorry, I couldn't start the registration process. Please try again or type 'help' for assistance."
