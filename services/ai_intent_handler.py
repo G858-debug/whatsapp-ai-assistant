@@ -4,7 +4,7 @@ Coordinates between core detection, validation, and response generation
 """
 
 from typing import Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from anthropic import Anthropic
 from utils.logger import log_info, log_error, log_warning
@@ -125,13 +125,25 @@ class AIIntentHandler:
     
     CURRENT MESSAGE: "{message}"
     
-    TASK: Understand what the {sender_type} wants."""
+    TASK: Understand what the {sender_type} wants.
+    
+    CRITICAL RULES FOR INTENT DETECTION:
+    1. Common greetings like "Hi", "Hello", "Hey", "Hi Refiloe", "Hello Refiloe", "Good morning", "Good afternoon", "Good evening"
+       should ALWAYS be detected as 'greeting' intent with confidence 0.9 or higher.
+       DO NOT classify greetings as 'general_question'.
+    
+    2. Only use 'general_question' for actual questions or when the user is asking for information.
+    
+    3. Messages that are clearly greetings should be 'greeting' regardless of any other context.
+    
+    4. If someone says just "Hi", "Hello", or any variation with or without "Refiloe", it's a greeting, period."""
     
         # Add registration intents for unknown users
         if sender_type == 'unknown' or not context:
             base_prompt += """
     
     POSSIBLE INTENTS FOR NEW USERS:
+    - greeting: Just saying hello (e.g., "Hi", "Hello", "Hey Refiloe")
     - registration_trainer: Wants to register as a trainer
     - registration_client: Wants to find a trainer
     - registration_inquiry: Asking about the service
@@ -140,6 +152,7 @@ class AIIntentHandler:
         base_prompt += """
     
     Remember:
+    - Greetings are ALWAYS 'greeting' intent with high confidence (0.9+)
     - Refiloe can help with ANY topic, not just fitness
     - Detect if they're asking about coding, general knowledge, or creative tasks
     - Sometimes people just want to chat or check in
@@ -180,8 +193,8 @@ class AIIntentHandler:
             base_prompt += """
     
     POSSIBLE PRIMARY INTENTS FOR TRAINER:
+    - greeting: Just saying hello (MUST be used for "Hi", "Hello", etc.)
     - casual_chat: Just checking in, casual conversation
-    - greeting: Just saying hello (no task needed)
     - status_check: Asking if Refiloe is there/working
     - thanks: Expressing gratitude
     - farewell: Saying goodbye
@@ -197,7 +210,7 @@ class AIIntentHandler:
     - check_revenue: Checking earnings/revenue
     - start_assessment: Starting fitness assessment
     - challenges: Managing challenges
-    - general_question: General questions
+    - general_question: General questions (NOT greetings!)
     - technical_question: Coding or technical help
     - knowledge_question: General knowledge queries"""
             
@@ -205,8 +218,8 @@ class AIIntentHandler:
             base_prompt += """
     
     POSSIBLE PRIMARY INTENTS FOR CLIENT:
+    - greeting: Just saying hello (MUST be used for "Hi", "Hello", etc.)
     - casual_chat: Just checking in, casual conversation
-    - greeting: Just saying hello (no task needed)
     - status_check: Asking if Refiloe is there/working
     - thanks: Expressing gratitude
     - farewell: Saying goodbye
@@ -221,7 +234,7 @@ class AIIntentHandler:
     - check_payments: Payment status
     - join_challenge: Join fitness challenge
     - view_leaderboard: Check rankings
-    - general_question: General questions
+    - general_question: General questions (NOT greetings!)
     - technical_question: Coding or technical help
     - knowledge_question: General knowledge queries"""
         
@@ -229,13 +242,14 @@ class AIIntentHandler:
             base_prompt += """
     
     POSSIBLE PRIMARY INTENTS:
+    - greeting: Just saying hello (MUST be used for "Hi", "Hello", etc. with confidence 0.9+)
     - registration_trainer: Wants to register as trainer
     - registration_client: Wants to find trainer
     - registration_inquiry: Asking about the service
     - exploring: Just exploring what's offered
     - pricing_inquiry: Asking about costs
     - feature_inquiry: Asking about features
-    - general_question: General questions"""
+    - general_question: General questions (NOT greetings!)"""
     
         return base_prompt
     
@@ -274,11 +288,11 @@ class AIIntentHandler:
         intent_data.setdefault('suggested_response_type', 'conversational')
         intent_data.setdefault('conversation_tone', 'friendly')
         
-        # Validate client names against actual clients
-        if sender_type == 'trainer' and intent_data['extracted_data'].get('client_name'):
+        # Validate client names against actual clients if sender is trainer
+        if sender_type == 'trainer' and sender_data and intent_data['extracted_data'].get('client_name'):
             client_name = intent_data['extracted_data']['client_name']
             clients = self.db.table('clients').select('id, name')\
-                .eq('trainer_id', sender_data['id']).execute()
+                .eq('trainer_id', sender_data.get('id')).execute()
             
             if clients.data:
                 # Fuzzy match client name
@@ -403,7 +417,26 @@ class AIIntentHandler:
         """Basic keyword-based intent detection when AI is unavailable"""
         message_lower = message.lower()
         
-        # Check for habit-related keywords first
+        # GREETING DETECTION FIRST - Highest priority
+        greeting_keywords = ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo', 
+                           'morning', 'afternoon', 'evening', 'greetings', 'sup', 'hola']
+        
+        # Check if message contains a greeting
+        for keyword in greeting_keywords:
+            if keyword in message_lower:
+                return {
+                    'primary_intent': 'greeting',
+                    'secondary_intents': [],
+                    'confidence': 0.9,  # High confidence for greetings
+                    'extracted_data': {'original_message': message},
+                    'sentiment': 'friendly',
+                    'requires_confirmation': False,
+                    'suggested_response_type': 'conversational',
+                    'conversation_tone': 'casual',
+                    'is_follow_up': False
+                }
+        
+        # Check for habit-related keywords
         habit_keywords = {
             'setup_habit': ['habit', 'track', 'water tracking', 'steps tracking', 'sleep tracking'],
             'log_habits': ['yes yes', 'yes no', 'done done', 'glasses', 'steps', '✅', '❌'],
@@ -434,10 +467,9 @@ class AIIntentHandler:
                         'is_follow_up': False
                     }
         
-        # Check for casual conversation
+        # Check for other casual conversation
         casual_keywords = {
             'status_check': ['are you there', 'you there', 'still there', 'are you working', 'you alive', 'you up'],
-            'greeting': ['hi', 'hello', 'hey', 'howzit', 'sawubona', 'molo', 'morning', 'afternoon', 'evening'],
             'thanks': ['thanks', 'thank you', 'appreciate', 'cheers', 'shot', 'dankie'],
             'farewell': ['bye', 'goodbye', 'see you', 'later', 'cheers', 'chat soon'],
             'casual_chat': ['how are you', 'what\'s up', 'wassup', 'how\'s it', 'you good'],
@@ -451,7 +483,7 @@ class AIIntentHandler:
                         'primary_intent': intent,
                         'secondary_intents': [],
                         'confidence': 0.8,
-                        'extracted_data': {},
+                        'extracted_data': {'original_message': message},
                         'sentiment': 'friendly',
                         'requires_confirmation': False,
                         'suggested_response_type': 'conversational',
@@ -487,7 +519,7 @@ class AIIntentHandler:
                     break
         
         # Extract basic data
-        extracted_data = {}
+        extracted_data = {'original_message': message}
         
         # Extract phone numbers (South African format)
         import re
@@ -555,11 +587,12 @@ class AIIntentHandler:
                     emoji_responses.append('no')
             extracted['habit_responses'] = emoji_responses
         
+        extracted['original_message'] = message
         return extracted
     
     def _extract_habit_setup(self, message: str) -> Dict:
         """Extract habit setup information from message"""
-        extracted = {}
+        extracted = {'original_message': message}
         message_lower = message.lower()
         
         # Extract habit type
@@ -604,6 +637,17 @@ class AIIntentHandler:
         tone = intent_data.get('conversation_tone', 'friendly')
         response_type = intent_data.get('suggested_response_type', 'conversational')
         sentiment = intent_data.get('sentiment', 'neutral')
+        
+        # Handle greetings specifically
+        if intent == 'greeting':
+            import random
+            greetings = [
+                f"Hey {name}! 👋 How can I help you today?",
+                f"Hi {name}! Good to hear from you 😊 What can I do for you?",
+                f"Hello {name}! How's it going? What brings you here today?",
+                f"Hey there {name}! 🙌 What's on your fitness agenda?"
+            ]
+            return random.choice(greetings)
         
         # Handle casual conversation intents
         casual_responses = {
@@ -664,15 +708,7 @@ class AIIntentHandler:
         
         # Default responses based on response type
         if response_type == 'conversational':
-            if intent == 'greeting':
-                greetings = [
-                    f"Hey {name}! 👋 How can I help you today?",
-                    f"Hi {name}! Good to hear from you 😊 What can I do for you?",
-                    f"Hello {name}! How's it going? What brings you here today?",
-                    f"Hey there {name}! 🙌 What's on your fitness agenda?"
-                ]
-                return random.choice(greetings)
-            elif intent == 'unclear':
+            if intent == 'unclear':
                 clarification_responses = [
                     f"I didn't quite catch that, {name}. Could you rephrase that for me?",
                     f"Hmm, not sure I understood that correctly. What would you like help with?",
