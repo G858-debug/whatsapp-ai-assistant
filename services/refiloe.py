@@ -138,7 +138,23 @@ class RefiloeService:
             
             if trainer.data:
                 context['user_type'] = 'trainer'
-                context['user_data'] = trainer.data
+                
+                # Extract first name for friendly conversation
+                # Try first_name field first, fall back to splitting name field
+                first_name = trainer.data.get('first_name')
+                if not first_name:
+                    # If first_name column doesn't exist yet, split the name field
+                    full_name = trainer.data.get('name', 'Trainer')
+                    first_name = full_name.split()[0] if full_name else 'Trainer'
+                
+                # Build user_data with first name for greetings
+                context['user_data'] = {
+                    **trainer.data,  # Include all original data
+                    'name': first_name,  # Override name with first name for friendly messages
+                    'full_name': trainer.data.get('name'),  # Keep full name available
+                    'first_name': first_name,
+                    'last_name': trainer.data.get('last_name', '')
+                }
                 
                 # Get active clients count
                 clients = self.db.table('clients').select('id').eq(
@@ -149,18 +165,38 @@ class RefiloeService:
             else:
                 # Check if client
                 client = self.db.table('clients').select(
-                    '*, trainers(name, business_name)'
+                    '*, trainers(name, business_name, first_name, last_name)'
                 ).eq('whatsapp', phone).single().execute()
                 
                 if client.data:
                     context['user_type'] = 'client'
-                    context['user_data'] = client.data
+                    
+                    # Extract first name for client too
+                    first_name = client.data.get('first_name')
+                    if not first_name:
+                        # If first_name column doesn't exist yet, split the name field
+                        full_name = client.data.get('name', 'there')
+                        first_name = full_name.split()[0] if full_name else 'there'
+                    
+                    # Build user_data with first name for greetings
+                    context['user_data'] = {
+                        **client.data,  # Include all original data
+                        'name': first_name,  # Override name with first name for friendly messages
+                        'full_name': client.data.get('name'),  # Keep full name available
+                        'first_name': first_name,
+                        'last_name': client.data.get('last_name', '')
+                    }
                     
                     if client.data.get('trainers'):
-                        context['trainer_name'] = (
-                            client.data['trainers'].get('business_name') or 
-                            client.data['trainers'].get('name')
-                        )
+                        # Use trainer's first name if available, otherwise business name
+                        trainer_first_name = client.data['trainers'].get('first_name')
+                        if trainer_first_name:
+                            context['trainer_name'] = trainer_first_name
+                        else:
+                            context['trainer_name'] = (
+                                client.data['trainers'].get('business_name') or 
+                                client.data['trainers'].get('name', '').split()[0] if client.data['trainers'].get('name') else 'your trainer'
+                            )
                 else:
                     context['user_type'] = 'unknown'
                     context['user_data'] = None
