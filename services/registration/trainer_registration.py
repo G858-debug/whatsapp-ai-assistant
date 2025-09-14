@@ -340,7 +340,7 @@ class TrainerRegistrationHandler:
             
             # Add step indicator with encouragement
             total_steps = 7
-            step_message = f"Great! 👍\n\n📝 *Step {next_step + 1} of {total_steps}*\n\n{next_message}"
+            step_message = next_message
             
             return {
                 'message': step_message,
