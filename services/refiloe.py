@@ -208,9 +208,149 @@ class RefiloeService:
             # Save incoming message using existing method
             self.save_message(phone, text, 'user')
             
-            # Check if this is a button response for registration choice
-            if sender_type == 'unknown' and self.get_conversation_state(phone).get('state') == 'AWAITING_REGISTRATION_CHOICE':
-                return self._handle_registration_choice(phone, text, whatsapp_service)
+            # CHECK FOR REGISTRATION BUTTON CLICKS - BEFORE AI PROCESSING
+            if sender_type == 'unknown':
+                text_lower = text.strip().lower()
+                
+                # Check conversation state first
+                conv_state = self.get_conversation_state(phone)
+                
+                # If we're waiting for a registration choice OR if they click a button any time
+                if conv_state.get('state') == 'AWAITING_REGISTRATION_CHOICE' or any(trigger in text_lower for trigger in ["i'm a trainer", "find a trainer", "learn about me"]):
+                    
+                    # Check for trainer registration
+                    if any(trigger in text_lower for trigger in ["i'm a trainer", "trainer", "💼"]):
+                        try:
+                            from services.registration.trainer_registration import TrainerRegistration
+                            reg = TrainerRegistration(self.db)
+                            reg_result = reg.start_registration(phone)
+                            
+                            # Send the registration welcome message
+                            if reg_result.get('message'):
+                                whatsapp_service.send_message(phone, reg_result['message'])
+                            
+                            # Update conversation state to registration mode
+                            self.update_conversation_state(phone, 'REGISTRATION', {
+                                'type': 'trainer',
+                                'step': 'name',
+                                'session_id': reg_result.get('session_id')
+                            })
+                            
+                            # Save bot response
+                            self.save_message(phone, reg_result.get('message', ''), 'bot', 'registration_start')
+                            
+                            log_info(f"Started trainer registration for {phone}")
+                            return {'success': True, 'response': reg_result.get('message', 'Registration started')}
+                            
+                        except Exception as e:
+                            log_error(f"Error starting trainer registration: {str(e)}")
+                            error_msg = "Sorry, I couldn't start the registration process. Please try again or type 'help' for assistance."
+                            whatsapp_service.send_message(phone, error_msg)
+                            return {'success': False, 'response': error_msg}
+                    
+                    # Check for client registration
+                    elif any(trigger in text_lower for trigger in ["find a trainer", "client", "🏃"]):
+                        try:
+                            from services.registration.client_registration import ClientRegistration
+                            reg = ClientRegistration(self.db)
+                            reg_result = reg.start_registration(phone)
+                            
+                            # Send the registration welcome message
+                            if reg_result.get('message'):
+                                whatsapp_service.send_message(phone, reg_result['message'])
+                            
+                            # Update conversation state to registration mode
+                            self.update_conversation_state(phone, 'REGISTRATION', {
+                                'type': 'client',
+                                'step': 'name',
+                                'session_id': reg_result.get('session_id')
+                            })
+                            
+                            # Save bot response
+                            self.save_message(phone, reg_result.get('message', ''), 'bot', 'registration_start')
+                            
+                            log_info(f"Started client registration for {phone}")
+                            return {'success': True, 'response': reg_result.get('message', 'Registration started')}
+                            
+                        except Exception as e:
+                            log_error(f"Error starting client registration: {str(e)}")
+                            error_msg = "Sorry, I couldn't start the registration process. Please try again or type 'help' for assistance."
+                            whatsapp_service.send_message(phone, error_msg)
+                            return {'success': False, 'response': error_msg}
+                    
+                    # Check for "learn about me"
+                    elif any(trigger in text_lower for trigger in ["learn about me", "learn", "📚"]):
+                        info_message = (
+                            "🌟 *Hi! I'm Refiloe, your AI fitness assistant!*\n\n"
+                            "I was created to make fitness accessible and manageable for everyone in South Africa! "
+                            "My name means 'we have been given' in Sesotho - because I'm here to give you the tools for success. 💪\n\n"
+                            "*What I can do for trainers:*\n"
+                            "📱 Manage your entire business via WhatsApp\n"
+                            "👥 Track all your clients in one place\n"
+                            "📅 Handle bookings and scheduling\n"
+                            "💰 Process payments and track revenue\n"
+                            "📊 Generate progress reports\n"
+                            "🏋️ Create and send custom workouts\n\n"
+                            "*What I can do for clients:*\n"
+                            "🔍 Connect you with qualified trainers\n"
+                            "📅 Book and manage your sessions\n"
+                            "📈 Track your fitness progress\n"
+                            "🎯 Set and achieve your goals\n"
+                            "💪 Access personalized workouts\n"
+                            "🏆 Join challenges and stay motivated\n\n"
+                            "*Ready to start?* Tell me:\n"
+                            "• Type 'trainer' if you're a fitness professional\n"
+                            "• Type 'client' if you're looking for training\n\n"
+                            "Let's transform your fitness journey together! 🚀"
+                        )
+                        
+                        whatsapp_service.send_message(phone, info_message)
+                        self.save_message(phone, info_message, 'bot', 'info')
+                        
+                        # Keep state as awaiting registration choice
+                        self.update_conversation_state(phone, 'AWAITING_REGISTRATION_CHOICE')
+                        
+                        return {'success': True, 'response': info_message}
+            
+            # CHECK IF USER IS ALREADY IN REGISTRATION FLOW
+            conv_state = self.get_conversation_state(phone)
+            if conv_state.get('state') == 'REGISTRATION':
+                # They're in the middle of registration, handle their response
+                registration_type = conv_state.get('context', {}).get('type')
+                
+                if registration_type == 'trainer':
+                    try:
+                        from services.registration.trainer_registration import TrainerRegistration
+                        reg = TrainerRegistration(self.db)
+                        reg_result = reg.process_registration_response(phone, text)
+                        
+                        if reg_result.get('message'):
+                            whatsapp_service.send_message(phone, reg_result['message'])
+                        
+                        # If registration is complete, clear the state
+                        if reg_result.get('complete'):
+                            self.update_conversation_state(phone, 'IDLE')
+                        
+                        return {'success': True, 'response': reg_result.get('message', '')}
+                    except Exception as e:
+                        log_error(f"Error processing trainer registration: {str(e)}")
+                
+                elif registration_type == 'client':
+                    try:
+                        from services.registration.client_registration import ClientRegistration
+                        reg = ClientRegistration(self.db)
+                        reg_result = reg.process_registration_response(phone, text)
+                        
+                        if reg_result.get('message'):
+                            whatsapp_service.send_message(phone, reg_result['message'])
+                        
+                        # If registration is complete, clear the state
+                        if reg_result.get('complete'):
+                            self.update_conversation_state(phone, 'IDLE')
+                        
+                        return {'success': True, 'response': reg_result.get('message', '')}
+                    except Exception as e:
+                        log_error(f"Error processing client registration: {str(e)}")
             
             # Process with AI to understand intent
             intent = ai_handler.understand_message(
@@ -274,40 +414,6 @@ class RefiloeService:
             
             # Save bot response
             self.save_message(phone, response_text, 'bot', intent.get('primary_intent'))
-            
-            # Check if we should start specific registration flows based on explicit intent
-            if sender_type == 'unknown':
-                if intent.get('primary_intent') == 'registration_trainer' and intent.get('confidence', 0) > 0.8:
-                    # User explicitly said they want to register as trainer
-                    try:
-                        from services.registration.trainer_registration import TrainerRegistration
-                        reg = TrainerRegistration(self.db)
-                        reg_result = reg.start_registration(phone)
-                        if reg_result.get('buttons'):
-                            whatsapp_service.send_button_message(
-                                phone, 
-                                reg_result['message'],
-                                reg_result['buttons']
-                            )
-                        self.update_conversation_state(phone, 'REGISTRATION', {'type': 'trainer'})
-                    except ImportError:
-                        pass  # Registration module not available
-                
-                elif intent.get('primary_intent') == 'registration_client' and intent.get('confidence', 0) > 0.8:
-                    # User explicitly said they want to find a trainer
-                    try:
-                        from services.registration.client_registration import ClientRegistration
-                        reg = ClientRegistration(self.db)
-                        reg_result = reg.start_registration(phone)
-                        if reg_result.get('buttons'):
-                            whatsapp_service.send_button_message(
-                                phone,
-                                reg_result['message'], 
-                                reg_result['buttons']
-                            )
-                        self.update_conversation_state(phone, 'REGISTRATION', {'type': 'client'})
-                    except ImportError:
-                        pass
             
             return {'success': True, 'response': response_text}
             
