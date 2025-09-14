@@ -730,6 +730,6 @@ class AIIntentHandler:
         
         # Task-based but still friendly
         if sender_type == 'trainer':
-            return f"{name} my apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?"
+            return f"My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?"
         else:
-            return f"{name} my apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?"
+            return f"My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?"
