@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from utils.logger import log_info, log_error, log_warning
+from datetime import datetime, timedelta
 
 webhooks_bp = Blueprint('webhooks', __name__)
 
@@ -40,19 +41,63 @@ def whatsapp_webhook():
                     for change in entry.get('changes', []):
                         value = change.get('value', {})
                         
-                        # Check if it's a message
+                        # Check if it's a message (not a status update)
                         if 'messages' in value:
                             for message in value['messages']:
                                 phone = message.get('from')
                                 text = message.get('text', {}).get('body', '')
                                 message_id = message.get('id')
+                                timestamp = message.get('timestamp')
+                                
+                                # Get Supabase client
+                                supabase = app.config['supabase']
+                                
+                                # Check 1: Exact duplicate (same WhatsApp message ID)
+                                try:
+                                    existing = supabase.table('processed_messages').select('id').eq(
+                                        'whatsapp_message_id', message_id
+                                    ).execute()
+                                    
+                                    if existing.data:
+                                        log_info(f"Duplicate webhook for message {message_id} ignored")
+                                        continue
+                                except Exception as e:
+                                    # If table doesn't exist yet, continue processing
+                                    log_warning(f"Could not check for duplicates: {str(e)}")
+                                
+                                # Check 2: Rapid-fire same content (prevents same text within 2 seconds)
+                                try:
+                                    recent_duplicate = supabase.table('processed_messages').select('id').eq(
+                                        'phone_number', phone
+                                    ).eq('message_text', text).gte(
+                                        'created_at', (datetime.now() - timedelta(seconds=2)).isoformat()
+                                    ).execute()
+                                    
+                                    if recent_duplicate.data:
+                                        log_info(f"Rapid duplicate from {phone} ignored: {text[:50]}")
+                                        continue
+                                except Exception as e:
+                                    # If check fails, continue processing to avoid blocking messages
+                                    log_warning(f"Could not check for rapid duplicates: {str(e)}")
+                                
+                                # Store message to prevent reprocessing
+                                try:
+                                    supabase.table('processed_messages').insert({
+                                        'whatsapp_message_id': message_id,
+                                        'phone_number': phone,
+                                        'message_text': text[:500] if text else '',  # Store first 500 chars
+                                        'timestamp': str(timestamp) if timestamp else None,
+                                        'created_at': datetime.now().isoformat()
+                                    }).execute()
+                                except Exception as e:
+                                    # Log but don't block message processing
+                                    log_warning(f"Could not store processed message: {str(e)}")
                                 
                                 log_info(f"Processing message from {phone}: {text}")
                                 
                                 # Get Refiloe service from app config
                                 refiloe = app.config['services']['refiloe']
                                 
-                                # FIX: Use the correct method name!
                                 # Check what methods are available
                                 if hasattr(refiloe, 'handle_message'):
                                     result = refiloe.handle_message(phone, text)
