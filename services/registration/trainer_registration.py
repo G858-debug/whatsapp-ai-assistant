@@ -24,8 +24,95 @@ class TrainerRegistrationHandler:
             6: {'field': 'pricing', 'prompt': self._get_pricing_prompt}
         }
     
+    def get_or_create_session(self, phone: str) -> Dict:
+        """Get or create registration session data from database"""
+        try:
+            # Check if there's an existing incomplete registration in the database
+            existing = self.db.table('registration_states').select('*').eq(
+                'phone_number', phone
+            ).eq('user_type', 'trainer').eq(
+                'completed', False
+            ).execute()
+            
+            if existing.data and len(existing.data) > 0:
+                return existing.data[0].get('data', {})
+            
+            # Fall back to in-memory session if database not available
+            if not hasattr(self, '_sessions'):
+                self._sessions = {}
+            
+            if phone not in self._sessions:
+                self._sessions[phone] = {}
+            
+            return self._sessions[phone]
+            
+        except Exception as e:
+            log_error(f"Error getting session from database for {phone}: {str(e)}")
+            # Fall back to in-memory storage
+            if not hasattr(self, '_sessions'):
+                self._sessions = {}
+            
+            if phone not in self._sessions:
+                self._sessions[phone] = {}
+            
+            return self._sessions[phone]
+    
+    def save_session(self, phone: str, data: Dict, current_step: int = None):
+        """Save session data to database and memory"""
+        try:
+            # Always save to memory as backup
+            if not hasattr(self, '_sessions'):
+                self._sessions = {}
+            self._sessions[phone] = data
+            
+            # Try to save to database
+            existing = self.db.table('registration_states').select('*').eq(
+                'phone_number', phone
+            ).eq('user_type', 'trainer').eq(
+                'completed', False
+            ).execute()
+            
+            session_data = {
+                'phone_number': phone,
+                'user_type': 'trainer',
+                'current_step': current_step if current_step is not None else 0,
+                'data': data,
+                'completed': False,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            if existing.data and len(existing.data) > 0:
+                # Update existing session
+                self.db.table('registration_states').update(
+                    session_data
+                ).eq('id', existing.data[0]['id']).execute()
+            else:
+                # Create new session
+                session_data['created_at'] = datetime.now(self.sa_tz).isoformat()
+                self.db.table('registration_states').insert(session_data).execute()
+                
+        except Exception as e:
+            log_error(f"Error saving session to database for {phone}: {str(e)}")
+            # Continue with in-memory storage even if database fails
+    
     def start_registration(self, phone: str) -> str:
         """Start trainer registration with warm welcome"""
+        # Check for existing incomplete registration
+        session_data = self.get_or_create_session(phone)
+        
+        if session_data and len(session_data) > 0:
+            # They have some data from a previous attempt
+            name = session_data.get('name', 'there')
+            return (
+                f"👋 Welcome back{', ' + name if name != 'there' else ''}! "
+                "I see you started registering before.\n\n"
+                "Would you like to:\n"
+                "1️⃣ Continue where you left off\n"
+                "2️⃣ Start fresh\n\n"
+                "Just type 1 or 2"
+            )
+        
+        # Normal welcome message for new registration
         return (
             "🎉 I'm so excited to help you grow your personal training business! "
             "Let's get you set up in just a few quick steps. Don't worry, this set up is free\n\n"
@@ -37,6 +124,36 @@ class TrainerRegistrationHandler:
                                    current_step: int, data: Dict) -> Dict:
         """Handle registration step response"""
         try:
+            # Handle continuation choice if they're resuming
+            if message.strip() in ['1', '2'] and current_step == -1:
+                if message.strip() == '1':
+                    # Continue from where they left off
+                    session_data = self.get_or_create_session(phone)
+                    # Find the last completed step
+                    last_step = len([k for k in ['name', 'business_name', 'email', 
+                                                 'specialization', 'experience', 
+                                                 'location', 'pricing'] 
+                                    if k in session_data])
+                    if last_step < len(self.STEPS):
+                        next_prompt = self.STEPS[last_step]['prompt'](last_step + 1)
+                        return {
+                            'success': True,
+                            'message': f"Great! Let's continue...\n\n{next_prompt}",
+                            'next_step': last_step,
+                            'data': session_data,
+                            'continue': True
+                        }
+                else:
+                    # Start fresh - clear old data
+                    self.save_session(phone, {}, 0)
+                    return {
+                        'success': True,
+                        'message': "No problem! Let's start fresh.\n\n📝 *Step 1 of 7*\n\nWhat's your name and surname? 😊",
+                        'next_step': 0,
+                        'data': {},
+                        'continue': True
+                    }
+            
             step_info = self.STEPS.get(current_step)
             if not step_info:
                 return self._complete_registration(phone, data)
@@ -54,6 +171,9 @@ class TrainerRegistrationHandler:
             
             # Store data
             data[field] = validated['value']
+            
+            # Save session after each successful step
+            self.save_session(phone, data, current_step)
             
             # Move to next step
             next_step = current_step + 1
@@ -247,6 +367,19 @@ class TrainerRegistrationHandler:
                 trainer_id = result.data[0]['id']
                 log_info(f"Trainer registered: {full_name} ({trainer_id})")
                 
+                # Mark registration as complete in session
+                try:
+                    self.db.table('registration_states').update({
+                        'completed': True,
+                        'completed_at': datetime.now(self.sa_tz).isoformat()
+                    }).eq('phone_number', phone).eq('user_type', 'trainer').execute()
+                except Exception as e:
+                    log_error(f"Error marking registration complete: {str(e)}")
+                
+                # Clear in-memory session
+                if hasattr(self, '_sessions') and phone in self._sessions:
+                    del self._sessions[phone]
+                
                 # Create celebration message using first name only for friendliness
                 celebration = (
                     "🎊 *CONGRATULATIONS!* 🎊\n\n"
@@ -328,8 +461,11 @@ class TrainerRegistrationHandler:
                 # Try to extract the price intelligently
                 price = self.validator.extract_price(response)
                 
-                if price:
+                if price and 50 <= price <= 5000:
                     session['pricing'] = price
+                    # Save session before attempting completion
+                    self.save_session(phone, session, current_step)
+                    
                     # Complete registration
                     result = self._complete_registration(phone, session)
                     
@@ -343,19 +479,26 @@ class TrainerRegistrationHandler:
                             'complete': False
                         }
                 else:
-                    # Invalid price format
+                    # Invalid price format or out of range
                     return {
-                        'message': "💰 I couldn't understand that amount. Please enter your rate per session (e.g., 350, R450, or 250 Rands):",
+                        'message': "💰 I couldn't understand that amount. Please enter your rate per session between R50 and R5000\n\nExamples: 350, R450, or 250 Rands",
                         'next_step': 6,  # Stay on pricing step
                         'complete': False
                     }
+            else:
+                # Unknown step - shouldn't happen but handle gracefully
+                return {
+                    'message': "I'm a bit confused. Let's start over. What's your name?",
+                    'next_step': 0,
+                    'complete': False
+                }
             
-            # Save session data
-            self.save_session(phone, session)
+            # Save session data after each successful step
+            self.save_session(phone, session, next_step)
             
             # Add step indicator with encouragement
             total_steps = 7
-            step_message = next_message
+            step_message = f"Great! 👍\n\n📝 *Step {next_step + 1} of {total_steps}*\n\n{next_message}"
             
             return {
                 'message': step_message,
@@ -370,21 +513,3 @@ class TrainerRegistrationHandler:
                 'next_step': current_step,
                 'complete': False
             }
-    
-    def get_or_create_session(self, phone: str) -> Dict:
-        """Get or create registration session data"""
-        # This would retrieve from a database or cache
-        # For now, using a simple in-memory approach
-        if not hasattr(self, '_sessions'):
-            self._sessions = {}
-        
-        if phone not in self._sessions:
-            self._sessions[phone] = {}
-        
-        return self._sessions[phone]
-    
-    def save_session(self, phone: str, data: Dict):
-        """Save session data"""
-        if not hasattr(self, '_sessions'):
-            self._sessions = {}
-        self._sessions[phone] = data
