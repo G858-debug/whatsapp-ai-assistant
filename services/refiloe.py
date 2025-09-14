@@ -200,6 +200,10 @@ class RefiloeService:
             # Save incoming message using existing method
             self.save_message(phone, text, 'user')
             
+            # Check if this is a button response for registration choice
+            if sender_type == 'unknown' and self.get_conversation_state(phone).get('state') == 'AWAITING_REGISTRATION_CHOICE':
+                return self._handle_registration_choice(phone, text, whatsapp_service)
+            
             # Process with AI to understand intent
             intent = ai_handler.understand_message(
                 text,
@@ -215,16 +219,58 @@ class RefiloeService:
                 sender_data
             )
             
-            # Send the response
+            # Special handling for unknown users - Add welcome buttons after AI response
+            if sender_type == 'unknown' and intent.get('primary_intent') in ['greeting', 'general_question', 'registration_inquiry']:
+                import random
+                
+                # Transition phrases to connect AI response to buttons
+                transitions = [
+                    "I can help you achieve your fitness goals! 💪\n\nWhat brings you here today?",
+                    "Let's get you started on your fitness journey! 🚀\n\nHow can I help you today?",
+                    "I'm here to make fitness simple and effective! ✨\n\nWhat would you like to do?",
+                    "Ready to transform your fitness experience? 💪\n\nTell me about yourself:"
+                ]
+                
+                # Combine AI response with transition to buttons
+                full_message = f"{response_text}\n\n{random.choice(transitions)}"
+                
+                # Create the 3 main option buttons
+                buttons = [
+                    {
+                        'id': 'register_trainer',
+                        'title': '💼 I\'m a Trainer'  # 14 chars
+                    },
+                    {
+                        'id': 'register_client', 
+                        'title': '🏃 Find a Trainer'  # 16 chars
+                    },
+                    {
+                        'id': 'learn_about_me',
+                        'title': '📚 Learn about me'  # 16 chars
+                    }
+                ]
+                
+                # Send message with buttons
+                whatsapp_service.send_button_message(phone, full_message, buttons)
+                
+                # Update conversation state to track we're waiting for registration choice
+                self.update_conversation_state(phone, 'AWAITING_REGISTRATION_CHOICE')
+                
+                # Save the full bot response with buttons
+                self.save_message(phone, full_message, 'bot', 'registration_prompt')
+                
+                return {'success': True, 'response': full_message}
+            
+            # For registered users, just send the AI response normally
             whatsapp_service.send_message(phone, response_text)
             
             # Save bot response
             self.save_message(phone, response_text, 'bot', intent.get('primary_intent'))
             
-            # Check if we should start registration flow
+            # Check if we should start specific registration flows based on explicit intent
             if sender_type == 'unknown':
-                if intent.get('primary_intent') == 'registration_trainer':
-                    # Check if registration manager exists
+                if intent.get('primary_intent') == 'registration_trainer' and intent.get('confidence', 0) > 0.8:
+                    # User explicitly said they want to register as trainer
                     try:
                         from services.registration.trainer_registration import TrainerRegistration
                         reg = TrainerRegistration(self.db)
@@ -235,11 +281,12 @@ class RefiloeService:
                                 reg_result['message'],
                                 reg_result['buttons']
                             )
+                        self.update_conversation_state(phone, 'REGISTRATION', {'type': 'trainer'})
                     except ImportError:
                         pass  # Registration module not available
                 
-                elif intent.get('primary_intent') == 'registration_client':
-                    # Similar for client registration
+                elif intent.get('primary_intent') == 'registration_client' and intent.get('confidence', 0) > 0.8:
+                    # User explicitly said they want to find a trainer
                     try:
                         from services.registration.client_registration import ClientRegistration
                         reg = ClientRegistration(self.db)
@@ -250,6 +297,7 @@ class RefiloeService:
                                 reg_result['message'], 
                                 reg_result['buttons']
                             )
+                        self.update_conversation_state(phone, 'REGISTRATION', {'type': 'client'})
                     except ImportError:
                         pass
             
@@ -263,3 +311,98 @@ class RefiloeService:
                 'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊"
             }
     
+    def _handle_registration_choice(self, phone: str, message: str, whatsapp_service) -> Dict:
+        """Handle button clicks for registration choice"""
+        try:
+            # Clear the awaiting state
+            self.update_conversation_state(phone, 'IDLE')
+            
+            # Handle "I'm a Trainer" button
+            if 'register_trainer' in message.lower() or "i'm a trainer" in message.lower() or "trainer" in message.lower():
+                from services.registration.trainer_registration import TrainerRegistration
+                reg = TrainerRegistration(self.db)
+                reg_result = reg.start_registration(phone)
+                if reg_result.get('buttons'):
+                    whatsapp_service.send_button_message(
+                        phone,
+                        reg_result['message'],
+                        reg_result['buttons']
+                    )
+                else:
+                    whatsapp_service.send_message(phone, reg_result['message'])
+                
+                self.update_conversation_state(phone, 'REGISTRATION', {'type': 'trainer'})
+                return {'success': True}
+            
+            # Handle "Find a Trainer" button
+            elif 'register_client' in message.lower() or "find a trainer" in message.lower() or "find trainer" in message.lower():
+                from services.registration.client_registration import ClientRegistration
+                reg = ClientRegistration(self.db)
+                reg_result = reg.start_registration(phone)
+                if reg_result.get('buttons'):
+                    whatsapp_service.send_button_message(
+                        phone,
+                        reg_result['message'],
+                        reg_result['buttons']
+                    )
+                else:
+                    whatsapp_service.send_message(phone, reg_result['message'])
+                
+                self.update_conversation_state(phone, 'REGISTRATION', {'type': 'client'})
+                return {'success': True}
+            
+            # Handle "Learn about me" button
+            elif 'learn_about_me' in message.lower() or "learn about me" in message.lower():
+                info_message = (
+                    "🌟 *Hi! I'm Refiloe, your AI fitness assistant!*\n\n"
+                    "I was created to make fitness accessible and manageable for everyone passionate about health and wellness "
+                    "My name means 'we have been given' in Sesotho - and I'm here to give you the tools for success. 💪\n\n"
+                    "✨ *What I Can Do?*\n\n"
+                    "📱 *For Personal Trainers:*\n"
+                    "• Manage all your clients in one place\n"
+                    "• Schedule & track sessions\n"
+                    "• Share workouts instantly\n"
+                    "• Handle payments seamlessly\n"
+                    "• Track client progress\n\n"
+                    "🏃 *For Fitness Enthusiasts:*\n"
+                    "• Match you with qualified trainers\n"
+                    "• Book sessions easily\n"
+                    "• Track your fitness journey\n"
+                    "• Get personalized workouts\n"
+                    "• Monitor your progress\n\n"
+                    "I'm available 24/7 right here on WhatsApp! No apps to download, "
+                    "no complicated setups - just message me anytime! 🚀\n\n"
+                    "Ready to start? Let me know if you're a trainer or looking for one!"
+                )
+                
+                # After learning about Refiloe, offer the registration options
+                buttons = [
+                    {
+                        'id': 'register_trainer',
+                        'title': '💼 I\'m a Trainer'
+                    },
+                    {
+                        'id': 'register_client',
+                        'title': '🏃 Find a Trainer'
+                    }
+                ]
+                
+                whatsapp_service.send_button_message(phone, info_message, buttons)
+                
+                # Keep state as awaiting choice for the follow-up buttons
+                self.update_conversation_state(phone, 'AWAITING_REGISTRATION_CHOICE')
+                
+                return {'success': True}
+            
+            # If message doesn't match any button, treat as new message
+            else:
+                # Reset state and process as normal message
+                self.update_conversation_state(phone, 'IDLE')
+                return self.handle_message(phone, message)
+                
+        except Exception as e:
+            log_error(f"Error handling registration choice: {str(e)}")
+            return {
+                'success': False,
+                'response': "Sorry, something went wrong. Please try again or just tell me if you're a trainer or looking for one!"
+            }
