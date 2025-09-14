@@ -174,6 +174,14 @@ class RefiloeService:
     def handle_message(self, phone: str, text: str) -> Dict:
         """Handle incoming WhatsApp message - main entry point"""
         try:
+            # Check for reset command FIRST
+            if text.strip().lower() == '/reset_me':
+                return self._handle_reset_command(phone)
+            
+            # Check for test commands (optional - for easier testing)
+            if text.strip().lower().startswith('/test_'):
+                return self._handle_test_command(phone, text.strip().lower())
+            
             # Import services we need
             from app import app
             ai_handler = app.config['services']['ai_handler']
@@ -310,6 +318,163 @@ class RefiloeService:
                 'success': False,
                 'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊"
             }
+    
+    def _handle_reset_command(self, phone: str) -> Dict:
+        """Handle /reset_me command to delete user data"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Safety check - only allow for specific test numbers
+            # Add your test numbers here
+            ALLOWED_RESET_NUMBERS = [
+                '27731863036',  # Your test number from logs
+                '27837896738',  # Add other test numbers as needed
+                # Add more test numbers here
+            ]
+            
+            # For production, you might want to allow all users to reset
+            # In that case, comment out this check
+            if phone not in ALLOWED_RESET_NUMBERS:
+                response = "⚠️ Reset command is currently only available for test accounts.\n\nIf you need to reset your account, please contact support."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Delete user records from all tables
+            deleted_count = 0
+            
+            # Delete from trainers
+            result = self.db.table('trainers').delete().eq('whatsapp', phone).execute()
+            if result.data:
+                deleted_count += len(result.data)
+                log_info(f"Deleted trainer record for {phone}")
+            
+            # Delete from clients
+            result = self.db.table('clients').delete().eq('whatsapp', phone).execute()
+            if result.data:
+                deleted_count += len(result.data)
+                log_info(f"Deleted client record for {phone}")
+            
+            # Delete conversation states
+            self.db.table('conversation_states').delete().eq('phone_number', phone).execute()
+            
+            # Delete message history
+            self.db.table('message_history').delete().eq('phone_number', phone).execute()
+            
+            # Delete registration sessions if exists
+            try:
+                self.db.table('registration_sessions').delete().eq('phone', phone).execute()
+            except:
+                pass  # Table might not exist
+            
+            # Delete processed messages (keep webhook deduplication clean)
+            try:
+                self.db.table('processed_messages').delete().eq('phone_number', phone).execute()
+            except:
+                pass
+            
+            log_info(f"Reset complete for {phone} - deleted {deleted_count} user records")
+            
+            # Send confirmation message
+            response = (
+                "✅ *Account Reset Complete!*\n\n"
+                "Your account has been completely reset. You're now a new user! 🎉\n\n"
+                "Say 'Hi' to start fresh and I'll help you get set up again.\n\n"
+                "_This reset deleted all your data including:_\n"
+                "• Profile information\n"
+                "• Message history\n"
+                "• Registration status\n"
+                "• Conversation state"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error resetting user {phone}: {str(e)}")
+            response = "❌ Sorry, couldn't reset your account. Please try again later or contact support."
+            
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            whatsapp_service.send_message(phone, response)
+            
+            return {'success': False, 'response': response}
+    
+    def _handle_test_command(self, phone: str, command: str) -> Dict:
+        """Handle test commands for easier testing of different user states"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Safety check - only for test numbers
+            ALLOWED_TEST_NUMBERS = [
+                '27731863036',
+                '27837896738',
+                # Add your test numbers
+            ]
+            
+            if phone not in ALLOWED_TEST_NUMBERS:
+                return {'success': True, 'response': "Command not recognized."}
+            
+            if command == '/test_trainer':
+                # Make user a trainer for testing
+                self.db.table('clients').delete().eq('whatsapp', phone).execute()
+                self.db.table('trainers').upsert({
+                    'whatsapp': phone,
+                    'name': 'Test Trainer',
+                    'email': f'test_trainer_{phone}@test.com',
+                    'status': 'active',
+                    'business_name': 'Test Fitness',
+                    'created_at': datetime.now(self.sa_tz).isoformat()
+                }).execute()
+                
+                response = "✅ You're now registered as a trainer!\n\nYou can test trainer features like:\n• Adding clients\n• Creating workouts\n• Managing bookings"
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            elif command == '/test_client':
+                # Make user a client for testing
+                self.db.table('trainers').delete().eq('whatsapp', phone).execute()
+                self.db.table('clients').upsert({
+                    'whatsapp': phone,
+                    'name': 'Test Client',
+                    'email': f'test_client_{phone}@test.com',
+                    'status': 'active',
+                    'created_at': datetime.now(self.sa_tz).isoformat()
+                }).execute()
+                
+                response = "✅ You're now registered as a client!\n\nYou can test client features like:\n• Viewing workouts\n• Booking sessions\n• Tracking habits"
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            elif command == '/test_new':
+                # Make user unknown (same as reset but quicker to type)
+                self.db.table('trainers').delete().eq('whatsapp', phone).execute()
+                self.db.table('clients').delete().eq('whatsapp', phone).execute()
+                self.db.table('conversation_states').delete().eq('phone_number', phone).execute()
+                
+                response = "✅ You're now a new user!\n\nSay 'Hi' to see the welcome message with registration options."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            elif command == '/test_help':
+                response = (
+                    "🧪 *Test Commands Available:*\n\n"
+                    "*/reset_me* - Complete account reset\n"
+                    "*/test_trainer* - Become a trainer\n"
+                    "*/test_client* - Become a client\n"
+                    "*/test_new* - Become unknown user\n"
+                    "*/test_help* - Show this help\n\n"
+                    "_These commands are only available for test accounts._"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            return {'success': True, 'response': "Unknown test command. Try /test_help"}
+            
+        except Exception as e:
+            log_error(f"Error handling test command: {str(e)}")
+            return {'success': False, 'response': "Test command failed."}
     
     def _handle_registration_choice(self, phone: str, message: str, whatsapp_service) -> Dict:
         """Handle button clicks for registration choice"""
