@@ -32,19 +32,27 @@ class ValidationHelpers:
         return None
     
     def extract_price(self, text: str) -> Optional[float]:
-        """Extract price from text"""
-        # Remove currency symbols and text
-        text = re.sub(r'[Rr](?:and)?s?\.?', '', text)
-        text = re.sub(r'per\s+(session|hour|class|month)', '', text, flags=re.IGNORECASE)
+        """Extract price from text - handles South African currency formats"""
+        # Clean the input
+        text = str(text).strip()
+        
+        # Remove currency indicators (R, Rands, ZAR, etc.)
+        text = re.sub(r'(?i)\b(rands?|zar)\b', '', text)  # Remove word "rand/rands/ZAR"
+        text = re.sub(r'[Rr](?![a-zA-Z])', '', text)  # Remove R symbol (but not if part of word)
+        text = re.sub(r'[,$]', '', text)  # Remove commas and dollar signs
+        text = re.sub(r'(?i)per\s+(session|hour|class|month)', '', text)  # Remove "per session" etc
+        
+        # Clean up spaces
+        text = text.strip()
         
         # Find numbers (including decimals)
-        numbers = re.findall(r'\d+(?:\.\d{2})?', text)
+        numbers = re.findall(r'\d+(?:\.\d{1,2})?', text)
         
         if numbers:
             try:
                 price = float(numbers[0])
-                # Sanity check for reasonable prices
-                if 0 < price < 10000:
+                # Sanity check for reasonable training prices
+                if 0 < price < 10000000:
                     return price
             except ValueError:
                 pass
