@@ -284,3 +284,92 @@ class TrainerRegistrationHandler:
                 'message': "😅 Almost there! We hit a small snag. Please try again.",
                 'continue': False
             }
+
+    def process_step(self, phone: str, response: str, current_step: int) -> Dict:
+        """Process a registration step response"""
+        try:
+            # Get or create session data
+            session = self.get_or_create_session(phone)
+            
+            # Handle the current step
+            if current_step == 0:  # Name
+                session['name'] = response
+                next_message = self._get_business_prompt()
+                next_step = 1
+            elif current_step == 1:  # Business name
+                if response.lower() != 'skip':
+                    session['business_name'] = response
+                next_message = self._get_email_prompt()
+                next_step = 2
+            elif current_step == 2:  # Email
+                # Validate email
+                if '@' not in response:
+                    return {
+                        'message': "🤔 That doesn't look like a valid email. Please enter a valid email address:",
+                        'next_step': current_step,  # Stay on same step
+                        'complete': False
+                    }
+                session['email'] = response
+                next_message = self._get_specialization_prompt()
+                next_step = 3
+            elif current_step == 3:  # Specialization
+                session['specialization'] = response
+                next_message = self._get_experience_prompt()
+                next_step = 4
+            elif current_step == 4:  # Experience
+                session['experience'] = response
+                next_message = self._get_location_prompt()
+                next_step = 5
+            elif current_step == 5:  # Location
+                session['location'] = response
+                next_message = self._get_pricing_prompt()
+                next_step = 6
+            elif current_step == 6:  # Pricing
+                session['pricing'] = response
+                # Complete registration
+                return self._complete_registration(phone, session)
+            else:
+                return {
+                    'message': "I'm a bit confused. Let's start over. What's your name?",
+                    'next_step': 0,
+                    'complete': False
+                }
+            
+            # Save session data
+            self.save_session(phone, session)
+            
+            # Add step indicator
+            total_steps = 7
+            step_message = f"\n\n📝 *Step {next_step + 1} of {total_steps}*\n{next_message}"
+            
+            return {
+                'message': step_message,
+                'next_step': next_step,
+                'complete': False
+            }
+            
+        except Exception as e:
+            log_error(f"Error processing step: {str(e)}")
+            return {
+                'message': "Sorry, I had trouble processing that. Could you please try again?",
+                'next_step': current_step,
+                'complete': False
+            }
+    
+    def get_or_create_session(self, phone: str) -> Dict:
+        """Get or create registration session data"""
+        # This would retrieve from a database or cache
+        # For now, using a simple in-memory approach
+        if not hasattr(self, '_sessions'):
+            self._sessions = {}
+        
+        if phone not in self._sessions:
+            self._sessions[phone] = {}
+        
+        return self._sessions[phone]
+    
+    def save_session(self, phone: str, data: Dict):
+        """Save session data"""
+        if not hasattr(self, '_sessions'):
+            self._sessions = {}
+        self._sessions[phone] = data
