@@ -195,10 +195,29 @@ jobs:
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
-      if: steps.run-tests.outcome == 'failure'
+      if: steps.run-tests.outcome == 'failure' || failure()
       run: |
         echo "Analyzing test failures..."
-        python tests/auto_fix_generator.py
+        # Only run if there are actual test failures
+        if [ -f "test-results.json" ]; then
+          python -c "
+import json
+with open('test-results.json') as f:
+    data = json.load(f)
+    failed = [t for t in data.get('tests', []) if t.get('outcome') == 'failed']
+    if failed:
+        print(f'Found {len(failed)} failed tests')
+        exit(1)
+    else:
+        print('All tests passed - no fixes needed')
+        exit(0)
+          "
+          if [ $? -eq 1 ]; then
+            python tests/auto_fix_generator.py
+          fi
+        else
+          echo "No test results found"
+        fi
     
     - name: Apply auto-fixes and create PR
       if: steps.analyze-fixes.outcome == 'success' && github.event.inputs.fix_mode != 'report-only'
@@ -280,7 +299,17 @@ jobs:
       if: always()
       run: |
         echo "Cleaning up test data from Supabase..."
-        python tests/cleanup_test_data.py
+        python tests/cleanup_test_data.py || echo "Cleanup script not found or failed"
+    
+    - name: Celebrate success
+      if: success() && steps.run-tests.outcome == 'success'
+      run: |
+        echo "🎉🎉🎉 ALL TESTS PASSED! 🎉🎉🎉"
+        echo "================================"
+        echo "✅ Test suite is working correctly"
+        echo "✅ All conversation flows passed"
+        echo "✅ No fixes needed"
+        echo "================================"
     
     - name: Send notification
       if: failure() && github.ref == 'refs/heads/main'
