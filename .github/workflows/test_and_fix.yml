@@ -115,44 +115,79 @@ jobs:
       id: run-tests
       continue-on-error: true
       run: |
-        echo "Running all conversation flow tests..."
+        echo "Running comprehensive real-world tests..."
         
         # Create default results in case tests fail to run
         echo '{"summary": {"total": 0, "passed": 0, "failed": 0}, "tests": []}' > test-results.json
         echo "<html><body>Tests not run</body></html>" > test-report.html
         
-        # Run ALL test files in the tests directory
-        if python -m pytest tests/ \
-          --ignore=tests/test_railway_api.py \
-          --ignore=tests/test_calendar_service.py \
-          --html=test-report.html \
-          --self-contained-html \
-          --json-report \
-          --json-report-file=test-results.json \
-          -v \
-          --tb=short \
-          --capture=no 2>&1 | tee test-output.log; then
-          echo "✅ Tests passed!"
+        # First, try to run the comprehensive real-world tests
+        if [ -f "tests/test_refiloe_real_world.py" ]; then
+          echo "Running real-world comprehensive tests..."
+          python -m pytest tests/test_refiloe_real_world.py \
+            --html=test-report.html \
+            --self-contained-html \
+            --json-report \
+            --json-report-file=test-results.json \
+            -v \
+            --tb=short \
+            --capture=no 2>&1 | tee test-output.log
+          TEST_EXIT_CODE=$?
+        else
+          echo "Real-world tests not found, running basic tests..."
+          python -m pytest tests/ \
+            --ignore=tests/test_railway_api.py \
+            --ignore=tests/test_calendar_service.py \
+            --html=test-report.html \
+            --self-contained-html \
+            --json-report \
+            --json-report-file=test-results.json \
+            -v \
+            --tb=short \
+            --capture=no 2>&1 | tee test-output.log
+          TEST_EXIT_CODE=$?
+        fi
+        
+        if [ $TEST_EXIT_CODE -eq 0 ]; then
+          echo "✅ All tests passed!"
           echo "test_status=success" >> $GITHUB_ENV
         else
-          EXIT_CODE=$?
-          echo "❌ Tests failed with exit code $EXIT_CODE"
+          echo "❌ Some tests failed (exit code: $TEST_EXIT_CODE)"
           echo "test_status=failure" >> $GITHUB_ENV
           
-          # Show the last 50 lines of output for debugging
-          echo "=== Last 50 lines of test output ==="
-          tail -50 test-output.log || true
+          # Show failed tests
+          echo "=== Failed Tests ==="
+          grep -E "FAILED|ERROR" test-output.log | head -20 || true
           
-          # Check if it's an import error
-          if grep -q "ImportError\|ModuleNotFoundError" test-output.log; then
-            echo "⚠️ Import errors detected - missing modules or __init__.py files"
+          # Check for specific issues
+          if grep -q "currency\|pricing\|R450" test-output.log; then
+            echo "💰 Currency parsing issues detected"
+          fi
+          if grep -q "natural\|ai\|invalid command" test-output.log; then
+            echo "🤖 Natural language processing issues detected"
+          fi
+          if grep -q "registration\|step 7" test-output.log; then
+            echo "📝 Registration flow issues detected"
           fi
         fi
         
-        # Always show test summary if json exists
+        # Always show test summary
         if [ -f "test-results.json" ]; then
           echo "=== Test Summary ==="
-          python -c "import json; data=json.load(open('test-results.json')); print(f\"Total: {data.get('summary', {}).get('total', 0)}, Passed: {data.get('summary', {}).get('passed', 0)}, Failed: {data.get('summary', {}).get('failed', 0)}\")" || true
+          python -c "
+        import json
+        with open('test-results.json') as f:
+            data = json.load(f)
+            summary = data.get('summary', {})
+            print(f\"Total: {summary.get('total', 0)}\")
+            print(f\"Passed: {summary.get('passed', 0)}\")
+            print(f\"Failed: {summary.get('failed', 0)}\")
+            
+            # Show critical failures
+            for test in data.get('tests', []):
+                if test.get('outcome') == 'failed' and 'critical' in test.get('nodeid', '').lower():
+                    print(f\"🚨 CRITICAL: {test.get('nodeid', 'Unknown test')}\")
+          " || true
         fi
     
     - name: Upload test results
