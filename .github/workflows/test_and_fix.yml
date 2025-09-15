@@ -177,17 +177,17 @@ jobs:
           echo ""
           echo "=== Failed Tests ==="
           python -c "
-import json
-try:
-    with open('test-results.json') as f:
-        data = json.load(f)
-        for test in data.get('tests', []):
-            if test.get('outcome') == 'failed':
-                print(f\"❌ {test.get('nodeid', 'Unknown test')}:\")
-                print(f\"   {test.get('call', {}).get('longrepr', 'No error details')[:200]}\")
-                print()
-except Exception as e:
-    print(f'Could not parse results: {e}')
+        import json
+        try:
+            with open('test-results.json') as f:
+                data = json.load(f)
+                for test in data.get('tests', []):
+                    if test.get('outcome') == 'failed':
+                        print(f\"❌ {test.get('nodeid', 'Unknown test')}:\")
+                        print(f\"   {test.get('call', {}).get('longrepr', 'No error details')[:200]}\")
+                        print()
+        except Exception as e:
+            print(f'Could not parse results: {e}')
           " || true
         else
           echo "No test results JSON found"
