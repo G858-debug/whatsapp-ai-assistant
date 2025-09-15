@@ -197,23 +197,14 @@ jobs:
       id: analyze-fixes
       if: steps.run-tests.outcome == 'failure' || failure()
       run: |
-        echo "Analyzing test failures..."
-        # Only run if there are actual test failures
+        echo "Checking if fixes are needed..."
         if [ -f "test-results.json" ]; then
-          python -c "
-import json
-with open('test-results.json') as f:
-    data = json.load(f)
-    failed = [t for t in data.get('tests', []) if t.get('outcome') == 'failed']
-    if failed:
-        print(f'Found {len(failed)} failed tests')
-        exit(1)
-    else:
-        print('All tests passed - no fixes needed')
-        exit(0)
-          "
-          if [ $? -eq 1 ]; then
-            python tests/auto_fix_generator.py
+          # Check if there are any failed tests using grep
+          if grep -q '"outcome": "failed"' test-results.json; then
+            echo "Found failed tests, generating fixes..."
+            python tests/auto_fix_generator.py || echo "Fix generator not found"
+          else
+            echo "✅ All tests passed - no fixes needed!"
           fi
         else
           echo "No test results found"
