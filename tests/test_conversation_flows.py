@@ -81,7 +81,16 @@ class ConversationTester:
     def setup_services(self):
         """Initialize all required services with mocks"""
         self.db = Mock()
+        
+        # Create a properly configured mock config
         self.config = Mock()
+        self.config.TIMEZONE = 'Africa/Johannesburg'
+        self.config.ANTHROPIC_API_KEY = 'test-key'
+        self.config.WHATSAPP_TOKEN = 'test-token'
+        self.config.WHATSAPP_PHONE_ID = 'test-phone-id'
+        self.config.SUPABASE_URL = 'https://test.supabase.co'
+        self.config.SUPABASE_ANON_KEY = 'test-anon-key'
+        
         self.whatsapp = Mock()
         
         # Initialize services - they'll be mocked if imports failed
