@@ -57,10 +57,49 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-cov pytest-html pytest-json-report colorama
     
+    - name: Debug - Check environment
+      run: |
+        echo "=== Checking environment ==="
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        echo ""
+        echo "Python path:"
+        python -c "import sys; print('\n'.join(sys.path))"
+        echo ""
+        echo "Installed packages:"
+        pip list | head -20
+    
     - name: Setup test environment
       run: |
         echo "Setting up test environment..."
-        python tests/setup_test_env.py
+        # Check if setup file exists
+        if [ -f "tests/setup_test_env.py" ]; then
+          python tests/setup_test_env.py
+        else
+          echo "Setup file not found, skipping..."
+        fi
+    
+    - name: Run debug test first
+      continue-on-error: true
+      run: |
+        echo "Running debug test to identify issues..."
+        # Create the debug test if it doesn't exist
+        if [ ! -f "tests/test_debug.py" ]; then
+          cat > tests/test_debug.py << 'EOF'
+import sys
+import os
+print(f"Python: {sys.version}")
+print(f"Current dir: {os.getcwd()}")
+print(f"Files: {os.listdir('.')}")
+try:
+    import services.refiloe
+    print("✅ Can import services.refiloe")
+except Exception as e:
+    print(f"❌ Cannot import services.refiloe: {e}")
+EOF
+        fi
+        python tests/test_debug.py || true
     
     - name: Run conversation flow tests
       id: run-tests
