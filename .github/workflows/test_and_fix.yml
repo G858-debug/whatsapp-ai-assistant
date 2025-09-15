@@ -84,22 +84,32 @@ jobs:
       continue-on-error: true
       run: |
         echo "Running debug test to identify issues..."
-        # Create the debug test if it doesn't exist
-        if [ ! -f "tests/test_debug.py" ]; then
-          cat > tests/test_debug.py << 'EOF'
-import sys
-import os
-print(f"Python: {sys.version}")
-print(f"Current dir: {os.getcwd()}")
-print(f"Files: {os.listdir('.')}")
-try:
-    import services.refiloe
-    print("✅ Can import services.refiloe")
-except Exception as e:
-    print(f"❌ Cannot import services.refiloe: {e}")
-EOF
+        # Create a simple inline debug test
+        python -c "
+        import sys
+        import os
+        print('Python:', sys.version)
+        print('Current dir:', os.getcwd())
+        print('Directory contents:', os.listdir('.'))
+        print('Checking for services directory:', os.path.exists('services'))
+        print('Checking for tests directory:', os.path.exists('tests'))
+        
+        # Try to import a service
+        sys.path.insert(0, '.')
+        try:
+            import services.refiloe
+            print('✅ Can import services.refiloe')
+        except ImportError as e:
+            print(f'❌ Cannot import services.refiloe: {e}')
+        except Exception as e:
+            print(f'❌ Error: {type(e).__name__}: {e}')
+        "
+        
+        # If debug test file exists, run it too
+        if [ -f "tests/test_debug.py" ]; then
+          echo "Running test_debug.py..."
+          python tests/test_debug.py || true
         fi
-        python tests/test_debug.py || true
     
     - name: Run conversation flow tests
       id: run-tests
