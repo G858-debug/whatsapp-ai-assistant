@@ -115,14 +115,16 @@ jobs:
       id: run-tests
       continue-on-error: true
       run: |
-        echo "Running conversation flow tests..."
+        echo "Running all conversation flow tests..."
         
         # Create default results in case tests fail to run
         echo '{"summary": {"total": 0, "passed": 0, "failed": 0}, "tests": []}' > test-results.json
         echo "<html><body>Tests not run</body></html>" > test-report.html
         
-        # Try to run the tests and capture the output
-        if python -m pytest tests/test_conversation_flows.py \
+        # Run ALL test files in the tests directory
+        if python -m pytest tests/ \
+          --ignore=tests/test_railway_api.py \
+          --ignore=tests/test_calendar_service.py \
           --html=test-report.html \
           --self-contained-html \
           --json-report \
