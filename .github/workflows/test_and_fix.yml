@@ -1,0 +1,180 @@
+# .github/workflows/test_and_fix.yml
+name: Test Conversations & Auto-Fix
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      fix_mode:
+        description: 'Auto-fix mode'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - manual
+          - report-only
+
+jobs:
+  test-conversations:
+    runs-on: ubuntu-latest
+    
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+      WHATSAPP_PHONE_ID: ${{ secrets.WHATSAPP_PHONE_ID }}
+      TIMEZONE: 'Africa/Johannesburg'
+      TEST_PHONE: '27731863036'
+      
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-html pytest-json-report colorama
+    
+    - name: Setup test environment
+      run: |
+        echo "Setting up test environment..."
+        python tests/setup_test_env.py
+    
+    - name: Run conversation flow tests
+      id: run-tests
+      continue-on-error: true
+      run: |
+        python -m pytest tests/test_conversation_flows.py \
+          --html=test-report.html \
+          --self-contained-html \
+          --json-report \
+          --json-report-file=test-results.json \
+          -v \
+          --tb=short \
+          --capture=no
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          test-report.html
+          test-results.json
+    
+    - name: Analyze failures and generate fixes
+      id: analyze-fixes
+      if: steps.run-tests.outcome == 'failure'
+      run: |
+        echo "Analyzing test failures..."
+        python tests/auto_fix_generator.py
+    
+    - name: Apply auto-fixes and create PR
+      if: steps.analyze-fixes.outcome == 'success' && github.event.inputs.fix_mode != 'report-only'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Configure git
+        git config --global user.name 'Refiloe Auto-Fix Bot'
+        git config --global user.email 'bot@refiloe.ai'
+        
+        # Create fix branch
+        BRANCH_NAME="auto-fix-$(date +%Y%m%d-%H%M%S)"
+        git checkout -b $BRANCH_NAME
+        
+        # Apply fixes
+        python tests/apply_fixes.py
+        
+        # Commit changes if any
+        if [[ -n $(git status -s) ]]; then
+          git add -A
+          git commit -m "🔧 Auto-fix: Resolve conversation flow issues
+          
+          Automated fixes for test failures:
+          $(python tests/get_fix_summary.py)"
+          
+          # Push branch
+          git push origin $BRANCH_NAME
+          
+          # Create PR
+          gh pr create \
+            --title "🔧 Auto-Fix: Conversation Flow Issues" \
+            --body "$(python tests/generate_pr_description.py)" \
+            --base main \
+            --head $BRANCH_NAME \
+            --label "auto-fix" \
+            --assignee ${{ github.actor }}
+        else
+          echo "No fixes needed or could be applied automatically"
+        fi
+    
+    - name: Post test summary to PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+          
+          const passed = results.tests.filter(t => t.outcome === 'passed').length;
+          const failed = results.tests.filter(t => t.outcome === 'failed').length;
+          const total = results.tests.length;
+          
+          const emoji = failed === 0 ? '✅' : '❌';
+          const status = failed === 0 ? 'All tests passed!' : `${failed} test(s) failed`;
+          
+          const comment = `## ${emoji} Conversation Flow Test Results
+          
+          **Status:** ${status}
+          **Passed:** ${passed}/${total}
+          
+          ${failed > 0 ? '### Failed Tests:\n' + results.tests
+            .filter(t => t.outcome === 'failed')
+            .map(t => `- ❌ ${t.nodeid}: ${t.call.longrepr}`)
+            .join('\n') : ''}
+          
+          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          ${failed > 0 && '${{ steps.analyze-fixes.outcome }}' === 'success' ? 
+            '🔧 **Auto-fixes available!** A PR has been created with suggested fixes.' : ''}`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: Cleanup test data
+      if: always()
+      run: |
+        echo "Cleaning up test data from Supabase..."
+        python tests/cleanup_test_data.py
+    
+    - name: Send notification
+      if: failure() && github.ref == 'refs/heads/main'
+      run: |
+        echo "Tests failed on main branch - would send notification here"
+        # Could integrate with Slack, email, or WhatsApp notification
