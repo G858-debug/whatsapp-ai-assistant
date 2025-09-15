@@ -7,11 +7,8 @@ Analyzes test failures and generates automated fixes
 import json
 import re
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from pathlib import Path
-import ast
-import traceback
-
 
 class AutoFixGenerator:
     """Generates fixes for common test failures"""
@@ -19,8 +16,7 @@ class AutoFixGenerator:
     def __init__(self):
         self.test_results = self.load_test_results()
         self.fixes = []
-        self.fix_patterns = self.load_fix_patterns()
-    
+        
     def load_test_results(self) -> Dict:
         """Load test results from pytest json report"""
         try:
@@ -30,311 +26,172 @@ class AutoFixGenerator:
             print("No test results found")
             return {}
     
-    def load_fix_patterns(self) -> Dict:
-        """Load common error patterns and their fixes"""
+    def analyze_failure(self, test: Dict) -> Optional[Dict]:
+        """Analyze a single test failure and generate fix"""
+        
+        test_name = test.get('nodeid', '')
+        error_msg = test.get('call', {}).get('longrepr', '')
+        
+        # Pattern 1: Currency parsing issue (R450 stored as string)
+        if "assert 'R450' == 450" in error_msg:
+            return self.fix_currency_parsing(test_name, error_msg)
+        
+        # Pattern 2: Phone number format (+27 vs 27)
+        if "'+27" in error_msg and "== '27" in error_msg:
+            return self.fix_phone_format(test_name, error_msg)
+        
+        # Pattern 3: Missing validate_time_format method
+        if "validate_time_format" in error_msg:
+            return self.fix_validator_method(test_name, error_msg)
+        
+        # Pattern 4: AI not understanding commands
+        if "assert ('added' in ''" in error_msg or "assert ('schedule' in ''" in error_msg:
+            return self.fix_ai_understanding(test_name, error_msg)
+        
+        # Pattern 5: Name length validation
+        if "assert 500 <= 255" in error_msg:
+            return self.fix_name_length(test_name, error_msg)
+        
+        # Pattern 6: Duplicate registration not detected
+        if "already" in error_msg and "welcome back" in error_msg:
+            return self.fix_duplicate_check(test_name, error_msg)
+        
+        return None
+    
+    def fix_currency_parsing(self, test_name: str, error: str) -> Dict:
+        """Fix for currency being stored as string instead of number"""
+        
         return {
-            # Database errors
-            r"invalid input syntax for type numeric.*['\"]R?(\d+)['\"]": {
-                "type": "currency_parsing",
-                "diagnosis": "Trying to save currency string in numeric field",
-                "fix_template": """
-# Extract numeric value from currency string
+            'test': test_name,
+            'type': 'currency_parsing',
+            'file': 'services/registration/trainer_registration.py',
+            'diagnosis': 'Currency value stored as string (R450) instead of number (450)',
+            'original_code': """pricing_per_session = f"R{pricing}"  # Or similar string storage""",
+            'fixed_code': """# Extract numeric value from currency string
 import re
-price_text = re.sub(r'[^\\d.]', '', {variable})
-{target} = float(price_text) if price_text else {default}
-"""
-            },
-            
-            r"column .* cannot be null": {
-                "type": "null_value",
-                "diagnosis": "Required field is missing",
-                "fix_template": """
-# Ensure field has a value
-if not {variable}:
-    {variable} = {default}
-"""
-            },
-            
-            r"duplicate key value violates unique constraint": {
-                "type": "duplicate",
-                "diagnosis": "Trying to create duplicate record",
-                "fix_template": """
-# Check if record exists before creating
-existing = self.db.table('{table}').select('*').eq('{field}', {value}).execute()
-if existing.data and len(existing.data) > 0:
-    # Update existing instead of creating new
-    result = self.db.table('{table}').update(data).eq('{field}', {value}).execute()
+
+# If pricing comes in as "R450" or similar
+if isinstance(pricing, str):
+    # Remove currency symbols and extract number
+    pricing_text = re.sub(r'[^\\d.]', '', str(pricing))
+    pricing_per_session = float(pricing_text) if pricing_text else 0
 else:
-    result = self.db.table('{table}').insert(data).execute()
-"""
-            },
-            
-            # Registration errors
-            r"Error saving information|Error completing registration": {
-                "type": "registration_save",
-                "diagnosis": "Registration data not being saved correctly",
-                "fix_template": """
-# Ensure all data is properly formatted before saving
-trainer_data = {{
-    'whatsapp': phone,
-    'name': data.get('name', ''),
-    'business_name': data.get('business_name'),
-    'email': data.get('email', ''),
-    'specialization': data.get('specialization'),
-    'years_experience': int(data.get('experience', 0)) if data.get('experience') else 0,
-    'location': data.get('location'),
-    'pricing_per_session': self._parse_currency(data.get('pricing', 400)),
-    'status': 'active',
-    'created_at': datetime.now(self.sa_tz).isoformat()
-}}
-
-def _parse_currency(self, value):
-    '''Parse currency value to numeric'''
-    if isinstance(value, (int, float)):
-        return value
-    import re
-    cleaned = re.sub(r'[^\\d.]', '', str(value))
-    return float(cleaned) if cleaned else 400
-"""
-            },
-            
-            # Natural language processing
-            r"Invalid command|type 'help' for commands": {
-                "type": "rigid_commands",
-                "diagnosis": "System using rigid command matching instead of AI",
-                "fix_template": """
-# Use AI intent handler first, fall back to commands only if needed
-try:
-    # Try AI understanding first
-    ai_response = self.ai_handler.understand_message(
-        message=text,
-        sender_type=sender_type,
-        sender_data=user_data,
-        conversation_history=self.get_recent_messages(phone)
-    )
+    pricing_per_session = float(pricing)
     
-    if ai_response.get('confidence', 0) > 0.6:
-        return ai_response
-except Exception as e:
-    log_error(f"AI handler error: {{str(e)}}")
-
-# Only fall back to rigid commands if AI didn't understand
-if text.lower() in self.COMMANDS:
-    return self.handle_command(text.lower())
-
-# Default to friendly response, not error
-return {{
-    'message': "I'm not sure what you mean. Could you rephrase that? Or type 'help' to see what I can do.",
-    'success': True
-}}
-"""
-            },
-            
-            # Step progression errors
-            r"Step (\d+) of (\d+).*not progressing": {
-                "type": "step_progression",
-                "diagnosis": "Registration step not advancing correctly",
-                "fix_template": """
-# Ensure step increments after successful validation
-if validated['valid']:
-    data[field] = validated['value']
-    self.save_session(phone, data, current_step + 1)  # Increment step
-    return self.get_next_step_response(phone, current_step + 1, data)
-"""
-            }
+# Store as numeric value in database
+trainer_data['pricing_per_session'] = pricing_per_session"""
         }
     
-    def analyze_failure(self, test_failure: Dict) -> Optional[Dict]:
-        """Analyze a test failure and generate fix"""
-        
-        test_name = test_failure.get('nodeid', '')
-        error_message = test_failure.get('call', {}).get('longrepr', '')
-        
-        # Extract file and line number from traceback if available
-        file_info = self.extract_file_info(error_message)
-        
-        # Match against known patterns
-        for pattern, fix_info in self.fix_patterns.items():
-            if re.search(pattern, error_message, re.IGNORECASE):
-                return self.generate_fix(
-                    test_name=test_name,
-                    error_message=error_message,
-                    fix_info=fix_info,
-                    file_info=file_info
-                )
-        
-        # If no pattern matches, try to generate generic fix
-        return self.generate_generic_fix(test_name, error_message, file_info)
-    
-    def extract_file_info(self, error_message: str) -> Dict:
-        """Extract file path and line number from error"""
-        
-        file_info = {}
-        
-        # Try to find file references in traceback
-        file_pattern = r'File ["\'](.*?)["\'], line (\d+)'
-        matches = re.findall(file_pattern, error_message)
-        
-        if matches:
-            # Get the last match (usually the actual error location)
-            file_path, line_no = matches[-1]
-            file_info['file'] = file_path
-            file_info['line'] = int(line_no)
-            
-            # Try to get the actual code at that line
-            try:
-                with open(file_path, 'r') as f:
-                    lines = f.readlines()
-                    if line_no <= len(lines):
-                        file_info['code'] = lines[line_no - 1].strip()
-                        # Get surrounding context
-                        start = max(0, line_no - 3)
-                        end = min(len(lines), line_no + 2)
-                        file_info['context'] = ''.join(lines[start:end])
-            except:
-                pass
-        
-        return file_info
-    
-    def generate_fix(self, test_name: str, error_message: str, 
-                     fix_info: Dict, file_info: Dict) -> Dict:
-        """Generate a specific fix based on pattern"""
-        
-        fix = {
-            'test': test_name,
-            'error': error_message[:200],  # Truncate long errors
-            'diagnosis': fix_info['diagnosis'],
-            'type': fix_info['type'],
-            'file': file_info.get('file', 'Unknown'),
-            'line': file_info.get('line', 0),
-            'original_code': file_info.get('code', ''),
-            'fixed_code': self.apply_fix_template(
-                fix_info['fix_template'],
-                file_info,
-                error_message
-            )
-        }
-        
-        return fix
-    
-    def apply_fix_template(self, template: str, file_info: Dict, 
-                           error_message: str) -> str:
-        """Apply fix template with context-specific values"""
-        
-        # Extract variable names and values from context
-        context = file_info.get('context', '')
-        
-        # Smart replacements based on context
-        replacements = {
-            '{variable}': self.extract_variable_name(context),
-            '{target}': self.extract_target_variable(context),
-            '{default}': self.extract_default_value(error_message),
-            '{table}': self.extract_table_name(error_message),
-            '{field}': self.extract_field_name(error_message),
-            '{value}': self.extract_value(context)
-        }
-        
-        fixed_code = template
-        for placeholder, value in replacements.items():
-            fixed_code = fixed_code.replace(placeholder, value)
-        
-        return fixed_code
-    
-    def extract_variable_name(self, context: str) -> str:
-        """Extract variable name from context"""
-        # Look for common patterns
-        patterns = [
-            r"(\w+)\s*=\s*message",
-            r"data\['(\w+)'\]",
-            r"\.get\('(\w+)'"
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, context)
-            if match:
-                return match.group(1)
-        
-        return "value"
-    
-    def extract_target_variable(self, context: str) -> str:
-        """Extract target variable for assignment"""
-        pattern = r"(\w+)\['(\w+)'\]\s*="
-        match = re.search(pattern, context)
-        if match:
-            return f"{match.group(1)}['{match.group(2)}']"
-        
-        return "data['field']"
-    
-    def extract_default_value(self, error_message: str) -> str:
-        """Extract appropriate default value based on error"""
-        
-        if 'numeric' in error_message or 'price' in error_message.lower():
-            return "400"  # Default price
-        elif 'email' in error_message.lower():
-            return "''"
-        elif 'name' in error_message.lower():
-            return "'Guest'"
-        
-        return "None"
-    
-    def extract_table_name(self, error_message: str) -> str:
-        """Extract table name from error"""
-        
-        patterns = [
-            r"table[:\s]+['\"]?(\w+)['\"]?",
-            r"INTO\s+(\w+)",
-            r"FROM\s+(\w+)"
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, error_message, re.IGNORECASE)
-            if match:
-                return match.group(1)
-        
-        return "table_name"
-    
-    def extract_field_name(self, error_message: str) -> str:
-        """Extract field name from error"""
-        
-        patterns = [
-            r"column[:\s]+['\"]?(\w+)['\"]?",
-            r"field[:\s]+['\"]?(\w+)['\"]?"
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, error_message, re.IGNORECASE)
-            if match:
-                return match.group(1)
-        
-        return "field_name"
-    
-    def extract_value(self, context: str) -> str:
-        """Extract value being used"""
-        
-        pattern = r"=\s*['\"]([^'\"]+)['\"]"
-        match = re.search(pattern, context)
-        if match:
-            return f"'{match.group(1)}'"
-        
-        return "value"
-    
-    def generate_generic_fix(self, test_name: str, error_message: str, 
-                            file_info: Dict) -> Dict:
-        """Generate generic fix when no pattern matches"""
+    def fix_phone_format(self, test_name: str, error: str) -> Dict:
+        """Fix for phone number format consistency"""
         
         return {
             'test': test_name,
-            'error': error_message[:200],
-            'diagnosis': "Unrecognized error pattern - needs manual review",
-            'type': 'generic',
-            'file': file_info.get('file', 'Unknown'),
-            'line': file_info.get('line', 0),
-            'original_code': file_info.get('code', ''),
-            'fixed_code': """
-# TODO: Manual fix needed
-# Error: {error}
-# Please review the error and apply appropriate fix
-""".format(error=error_message[:100])
+            'type': 'phone_format',
+            'file': 'utils/validators.py',
+            'diagnosis': 'Phone returns +27... but tests expect 27...',
+            'original_code': """return True, f"+{phone_digits}", None""",
+            'fixed_code': """# Return without + prefix for consistency
+return True, phone_digits, None  # Return without + prefix"""
+        }
+    
+    def fix_validator_method(self, test_name: str, error: str) -> Dict:
+        """Fix for missing validate_time_format method"""
+        
+        return {
+            'test': test_name,
+            'type': 'missing_method',
+            'file': 'utils/validators.py',
+            'diagnosis': 'Method validate_time_format does not exist',
+            'original_code': """# Method doesn't exist""",
+            'fixed_code': """def validate_time_format(self, time_str: str) -> Tuple[bool, Optional[str]]:
+    \"\"\"
+    Validate time format (wrapper for validate_time)
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    \"\"\"
+    is_valid, formatted_time, error = self.validate_time(time_str)
+    return is_valid, error"""
+        }
+    
+    def fix_ai_understanding(self, test_name: str, error: str) -> Dict:
+        """Fix for AI not understanding commands"""
+        
+        return {
+            'test': test_name,
+            'type': 'ai_intent',
+            'file': 'services/ai_intent_handler.py',
+            'diagnosis': 'AI not recognizing basic commands like "Show my clients"',
+            'original_code': """# Current intent detection not working""",
+            'fixed_code': """# Add explicit command patterns
+command_patterns = {
+    'add_client': [
+        r'add.*client',
+        r'register.*client',
+        r'new.*client',
+        r'sign.*up.*client'
+    ],
+    'view_clients': [
+        r'show.*clients?',
+        r'list.*clients?',
+        r'view.*clients?',
+        r'my.*clients?'
+    ],
+    'view_schedule': [
+        r'show.*schedule',
+        r'my.*schedule',
+        r'what.*today',
+        r'booking'
+    ],
+    'set_pricing': [
+        r'set.*price',
+        r'change.*rate',
+        r'update.*pricing',
+        r'\\brate\\b.*\\d+'
+    ]
+}
+
+# Check patterns first before AI
+for intent, patterns in command_patterns.items():
+    for pattern in patterns:
+        if re.search(pattern, message.lower()):
+            return {'intent': intent, 'confidence': 0.95}"""
+        }
+    
+    def fix_name_length(self, test_name: str, error: str) -> Dict:
+        """Fix for name length validation"""
+        
+        return {
+            'test': test_name,
+            'type': 'validation',
+            'file': 'services/registration/trainer_registration.py',
+            'diagnosis': 'Name field accepts 500 chars but should limit to 255',
+            'original_code': """# No length check""",
+            'fixed_code': """# Limit name length
+if len(name) > 255:
+    name = name[:255]  # Truncate to max length"""
+        }
+    
+    def fix_duplicate_check(self, test_name: str, error: str) -> Dict:
+        """Fix for duplicate registration check"""
+        
+        return {
+            'test': test_name,
+            'type': 'duplicate_check',
+            'file': 'services/refiloe.py',
+            'diagnosis': 'Not checking for existing trainer before registration',
+            'original_code': """# Start registration without checking""",
+            'fixed_code': """# Check if trainer exists first
+existing = self.db.table('trainers').select('*').eq('whatsapp', phone).single().execute()
+
+if existing.data:
+    return {
+        'success': True,
+        'response': f"Welcome back {existing.data['first_name']}! You're already registered. How can I help you today?"
+    }
+    
+# Otherwise continue with registration..."""
         }
     
     def process_all_failures(self):
@@ -356,35 +213,52 @@ if validated['valid']:
             fix = self.analyze_failure(test)
             if fix:
                 self.fixes.append(fix)
+                print(f"✅ Generated fix for: {fix['type']}")
         
-        # Save fixes to file
+        # Save fixes
         self.save_fixes()
     
-    def save_fixes(self):
+    def save_fixes(self) -> None:
         """Save generated fixes to file"""
         
         with open('generated_fixes.json', 'w') as f:
             json.dump(self.fixes, f, indent=2)
         
-        print(f"Generated {len(self.fixes)} fixes")
+        print(f"\n📝 Generated {len(self.fixes)} fixes")
         
-        # Also create a human-readable report
+        # Create summary for PR
+        summary = {
+            'total_tests': len(self.test_results.get('tests', [])),
+            'failed_tests': len([t for t in self.test_results.get('tests', []) if t.get('outcome') == 'failed']),
+            'fixes_generated': len(self.fixes),
+            'fix_types': {}
+        }
+        
+        for fix in self.fixes:
+            fix_type = fix['type']
+            summary['fix_types'][fix_type] = summary['fix_types'].get(fix_type, 0) + 1
+        
+        with open('fix_summary.json', 'w') as f:
+            json.dump(summary, f, indent=2)
+        
+        # Create readable report
         with open('fix_report.md', 'w') as f:
-            f.write("# Auto-Generated Fixes\n\n")
+            f.write("# 🔧 Auto-Generated Fixes for Refiloe\n\n")
+            f.write(f"**Failed Tests:** {summary['failed_tests']}\n")
+            f.write(f"**Fixes Generated:** {summary['fixes_generated']}\n\n")
             
+            f.write("## Fix Details\n\n")
             for i, fix in enumerate(self.fixes, 1):
-                f.write(f"## Fix {i}: {fix['test']}\n\n")
-                f.write(f"**Error:** {fix['error']}\n\n")
-                f.write(f"**Diagnosis:** {fix['diagnosis']}\n\n")
-                f.write(f"**File:** {fix['file']} (Line {fix['line']})\n\n")
-                
-                if fix['original_code']:
-                    f.write(f"**Original Code:**\n```python\n{fix['original_code']}\n```\n\n")
-                
-                f.write(f"**Fixed Code:**\n```python\n{fix['fixed_code']}\n```\n\n")
+                f.write(f"### Fix {i}: {fix['type'].replace('_', ' ').title()}\n")
+                f.write(f"**Test:** {fix['test']}\n")
+                f.write(f"**File:** `{fix['file']}`\n")
+                f.write(f"**Issue:** {fix['diagnosis']}\n\n")
+                f.write("**Solution:**\n")
+                f.write(f"```python\n{fix['fixed_code']}\n```\n\n")
                 f.write("---\n\n")
 
-
 if __name__ == "__main__":
+    print("🔍 Analyzing test failures...")
     generator = AutoFixGenerator()
     generator.process_all_failures()
+    print("✅ Fix generation complete!")
