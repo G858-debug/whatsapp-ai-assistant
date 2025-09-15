@@ -121,7 +121,7 @@ jobs:
         echo '{"summary": {"total": 0, "passed": 0, "failed": 0}, "tests": []}' > test-results.json
         echo "<html><body>Tests not run</body></html>" > test-report.html
         
-        # Try to run the tests
+        # Try to run the tests and capture the output
         if python -m pytest tests/test_conversation_flows.py \
           --html=test-report.html \
           --self-contained-html \
@@ -129,10 +129,28 @@ jobs:
           --json-report-file=test-results.json \
           -v \
           --tb=short \
-          --capture=no; then
-          echo "Tests passed!"
+          --capture=no 2>&1 | tee test-output.log; then
+          echo "✅ Tests passed!"
+          echo "test_status=success" >> $GITHUB_ENV
         else
-          echo "Tests failed with exit code $?"
+          EXIT_CODE=$?
+          echo "❌ Tests failed with exit code $EXIT_CODE"
+          echo "test_status=failure" >> $GITHUB_ENV
+          
+          # Show the last 50 lines of output for debugging
+          echo "=== Last 50 lines of test output ==="
+          tail -50 test-output.log || true
+          
+          # Check if it's an import error
+          if grep -q "ImportError\|ModuleNotFoundError" test-output.log; then
+            echo "⚠️ Import errors detected - missing modules or __init__.py files"
+          fi
+        fi
+        
+        # Always show test summary if json exists
+        if [ -f "test-results.json" ]; then
+          echo "=== Test Summary ==="
+          python -c "import json; data=json.load(open('test-results.json')); print(f\"Total: {data.get('summary', {}).get('total', 0)}, Passed: {data.get('summary', {}).get('passed', 0)}, Failed: {data.get('summary', {}).get('failed', 0)}\")" || true
         fi
     
     - name: Upload test results
@@ -143,6 +161,37 @@ jobs:
         path: |
           test-report.html
           test-results.json
+          test-output.log
+    
+    - name: Display test results
+      if: always()
+      run: |
+        echo "=== Displaying Test Results ==="
+        
+        # Show JSON results if available
+        if [ -f "test-results.json" ]; then
+          echo "Test Results JSON:"
+          cat test-results.json | python -m json.tool | head -100 || true
+          
+          # Extract and show failed tests
+          echo ""
+          echo "=== Failed Tests ==="
+          python -c "
+import json
+try:
+    with open('test-results.json') as f:
+        data = json.load(f)
+        for test in data.get('tests', []):
+            if test.get('outcome') == 'failed':
+                print(f\"❌ {test.get('nodeid', 'Unknown test')}:\")
+                print(f\"   {test.get('call', {}).get('longrepr', 'No error details')[:200]}\")
+                print()
+except Exception as e:
+    print(f'Could not parse results: {e}')
+          " || true
+        else
+          echo "No test results JSON found"
+        fi
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
