@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.refiloe import RefiloeService
 from models.booking import BookingModel
 from services.ai_intent_handler import AIIntentHandler
-from utils.validators import InputValidator
+from utils.validators import Validators
 
 
 class TestViewScheduleReal:
@@ -160,7 +160,7 @@ class TestBookSessionsReal:
             "2:00 PM",
         ]
         
-        validator = InputValidator()
+        validator = Validators()
         
         for time_format in time_formats:
             # Validate time format
@@ -184,7 +184,7 @@ class TestBookSessionsReal:
             ("20 Jan", None),  # Current year assumed
         ]
         
-        validator = InputValidator()
+        validator = Validators()
         
         for date_input, expected in date_tests:
             if expected:  # Test specific date parsing
@@ -343,7 +343,7 @@ class TestBookingConflictsAndValidation:
             "sometime",  # Too vague
         ]
         
-        validator = InputValidator()
+        validator = Validators()
         
         for time in invalid_times:
             is_valid, error = validator.validate_time_format(time)
