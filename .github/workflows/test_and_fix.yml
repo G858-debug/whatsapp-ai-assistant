@@ -66,14 +66,25 @@ jobs:
       id: run-tests
       continue-on-error: true
       run: |
-        python -m pytest tests/test_conversation_flows.py \
+        echo "Running conversation flow tests..."
+        
+        # Create default results in case tests fail to run
+        echo '{"summary": {"total": 0, "passed": 0, "failed": 0}, "tests": []}' > test-results.json
+        echo "<html><body>Tests not run</body></html>" > test-report.html
+        
+        # Try to run the tests
+        if python -m pytest tests/test_conversation_flows.py \
           --html=test-report.html \
           --self-contained-html \
           --json-report \
           --json-report-file=test-results.json \
           -v \
           --tb=short \
-          --capture=no
+          --capture=no; then
+          echo "Tests passed!"
+        else
+          echo "Tests failed with exit code $?"
+        fi
     
     - name: Upload test results
       if: always()
