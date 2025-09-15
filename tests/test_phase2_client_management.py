@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.refiloe import RefiloeService
 from services.ai_intent_handler import AIIntentHandler
-from utils.validators import InputValidator
+from utils.validators import Validators
 
 
 class TestAddClientReal:
@@ -41,7 +41,7 @@ class TestAddClientReal:
         
         refiloe = RefiloeService(mock_db)
         ai_handler = AIIntentHandler(mock_config, mock_db)
-        validator = InputValidator()
+        validator = Validators()
         
         return refiloe, ai_handler, validator, mock_db
     
@@ -183,7 +183,7 @@ class TestCustomPricingReal:
         ]
         
         refiloe = RefiloeService(mock_db)
-        validator = InputValidator()
+        validator = Validators()
         return refiloe, validator, mock_db
     
     @pytest.mark.critical
@@ -248,7 +248,7 @@ class TestClientManagementEdgeCases:
     def setup_services(self):
         mock_db = Mock()
         refiloe = RefiloeService(mock_db)
-        validator = InputValidator()
+        validator = Validators()
         return refiloe, validator, mock_db
     
     def test_add_client_with_duplicate_phone(self, setup_services):
