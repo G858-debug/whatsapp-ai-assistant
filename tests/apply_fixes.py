@@ -326,3 +326,24 @@ class FixApplier:
 if __name__ == "__main__":
     applier = FixApplier()
     applier.apply_all_fixes()
+
+if __name__ == "__main__":
+    applier = FixApplier()
+    
+    if not applier.fixes:
+        print("⚠️ No fixes to apply")
+        sys.exit(1)
+    
+    applier.apply_all_fixes()
+    
+    # Verify changes were made
+    import subprocess
+    result = subprocess.run(['git', 'status', '--porcelain'], 
+                          capture_output=True, text=True)
+    
+    if result.stdout.strip():
+        print(f"✅ Files changed:\n{result.stdout}")
+        sys.exit(0)
+    else:
+        print("❌ No files were changed")
+        sys.exit(1)
