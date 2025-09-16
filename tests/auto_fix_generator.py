@@ -27,35 +27,44 @@ class AutoFixGenerator:
             return {}
     
     def analyze_failure(self, test: Dict) -> Optional[Dict]:
-        """Analyze a single test failure and generate fix"""
+        """Analyze test failure and generate fix"""
         
         test_name = test.get('nodeid', '')
         error_msg = test.get('call', {}).get('longrepr', '')
         
-        # Pattern 1: Currency parsing issue (R450 stored as string)
-        if "assert 'R450' == 450" in error_msg:
-            return self.fix_currency_parsing(test_name, error_msg)
+        # Debug: Print what we're analyzing
+        print(f"Analyzing: {test_name[:50]}")
+        print(f"Error snippet: {error_msg[:100]}")
         
-        # Pattern 2: Phone number format (+27 vs 27)
-        if "'+27" in error_msg and "== '27" in error_msg:
-            return self.fix_phone_format(test_name, error_msg)
+        # Currency parsing fix - look for the actual error pattern
+        if 'pricing' in test_name.lower() or 'currency' in test_name.lower():
+            if "'R450' == 450" in error_msg or "pricing_per_session" in error_msg:
+                return self.fix_currency_parsing(test_name, error_msg)
         
-        # Pattern 3: Missing validate_time_format method
-        if "validate_time_format" in error_msg:
+        # Registration issues
+        if 'registration' in test_name.lower():
+            if 'pricing' in error_msg or 'R4' in error_msg:
+                return self.fix_currency_parsing(test_name, error_msg)
+            if 'already' in error_msg and 'duplicate' in test_name.lower():
+                return self.fix_duplicate_registration(test_name, error_msg)
+        
+        # Phone format issues
+        if 'phone' in test_name.lower():
+            if '+27' in error_msg and '27' in error_msg:
+                return self.fix_phone_format(test_name, error_msg)
+        
+        # Missing method issues
+        if 'validate_time_format' in error_msg:
             return self.fix_validator_method(test_name, error_msg)
         
-        # Pattern 4: AI not understanding commands
-        if "assert ('added' in ''" in error_msg or "assert ('schedule' in ''" in error_msg:
+        # AI intent issues
+        if ('view_clients' in test_name.lower() or 
+            'show.*clients' in error_msg.lower() or
+            'general_question' in error_msg):
             return self.fix_ai_understanding(test_name, error_msg)
         
-        # Pattern 5: Name length validation
-        if "assert 500 <= 255" in error_msg:
-            return self.fix_name_length(test_name, error_msg)
-        
-        # Pattern 6: Duplicate registration not detected
-        if "already" in error_msg and "welcome back" in error_msg:
-            return self.fix_duplicate_check(test_name, error_msg)
-        
+        # Default: log unhandled failure
+        print(f"⚠️ No fix generated for: {test_name}")
         return None
     
     def fix_currency_parsing(self, test_name: str, error: str) -> Dict:
