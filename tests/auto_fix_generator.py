@@ -1,4 +1,4 @@
-# tests/auto_fix_generator.py
+#!/usr/bin/env python3
 """
 Auto-Fix Generator for Refiloe
 Analyzes test failures and generates automated fixes
@@ -30,178 +30,108 @@ class AutoFixGenerator:
         """Analyze test failure and generate fix"""
         
         test_name = test.get('nodeid', '')
-        error_msg = test.get('call', {}).get('longrepr', '')
+        error_msg = str(test.get('call', {}).get('longrepr', ''))
         
         # Debug: Print what we're analyzing
-        print(f"Analyzing: {test_name[:50]}")
-        print(f"Error snippet: {error_msg[:100]}")
+        print(f"Analyzing: {test_name[:80]}...")
         
-        # Currency parsing fix - look for the actual error pattern
-        if 'pricing' in test_name.lower() or 'currency' in test_name.lower():
-            if "'R450' == 450" in error_msg or "pricing_per_session" in error_msg:
-                return self.fix_currency_parsing(test_name, error_msg)
+        # Critical: Currency parsing fix - the most common issue
+        if ("'R450' == 450" in error_msg or 
+            "pricing_per_session" in error_msg and "'R" in error_msg):
+            return {
+                'type': 'currency_parsing',
+                'file': 'services/registration/trainer_registration.py',
+                'test': test_name,
+                'diagnosis': 'Currency value saved as string "R450" instead of number 450',
+                'line': 0,  # Will search for the line
+                'search_pattern': "'pricing_per_session': data.get('pricing'",
+                'original_code': "'pricing_per_session': data.get('pricing', 400),",
+                'fixed_code': "'pricing_per_session': self._parse_currency(data.get('pricing', 400)),"
+            }
         
-        # Registration issues
-        if 'registration' in test_name.lower():
-            if 'pricing' in error_msg or 'R4' in error_msg:
-                return self.fix_currency_parsing(test_name, error_msg)
-            if 'already' in error_msg and 'duplicate' in test_name.lower():
-                return self.fix_duplicate_registration(test_name, error_msg)
+        # Phone number format issue
+        if "Expected 27821234567 but got +27821234567" in error_msg:
+            return {
+                'type': 'phone_format',
+                'file': 'utils/validators.py',
+                'test': test_name,
+                'diagnosis': 'Phone returns with + prefix but tests expect without',
+                'line': 0,
+                'search_pattern': "return True, f'+{phone_digits}', None",
+                'original_code': "return True, f'+{phone_digits}', None",
+                'fixed_code': "return True, phone_digits, None"
+            }
         
-        # Phone format issues
-        if 'phone' in test_name.lower():
-            if '+27' in error_msg and '27' in error_msg:
-                return self.fix_phone_format(test_name, error_msg)
+        # Missing validate_time_format method
+        if "has no attribute 'validate_time_format'" in error_msg:
+            return {
+                'type': 'missing_method',
+                'file': 'utils/validators.py',
+                'test': test_name,
+                'diagnosis': 'Method validate_time_format does not exist',
+                'line': 0,
+                'add_method': True,
+                'method_code': '''
+    def validate_time_format(self, time_str: str) -> Tuple[bool, Optional[str]]:
+        """
+        Validate time format (wrapper for validate_time)
         
-        # Missing method issues
-        if 'validate_time_format' in error_msg:
-            return self.fix_validator_method(test_name, error_msg)
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        is_valid, formatted_time, error = self.validate_time(time_str)
+        return is_valid, error'''
+            }
         
-        # AI intent issues
-        if ('view_clients' in test_name.lower() or 
-            'show.*clients' in error_msg.lower() or
-            'general_question' in error_msg):
-            return self.fix_ai_understanding(test_name, error_msg)
+        # Duplicate registration check
+        if "duplicate_registration" in test_name.lower() and "already" not in error_msg.lower():
+            return {
+                'type': 'duplicate_check',
+                'file': 'services/registration/trainer_registration.py',
+                'test': test_name,
+                'diagnosis': 'Not checking for existing registration',
+                'line': 0,
+                'add_check': True,
+                'check_code': '''
+        # Check if trainer already registered
+        existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()
+        if existing.data:
+            return "Welcome back! You're already registered. How can I help you today?"'''
+            }
         
-        # Default: log unhandled failure
-        print(f"⚠️ No fix generated for: {test_name}")
+        # Input length validation
+        if "assert 500 <= 255" in error_msg:
+            return {
+                'type': 'input_validation',
+                'file': 'services/registration/trainer_registration.py',
+                'test': test_name,
+                'diagnosis': 'Not truncating long input',
+                'line': 0,
+                'add_validation': True,
+                'validation_code': "name = name[:255] if len(name) > 255 else name  # Truncate if too long"
+            }
+        
+        # AI intent recognition issues
+        if ("Failed to list clients" in error_msg or 
+            "Failed to show schedule" in error_msg or
+            "general_question" in error_msg and "view_clients" in test_name.lower()):
+            return {
+                'type': 'ai_intent',
+                'file': 'services/ai_intent_handler.py',
+                'test': test_name,
+                'diagnosis': 'AI not recognizing basic commands',
+                'line': 0,
+                'add_patterns': True,
+                'pattern_code': '''
+        # Common command patterns
+        command_patterns = {
+            'view_clients': [r'show.*clients?', r'list.*clients?', r'my clients?'],
+            'view_schedule': [r'show.*schedule', r'my schedule', r"what.*today"],
+            'add_client': [r'add.*client', r'new client', r'register.*client'],
+        }'''
+            }
+        
         return None
-    
-    def fix_currency_parsing(self, test_name: str, error: str) -> Dict:
-        """Fix for currency being stored as string instead of number"""
-        
-        return {
-            'test': test_name,
-            'type': 'currency_parsing',
-            'file': 'services/registration/trainer_registration.py',
-            'diagnosis': 'Currency value stored as string (R450) instead of number (450)',
-            'original_code': """pricing_per_session = f"R{pricing}"  # Or similar string storage""",
-            'fixed_code': """# Extract numeric value from currency string
-import re
-
-# If pricing comes in as "R450" or similar
-if isinstance(pricing, str):
-    # Remove currency symbols and extract number
-    pricing_text = re.sub(r'[^\\d.]', '', str(pricing))
-    pricing_per_session = float(pricing_text) if pricing_text else 0
-else:
-    pricing_per_session = float(pricing)
-    
-# Store as numeric value in database
-trainer_data['pricing_per_session'] = pricing_per_session"""
-        }
-    
-    def fix_phone_format(self, test_name: str, error: str) -> Dict:
-        """Fix for phone number format consistency"""
-        
-        return {
-            'test': test_name,
-            'type': 'phone_format',
-            'file': 'utils/validators.py',
-            'diagnosis': 'Phone returns +27... but tests expect 27...',
-            'original_code': """return True, f"+{phone_digits}", None""",
-            'fixed_code': """# Return without + prefix for consistency
-return True, phone_digits, None  # Return without + prefix"""
-        }
-    
-    def fix_validator_method(self, test_name: str, error: str) -> Dict:
-        """Fix for missing validate_time_format method"""
-        
-        return {
-            'test': test_name,
-            'type': 'missing_method',
-            'file': 'utils/validators.py',
-            'diagnosis': 'Method validate_time_format does not exist',
-            'original_code': """# Method doesn't exist""",
-            'fixed_code': """def validate_time_format(self, time_str: str) -> Tuple[bool, Optional[str]]:
-    \"\"\"
-    Validate time format (wrapper for validate_time)
-    
-    Returns:
-        Tuple of (is_valid, error_message)
-    \"\"\"
-    is_valid, formatted_time, error = self.validate_time(time_str)
-    return is_valid, error"""
-        }
-    
-    def fix_ai_understanding(self, test_name: str, error: str) -> Dict:
-        """Fix for AI not understanding commands"""
-        
-        return {
-            'test': test_name,
-            'type': 'ai_intent',
-            'file': 'services/ai_intent_handler.py',
-            'diagnosis': 'AI not recognizing basic commands like "Show my clients"',
-            'original_code': """# Current intent detection not working""",
-            'fixed_code': """# Add explicit command patterns
-command_patterns = {
-    'add_client': [
-        r'add.*client',
-        r'register.*client',
-        r'new.*client',
-        r'sign.*up.*client'
-    ],
-    'view_clients': [
-        r'show.*clients?',
-        r'list.*clients?',
-        r'view.*clients?',
-        r'my.*clients?'
-    ],
-    'view_schedule': [
-        r'show.*schedule',
-        r'my.*schedule',
-        r'what.*today',
-        r'booking'
-    ],
-    'set_pricing': [
-        r'set.*price',
-        r'change.*rate',
-        r'update.*pricing',
-        r'\\brate\\b.*\\d+'
-    ]
-}
-
-# Check patterns first before AI
-for intent, patterns in command_patterns.items():
-    for pattern in patterns:
-        if re.search(pattern, message.lower()):
-            return {'intent': intent, 'confidence': 0.95}"""
-        }
-    
-    def fix_name_length(self, test_name: str, error: str) -> Dict:
-        """Fix for name length validation"""
-        
-        return {
-            'test': test_name,
-            'type': 'validation',
-            'file': 'services/registration/trainer_registration.py',
-            'diagnosis': 'Name field accepts 500 chars but should limit to 255',
-            'original_code': """# No length check""",
-            'fixed_code': """# Limit name length
-if len(name) > 255:
-    name = name[:255]  # Truncate to max length"""
-        }
-    
-    def fix_duplicate_check(self, test_name: str, error: str) -> Dict:
-        """Fix for duplicate registration check"""
-        
-        return {
-            'test': test_name,
-            'type': 'duplicate_check',
-            'file': 'services/refiloe.py',
-            'diagnosis': 'Not checking for existing trainer before registration',
-            'original_code': """# Start registration without checking""",
-            'fixed_code': """# Check if trainer exists first
-existing = self.db.table('trainers').select('*').eq('whatsapp', phone).single().execute()
-
-if existing.data:
-    return {
-        'success': True,
-        'response': f"Welcome back {existing.data['first_name']}! You're already registered. How can I help you today?"
-    }
-    
-# Otherwise continue with registration..."""
-        }
     
     def process_all_failures(self):
         """Process all test failures and generate fixes"""
@@ -218,11 +148,18 @@ if existing.data:
         
         print(f"Found {len(failed_tests)} failed tests")
         
+        # Track unique fixes to avoid duplicates
+        unique_fixes = {}
+        
         for test in failed_tests:
             fix = self.analyze_failure(test)
             if fix:
-                self.fixes.append(fix)
-                print(f"✅ Generated fix for: {fix['type']}")
+                # Use fix type and file as unique key
+                key = f"{fix['type']}_{fix['file']}"
+                if key not in unique_fixes:
+                    unique_fixes[key] = fix
+                    self.fixes.append(fix)
+                    print(f"✅ Generated fix for: {fix['type']}")
         
         # Save fixes
         self.save_fixes()
@@ -249,22 +186,6 @@ if existing.data:
         
         with open('fix_summary.json', 'w') as f:
             json.dump(summary, f, indent=2)
-        
-        # Create readable report
-        with open('fix_report.md', 'w') as f:
-            f.write("# 🔧 Auto-Generated Fixes for Refiloe\n\n")
-            f.write(f"**Failed Tests:** {summary['failed_tests']}\n")
-            f.write(f"**Fixes Generated:** {summary['fixes_generated']}\n\n")
-            
-            f.write("## Fix Details\n\n")
-            for i, fix in enumerate(self.fixes, 1):
-                f.write(f"### Fix {i}: {fix['type'].replace('_', ' ').title()}\n")
-                f.write(f"**Test:** {fix['test']}\n")
-                f.write(f"**File:** `{fix['file']}`\n")
-                f.write(f"**Issue:** {fix['diagnosis']}\n\n")
-                f.write("**Solution:**\n")
-                f.write(f"```python\n{fix['fixed_code']}\n```\n\n")
-                f.write("---\n\n")
 
 if __name__ == "__main__":
     print("🔍 Analyzing test failures...")
