@@ -175,18 +175,18 @@ jobs:
         if [ -f "test-results.json" ]; then
           echo "=== Test Summary ==="
           python -c "
-        import json
-        with open('test-results.json') as f:
-            data = json.load(f)
-            summary = data.get('summary', {})
-            print(f\"Total: {summary.get('total', 0)}\")
-            print(f\"Passed: {summary.get('passed', 0)}\")
-            print(f\"Failed: {summary.get('failed', 0)}\")
-            
-            # Show critical failures
-            for test in data.get('tests', []):
-                if test.get('outcome') == 'failed' and 'critical' in test.get('nodeid', '').lower():
-                    print(f\"🚨 CRITICAL: {test.get('nodeid', 'Unknown test')}\")
+import json
+with open('test-results.json') as f:
+    data = json.load(f)
+    summary = data.get('summary', {})
+    print(f\"Total: {summary.get('total', 0)}\")
+    print(f\"Passed: {summary.get('passed', 0)}\")
+    print(f\"Failed: {summary.get('failed', 0)}\")
+    
+    # Show critical failures
+    for test in data.get('tests', []):
+        if test.get('outcome') == 'failed' and 'critical' in test.get('nodeid', '').lower():
+            print(f\"🚨 CRITICAL: {test.get('nodeid', 'Unknown test')}\")
           " || true
         fi
     
@@ -214,17 +214,17 @@ jobs:
           echo ""
           echo "=== Failed Tests ==="
           python -c "
-        import json
-        try:
-            with open('test-results.json') as f:
-                data = json.load(f)
-                for test in data.get('tests', []):
-                    if test.get('outcome') == 'failed':
-                        print(f\"❌ {test.get('nodeid', 'Unknown test')}:\")
-                        print(f\"   {test.get('call', {}).get('longrepr', 'No error details')[:200]}\")
-                        print()
-        except Exception as e:
-            print(f'Could not parse results: {e}')
+import json
+try:
+    with open('test-results.json') as f:
+        data = json.load(f)
+        for test in data.get('tests', []):
+            if test.get('outcome') == 'failed':
+                print(f\"❌ {test.get('nodeid', 'Unknown test')}:\")
+                print(f\"   {test.get('call', {}).get('longrepr', 'No error details')[:200]}\")
+                print()
+except Exception as e:
+    print(f'Could not parse results: {e}')
           " || true
         else
           echo "No test results JSON found"
@@ -245,13 +245,7 @@ jobs:
           echo "Test results found, checking for failures..."
           
           # Count failures
-          FAILED_COUNT=$(python -c "
-        import json
-        with open('test-results.json') as f:
-            data = json.load(f)
-            failed = len([t for t in data.get('tests', []) if t.get('outcome') == 'failed'])
-            print(failed)
-          ")
+          FAILED_COUNT=$(python -c "import json; data = json.load(open('test-results.json')); print(len([t for t in data.get('tests', []) if t.get('outcome') == 'failed']))")
           
           echo "Found $FAILED_COUNT failed tests"
           
@@ -261,56 +255,7 @@ jobs:
             # Check if fix generator exists, if not create a simple one
             if [ ! -f "tests/auto_fix_generator.py" ]; then
               echo "Creating auto_fix_generator.py..."
-              cat > tests/auto_fix_generator.py << 'EOF'
-#!/usr/bin/env python3
-import json
-import os
-
-def generate_fixes():
-    """Generate fixes based on test failures"""
-    
-    with open('test-results.json', 'r') as f:
-        results = json.load(f)
-    
-    fixes = []
-    for test in results.get('tests', []):
-        if test.get('outcome') == 'failed':
-            test_name = test.get('nodeid', '')
-            error = test.get('call', {}).get('longrepr', '')
-            
-            # Currency parsing fix
-            if 'pricing' in test_name.lower() or "'R450' == 450" in error:
-                fixes.append({
-                    'type': 'currency_parsing',
-                    'file': 'services/registration/trainer_registration.py',
-                    'test': test_name,
-                    'diagnosis': 'Currency value saved as string instead of number',
-                    'line': 100,  # Approximate
-                    'original_code': "'pricing_per_session': data.get('pricing', 400),",
-                    'fixed_code': "'pricing_per_session': float(str(data.get('pricing', 400)).replace('R', '').replace(',', '').strip()),"
-                })
-            
-            # Phone format fix
-            if 'phone' in test_name.lower() and '+27' in error:
-                fixes.append({
-                    'type': 'phone_format',
-                    'file': 'utils/validators.py',
-                    'test': test_name,
-                    'diagnosis': 'Phone returns with + prefix',
-                    'line': 50,  # Approximate
-                    'original_code': "return True, f'+{phone_digits}', None",
-                    'fixed_code': "return True, phone_digits, None"
-                })
-    
-    with open('generated_fixes.json', 'w') as f:
-        json.dump(fixes, f, indent=2)
-    
-    print(f"Generated {len(fixes)} fixes")
-    return len(fixes) > 0
-
-if __name__ == "__main__":
-    generate_fixes()
-EOF
+              python tests/create_fix_generator.py || echo "Creating inline fix generator..."
             fi
             
             # Run fix generator
@@ -354,49 +299,6 @@ EOF
         BRANCH_NAME="auto-fix-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $BRANCH_NAME
         
-        # Check if apply_fixes.py exists, if not create a simple one
-        if [ ! -f "tests/apply_fixes.py" ]; then
-          echo "Creating apply_fixes.py..."
-          cat > tests/apply_fixes.py << 'EOF'
-#!/usr/bin/env python3
-import json
-import os
-import re
-
-def apply_fixes():
-    """Apply generated fixes to files"""
-    
-    if not os.path.exists('generated_fixes.json'):
-        print("No fixes to apply")
-        return False
-    
-    with open('generated_fixes.json', 'r') as f:
-        fixes = json.load(f)
-    
-    files_modified = False
-    
-    for fix in fixes:
-        file_path = fix['file']
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
-                content = f.read()
-            
-            # Apply simple replacement
-            if fix['original_code'] in content:
-                content = content.replace(fix['original_code'], fix['fixed_code'])
-                with open(file_path, 'w') as f:
-                    f.write(content)
-                print(f"Fixed {file_path}")
-                files_modified = True
-    
-    return files_modified
-
-if __name__ == "__main__":
-    import sys
-    sys.exit(0 if apply_fixes() else 1)
-EOF
-        fi
-        
         # Apply fixes
         python tests/apply_fixes.py || echo "Apply fixes had issues"
         
@@ -407,49 +309,15 @@ EOF
           git add -A
           
           # Create commit message
-          COMMIT_MSG="🔧 Auto-fix: Resolve conversation flow issues
-          
-          Automated fixes for test failures:
-          - Fix currency parsing in registration
-          - Fix phone number format consistency
-          - Improve AI intent recognition"
-          
-          git commit -m "$COMMIT_MSG"
+          git commit -m "🔧 Auto-fix: Resolve conversation flow issues"
           
           # Push branch
           git push origin $BRANCH_NAME
           
-          # Create PR description
-          PR_BODY="## 🔧 Automated Fix for Conversation Flow Issues
-
-This PR was automatically generated to fix failing conversation flow tests.
-
-### 📊 Test Results
-- Failed tests were detected in the latest run
-- Automated fixes have been applied
-
-### 🛠️ Fixes Applied
-- Currency parsing: Fixed R450 being saved as string instead of number
-- Phone format: Removed + prefix for consistency
-- Registration flow: Improved validation
-
-### 🧪 How to Verify
-1. Review the changed files
-2. Run tests locally: \`pytest tests/test_phase1_registration.py -v\`
-3. Check that registration flow works correctly
-
-### ⚠️ Important Notes
-- Please review changes carefully before merging
-- Original code is preserved in commit history
-- If issues persist, we can iterate on the fixes
-
----
-*This PR was automatically generated by Refiloe's Auto-Fix system*"
-          
           # Create PR using gh CLI
           gh pr create \
             --title "🔧 Auto-Fix: Conversation Flow Issues" \
-            --body "$PR_BODY" \
+            --body "Automated fixes for test failures" \
             --base main \
             --head $BRANCH_NAME \
             --label "auto-fix" \
@@ -481,12 +349,10 @@ This PR was automatically generated to fix failing conversation flow tests.
           ${failed > 0 ? '### Failed Tests:\n' + results.tests
             .filter(t => t.outcome === 'failed')
             .map(t => `- ❌ ${t.nodeid}`)
-            .slice(0, 10)  // Limit to first 10
+            .slice(0, 10)
             .join('\n') : ''}
           
-          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
-          ${failed > 0 ? '🔧 **Auto-fixes may be available!** Check the Actions tab for PR creation.' : ''}`;
+          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
@@ -510,9 +376,3 @@ This PR was automatically generated to fix failing conversation flow tests.
         echo "✅ All conversation flows passed"
         echo "✅ No fixes needed"
         echo "================================"
-    
-    - name: Send notification
-      if: failure() && github.ref == 'refs/heads/main'
-      run: |
-        echo "Tests failed on main branch - would send notification here"
-        # Could integrate with Slack, email, or WhatsApp notification
