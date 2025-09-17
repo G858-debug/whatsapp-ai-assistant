@@ -84,7 +84,13 @@ jobs:
       continue-on-error: true
       run: |
         echo "Running debug test to identify issues..."
-        python tests/test_debug.py || true
+        python -c "import sys, os; print('Python:', sys.version); print('Current dir:', os.getcwd()); print('Services exists:', os.path.exists('services')); print('Tests exists:', os.path.exists('tests'))"
+        
+        # If debug test file exists, run it too
+        if [ -f "tests/test_debug.py" ]; then
+          echo "Running test_debug.py..."
+          python tests/test_debug.py || true
+        fi
     
     - name: Run conversation flow tests
       id: run-tests
@@ -133,12 +139,24 @@ jobs:
           # Show failed tests
           echo "=== Failed Tests ==="
           grep -E "FAILED|ERROR" test-output.log | head -20 || true
+          
+          # Check for specific issues
+          if grep -q "currency\|pricing\|R450" test-output.log; then
+            echo "💰 Currency parsing issues detected"
+          fi
+          if grep -q "natural\|ai\|invalid command" test-output.log; then
+            echo "🤖 Natural language processing issues detected"
+          fi
+          if grep -q "registration\|step 7" test-output.log; then
+            echo "📝 Registration flow issues detected"
+          fi
         fi
         
         # Always show test summary
         if [ -f "test-results.json" ]; then
           echo "=== Test Summary ==="
-          python tests/show_summary.py || echo "Summary script not found"
+          # Use single-line Python command
+          python -c "import json; d=json.load(open('test-results.json')); s=d.get('summary',{}); print(f\"Total: {s.get('total',0)}, Passed: {s.get('passed',0)}, Failed: {s.get('failed',0)}\")" || true
         fi
     
     - name: Upload test results
@@ -161,156 +179,36 @@ jobs:
           echo "Test Results JSON:"
           cat test-results.json | python -m json.tool | head -100 || true
           
-          # Extract and show failed tests
+          # Extract and show failed tests using single-line command
           echo ""
           echo "=== Failed Tests ==="
-          python tests/show_failed_tests.py || echo "No failed test script"
+          python -c "import json; d=json.load(open('test-results.json')); [print(f\"❌ {t.get('nodeid','Unknown')}\") for t in d.get('tests',[]) if t.get('outcome')=='failed']" || true
         else
           echo "No test results JSON found"
         fi
-    
-    - name: Create helper scripts
-      if: steps.run-tests.outcome == 'failure' || failure()
-      run: |
-        # Create show_summary.py
-        cat > tests/show_summary.py << 'EOF'
-import json
-with open('test-results.json') as f:
-    data = json.load(f)
-    summary = data.get('summary', {})
-    print(f"Total: {summary.get('total', 0)}")
-    print(f"Passed: {summary.get('passed', 0)}")
-    print(f"Failed: {summary.get('failed', 0)}")
-EOF
-        
-        # Create show_failed_tests.py
-        cat > tests/show_failed_tests.py << 'EOF'
-import json
-try:
-    with open('test-results.json') as f:
-        data = json.load(f)
-        for test in data.get('tests', []):
-            if test.get('outcome') == 'failed':
-                print(f"❌ {test.get('nodeid', 'Unknown test')}")
-except Exception as e:
-    print(f'Could not parse results: {e}')
-EOF
-        
-        # Create count_failures.py
-        cat > tests/count_failures.py << 'EOF'
-import json
-with open('test-results.json') as f:
-    data = json.load(f)
-    failed = len([t for t in data.get('tests', []) if t.get('outcome') == 'failed'])
-    print(failed)
-EOF
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
       if: steps.run-tests.outcome == 'failure' || failure()
       run: |
-        echo "=== Starting Fix Analysis ==="
-        
-        # Check test results
+        echo "Checking if fixes are needed..."
         if [ -f "test-results.json" ]; then
-          echo "Test results found, checking for failures..."
-          
-          # Count failures
-          FAILED_COUNT=$(python tests/count_failures.py)
-          
-          echo "Found $FAILED_COUNT failed tests"
-          
-          if [ "$FAILED_COUNT" -gt 0 ]; then
-            echo "Generating fixes..."
-            
-            # Check if fix generator exists
-            if [ ! -f "tests/auto_fix_generator.py" ]; then
-              echo "Creating auto_fix_generator.py..."
-              cat > tests/auto_fix_generator.py << 'EOF'
-#!/usr/bin/env python3
-import json
-import os
-
-def generate_fixes():
-    """Generate fixes based on test failures"""
-    
-    with open('test-results.json', 'r') as f:
-        results = json.load(f)
-    
-    fixes = []
-    for test in results.get('tests', []):
-        if test.get('outcome') == 'failed':
-            test_name = test.get('nodeid', '')
-            error = str(test.get('call', {}).get('longrepr', ''))
-            
-            # Currency parsing fix
-            if 'pricing' in test_name.lower() or "'R450' == 450" in error:
-                fixes.append({
-                    'type': 'currency_parsing',
-                    'file': 'services/registration/trainer_registration.py',
-                    'test': test_name,
-                    'diagnosis': 'Currency value saved as string instead of number',
-                    'line': 100,
-                    'original_code': "'pricing_per_session': data.get('pricing', 400),",
-                    'fixed_code': "'pricing_per_session': float(str(data.get('pricing', 400)).replace('R', '').replace(',', '').strip()),"
-                })
-            
-            # Phone format fix
-            if 'phone' in test_name.lower() and '+27' in error:
-                fixes.append({
-                    'type': 'phone_format',
-                    'file': 'utils/validators.py',
-                    'test': test_name,
-                    'diagnosis': 'Phone returns with + prefix',
-                    'line': 50,
-                    'original_code': "return True, f'+{phone_digits}', None",
-                    'fixed_code': "return True, phone_digits, None"
-                })
-    
-    with open('generated_fixes.json', 'w') as f:
-        json.dump(fixes, f, indent=2)
-    
-    print(f"Generated {len(fixes)} fixes")
-    return len(fixes) > 0
-
-if __name__ == "__main__":
-    generate_fixes()
-EOF
-            fi
-            
-            # Run fix generator
-            if python tests/auto_fix_generator.py; then
-              echo "Fix generator completed"
-              
-              # Check if fixes were generated
-              if [ -f "generated_fixes.json" ]; then
-                echo "Fixes generated successfully:"
-                cat generated_fixes.json | python -m json.tool | head -50
-                echo "fixes_generated=true" >> $GITHUB_ENV
-              else
-                echo "⚠️ No fixes file created"
-                echo "fixes_generated=false" >> $GITHUB_ENV
-              fi
-            else
-              echo "❌ Fix generator failed"
-              echo "fixes_generated=false" >> $GITHUB_ENV
-            fi
+          # Check if there are any failed tests using grep
+          if grep -q '"outcome": "failed"' test-results.json; then
+            echo "Found failed tests, generating fixes..."
+            python tests/auto_fix_generator.py || echo "Fix generator not found"
           else
-            echo "No failures to fix"
-            echo "fixes_generated=false" >> $GITHUB_ENV
+            echo "✅ All tests passed - no fixes needed!"
           fi
         else
-          echo "❌ No test results found"
-          echo "fixes_generated=false" >> $GITHUB_ENV
+          echo "No test results found"
         fi
     
     - name: Apply auto-fixes and create PR
-      if: env.fixes_generated == 'true' && github.event.inputs.fix_mode != 'report-only'
+      if: steps.analyze-fixes.outcome == 'success' && github.event.inputs.fix_mode != 'report-only'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "=== Applying Fixes ==="
-        
         # Configure git
         git config --global user.name 'Refiloe Auto-Fix Bot'
         git config --global user.email 'bot@refiloe.ai'
@@ -319,70 +217,30 @@ EOF
         BRANCH_NAME="auto-fix-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $BRANCH_NAME
         
-        # Check if apply_fixes.py exists, if not create it
-        if [ ! -f "tests/apply_fixes.py" ]; then
-          echo "Creating apply_fixes.py..."
-          cat > tests/apply_fixes.py << 'EOF'
-#!/usr/bin/env python3
-import json
-import os
-import re
-
-def apply_fixes():
-    """Apply generated fixes to files"""
-    
-    if not os.path.exists('generated_fixes.json'):
-        print("No fixes to apply")
-        return False
-    
-    with open('generated_fixes.json', 'r') as f:
-        fixes = json.load(f)
-    
-    files_modified = False
-    
-    for fix in fixes:
-        file_path = fix['file']
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
-                content = f.read()
-            
-            # Apply simple replacement
-            if fix.get('original_code') and fix['original_code'] in content:
-                content = content.replace(fix['original_code'], fix['fixed_code'])
-                with open(file_path, 'w') as f:
-                    f.write(content)
-                print(f"Fixed {file_path}")
-                files_modified = True
-    
-    return files_modified
-
-if __name__ == "__main__":
-    import sys
-    sys.exit(0 if apply_fixes() else 1)
-EOF
-        fi
-        
         # Apply fixes
-        python tests/apply_fixes.py || echo "Apply fixes had issues"
+        python tests/apply_fixes.py
         
-        # Check if any files were changed
+        # Commit changes if any
         if [[ -n $(git status -s) ]]; then
-          echo "Files were modified, creating PR..."
-          
           git add -A
-          git commit -m "🔧 Auto-fix: Resolve conversation flow issues"
+          git commit -m "🔧 Auto-fix: Resolve conversation flow issues
+
+          Automated fixes for test failures:
+          $(python tests/get_fix_summary.py)"
+          
+          # Push branch
           git push origin $BRANCH_NAME
           
-          # Create PR using gh CLI
+          # Create PR
           gh pr create \
             --title "🔧 Auto-Fix: Conversation Flow Issues" \
-            --body "Automated fixes for test failures in registration and validation" \
+            --body "$(python tests/generate_pr_description.py)" \
             --base main \
             --head $BRANCH_NAME \
             --label "auto-fix" \
-            --assignee ${{ github.actor }} || echo "PR creation had issues"
+            --assignee ${{ github.actor }}
         else
-          echo "No files were changed after applying fixes"
+          echo "No fixes needed or could be applied automatically"
         fi
     
     - name: Post test summary to PR
@@ -405,7 +263,15 @@ EOF
           **Status:** ${status}
           **Passed:** ${passed}/${total}
           
-          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+          ${failed > 0 ? '### Failed Tests:\n' + results.tests
+            .filter(t => t.outcome === 'failed')
+            .map(t => `- ❌ ${t.nodeid}: ${t.call.longrepr}`)
+            .join('\n') : ''}
+          
+          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          ${failed > 0 && '${{ steps.analyze-fixes.outcome }}' === 'success' ? 
+            '🔧 **Auto-fixes available!** A PR has been created with suggested fixes.' : ''}`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
@@ -429,3 +295,9 @@ EOF
         echo "✅ All conversation flows passed"
         echo "✅ No fixes needed"
         echo "================================"
+    
+    - name: Send notification
+      if: failure() && github.ref == 'refs/heads/main'
+      run: |
+        echo "Tests failed on main branch - would send notification here"
+        # Could integrate with Slack, email, or WhatsApp notification
