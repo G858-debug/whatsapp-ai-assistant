@@ -84,32 +84,7 @@ jobs:
       continue-on-error: true
       run: |
         echo "Running debug test to identify issues..."
-        # Create a simple inline debug test
-        python -c "
-        import sys
-        import os
-        print('Python:', sys.version)
-        print('Current dir:', os.getcwd())
-        print('Directory contents:', os.listdir('.'))
-        print('Checking for services directory:', os.path.exists('services'))
-        print('Checking for tests directory:', os.path.exists('tests'))
-        
-        # Try to import a service
-        sys.path.insert(0, '.')
-        try:
-            import services.refiloe
-            print('✅ Can import services.refiloe')
-        except ImportError as e:
-            print(f'❌ Cannot import services.refiloe: {e}')
-        except Exception as e:
-            print(f'❌ Error: {type(e).__name__}: {e}')
-        "
-        
-        # If debug test file exists, run it too
-        if [ -f "tests/test_debug.py" ]; then
-          echo "Running test_debug.py..."
-          python tests/test_debug.py || true
-        fi
+        python tests/test_debug.py || true
     
     - name: Run conversation flow tests
       id: run-tests
@@ -158,36 +133,12 @@ jobs:
           # Show failed tests
           echo "=== Failed Tests ==="
           grep -E "FAILED|ERROR" test-output.log | head -20 || true
-          
-          # Check for specific issues
-          if grep -q "currency\|pricing\|R450" test-output.log; then
-            echo "💰 Currency parsing issues detected"
-          fi
-          if grep -q "natural\|ai\|invalid command" test-output.log; then
-            echo "🤖 Natural language processing issues detected"
-          fi
-          if grep -q "registration\|step 7" test-output.log; then
-            echo "📝 Registration flow issues detected"
-          fi
         fi
         
         # Always show test summary
         if [ -f "test-results.json" ]; then
           echo "=== Test Summary ==="
-          python -c "
-import json
-with open('test-results.json') as f:
-    data = json.load(f)
-    summary = data.get('summary', {})
-    print(f\"Total: {summary.get('total', 0)}\")
-    print(f\"Passed: {summary.get('passed', 0)}\")
-    print(f\"Failed: {summary.get('failed', 0)}\")
-    
-    # Show critical failures
-    for test in data.get('tests', []):
-        if test.get('outcome') == 'failed' and 'critical' in test.get('nodeid', '').lower():
-            print(f\"🚨 CRITICAL: {test.get('nodeid', 'Unknown test')}\")
-          " || true
+          python tests/show_summary.py || echo "Summary script not found"
         fi
     
     - name: Upload test results
@@ -213,22 +164,46 @@ with open('test-results.json') as f:
           # Extract and show failed tests
           echo ""
           echo "=== Failed Tests ==="
-          python -c "
+          python tests/show_failed_tests.py || echo "No failed test script"
+        else
+          echo "No test results JSON found"
+        fi
+    
+    - name: Create helper scripts
+      if: steps.run-tests.outcome == 'failure' || failure()
+      run: |
+        # Create show_summary.py
+        cat > tests/show_summary.py << 'EOF'
+import json
+with open('test-results.json') as f:
+    data = json.load(f)
+    summary = data.get('summary', {})
+    print(f"Total: {summary.get('total', 0)}")
+    print(f"Passed: {summary.get('passed', 0)}")
+    print(f"Failed: {summary.get('failed', 0)}")
+EOF
+        
+        # Create show_failed_tests.py
+        cat > tests/show_failed_tests.py << 'EOF'
 import json
 try:
     with open('test-results.json') as f:
         data = json.load(f)
         for test in data.get('tests', []):
             if test.get('outcome') == 'failed':
-                print(f\"❌ {test.get('nodeid', 'Unknown test')}:\")
-                print(f\"   {test.get('call', {}).get('longrepr', 'No error details')[:200]}\")
-                print()
+                print(f"❌ {test.get('nodeid', 'Unknown test')}")
 except Exception as e:
     print(f'Could not parse results: {e}')
-          " || true
-        else
-          echo "No test results JSON found"
-        fi
+EOF
+        
+        # Create count_failures.py
+        cat > tests/count_failures.py << 'EOF'
+import json
+with open('test-results.json') as f:
+    data = json.load(f)
+    failed = len([t for t in data.get('tests', []) if t.get('outcome') == 'failed'])
+    print(failed)
+EOF
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
@@ -236,26 +211,71 @@ except Exception as e:
       run: |
         echo "=== Starting Fix Analysis ==="
         
-        # Show what files exist
-        echo "Current directory contents:"
-        ls -la tests/ || echo "Tests directory not found"
-        
         # Check test results
         if [ -f "test-results.json" ]; then
           echo "Test results found, checking for failures..."
           
           # Count failures
-          FAILED_COUNT=$(python -c "import json; data = json.load(open('test-results.json')); print(len([t for t in data.get('tests', []) if t.get('outcome') == 'failed']))")
+          FAILED_COUNT=$(python tests/count_failures.py)
           
           echo "Found $FAILED_COUNT failed tests"
           
           if [ "$FAILED_COUNT" -gt 0 ]; then
             echo "Generating fixes..."
             
-            # Check if fix generator exists, if not create a simple one
+            # Check if fix generator exists
             if [ ! -f "tests/auto_fix_generator.py" ]; then
               echo "Creating auto_fix_generator.py..."
-              python tests/create_fix_generator.py || echo "Creating inline fix generator..."
+              cat > tests/auto_fix_generator.py << 'EOF'
+#!/usr/bin/env python3
+import json
+import os
+
+def generate_fixes():
+    """Generate fixes based on test failures"""
+    
+    with open('test-results.json', 'r') as f:
+        results = json.load(f)
+    
+    fixes = []
+    for test in results.get('tests', []):
+        if test.get('outcome') == 'failed':
+            test_name = test.get('nodeid', '')
+            error = str(test.get('call', {}).get('longrepr', ''))
+            
+            # Currency parsing fix
+            if 'pricing' in test_name.lower() or "'R450' == 450" in error:
+                fixes.append({
+                    'type': 'currency_parsing',
+                    'file': 'services/registration/trainer_registration.py',
+                    'test': test_name,
+                    'diagnosis': 'Currency value saved as string instead of number',
+                    'line': 100,
+                    'original_code': "'pricing_per_session': data.get('pricing', 400),",
+                    'fixed_code': "'pricing_per_session': float(str(data.get('pricing', 400)).replace('R', '').replace(',', '').strip()),"
+                })
+            
+            # Phone format fix
+            if 'phone' in test_name.lower() and '+27' in error:
+                fixes.append({
+                    'type': 'phone_format',
+                    'file': 'utils/validators.py',
+                    'test': test_name,
+                    'diagnosis': 'Phone returns with + prefix',
+                    'line': 50,
+                    'original_code': "return True, f'+{phone_digits}', None",
+                    'fixed_code': "return True, phone_digits, None"
+                })
+    
+    with open('generated_fixes.json', 'w') as f:
+        json.dump(fixes, f, indent=2)
+    
+    print(f"Generated {len(fixes)} fixes")
+    return len(fixes) > 0
+
+if __name__ == "__main__":
+    generate_fixes()
+EOF
             fi
             
             # Run fix generator
@@ -299,6 +319,49 @@ except Exception as e:
         BRANCH_NAME="auto-fix-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $BRANCH_NAME
         
+        # Check if apply_fixes.py exists, if not create it
+        if [ ! -f "tests/apply_fixes.py" ]; then
+          echo "Creating apply_fixes.py..."
+          cat > tests/apply_fixes.py << 'EOF'
+#!/usr/bin/env python3
+import json
+import os
+import re
+
+def apply_fixes():
+    """Apply generated fixes to files"""
+    
+    if not os.path.exists('generated_fixes.json'):
+        print("No fixes to apply")
+        return False
+    
+    with open('generated_fixes.json', 'r') as f:
+        fixes = json.load(f)
+    
+    files_modified = False
+    
+    for fix in fixes:
+        file_path = fix['file']
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                content = f.read()
+            
+            # Apply simple replacement
+            if fix.get('original_code') and fix['original_code'] in content:
+                content = content.replace(fix['original_code'], fix['fixed_code'])
+                with open(file_path, 'w') as f:
+                    f.write(content)
+                print(f"Fixed {file_path}")
+                files_modified = True
+    
+    return files_modified
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(0 if apply_fixes() else 1)
+EOF
+        fi
+        
         # Apply fixes
         python tests/apply_fixes.py || echo "Apply fixes had issues"
         
@@ -307,17 +370,13 @@ except Exception as e:
           echo "Files were modified, creating PR..."
           
           git add -A
-          
-          # Create commit message
           git commit -m "🔧 Auto-fix: Resolve conversation flow issues"
-          
-          # Push branch
           git push origin $BRANCH_NAME
           
           # Create PR using gh CLI
           gh pr create \
             --title "🔧 Auto-Fix: Conversation Flow Issues" \
-            --body "Automated fixes for test failures" \
+            --body "Automated fixes for test failures in registration and validation" \
             --base main \
             --head $BRANCH_NAME \
             --label "auto-fix" \
@@ -345,12 +404,6 @@ except Exception as e:
           
           **Status:** ${status}
           **Passed:** ${passed}/${total}
-          
-          ${failed > 0 ? '### Failed Tests:\n' + results.tests
-            .filter(t => t.outcome === 'failed')
-            .map(t => `- ❌ ${t.nodeid}`)
-            .slice(0, 10)
-            .join('\n') : ''}
           
           [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
           
