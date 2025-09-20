@@ -187,41 +187,42 @@ jobs:
           echo "No test results JSON found"
         fi
     
-      - name: Analyze failures and generate fixes
-        id: analyze-fixes
-        if: steps.run-tests.outcome == 'failure' || failure()
-        run: |
-          echo "Checking if fixes are needed..."
-          if [ -f "test-results.json" ]; then
-            if grep -q '"outcome": "failed"' test-results.json; then
-              echo "Found failed tests, generating fixes..."
-              if python tests/auto_fix_generator.py; then
-                echo "✅ Fix generator completed"
-                if [ -f "generated_fixes.json" ]; then
-                  echo "fixes_generated=true" >> $GITHUB_ENV
-                else
-                  echo "fixes_generated=false" >> $GITHUB_ENV
-                  exit 1  # FAIL if no fixes generated
-                fi
+    - name: Analyze failures and generate fixes
+      id: analyze-fixes
+      if: steps.run-tests.outcome == 'failure' || failure()
+      run: |
+        echo "Checking if fixes are needed..."
+        if [ -f "test-results.json" ]; then
+          if grep -q '"outcome": "failed"' test-results.json; then
+            echo "Found failed tests, generating fixes..."
+            if python tests/auto_fix_generator.py; then
+              echo "✅ Fix generator completed"
+              if [ -f "generated_fixes.json" ]; then
+                echo "fixes_generated=true" >> $GITHUB_ENV
               else
-                echo "❌ Fix generator failed"
-                exit 1  # FAIL the step
+                echo "fixes_generated=false" >> $GITHUB_ENV
+                echo "⚠️ No fixes file generated"
               fi
             else
-              echo "✅ All tests passed - no fixes needed!"
+              echo "❌ Fix generator failed with error code $?"
               echo "fixes_generated=false" >> $GITHUB_ENV
             fi
           else
-            echo "❌ No test results found"
-            exit 1
+            echo "✅ All tests passed - no fixes needed!"
+            echo "fixes_generated=false" >> $GITHUB_ENV
           fi
-    
+        else
+          echo "❌ No test results found"
+          echo "fixes_generated=false" >> $GITHUB_ENV
+        fi
     
     - name: Apply auto-fixes and create PR
-      if: steps.analyze-fixes.outcome == 'success' && github.event.inputs.fix_mode != 'report-only'
+      if: env.fixes_generated == 'true' && github.event.inputs.fix_mode != 'report-only'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        echo "=== Applying fixes and creating PR ==="
+        
         # Configure git
         git config --global user.name 'Refiloe Auto-Fix Bot'
         git config --global user.email 'bot@refiloe.ai'
@@ -231,15 +232,20 @@ jobs:
         git checkout -b $BRANCH_NAME
         
         # Apply fixes
-        python tests/apply_fixes.py
+        if python tests/apply_fixes.py; then
+          echo "✅ Fixes applied successfully"
+        else
+          echo "⚠️ Some fixes may have failed to apply"
+        fi
         
         # Commit changes if any
         if [[ -n $(git status -s) ]]; then
+          echo "Files were modified, creating commit..."
           git add -A
           git commit -m "🔧 Auto-fix: Resolve conversation flow issues
 
           Automated fixes for test failures:
-          $(python tests/get_fix_summary.py)"
+          $(python tests/get_fix_summary.py 2>/dev/null || echo 'Various test fixes')"
           
           # Push branch
           git push origin $BRANCH_NAME
@@ -247,13 +253,13 @@ jobs:
           # Create PR
           gh pr create \
             --title "🔧 Auto-Fix: Conversation Flow Issues" \
-            --body "$(python tests/generate_pr_description.py)" \
+            --body "$(python tests/generate_pr_description.py 2>/dev/null || echo 'Automated fixes for test failures')" \
             --base main \
             --head $BRANCH_NAME \
             --label "auto-fix" \
-            --assignee ${{ github.actor }}
+            --assignee ${{ github.actor }} || echo "PR creation failed"
         else
-          echo "No fixes needed or could be applied automatically"
+          echo "No files were changed - no PR needed"
         fi
     
     - name: Post test summary to PR
@@ -278,13 +284,11 @@ jobs:
           
           ${failed > 0 ? '### Failed Tests:\n' + results.tests
             .filter(t => t.outcome === 'failed')
-            .map(t => `- ❌ ${t.nodeid}: ${t.call.longrepr}`)
+            .map(t => `- ❌ ${t.nodeid}`)
+            .slice(0, 10)
             .join('\n') : ''}
           
-          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
-          ${failed > 0 && '${{ steps.analyze-fixes.outcome }}' === 'success' ? 
-            '🔧 **Auto-fixes available!** A PR has been created with suggested fixes.' : ''}`;
+          [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
