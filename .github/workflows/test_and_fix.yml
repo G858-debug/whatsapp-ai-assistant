@@ -187,22 +187,35 @@ jobs:
           echo "No test results JSON found"
         fi
     
-    - name: Analyze failures and generate fixes
-      id: analyze-fixes
-      if: steps.run-tests.outcome == 'failure' || failure()
-      run: |
-        echo "Checking if fixes are needed..."
-        if [ -f "test-results.json" ]; then
-          # Check if there are any failed tests using grep
-          if grep -q '"outcome": "failed"' test-results.json; then
-            echo "Found failed tests, generating fixes..."
-            python tests/auto_fix_generator.py || echo "Fix generator not found"
+     - name: Analyze failures and generate fixes
+        id: analyze-fixes
+        if: steps.run-tests.outcome == 'failure' || failure()
+        run: |
+          echo "Checking if fixes are needed..."
+          if [ -f "test-results.json" ]; then
+            if grep -q '"outcome": "failed"' test-results.json; then
+              echo "Found failed tests, generating fixes..."
+              if python tests/auto_fix_generator.py; then
+                echo "✅ Fix generator completed"
+                if [ -f "generated_fixes.json" ]; then
+                  echo "fixes_generated=true" >> $GITHUB_ENV
+                else
+                  echo "fixes_generated=false" >> $GITHUB_ENV
+                  exit 1  # FAIL if no fixes generated
+                fi
+              else
+                echo "❌ Fix generator failed"
+                exit 1  # FAIL the step
+              fi
+            else
+              echo "✅ All tests passed - no fixes needed!"
+              echo "fixes_generated=false" >> $GITHUB_ENV
+            fi
           else
-            echo "✅ All tests passed - no fixes needed!"
+            echo "❌ No test results found"
+            exit 1
           fi
-        else
-          echo "No test results found"
-        fi
+    
     
     - name: Apply auto-fixes and create PR
       if: steps.analyze-fixes.outcome == 'success' && github.event.inputs.fix_mode != 'report-only'
