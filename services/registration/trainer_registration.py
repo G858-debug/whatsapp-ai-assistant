@@ -97,6 +97,16 @@ class TrainerRegistrationHandler:
     
     def start_registration(self, phone: str) -> str:
         """Start trainer registration with warm welcome"""
+
+        # Check if already registered
+        try:
+            existing = self.db.table('trainers').select('id', 'first_name').eq('whatsapp', phone).execute()
+            if existing.data and len(existing.data) > 0:
+                name = existing.data[0].get('first_name', 'there')
+                return f"Welcome back, {name}! You're already registered. How can I help you today?"
+        except Exception as e:
+            log_error(f"Error checking existing registration: {str(e)}")
+            
         # Check for existing incomplete registration
         session_data = self.get_or_create_session(phone)
         
