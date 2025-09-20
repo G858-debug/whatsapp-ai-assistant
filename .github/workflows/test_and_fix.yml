@@ -112,6 +112,7 @@ jobs:
         # First, try to run the comprehensive real-world tests
         if [ -f "tests/test_refiloe_real_world.py" ]; then
           echo "Running real-world comprehensive tests..."
+          # CRITICAL FIX: Use PIPESTATUS to capture pytest exit code, not tee's
           python -m pytest tests/test_refiloe_real_world.py \
             --ignore=tests/test_pr_generation.py \
             --ignore=tests/test_fix_generation.py \
@@ -122,9 +123,10 @@ jobs:
             -v \
             --tb=short \
             --capture=no 2>&1 | tee test-output.log
-          TEST_EXIT_CODE=$?
+          TEST_EXIT_CODE=${PIPESTATUS[0]}  # CRITICAL: Get pytest's exit code, not tee's
         else
           echo "Real-world tests not found, running basic tests..."
+          # CRITICAL FIX: Use PIPESTATUS to capture pytest exit code, not tee's
           python -m pytest tests/ \
             --ignore=tests/test_railway_api.py \
             --ignore=tests/test_calendar_service.py \
@@ -137,7 +139,7 @@ jobs:
             -v \
             --tb=short \
             --capture=no 2>&1 | tee test-output.log
-          TEST_EXIT_CODE=$?
+          TEST_EXIT_CODE=${PIPESTATUS[0]}  # CRITICAL: Get pytest's exit code, not tee's
         fi
         
         # CRITICAL FIX: Capture the actual pytest exit code
@@ -171,15 +173,10 @@ jobs:
             # Use single-line Python command
             python -c "import json; d=json.load(open('test-results.json')); s=d.get('summary',{}); print(f\"Total: {s.get('total',0)}, Passed: {s.get('passed',0)}, Failed: {s.get('failed',0)}\")" || true
           fi
-          
-          # CRITICAL: Clean up any generated files that shouldn't exist yet
-          # This ensures the fix generator runs fresh on the actual test results
-          rm -f generated_fixes.json fix_summary.json 2>/dev/null || true
-          echo "Cleaned up any premature fix files"
-          
-          # CRITICAL: Exit with the actual test exit code to mark step as failed
-          exit $TEST_EXIT_CODE
         fi
+        
+        # Don't exit with failure code here - let the step complete
+        # The continue-on-error: true handles this
     
     - name: Upload test results
       if: always()
@@ -214,7 +211,7 @@ jobs:
       if: always() && env.test_status == 'failure'
       run: |
         echo "=== Starting fix analysis ==="
-        echo "Step triggered with test outcome: ${{ steps.run-tests.outcome }}"
+        echo "Step triggered with test_status: ${{ env.test_status }}"
         
         # Remove any old generated files first (important!)
         rm -f generated_fixes.json fix_summary.json fix-generator.log || true
@@ -255,8 +252,8 @@ jobs:
             
             # Run with explicit python path and capture all output
             echo "=== Running generator ==="
-            /usr/bin/python3 tests/auto_fix_generator.py 2>&1 | tee fix-generator.log
-            GENERATOR_EXIT=$?
+            python3 tests/auto_fix_generator.py 2>&1 | tee fix-generator.log
+            GENERATOR_EXIT=${PIPESTATUS[0]}
             
             echo "Generator exit code: $GENERATOR_EXIT"
             
@@ -313,7 +310,7 @@ jobs:
         fi
     
     - name: Apply auto-fixes and create PR
-      if: always() && env.fixes_generated == 'true' && github.event.inputs.fix_mode != 'report-only'
+      if: env.fixes_generated == 'true' && github.event.inputs.fix_mode != 'report-only'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -360,6 +357,15 @@ jobs:
           echo "Pushing branch $BRANCH_NAME..."
           git push origin $BRANCH_NAME
           
+          # Install GitHub CLI if not present
+          if ! command -v gh &> /dev/null; then
+            echo "Installing GitHub CLI..."
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          fi
+          
           # Create PR using GitHub CLI
           echo "Creating Pull Request..."
           gh pr create \
@@ -368,7 +374,7 @@ jobs:
             --base main \
             --head $BRANCH_NAME \
             --label "auto-fix" \
-            --assignee ${{ github.actor }} || echo "PR creation failed"
+            --assignee ${{ github.actor }} || echo "PR creation failed - you may need to create it manually"
         else
           echo "No files were changed - no PR needed"
           echo "=== Debug: Check why no changes ==="
@@ -376,11 +382,18 @@ jobs:
         fi
     
     - name: Post test summary to PR
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && always()
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
+          
+          // Check if test-results.json exists
+          if (!fs.existsSync('test-results.json')) {
+            console.log('No test results file found');
+            return;
+          }
+          
           const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
           
           const passed = results.tests.filter(t => t.outcome === 'passed').length;
@@ -417,7 +430,7 @@ jobs:
         python tests/cleanup_test_data.py || echo "Cleanup script not found or failed"
     
     - name: Celebrate success
-      if: success() && steps.run-tests.outcome == 'success'
+      if: success() && env.test_status == 'success'
       run: |
         echo "🎉🎉🎉 ALL TESTS PASSED! 🎉🎉🎉"
         echo "================================"
