@@ -13,18 +13,21 @@ import pytz
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Global flag to control mock vs real testing
+USE_REAL_CONNECTIONS = os.environ.get('USE_REAL_CONNECTIONS', 'true').lower() == 'true'
+
 
 @pytest.fixture(scope="session")
 def test_config():
     """Create a test configuration object"""
     config = Mock()
     config.TIMEZONE = 'Africa/Johannesburg'
-    config.ANTHROPIC_API_KEY = 'test-key'
-    config.WHATSAPP_TOKEN = 'test-token'
-    config.WHATSAPP_PHONE_ID = 'test-phone-id'
-    config.SUPABASE_URL = 'https://test.supabase.co'
-    config.SUPABASE_ANON_KEY = 'test-anon-key'
-    config.SUPABASE_SERVICE_KEY = 'test-service-key'
+    config.ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', 'test-key')
+    config.WHATSAPP_TOKEN = os.environ.get('WHATSAPP_TOKEN', 'test-token')
+    config.WHATSAPP_PHONE_ID = os.environ.get('WHATSAPP_PHONE_ID', 'test-phone-id')
+    config.SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://test.supabase.co')
+    config.SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', 'test-anon-key')
+    config.SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', 'test-service-key')
     config.SENDER_EMAIL = 'test@refiloe.ai'
     config.PAYMENT_SUCCESS_URL = 'https://test.refiloe.ai/success'
     config.PAYMENT_CANCEL_URL = 'https://test.refiloe.ai/cancel'
@@ -33,7 +36,22 @@ def test_config():
 
 @pytest.fixture(scope="function")
 def mock_db():
-    """Create a mock database client"""
+    """Create either real or mock database client based on environment"""
+    if USE_REAL_CONNECTIONS:
+        # Try to use real database
+        try:
+            from supabase import create_client
+            url = os.environ.get('SUPABASE_URL')
+            key = os.environ.get('SUPABASE_SERVICE_KEY')
+            
+            if url and key:
+                print("✅ Using REAL database connection for testing")
+                return create_client(url, key)
+        except Exception as e:
+            print(f"⚠️ Could not connect to real database: {e}")
+    
+    # Fall back to mock
+    print("📦 Using MOCK database for testing")
     db = Mock()
     
     # Setup common database responses
@@ -46,6 +64,40 @@ def mock_db():
     db.execute.return_value.data = []
     
     return db
+
+
+@pytest.fixture(scope="function")
+def real_db():
+    """Force real database connection for specific tests"""
+    from supabase import create_client
+    url = os.environ.get('SUPABASE_URL')
+    key = os.environ.get('SUPABASE_SERVICE_KEY')
+    
+    if url and key:
+        return create_client(url, key)
+    else:
+        pytest.skip("Real database credentials not available")
+
+
+@pytest.fixture(scope="function")
+def real_validators():
+    """Get real validator instance"""
+    from utils.validators import Validators
+    return Validators()
+
+
+@pytest.fixture(scope="function")
+def real_ai_handler(real_db):
+    """Get real AI handler with actual database"""
+    from services.ai_intent_handler import AIIntentHandler
+    return AIIntentHandler(real_db)
+
+
+@pytest.fixture(scope="function")
+def real_trainer_handler(real_db):
+    """Get real trainer registration handler"""
+    from services.registration.trainer_registration import TrainerRegistrationHandler
+    return TrainerRegistrationHandler(real_db)
 
 
 @pytest.fixture(scope="function")
@@ -118,6 +170,30 @@ def reset_mocks():
     # Cleanup after each test if needed
 
 
+@pytest.fixture(autouse=True)
+def cleanup_test_data(request):
+    """Clean up test data after each test if using real database"""
+    yield
+    
+    if USE_REAL_CONNECTIONS:
+        # Clean up any test data created
+        try:
+            from supabase import create_client
+            url = os.environ.get('SUPABASE_URL')
+            key = os.environ.get('SUPABASE_SERVICE_KEY')
+            test_phone = os.environ.get('TEST_PHONE', '27731863036')
+            
+            if url and key:
+                db = create_client(url, key)
+                # Clean test data
+                db.table('trainers').delete().eq('whatsapp', test_phone).execute()
+                db.table('clients').delete().eq('whatsapp', '27821234567').execute()
+                db.table('registration_states').delete().eq('phone_number', test_phone).execute()
+                db.table('conversation_states').delete().eq('phone_number', test_phone).execute()
+        except:
+            pass  # Ignore cleanup errors
+
+
 @pytest.fixture(scope="session")
 def test_phone_numbers():
     """Test phone numbers for different scenarios"""
@@ -154,4 +230,10 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "critical: Critical tests that must pass"
+    )
+    config.addinivalue_line(
+        "markers", "real_db: Tests that require real database"
+    )
+    config.addinivalue_line(
+        "markers", "mock: Tests using mock objects"
     )
