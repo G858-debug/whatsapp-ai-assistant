@@ -191,28 +191,61 @@ jobs:
       id: analyze-fixes
       if: steps.run-tests.outcome == 'failure' || failure()
       run: |
-        echo "Checking if fixes are needed..."
+        echo "=== Starting fix analysis ==="
+        
+        # Check current directory and files
+        pwd
+        ls -la tests/auto_fix_generator.py || echo "Generator file not found!"
+        
+        # Show test results exist
         if [ -f "test-results.json" ]; then
-          if grep -q '"outcome": "failed"' test-results.json; then
-            echo "Found failed tests, generating fixes..."
-            if python tests/auto_fix_generator.py; then
-              echo "✅ Fix generator completed"
-              if [ -f "generated_fixes.json" ]; then
-                echo "fixes_generated=true" >> $GITHUB_ENV
-              else
-                echo "fixes_generated=false" >> $GITHUB_ENV
-                echo "⚠️ No fixes file generated"
-              fi
+          echo "test-results.json exists, size: $(stat -c%s test-results.json 2>/dev/null || stat -f%z test-results.json 2>/dev/null || echo 'unknown') bytes"
+          
+          # Count failures
+          FAILED_COUNT=$(grep -o '"outcome": "failed"' test-results.json | wc -l)
+          echo "Found $FAILED_COUNT failed tests in JSON"
+          
+          if [ $FAILED_COUNT -gt 0 ]; then
+            echo "Running fix generator..."
+            
+            # Run with explicit python path and capture all output
+            /usr/bin/python3 tests/auto_fix_generator.py 2>&1 | tee fix-generator.log
+            GENERATOR_EXIT=$?
+            
+            echo "Generator exit code: $GENERATOR_EXIT"
+            
+            # Show generator output
+            echo "=== Generator Output ==="
+            cat fix-generator.log || true
+            
+            # Check results
+            if [ -f "generated_fixes.json" ]; then
+              echo "✅ generated_fixes.json created"
+              echo "=== Generated Fixes ==="
+              cat generated_fixes.json | python -m json.tool | head -50 || cat generated_fixes.json | head -50
+              echo "fixes_generated=true" >> $GITHUB_ENV
+              
+              # Count fixes
+              FIX_COUNT=$(grep -o '"type"' generated_fixes.json | wc -l)
+              echo "Generated $FIX_COUNT fixes"
             else
-              echo "❌ Fix generator failed with error code $?"
+              echo "❌ No generated_fixes.json file created"
               echo "fixes_generated=false" >> $GITHUB_ENV
+              
+              # Debug why no fixes were generated
+              echo "=== Debugging Fix Generation ==="
+              echo "Checking if generator ran..."
+              if [ -f "fix_summary.json" ]; then
+                echo "fix_summary.json exists:"
+                cat fix_summary.json
+              fi
             fi
           else
-            echo "✅ All tests passed - no fixes needed!"
+            echo "No failures found in test results"
             echo "fixes_generated=false" >> $GITHUB_ENV
           fi
         else
-          echo "❌ No test results found"
+          echo "❌ test-results.json not found!"
           echo "fixes_generated=false" >> $GITHUB_ENV
         fi
     
@@ -231,12 +264,25 @@ jobs:
         BRANCH_NAME="auto-fix-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $BRANCH_NAME
         
+        # Show what fixes will be applied
+        echo "=== Fixes to Apply ==="
+        cat generated_fixes.json | python -m json.tool | head -30 || true
+        
         # Apply fixes
-        if python tests/apply_fixes.py; then
+        echo "=== Applying Fixes ==="
+        if python tests/apply_fixes.py 2>&1 | tee apply-fixes.log; then
           echo "✅ Fixes applied successfully"
         else
           echo "⚠️ Some fixes may have failed to apply"
+          cat apply-fixes.log || true
         fi
+        
+        # Show what changed
+        echo "=== Git Status ==="
+        git status
+        
+        echo "=== Git Diff ==="
+        git diff | head -100 || true
         
         # Commit changes if any
         if [[ -n $(git status -s) ]]; then
@@ -248,9 +294,11 @@ jobs:
           $(python tests/get_fix_summary.py 2>/dev/null || echo 'Various test fixes')"
           
           # Push branch
+          echo "Pushing branch $BRANCH_NAME..."
           git push origin $BRANCH_NAME
           
           # Create PR
+          echo "Creating Pull Request..."
           gh pr create \
             --title "🔧 Auto-Fix: Conversation Flow Issues" \
             --body "$(python tests/generate_pr_description.py 2>/dev/null || echo 'Automated fixes for test failures')" \
@@ -260,6 +308,8 @@ jobs:
             --assignee ${{ github.actor }} || echo "PR creation failed"
         else
           echo "No files were changed - no PR needed"
+          echo "=== Debug: Check why no changes ==="
+          ls -la services/registration/trainer_registration.py utils/validators.py 2>/dev/null || true
         fi
     
     - name: Post test summary to PR
