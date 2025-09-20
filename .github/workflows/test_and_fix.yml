@@ -140,6 +140,9 @@ jobs:
           TEST_EXIT_CODE=$?
         fi
         
+        # CRITICAL FIX: Capture the actual pytest exit code
+        echo "Pytest exit code: $TEST_EXIT_CODE"
+        
         if [ $TEST_EXIT_CODE -eq 0 ]; then
           echo "✅ All tests passed!"
           echo "test_status=success" >> $GITHUB_ENV
@@ -161,19 +164,22 @@ jobs:
           if grep -q "registration\|step 7" test-output.log; then
             echo "📝 Registration flow issues detected"
           fi
+          
+          # Always show test summary
+          if [ -f "test-results.json" ]; then
+            echo "=== Test Summary ==="
+            # Use single-line Python command
+            python -c "import json; d=json.load(open('test-results.json')); s=d.get('summary',{}); print(f\"Total: {s.get('total',0)}, Passed: {s.get('passed',0)}, Failed: {s.get('failed',0)}\")" || true
+          fi
+          
+          # CRITICAL: Clean up any generated files that shouldn't exist yet
+          # This ensures the fix generator runs fresh on the actual test results
+          rm -f generated_fixes.json fix_summary.json 2>/dev/null || true
+          echo "Cleaned up any premature fix files"
+          
+          # CRITICAL: Exit with the actual test exit code to mark step as failed
+          exit $TEST_EXIT_CODE
         fi
-        
-        # Always show test summary
-        if [ -f "test-results.json" ]; then
-          echo "=== Test Summary ==="
-          # Use single-line Python command
-          python -c "import json; d=json.load(open('test-results.json')); s=d.get('summary',{}); print(f\"Total: {s.get('total',0)}, Passed: {s.get('passed',0)}, Failed: {s.get('failed',0)}\")" || true
-        fi
-        
-        # CRITICAL: Clean up any generated files that shouldn't exist yet
-        # This ensures the fix generator runs fresh on the actual test results
-        rm -f generated_fixes.json fix_summary.json 2>/dev/null || true
-        echo "Cleaned up any premature fix files"
     
     - name: Upload test results
       if: always()
@@ -205,7 +211,7 @@ jobs:
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
-      if: always() && (steps.run-tests.outcome == 'failure' || failure())
+      if: always() && steps.run-tests.outcome == 'failure'
       run: |
         echo "=== Starting fix analysis ==="
         echo "Step triggered with test outcome: ${{ steps.run-tests.outcome }}"
@@ -307,7 +313,7 @@ jobs:
         fi
     
     - name: Apply auto-fixes and create PR
-      if: env.fixes_generated == 'true' && github.event.inputs.fix_mode != 'report-only'
+      if: always() && env.fixes_generated == 'true' && github.event.inputs.fix_mode != 'report-only'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -354,7 +360,7 @@ jobs:
           echo "Pushing branch $BRANCH_NAME..."
           git push origin $BRANCH_NAME
           
-          # Create PR
+          # Create PR using GitHub CLI
           echo "Creating Pull Request..."
           gh pr create \
             --title "🔧 Auto-Fix: Conversation Flow Issues" \
