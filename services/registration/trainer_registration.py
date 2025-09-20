@@ -356,7 +356,7 @@ class TrainerRegistrationHandler:
                 'specialization': data.get('specialization'),
                 'years_experience': data.get('experience', 0),
                 'location': data.get('location'),
-                'pricing_per_session': data.get('pricing', 300),
+                'pricing_per_session': self._parse_currency(data.get('pricing', 300)),
                 'status': 'active',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
@@ -510,3 +510,21 @@ class TrainerRegistrationHandler:
                 'next_step': current_step,
                 'complete': False
             }
+
+    def _parse_currency(self, value):
+        """Parse currency value to numeric"""
+        if isinstance(value, (int, float)):
+            return value
+        
+        import re
+        # Handle string values like "R450", "450", "R 450"
+        text = str(value).strip()
+        # Remove R, commas, spaces
+        text = re.sub(r'[Rr,\s]', '', text)
+        # Remove "per session" etc
+        text = re.sub(r'per.*', '', text, flags=re.IGNORECASE)
+        
+        try:
+            return float(text) if text else 300
+        except:
+            return 300
