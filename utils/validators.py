@@ -40,7 +40,7 @@ class Validators:
             if prefix not in valid_prefixes:
                 return False, None, "Invalid mobile number prefix"
             
-            return True, f"+{phone_digits}", None
+            return True, phone_digits, None
         
         # Local format (0XXXXXXXXX)
         elif phone_digits.startswith('0'):
@@ -59,7 +59,7 @@ class Validators:
             if prefix not in valid_prefixes:
                 return False, None, "Invalid mobile number prefix"
             
-            return True, f"+27{phone_digits}", None
+            return True, phone_digits, None
         
         return False, None, "Invalid South African phone number format"
     
@@ -192,6 +192,17 @@ class Validators:
             return False, None, f"Time cannot be after {max_time}"
         
         return True, formatted, None
+
+    def validate_time_format(self, time_str: str) -> tuple:
+        """
+        Validate time format (wrapper for validate_time)
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        from typing import Tuple, Optional
+        is_valid, formatted_time, error = self.validate_time(time_str)
+        return is_valid, error
     
     def validate_business_hours(self, time_str: str) -> Tuple[bool, Optional[str]]:
         """
