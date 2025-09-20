@@ -211,7 +211,7 @@ jobs:
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
-      if: always() && steps.run-tests.outcome == 'failure'
+      if: always() && env.test_status == 'failure'
       run: |
         echo "=== Starting fix analysis ==="
         echo "Step triggered with test outcome: ${{ steps.run-tests.outcome }}"
