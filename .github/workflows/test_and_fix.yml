@@ -205,9 +205,10 @@ jobs:
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
-      if: steps.run-tests.outcome == 'failure' || failure()
+      if: always() && (steps.run-tests.outcome == 'failure' || failure())
       run: |
         echo "=== Starting fix analysis ==="
+        echo "Step triggered with test outcome: ${{ steps.run-tests.outcome }}"
         
         # Remove any old generated files first (important!)
         rm -f generated_fixes.json fix_summary.json fix-generator.log || true
@@ -220,6 +221,11 @@ jobs:
         if [ -f "test-results.json" ]; then
           echo "test-results.json exists, size: $(stat -c%s test-results.json 2>/dev/null || stat -f%z test-results.json 2>/dev/null || echo 'unknown') bytes"
           
+          # Show first few lines of test results for debugging
+          echo "=== First 500 chars of test-results.json ==="
+          head -c 500 test-results.json || true
+          echo ""
+          
           # Better counting using Python for accuracy
           TOTAL_TESTS=$(python -c "import json; d=json.load(open('test-results.json')); print(len(d.get('tests',[])))" 2>/dev/null || echo "0")
           FAILED_COUNT=$(python -c "import json; d=json.load(open('test-results.json')); print(len([t for t in d.get('tests',[]) if t.get('outcome')=='failed']))" 2>/dev/null || echo "0")
@@ -227,10 +233,22 @@ jobs:
           echo "Total tests in file: $TOTAL_TESTS"
           echo "Failed tests in file: $FAILED_COUNT"
           
+          # Show some failed test names for debugging
+          echo "=== Failed test names ==="
+          python -c "import json; d=json.load(open('test-results.json')); [print(t.get('nodeid','Unknown')[:80]) for t in d.get('tests',[])[:5] if t.get('outcome')=='failed']" 2>/dev/null || echo "Could not extract test names"
+          
           if [ "$FAILED_COUNT" -gt "0" ]; then
             echo "Running fix generator on $FAILED_COUNT failures..."
             
+            # Ensure the generator script exists
+            if [ ! -f "tests/auto_fix_generator.py" ]; then
+              echo "ERROR: auto_fix_generator.py not found!"
+              echo "fixes_generated=false" >> $GITHUB_ENV
+              exit 0
+            fi
+            
             # Run with explicit python path and capture all output
+            echo "=== Running generator ==="
             /usr/bin/python3 tests/auto_fix_generator.py 2>&1 | tee fix-generator.log
             GENERATOR_EXIT=$?
             
@@ -252,6 +270,7 @@ jobs:
               
               if [ "$FIX_COUNT" -gt "0" ]; then
                 echo "fixes_generated=true" >> $GITHUB_ENV
+                echo "✅ Setting fixes_generated=true"
               else
                 echo "⚠️ Fix file exists but contains no fixes"
                 echo "fixes_generated=false" >> $GITHUB_ENV
@@ -266,7 +285,13 @@ jobs:
               if [ -f "fix_summary.json" ]; then
                 echo "fix_summary.json exists:"
                 cat fix_summary.json
+              else
+                echo "No fix_summary.json found"
               fi
+              
+              # Check if the generator created any output files
+              echo "=== Files in current directory ==="
+              ls -la *.json 2>/dev/null || echo "No JSON files in current directory"
             fi
           else
             echo "No failures found in test results"
@@ -275,6 +300,10 @@ jobs:
         else
           echo "❌ test-results.json not found!"
           echo "fixes_generated=false" >> $GITHUB_ENV
+          
+          # Debug: show what files exist
+          echo "=== Current directory contents ==="
+          ls -la | head -20
         fi
     
     - name: Apply auto-fixes and create PR
