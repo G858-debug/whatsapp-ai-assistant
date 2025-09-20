@@ -1,4 +1,4 @@
-# tests/generate_pr_description.py
+#!/usr/bin/env python3
 """
 Generate PR description for auto-fixes
 """
@@ -34,45 +34,59 @@ This PR was automatically generated to fix failing conversation flow tests.
 - **Failed**: {test_results.get('summary', {}).get('failed', 0)}
 
 ### 🛠️ Fixes Applied
-- **Total Fixes**: {summary.get('applied', 0)}
+- **Total Fixes Generated**: {summary.get('total_fixes', 0)}
+- **Successfully Applied**: {summary.get('applied', 0)}
 - **Failed to Apply**: {summary.get('failed', 0)}
 
 ### 📝 Fix Details
-
 """
     
-    # Add details of each fix
-    for fix in summary.get('applied_fixes', []):
-        description += f"""
-#### {fix['type'].replace('_', ' ').title()}
-- **File**: `{fix['file']}`
-- **Line**: {fix['line']}
-- **Issue**: {fix['diagnosis']}
+    # Add details of each applied fix
+    applied_fixes = summary.get('applied_fixes', [])
+    if applied_fixes:
+        for fix in applied_fixes[:10]:  # Limit to first 10
+            fix_type = fix.get('type', 'unknown').replace('_', ' ').title()
+            description += f"""
+#### {fix_type}
+- **File**: `{fix.get('file', 'unknown')}`
+- **Issue**: {fix.get('diagnosis', 'Issue detected')}
 """
+        if len(applied_fixes) > 10:
+            description += f"\n...and {len(applied_fixes) - 10} more fixes\n"
+    
+    # Add file list
+    if applied_fixes:
+        files = list(set(fix.get('file', '') for fix in applied_fixes if fix.get('file')))
+        if files:
+            description += "\n### 📂 Files Modified\n"
+            for file in files[:10]:
+                description += f"- `{file}`\n"
+            if len(files) > 10:
+                description += f"- ...and {len(files)-10} more\n"
     
     description += """
-
 ### 🧪 How to Verify
 
 1. Check the test results in the Actions tab
-2. Review the changed files
+2. Review the changed files in this PR
 3. Test locally if needed:
    ```bash
-   python -m pytest tests/test_conversation_flows.py -v
+   python -m pytest tests/ -v
    ```
 
 ### ⚠️ Important Notes
 
-- All changes have been backed up
+- All changes have been backed up in the `backups/` directory
 - Original code is preserved in commit history
-- If issues persist, we can rollback these changes
+- Review changes carefully before merging
 
 ### 📋 Checklist
 
-- [ ] Tests pass
+- [ ] Tests pass after fixes
 - [ ] No unintended side effects
 - [ ] Registration flow works correctly
 - [ ] Natural language processing improved
+- [ ] Phone number formatting fixed
 - [ ] Currency handling fixed
 
 ---
@@ -84,255 +98,3 @@ This PR was automatically generated to fix failing conversation flow tests.
 
 if __name__ == "__main__":
     generate_pr_description()
-
-
-# =============================================================================
-# tests/get_fix_summary.py
-"""
-Get a one-line summary of fixes for commit message
-"""
-
-import json
-
-
-def get_fix_summary():
-    """Generate one-line fix summary"""
-    
-    try:
-        with open('fix_summary.json', 'r') as f:
-            summary = json.load(f)
-        
-        fixes = summary.get('applied_fixes', [])
-        if not fixes:
-            print("No fixes applied")
-            return
-        
-        # Count fix types
-        fix_types = {}
-        for fix in fixes:
-            fix_type = fix['type']
-            fix_types[fix_type] = fix_types.get(fix_type, 0) + 1
-        
-        # Generate summary
-        parts = []
-        if 'currency_parsing' in fix_types:
-            parts.append("Fix currency parsing")
-        if 'registration_save' in fix_types:
-            parts.append("Fix registration saving")
-        if 'rigid_commands' in fix_types:
-            parts.append("Improve AI response handling")
-        if 'null_value' in fix_types:
-            parts.append("Add null checks")
-        
-        if parts:
-            print(", ".join(parts))
-        else:
-            print(f"Fixed {len(fixes)} issues")
-    
-    except:
-        print("Applied automated fixes")
-
-
-if __name__ == "__main__":
-    get_fix_summary()
-
-
-# =============================================================================
-# tests/cleanup_test_data.py
-"""
-Clean up test data from Supabase after tests
-"""
-
-import os
-from supabase import create_client, Client
-from datetime import datetime, timedelta
-import pytz
-
-
-class TestDataCleaner:
-    """Clean up test data from Supabase"""
-    
-    def __init__(self):
-        url = os.environ.get('SUPABASE_URL')
-        key = os.environ.get('SUPABASE_SERVICE_KEY')
-        
-        if not url or not key:
-            print("Supabase credentials not found")
-            self.db = None
-        else:
-            self.db = create_client(url, key)
-        
-        self.test_phone = os.environ.get('TEST_PHONE', '27731863036')
-        self.sa_tz = pytz.timezone('Africa/Johannesburg')
-    
-    def clean_test_trainers(self):
-        """Remove test trainers"""
-        
-        if not self.db:
-            return
-        
-        try:
-            # Delete trainers with test phone or test emails
-            self.db.table('trainers').delete().or_(
-                f"whatsapp.eq.{self.test_phone}",
-                "email.like.%test@test.com%",
-                "name.like.Test Trainer%"
-            ).execute()
-            
-            print("✅ Cleaned test trainers")
-        
-        except Exception as e:
-            print(f"Error cleaning trainers: {str(e)}")
-    
-    def clean_test_clients(self):
-        """Remove test clients"""
-        
-        if not self.db:
-            return
-        
-        try:
-            # Delete test clients
-            test_phones = [
-                '27821234567', '27831234567', '27841234567',
-                '27851234567', '27861234567'
-            ]
-            
-            for phone in test_phones:
-                self.db.table('clients').delete().eq('whatsapp', phone).execute()
-            
-            # Also delete clients with test names
-            self.db.table('clients').delete().or_(
-                "name.like.Test Client%",
-                "name.eq.Sarah",
-                "name.eq.John",
-                "name.eq.Mike",
-                "name.eq.Mary Jones",
-                "name.eq.Peter"
-            ).execute()
-            
-            print("✅ Cleaned test clients")
-        
-        except Exception as e:
-            print(f"Error cleaning clients: {str(e)}")
-    
-    def clean_test_bookings(self):
-        """Remove test bookings"""
-        
-        if not self.db:
-            return
-        
-        try:
-            # Get test trainer IDs
-            trainers = self.db.table('trainers').select('id').or_(
-                f"whatsapp.eq.{self.test_phone}",
-                "name.like.Test Trainer%"
-            ).execute()
-            
-            if trainers.data:
-                trainer_ids = [t['id'] for t in trainers.data]
-                
-                for trainer_id in trainer_ids:
-                    self.db.table('bookings').delete().eq(
-                        'trainer_id', trainer_id
-                    ).execute()
-            
-            print("✅ Cleaned test bookings")
-        
-        except Exception as e:
-            print(f"Error cleaning bookings: {str(e)}")
-    
-    def clean_registration_states(self):
-        """Clean up registration states"""
-        
-        if not self.db:
-            return
-        
-        try:
-            # Delete test registration states
-            self.db.table('registration_states').delete().or_(
-                f"phone_number.eq.{self.test_phone}",
-                "phone_number.like.2782123%",
-                "phone_number.like.2783123%"
-            ).execute()
-            
-            print("✅ Cleaned registration states")
-        
-        except Exception as e:
-            print(f"Error cleaning registration states: {str(e)}")
-    
-    def clean_conversation_states(self):
-        """Clean up conversation states"""
-        
-        if not self.db:
-            return
-        
-        try:
-            # Delete test conversation states
-            self.db.table('conversation_states').delete().or_(
-                f"phone_number.eq.{self.test_phone}",
-                "phone_number.like.2782123%",
-                "phone_number.like.2783123%"
-            ).execute()
-            
-            print("✅ Cleaned conversation states")
-        
-        except Exception as e:
-            print(f"Error cleaning conversation states: {str(e)}")
-    
-    def clean_all(self):
-        """Clean all test data"""
-        
-        print("🧹 Cleaning up test data...")
-        
-        if not self.db:
-            print("⚠️  Skipping cleanup - no database connection")
-            return
-        
-        # Clean in order (due to foreign key constraints)
-        self.clean_test_bookings()
-        self.clean_test_clients()
-        self.clean_test_trainers()
-        self.clean_registration_states()
-        self.clean_conversation_states()
-        
-        print("✅ All test data cleaned")
-
-
-if __name__ == "__main__":
-    cleaner = TestDataCleaner()
-    cleaner.clean_all()
-
-
-# =============================================================================
-# tests/setup_test_env.py
-"""
-Setup test environment before running tests
-"""
-
-import os
-import sys
-from pathlib import Path
-
-
-def setup_test_environment():
-    """Setup test environment"""
-    
-    print("🔧 Setting up test environment...")
-    
-    # Add project root to path
-    project_root = Path(__file__).parent.parent
-    sys.path.insert(0, str(project_root))
-    
-    # Set test environment variables if not set
-    if not os.environ.get('TESTING'):
-        os.environ['TESTING'] = 'true'
-    
-    # Ensure required directories exist
-    os.makedirs('tests/fixtures', exist_ok=True)
-    os.makedirs('tests/reports', exist_ok=True)
-    
-    print("✅ Test environment ready")
-
-
-if __name__ == "__main__":
-    setup_test_environment()
