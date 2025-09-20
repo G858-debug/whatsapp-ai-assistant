@@ -44,9 +44,9 @@ class AutoFixGenerator:
                 'test': test_name,
                 'diagnosis': 'Currency value saved as string "R450" instead of number 450',
                 'line': 0,  # Will search for the line
-                'search_pattern': "'pricing_per_session': data.get('pricing'",
-                'original_code': "'pricing_per_session': data.get('pricing', 400),",
-                'fixed_code': "'pricing_per_session': self._parse_currency(data.get('pricing', 400)),"
+                'search_pattern': "'pricing_per_session': data.get('pricing', 300),",
+                'original_code': "'pricing_per_session': data.get('pricing', 300),",
+                'fixed_code': "'pricing_per_session': self._parse_currency(data.get('pricing', 300)),"
             }
         
         # Phone number format issue
