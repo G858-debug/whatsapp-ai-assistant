@@ -193,6 +193,9 @@ jobs:
       run: |
         echo "=== Starting fix analysis ==="
         
+        # Remove any old generated files first (important!)
+        rm -f generated_fixes.json fix_summary.json fix-generator.log || true
+        
         # Check current directory and files
         pwd
         ls -la tests/auto_fix_generator.py || echo "Generator file not found!"
@@ -201,12 +204,15 @@ jobs:
         if [ -f "test-results.json" ]; then
           echo "test-results.json exists, size: $(stat -c%s test-results.json 2>/dev/null || stat -f%z test-results.json 2>/dev/null || echo 'unknown') bytes"
           
-          # Count failures
-          FAILED_COUNT=$(grep -o '"outcome": "failed"' test-results.json | wc -l)
-          echo "Found $FAILED_COUNT failed tests in JSON"
+          # Better counting using Python for accuracy
+          TOTAL_TESTS=$(python -c "import json; d=json.load(open('test-results.json')); print(len(d.get('tests',[])))" 2>/dev/null || echo "0")
+          FAILED_COUNT=$(python -c "import json; d=json.load(open('test-results.json')); print(len([t for t in d.get('tests',[]) if t.get('outcome')=='failed']))" 2>/dev/null || echo "0")
           
-          if [ $FAILED_COUNT -gt 0 ]; then
-            echo "Running fix generator..."
+          echo "Total tests in file: $TOTAL_TESTS"
+          echo "Failed tests in file: $FAILED_COUNT"
+          
+          if [ "$FAILED_COUNT" -gt "0" ]; then
+            echo "Running fix generator on $FAILED_COUNT failures..."
             
             # Run with explicit python path and capture all output
             /usr/bin/python3 tests/auto_fix_generator.py 2>&1 | tee fix-generator.log
@@ -223,11 +229,17 @@ jobs:
               echo "✅ generated_fixes.json created"
               echo "=== Generated Fixes ==="
               cat generated_fixes.json | python -m json.tool | head -50 || cat generated_fixes.json | head -50
-              echo "fixes_generated=true" >> $GITHUB_ENV
               
-              # Count fixes
-              FIX_COUNT=$(grep -o '"type"' generated_fixes.json | wc -l)
+              # Count fixes more accurately
+              FIX_COUNT=$(python -c "import json; print(len(json.load(open('generated_fixes.json'))))" 2>/dev/null || echo "0")
               echo "Generated $FIX_COUNT fixes"
+              
+              if [ "$FIX_COUNT" -gt "0" ]; then
+                echo "fixes_generated=true" >> $GITHUB_ENV
+              else
+                echo "⚠️ Fix file exists but contains no fixes"
+                echo "fixes_generated=false" >> $GITHUB_ENV
+              fi
             else
               echo "❌ No generated_fixes.json file created"
               echo "fixes_generated=false" >> $GITHUB_ENV
