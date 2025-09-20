@@ -187,7 +187,7 @@ jobs:
           echo "No test results JSON found"
         fi
     
-     - name: Analyze failures and generate fixes
+      - name: Analyze failures and generate fixes
         id: analyze-fixes
         if: steps.run-tests.outcome == 'failure' || failure()
         run: |
