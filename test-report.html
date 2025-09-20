@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title id="head-title">test-report.html</title>
+      <style type="text/css">body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #e6e6e6;
+  vertical-align: top;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+#environment ul {
+  margin: 0;
+  padding: 0 20px;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+.col-links__extra {
+  margin-right: 3px;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #e6e6e6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.logwrapper {
+  max-height: 230px;
+  overflow-y: scroll;
+  background-color: #e6e6e6;
+}
+.logwrapper.expanded {
+  max-height: none;
+}
+.logwrapper.expanded .logexpander:after {
+  content: "collapse [-]";
+}
+.logwrapper .logexpander {
+  z-index: 1;
+  position: sticky;
+  top: 10px;
+  width: max-content;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 5px 7px;
+  margin: 10px 0 10px calc(100% - 80px);
+  cursor: pointer;
+  background-color: #e6e6e6;
+}
+.logwrapper .logexpander:after {
+  content: "expand [+]";
+}
+.logwrapper .logexpander:hover {
+  color: #000;
+  border-color: #000;
+}
+.logwrapper .log {
+  min-height: 40px;
+  position: relative;
+  top: -50px;
+  height: calc(100% + 50px);
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  padding: 5px;
+  padding-right: 80px;
+  white-space: pre-wrap;
+}
+
+div.media {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin: 0 5px;
+  overflow: hidden;
+  width: 320px;
+}
+
+.media-container {
+  display: grid;
+  grid-template-columns: 25px auto 25px;
+  align-items: center;
+  flex: 1 1;
+  overflow: hidden;
+  height: 200px;
+}
+
+.media-container--fullscreen {
+  grid-template-columns: 0px auto 0px;
+}
+
+.media-container__nav--right,
+.media-container__nav--left {
+  text-align: center;
+  cursor: pointer;
+}
+
+.media-container__viewport {
+  cursor: pointer;
+  text-align: center;
+  height: inherit;
+}
+.media-container__viewport img,
+.media-container__viewport video {
+  object-fit: cover;
+  width: 100%;
+  max-height: 100%;
+}
+
+.media__name,
+.media__counter {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  flex: 0 0 25px;
+  align-items: center;
+}
+
+.collapsible td:not(.col-links) {
+  cursor: pointer;
+}
+.collapsible td:not(.col-links):hover::after {
+  color: #bbb;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.col-result {
+  width: 130px;
+}
+.col-result:hover::after {
+  content: " (hide details)";
+}
+
+.col-result.collapsed:hover::after {
+  content: " (show details)";
+}
+
+#environment-header h2:hover::after {
+  content: " (hide details)";
+  color: #bbb;
+  font-style: italic;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#environment-header.collapsed h2:hover::after {
+  content: " (show details)";
+  color: #bbb;
+  font-style: italic;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+.sortable.desc:after {
+  content: " ";
+  position: relative;
+  left: 5px;
+  bottom: -12.5px;
+  border: 10px solid #4caf50;
+  border-bottom: 0;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+.sortable.asc:after {
+  content: " ";
+  position: relative;
+  left: 5px;
+  bottom: 12.5px;
+  border: 10px solid #4caf50;
+  border-top: 0;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+.hidden, .summary__reload__button.hidden {
+  display: none;
+}
+
+.summary__data {
+  flex: 0 0 550px;
+}
+.summary__reload {
+  flex: 1 1;
+  display: flex;
+  justify-content: center;
+}
+.summary__reload__button {
+  flex: 0 0 300px;
+  display: flex;
+  color: white;
+  font-weight: bold;
+  background-color: #4caf50;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.summary__reload__button:hover {
+  background-color: #46a049;
+}
+.summary__spacer {
+  flex: 0 0 550px;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+}
+
+.filters,
+.collapse {
+  display: flex;
+  align-items: center;
+}
+.filters button,
+.collapse button {
+  color: #999;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.filters button:hover,
+.collapse button:hover {
+  color: #ccc;
+}
+
+.filter__label {
+  margin-right: 10px;
+}
+
+      </style>
+    
+  </head>
+  <body>
+    <h1 id="title">test-report.html</h1>
+    <p>Report generated on 20-Sep-2025 at 22:41:22 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a>
+        v4.1.1</p>
+    <div id="environment-header">
+      <h2>Environment</h2>
+    </div>
+    <table id="environment"></table>
+    <!-- TEMPLATES -->
+      <template id="template_environment_row">
+      <tr>
+        <td></td>
+        <td></td>
+      </tr>
+    </template>
+    <template id="template_results-table__body--empty">
+      <tbody class="results-table-row">
+        <tr id="not-found-message">
+          <td colspan="4">No results found. Check the filters.</th>
+        </tr>
+    </template>
+    <template id="template_results-table__tbody">
+      <tbody class="results-table-row">
+        <tr class="collapsible">
+        </tr>
+        <tr class="extras-row">
+          <td class="extra" colspan="4">
+            <div class="extraHTML"></div>
+            <div class="media">
+              <div class="media-container">
+                  <div class="media-container__nav--left"><</div>
+                  <div class="media-container__viewport">
+                    <img src="" />
+                    <video controls>
+                      <source src="" type="video/mp4">
+                    </video>
+                  </div>
+                  <div class="media-container__nav--right">></div>
+                </div>
+                <div class="media__name"></div>
+                <div class="media__counter"></div>
+            </div>
+            <div class="logwrapper">
+              <div class="logexpander"></div>
+              <div class="log"></div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </template>
+    <!-- END TEMPLATES -->
+    <div class="summary">
+      <div class="summary__data">
+        <h2>Summary</h2>
+        <div class="additional-summary prefix">
+        </div>
+        <p class="run-count">57 tests took 00:02:34.</p>
+        <p class="filter">(Un)check the boxes to filter the results.</p>
+        <div class="summary__reload">
+          <div class="summary__reload__button hidden" onclick="location.reload()">
+            <div>There are still tests running. <br />Reload this page to get the latest results!</div>
+          </div>
+        </div>
+        <div class="summary__spacer"></div>
+        <div class="controls">
+          <div class="filters">
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="failed" />
+            <span class="failed">26 Failed,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="passed" />
+            <span class="passed">31 Passed,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="skipped" disabled/>
+            <span class="skipped">0 Skipped,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="xfailed" disabled/>
+            <span class="xfailed">0 Expected failures,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="xpassed" disabled/>
+            <span class="xpassed">0 Unexpected passes,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="error" disabled/>
+            <span class="error">0 Errors,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="rerun" disabled/>
+            <span class="rerun">0 Reruns</span>
+          </div>
+          <div class="collapse">
+            <button id="show_all_details">Show all details</button>&nbsp;/&nbsp;<button id="hide_all_details">Hide all details</button>
+          </div>
+        </div>
+      </div>
+      <div class="additional-summary summary">
+      </div>
+      <div class="additional-summary postfix">
+      </div>
+    </div>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable" data-column-type="result">Result</th>
+          <th class="sortable" data-column-type="testId">Test</th>
+          <th class="sortable" data-column-type="duration">Duration</th>
+          <th>Links</th>
+        </tr>
+      </thead>
+    </table>
+  </body>
+  <footer>
+    <div id="data-container" data-jsonblob="{&#34;environment&#34;: {&#34;Python&#34;: &#34;3.11.13&#34;, &#34;Platform&#34;: &#34;Linux-6.11.0-1018-azure-x86_64-with-glibc2.39&#34;, &#34;Packages&#34;: {&#34;pytest&#34;: &#34;7.4.2&#34;, &#34;pluggy&#34;: &#34;1.6.0&#34;}, &#34;Plugins&#34;: {&#34;json-report&#34;: &#34;1.5.0&#34;, &#34;metadata&#34;: &#34;3.1.1&#34;, &#34;anyio&#34;: &#34;4.10.0&#34;, &#34;cov&#34;: &#34;4.1.0&#34;, &#34;html&#34;: &#34;4.1.1&#34;}, &#34;CI&#34;: &#34;true&#34;, &#34;JAVA_HOME&#34;: &#34;/usr/lib/jvm/temurin-17-jdk-amd64&#34;}, &#34;tests&#34;: {&#34;tests/test_conversation_flows.py::TestBasicFunctionality::test_imports_work&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_conversation_flows.py::TestBasicFunctionality::test_imports_work&#34;, &#34;duration&#34;: &#34;34 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_conversation_flows.py::TestBasicFunctionality::test_imports_work&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;34 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_conversation_flows.py::TestBasicFunctionality::test_mock_message&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_conversation_flows.py::TestBasicFunctionality::test_mock_message&#34;, &#34;duration&#34;: &#34;24 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_conversation_flows.py::TestBasicFunctionality::test_mock_message&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;24 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_conversation_flows.py::TestBasicFunctionality::test_trainer_registration_mock&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_conversation_flows.py::TestBasicFunctionality::test_trainer_registration_mock&#34;, &#34;duration&#34;: &#34;23 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_conversation_flows.py::TestBasicFunctionality::test_trainer_registration_mock&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;23 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_conversation_flows.py::TestPhase1_Registration::test_basic_setup&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_conversation_flows.py::TestPhase1_Registration::test_basic_setup&#34;, &#34;duration&#34;: &#34;26 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_conversation_flows.py::TestPhase1_Registration::test_basic_setup&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;26 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_conversation_flows.py::TestPhase1_Registration::test_mock_registration_flow&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_conversation_flows.py::TestPhase1_Registration::test_mock_registration_flow&#34;, &#34;duration&#34;: &#34;23 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_conversation_flows.py::TestPhase1_Registration::test_mock_registration_flow&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;23 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_debug.py::test_python_version&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_debug.py::test_python_version&#34;, &#34;duration&#34;: &#34;0 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_debug.py::test_python_version&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;0 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_debug.py::test_can_import_basic_modules&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_debug.py::test_can_import_basic_modules&#34;, &#34;duration&#34;: &#34;0 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_debug.py::test_can_import_basic_modules&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;0 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_debug.py::test_project_structure&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_debug.py::test_project_structure&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_debug.py::test_project_structure&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_debug.py::test_can_import_refiloe_modules&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_debug.py::test_can_import_refiloe_modules&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_debug.py::test_can_import_refiloe_modules&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_debug.py::test_check_requirements&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_debug.py::test_check_requirements&#34;, &#34;duration&#34;: &#34;68 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_debug.py::test_check_requirements&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;68 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow&#34;, &#34;duration&#34;: &#34;4 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;4 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase1_registration.py:107: in test_complete_trainer_registration_flow\n    assert result[&amp;#x27;success&amp;#x27;] == True\nE   assert False == True\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting session from database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_currency_parsing_variations&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_currency_parsing_variations&#34;, &#34;duration&#34;: &#34;13 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_currency_parsing_variations&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;13 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_with_missing_fields&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_with_missing_fields&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_with_missing_fields&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration&#34;, &#34;duration&#34;: &#34;00:00:04&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:04&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase1_registration.py:231: in test_trainer_recognition_after_registration\n    assert &amp;#x27;john&amp;#x27; in response.get(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;).lower() or \\\nE   AssertionError: Should recognize and greet trainer by name\nE   assert (&amp;#x27;john&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;welcome back&amp;#x27; in &amp;#x27;&amp;#x27;)\nE    +  where &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e66b9940&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e66b9940&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;Hi there! Good to hear from you \ud83d\ude0a\\n\\nLet&amp;#x27;s get you started on your fitness journey! \ud83d\ude80\\n\\nHow can I help you today?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\nE    +  and   &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e66b9940&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e66b9940&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;Hi there! Good to hear from you \ud83d\ude0a\\n\\nLet&amp;#x27;s get you started on your fitness journey! \ud83d\ude80\\n\\nHow can I help you today?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\n\n------------------------------ Captured log call -------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\nINFO     refiloe:logger.py:21 Background scheduler started\nINFO     refiloe:logger.py:21 Routes setup complete\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: greeting with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send button message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;Ab4YLTslIqGamtsA-U4Rdrh&amp;quot;}}\nINFO     refiloe:logger.py:21 Created new conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_saves_all_fields_correctly&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_saves_all_fields_correctly&#34;, &#34;duration&#34;: &#34;3 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_saves_all_fields_correctly&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;3 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nINFO     refiloe:logger.py:21 Trainer registered: John Smith (trainer-123)\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration&#34;, &#34;duration&#34;: &#34;00:00:03&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:03&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase1_registration.py:297: in test_client_receives_welcome_after_registration\n    assert &amp;#x27;added&amp;#x27; in response.get(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;).lower() or \\\nE   assert (&amp;#x27;added&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;registered&amp;#x27; in &amp;#x27;&amp;#x27;)\nE    +  where &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e66a7f80&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e66a7f80&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\nE    +  and   &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e66a7f80&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e66a7f80&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;ATnwmp59KuE2JLk_vp_G7FL&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt&#34;, &#34;duration&#34;: &#34;4 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;4 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase1_registration.py:339: in test_duplicate_registration_attempt\n    assert &amp;#x27;already&amp;#x27; in response.lower() or \\\nE   assert (&amp;#x27;already&amp;#x27; in &amp;quot;\ud83c\udf89 i&amp;#x27;m so excited to help you grow your personal training business! let&amp;#x27;s get you set up in just a few quick steps. don&amp;#x27;t worry, this set up is free\\n\\n\ud83d\udcdd *step 1 of 7*\\n\\nfirst things first - what&amp;#x27;s your name and surname? \ud83d\ude0a&amp;quot; or &amp;#x27;welcome back&amp;#x27; in &amp;quot;\ud83c\udf89 i&amp;#x27;m so excited to help you grow your personal training business! let&amp;#x27;s get you set up in just a few quick steps. don&amp;#x27;t worry, this set up is free\\n\\n\ud83d\udcdd *step 1 of 7*\\n\\nfirst things first - what&amp;#x27;s your name and surname? \ud83d\ude0a&amp;quot;)\nE    +  where &amp;quot;\ud83c\udf89 i&amp;#x27;m so excited to help you grow your personal training business! let&amp;#x27;s get you set up in just a few quick steps. don&amp;#x27;t worry, this set up is free\\n\\n\ud83d\udcdd *step 1 of 7*\\n\\nfirst things first - what&amp;#x27;s your name and surname? \ud83d\ude0a&amp;quot; = &amp;lt;built-in method lower of str object at 0x558c2e284d30&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x558c2e284d30&amp;gt; = &amp;quot;\ud83c\udf89 I&amp;#x27;m so excited to help you grow your personal training business! Let&amp;#x27;s get you set up in just a few quick steps. Don&amp;#x27;t worry, this set up is free\\n\\n\ud83d\udcdd *Step 1 of 7*\\n\\nFirst things first - what&amp;#x27;s your name and surname? \ud83d\ude0a&amp;quot;.lower\nE    +  and   &amp;quot;\ud83c\udf89 i&amp;#x27;m so excited to help you grow your personal training business! let&amp;#x27;s get you set up in just a few quick steps. don&amp;#x27;t worry, this set up is free\\n\\n\ud83d\udcdd *step 1 of 7*\\n\\nfirst things first - what&amp;#x27;s your name and surname? \ud83d\ude0a&amp;quot; = &amp;lt;built-in method lower of str object at 0x558c2e284d30&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x558c2e284d30&amp;gt; = &amp;quot;\ud83c\udf89 I&amp;#x27;m so excited to help you grow your personal training business! Let&amp;#x27;s get you set up in just a few quick steps. Don&amp;#x27;t worry, this set up is free\\n\\n\ud83d\udcdd *Step 1 of 7*\\n\\nFirst things first - what&amp;#x27;s your name and surname? \ud83d\ude0a&amp;quot;.lower\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error checking existing registration: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting session from database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase1_registration.py:382: in test_extremely_long_input\n    assert len(result[&amp;#x27;data&amp;#x27;][&amp;#x27;name&amp;#x27;]) &amp;lt;= 255  # Reasonable limit\nE   AssertionError: assert 500 &amp;lt;= 255\nE    +  where 500 = len(&amp;#x27;AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&amp;#x27;)\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_special_characters_in_name&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_special_characters_in_name&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_special_characters_in_name&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error saving session to database for 27731863036: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_command_variations&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_command_variations&#34;, &#34;duration&#34;: &#34;00:00:30&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_command_variations&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:30&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log setup ------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;Anopaj0wNOeYSiBXVZtskxu&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_client with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AZgD7-gLJUFmgxD5WrZHVPD&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_client with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A3SXJlvc-rv_P2aM64TlOEf&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;Ao0R-qaoKIePC7z9l7MV4xL&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AvVv_GezA9sGH6OqT7wbsIW&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A0XGlqX3xcZATy0NSSB0UfH&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_client with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AQzDDngh62Rx_zzZD92JdjB&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_client with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AFTuwxtLP4R35hsbys-P5lo&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_client with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;ADKgskEDccoVLXQWV4FCms6&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AwljVrLjGQF8_3qXZDZHVcu&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization&#34;, &#34;duration&#34;: &#34;24 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;24 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase2_client_management.py:98: in test_phone_number_normalization\n    assert normalized == expected_phone, \\\nE   AssertionError: Expected 27821234567 but got +27821234567 for 0821234567\nE   assert &amp;#x27;+27821234567&amp;#x27; == &amp;#x27;27821234567&amp;#x27;\nE     - 27821234567\nE     + +27821234567\nE     ? +\n\n------------------------------ Captured log setup ------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\n&#34;}], &#34;tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_with_special_names&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_with_special_names&#34;, &#34;duration&#34;: &#34;00:00:23&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_with_special_names&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:23&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log setup ------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;Akh04FtG1-YwAZgDuRUwUSu&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A3LNi76sZsqUydN29NhhDAx&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AHeuniCegZEaNAbYlFGrBaz&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AFfaFYTtHzhfNtZ857eErtB&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AK2tSKdc80d0TlC8JbZe2pe&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A2EudZC3MY52GPQU8qisbDW&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AJkmUO3uvRsH9bZRFgdubTN&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands&#34;, &#34;duration&#34;: &#34;00:00:05&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:05&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase2_client_management.py:160: in test_view_clients_commands\n    assert &amp;#x27;sarah&amp;#x27; in message or &amp;#x27;john&amp;#x27; in message or &amp;#x27;mike&amp;#x27; in message or \\\nE   AssertionError: Failed to list clients with command: Show my clients\nE   assert (&amp;#x27;sarah&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;john&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;mike&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;client&amp;#x27; in &amp;#x27;&amp;#x27;)\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: general_question with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send button message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;Am4C2IsiDi4FakpsJ-SG-la&amp;quot;}}\nINFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestCustomPricingReal::test_set_custom_pricing_variations&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestCustomPricingReal::test_set_custom_pricing_variations&#34;, &#34;duration&#34;: &#34;00:00:33&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestCustomPricingReal::test_set_custom_pricing_variations&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:33&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_update with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;Aejb38on4kRrI2IceKCepyS&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_update with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A25afpW3yvKVKoQlPyqSpFT&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_update with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AiB0O5GFHT3Q0ZunY6r76tc&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A8NXD7X0dFKWtvoA6yEi47a&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_update with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AjcWKxg0hW2K54XN6uD6sW8&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A0Jy9KMx8gDpzuOiJKJJJIi&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;ArjtueZmEh5hDv4PWkJxsyq&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_update with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AGklcB0HPmtJy5OAZ715GU9&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing&#34;, &#34;duration&#34;: &#34;00:00:04&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:04&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase2_client_management.py:239: in test_check_client_pricing\n    assert &amp;#x27;r&amp;#x27; in message or &amp;#x27;rand&amp;#x27; in message or \\\nE   AssertionError: Failed to show pricing with: What is Sarah&amp;#x27;s rate?\nE   assert (&amp;#x27;r&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;rand&amp;#x27; in &amp;#x27;&amp;#x27; or False)\nE    +  where False = any(&amp;lt;generator object TestCustomPricingReal.test_check_client_pricing.&amp;lt;locals&amp;gt;.&amp;lt;genexpr&amp;gt; at 0x7fb1e66af300&amp;gt;)\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AacXfwWjUrfQMq3c9v_Mjn5&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone&#34;, &#34;duration&#34;: &#34;00:00:03&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:03&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone\n    assert &amp;#x27;already&amp;#x27; in response.get(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;).lower() or \\\nE   assert (&amp;#x27;already&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;exists&amp;#x27; in &amp;#x27;&amp;#x27;)\nE    +  where &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1f547cd40&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1f547cd40&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\nE    +  and   &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1f547cd40&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1f547cd40&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;ATB8eHNEHhaxYOD5d8LBXJC&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_invalid_phone_numbers&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_invalid_phone_numbers&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_invalid_phone_numbers&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_set_negative_pricing&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_set_negative_pricing&#34;, &#34;duration&#34;: &#34;0 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_set_negative_pricing&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;0 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found&#34;, &#34;duration&#34;: &#34;00:00:04&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:04&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase2_client_management.py:311: in test_client_not_found\n    assert &amp;#x27;not found&amp;#x27; in response.get(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;).lower() or \\\nE   assert (&amp;#x27;not found&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;quot;doesn&amp;#x27;t exist&amp;quot; in &amp;#x27;&amp;#x27; or &amp;#x27;no client&amp;#x27; in &amp;#x27;&amp;#x27;)\nE    +  where &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e6735580&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e6735580&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\nE    +  and   &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e6735580&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e6735580&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\nE    +  and   &amp;#x27;&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1f933fba0&amp;gt; = &amp;#x27;&amp;#x27;.lower\nE    +      where &amp;#x27;&amp;#x27; = &amp;lt;built-in method get of dict object at 0x7fb1e6735580&amp;gt;(&amp;#x27;message&amp;#x27;, &amp;#x27;&amp;#x27;)\nE    +        where &amp;lt;built-in method get of dict object at 0x7fb1e6735580&amp;gt; = {&amp;#x27;response&amp;#x27;: &amp;quot;My apologies, I&amp;#x27;m having trouble understanding this request. I&amp;#x27;ll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?&amp;quot;, &amp;#x27;success&amp;#x27;: True}.get\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nERROR    refiloe:logger.py:25 Error creating conversation state: &amp;#x27;Mock&amp;#x27; object is not subscriptable\nINFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AASzDLQxa1VsnclfCbr0I_9&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands&#34;, &#34;duration&#34;: &#34;00:00:03&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:03&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase3_scheduling.py:74: in test_view_schedule_commands\n    assert &amp;#x27;schedule&amp;#x27; in message or &amp;#x27;booking&amp;#x27; in message or \\\nE   AssertionError: Failed to show schedule with: Show my schedule\nE   assert (&amp;#x27;schedule&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;booking&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;session&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;appointment&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;no bookings&amp;#x27; in &amp;#x27;&amp;#x27; or &amp;#x27;free&amp;#x27; in &amp;#x27;&amp;#x27;)\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: general_question with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send button message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AEnFbTCsemp_EqcyYf_VS1v&amp;quot;}}\nINFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_book_session_natural_language&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_book_session_natural_language&#34;, &#34;duration&#34;: &#34;00:00:01&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_book_session_natural_language&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:01&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log setup ------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\n\n------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVroXEPCDJsi1rmega&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVroXEPCDJsi1rmega&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVsKn49tmkdrtPbu8P&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVsKn49tmkdrtPbu8P&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVsgrEGXMWRk8LGZMT&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVsgrEGXMWRk8LGZMT&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVtPmbKsUiNyjJmeVn&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVtPmbKsUiNyjJmeVn&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVtirphXzJXnpnyoWA&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVtirphXzJXnpnyoWA&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVu5wajf89PcLTXDYa&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVu5wajf89PcLTXDYa&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVuPo23WWi7vFQTcse&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVuPo23WWi7vFQTcse&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVuiPho8BWjZfi469w&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVuiPho8BWjZfi469w&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVv2ViMYA9x9LuNbb2&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVv2ViMYA9x9LuNbb2&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVvMLYrQa8QFrUUCom&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVvMLYrQa8QFrUUCom&amp;#x27;}\nERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVvfwJxXDyWTBc2aao&amp;#x27;}\nTraceback (most recent call last):\n  File &amp;quot;/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py&amp;quot;, line 64, in understand_message\n    response = self.client.messages.create(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py&amp;quot;, line 275, in wrapper\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py&amp;quot;, line 888, in create\n    return self._post(\n           ^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1277, in post\n    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 954, in request\n    return self._request(\n           ^^^^^^^^^^^^^^\n  File &amp;quot;/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py&amp;quot;, line 1058, in _request\n    raise self._make_status_error_from_response(err.response) from None\nanthropic.AuthenticationError: Error code: 401 - {&amp;#x27;type&amp;#x27;: &amp;#x27;error&amp;#x27;, &amp;#x27;error&amp;#x27;: {&amp;#x27;type&amp;#x27;: &amp;#x27;authentication_error&amp;#x27;, &amp;#x27;message&amp;#x27;: &amp;#x27;invalid x-api-key&amp;#x27;}, &amp;#x27;request_id&amp;#x27;: &amp;#x27;req_011CTLTVvfwJxXDyWTBc2aao&amp;#x27;}\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats&#34;, &#34;duration&#34;: &#34;24 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;24 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_phase3_scheduling.py:168: in test_booking_time_formats\n    assert is_valid == True, f&amp;quot;Failed to validate time: {time_format}&amp;quot;\nE   AssertionError: Failed to validate time: 9am\nE   assert False == True\n\n------------------------------ Captured log setup ------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_date_parsing&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_date_parsing&#34;, &#34;duration&#34;: &#34;24 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_date_parsing&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;24 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log setup ------------------------------\nINFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_cancel_booking_variations&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_cancel_booking_variations&#34;, &#34;duration&#34;: &#34;00:00:25&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_cancel_booking_variations&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:25&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: session_cancellation with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A9N3_sDMggwauaV7ZnczIRj&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: session_cancellation with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;ALBMs6q66iS1Sz4Ul0DdLYs&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: schedule_modification with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AEWue4qQktE07TaokHOgyqV&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: booking_cancellation with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AkxOfuZ1dCMa9SikdX6uYbv&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: session_cancellation with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AoJNkx7ZkxACG9zL7VqOOWi&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: schedule_change with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A4PLH8hG5m8zmuWfxoElk6l&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: session_cancellation with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AOlMvtLFGCb_IwoQKgQKHQ_&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: cancel_booking with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AslOQGX5fxhssWVzZffc1n_&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_reschedule_booking&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_reschedule_booking&#34;, &#34;duration&#34;: &#34;00:00:16&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_reschedule_booking&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:16&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: schedule_change with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;A2YUqIm7YPSVDDsXbj9Az0I&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: schedule_change with confidence 0.95\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AAG79b6SsP2AM8MoxTWbubU&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: booking_change with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;ANJlHlLv4N6soifANizUr_8&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nINFO     refiloe:logger.py:21 AI Intent detected: schedule_change with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AZcdILQXTyMOeW4qi3TP8KM&amp;quot;}}\nERROR    refiloe:logger.py:25 Error getting user context: object of type &amp;#x27;Mock&amp;#x27; has no len()\nERROR    refiloe:logger.py:25 Error getting conversation history: &amp;#x27;Mock&amp;#x27; object is not reversible\nERROR    refiloe:logger.py:25 Error parsing datetime &amp;#x27;afternoon&amp;#x27;: String does not contain a date: afternoon\nINFO     refiloe:logger.py:21 AI Intent detected: session_modification with confidence 0.85\nERROR    refiloe:logger.py:25 Failed to send message: {&amp;quot;error&amp;quot;:{&amp;quot;message&amp;quot;:&amp;quot;Invalid OAuth access token - Cannot parse access token&amp;quot;,&amp;quot;type&amp;quot;:&amp;quot;OAuthException&amp;quot;,&amp;quot;code&amp;quot;:190,&amp;quot;fbtrace_id&amp;quot;:&amp;quot;AWFB_K32jPMduY0Ol6C4YX0&amp;quot;}}\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_double_booking_prevention&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_double_booking_prevention&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_double_booking_prevention&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error checking booking conflict: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_past_date_booking_prevention&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_past_date_booking_prevention&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_past_date_booking_prevention&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;------------------------------ Captured log call -------------------------------\nERROR    refiloe:logger.py:25 Error checking booking conflict: object of type &amp;#x27;Mock&amp;#x27; has no len()\n\n&#34;}], &#34;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_invalid_time_slots&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_invalid_time_slots&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_invalid_time_slots&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_new_trainer_onboarding&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_new_trainer_onboarding&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_new_trainer_onboarding&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:89: in test_new_trainer_onboarding\n    assert &amp;quot;welcome&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert &amp;#x27;welcome&amp;#x27; in &amp;#x27;mock response to: hi&amp;#x27;\nE    +  where &amp;#x27;mock response to: hi&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5529fc0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5529fc0&amp;gt; = &amp;#x27;Mock response to: Hi&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_trainer_recognition&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_trainer_recognition&#34;, &#34;duration&#34;: &#34;2 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_trainer_recognition&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;2 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:134: in test_trainer_recognition\n    assert &amp;quot;john&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert &amp;#x27;john&amp;#x27; in &amp;#x27;mock response to: hi&amp;#x27;\nE    +  where &amp;#x27;mock response to: hi&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e54e8e90&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e54e8e90&amp;gt; = &amp;#x27;Mock response to: Hi&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_add_client_variations&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_add_client_variations&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_add_client_variations&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:158: in test_add_client_variations\n    assert &amp;quot;added&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;registered&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;added&amp;#x27; in &amp;#x27;mock response to: add client sarah 0821234567&amp;#x27; or &amp;#x27;registered&amp;#x27; in &amp;#x27;mock response to: add client sarah 0821234567&amp;#x27;)\nE    +  where &amp;#x27;mock response to: add client sarah 0821234567&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e539b990&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e539b990&amp;gt; = &amp;#x27;Mock response to: Add client Sarah 0821234567&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: add client sarah 0821234567&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e539b990&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e539b990&amp;gt; = &amp;#x27;Mock response to: Add client Sarah 0821234567&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_view_clients&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_view_clients&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_view_clients&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:179: in test_view_clients\n    assert &amp;quot;sarah&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert &amp;#x27;sarah&amp;#x27; in &amp;#x27;mock response to: show my clients&amp;#x27;\nE    +  where &amp;#x27;mock response to: show my clients&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e539b2d0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e539b2d0&amp;gt; = &amp;#x27;Mock response to: Show my clients&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_set_custom_pricing&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_set_custom_pricing&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_set_custom_pricing&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:196: in test_set_custom_pricing\n    assert &amp;quot;updated&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;set&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   assert (&amp;#x27;updated&amp;#x27; in &amp;quot;mock response to: change john&amp;#x27;s price to r500 per session&amp;quot; or &amp;#x27;set&amp;#x27; in &amp;quot;mock response to: change john&amp;#x27;s price to r500 per session&amp;quot;)\nE    +  where &amp;quot;mock response to: change john&amp;#x27;s price to r500 per session&amp;quot; = &amp;lt;built-in method lower of str object at 0x7fb1e55024f0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e55024f0&amp;gt; = &amp;quot;Mock response to: Change John&amp;#x27;s price to R500 per session&amp;quot;.lower\nE    +  and   &amp;quot;mock response to: change john&amp;#x27;s price to r500 per session&amp;quot; = &amp;lt;built-in method lower of str object at 0x7fb1e55024f0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e55024f0&amp;gt; = &amp;quot;Mock response to: Change John&amp;#x27;s price to R500 per session&amp;quot;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_view_schedule&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_view_schedule&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_view_schedule&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:223: in test_view_schedule\n    assert &amp;quot;schedule&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;booking&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   assert (&amp;#x27;schedule&amp;#x27; in &amp;quot;mock response to: what&amp;#x27;s on today&amp;quot; or &amp;#x27;booking&amp;#x27; in &amp;quot;mock response to: what&amp;#x27;s on today&amp;quot;)\nE    +  where &amp;quot;mock response to: what&amp;#x27;s on today&amp;quot; = &amp;lt;built-in method lower of str object at 0x7fb1e54d2cd0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e54d2cd0&amp;gt; = &amp;quot;Mock response to: What&amp;#x27;s on today&amp;quot;.lower\nE    +  and   &amp;quot;mock response to: what&amp;#x27;s on today&amp;quot; = &amp;lt;built-in method lower of str object at 0x7fb1e54d2cd0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e54d2cd0&amp;gt; = &amp;quot;Mock response to: What&amp;#x27;s on today&amp;quot;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_book_sessions&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_book_sessions&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_book_sessions&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:239: in test_book_sessions\n    assert &amp;quot;booked&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;scheduled&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;booked&amp;#x27; in &amp;#x27;mock response to: book sarah for tomorrow at 9am&amp;#x27; or &amp;#x27;scheduled&amp;#x27; in &amp;#x27;mock response to: book sarah for tomorrow at 9am&amp;#x27;)\nE    +  where &amp;#x27;mock response to: book sarah for tomorrow at 9am&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5503980&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5503980&amp;gt; = &amp;#x27;Mock response to: Book Sarah for tomorrow at 9am&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: book sarah for tomorrow at 9am&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5503980&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5503980&amp;gt; = &amp;#x27;Mock response to: Book Sarah for tomorrow at 9am&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase4_HabitTracking::test_setup_habits&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase4_HabitTracking::test_setup_habits&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase4_HabitTracking::test_setup_habits&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:273: in test_setup_habits\n    assert &amp;quot;habit&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;tracking&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;habit&amp;#x27; in &amp;#x27;mock response to: sarah needs to track steps target 10000&amp;#x27; or &amp;#x27;tracking&amp;#x27; in &amp;#x27;mock response to: sarah needs to track steps target 10000&amp;#x27;)\nE    +  where &amp;#x27;mock response to: sarah needs to track steps target 10000&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5502560&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5502560&amp;gt; = &amp;#x27;Mock response to: Sarah needs to track steps target 10000&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: sarah needs to track steps target 10000&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5502560&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5502560&amp;gt; = &amp;#x27;Mock response to: Sarah needs to track steps target 10000&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase5_WorkoutsAssessments::test_send_workouts&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase5_WorkoutsAssessments::test_send_workouts&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase5_WorkoutsAssessments::test_send_workouts&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:293: in test_send_workouts\n    assert &amp;quot;workout&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;sent&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;workout&amp;#x27; in &amp;#x27;mock response to: send mike a cardio program&amp;#x27; or &amp;#x27;sent&amp;#x27; in &amp;#x27;mock response to: send mike a cardio program&amp;#x27;)\nE    +  where &amp;#x27;mock response to: send mike a cardio program&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e539bdb0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e539bdb0&amp;gt; = &amp;#x27;Mock response to: Send Mike a cardio program&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: send mike a cardio program&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e539bdb0&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e539bdb0&amp;gt; = &amp;#x27;Mock response to: Send Mike a cardio program&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:313: in test_request_payment\n    assert &amp;quot;payment&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;invoice&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;payment&amp;#x27; in &amp;#x27;mock response to: bill mike for this month&amp;#x27; or &amp;#x27;invoice&amp;#x27; in &amp;#x27;mock response to: bill mike for this month&amp;#x27;)\nE    +  where &amp;#x27;mock response to: bill mike for this month&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e53d0090&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e53d0090&amp;gt; = &amp;#x27;Mock response to: Bill Mike for this month&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: bill mike for this month&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e53d0090&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e53d0090&amp;gt; = &amp;#x27;Mock response to: Bill Mike for this month&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_check_revenue&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_check_revenue&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_check_revenue&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_booking&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_booking&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_booking&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:349: in test_client_booking\n    assert &amp;quot;book&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;session&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;book&amp;#x27; in &amp;#x27;mock response to: i want to train tomorrow&amp;#x27; or &amp;#x27;session&amp;#x27; in &amp;#x27;mock response to: i want to train tomorrow&amp;#x27;)\nE    +  where &amp;#x27;mock response to: i want to train tomorrow&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e53d0150&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e53d0150&amp;gt; = &amp;#x27;Mock response to: I want to train tomorrow&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: i want to train tomorrow&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e53d0150&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e53d0150&amp;gt; = &amp;#x27;Mock response to: I want to train tomorrow&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_habit_logging&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_habit_logging&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_habit_logging&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:365: in test_client_habit_logging\n    assert &amp;quot;logged&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower() or &amp;quot;recorded&amp;quot; in response[&amp;#x27;message&amp;#x27;].lower()\nE   AssertionError: assert (&amp;#x27;logged&amp;#x27; in &amp;#x27;mock response to: 7 yes no&amp;#x27; or &amp;#x27;recorded&amp;#x27; in &amp;#x27;mock response to: 7 yes no&amp;#x27;)\nE    +  where &amp;#x27;mock response to: 7 yes no&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5529700&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5529700&amp;gt; = &amp;#x27;Mock response to: 7 yes no&amp;#x27;.lower\nE    +  and   &amp;#x27;mock response to: 7 yes no&amp;#x27; = &amp;lt;built-in method lower of str object at 0x7fb1e5529700&amp;gt;()\nE    +    where &amp;lt;built-in method lower of str object at 0x7fb1e5529700&amp;gt; = &amp;#x27;Mock response to: 7 yes no&amp;#x27;.lower\n&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_natural_language_understanding&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_natural_language_understanding&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_natural_language_understanding&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}], &#34;tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:403: in test_error_handling\n    assert any(word in response[&amp;#x27;message&amp;#x27;].lower() for word in expected_words)\nE   assert False\nE    +  where False = any(&amp;lt;generator object TestPhase10_AdvancedFeatures.test_error_handling.&amp;lt;locals&amp;gt;.&amp;lt;genexpr&amp;gt; at 0x7fb1e66ad9a0&amp;gt;)\n&#34;}], &#34;tests/test_refiloe_complete.py::TestCriticalBugs::test_trainer_registration_step_7_currency_parsing&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestCriticalBugs::test_trainer_registration_step_7_currency_parsing&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestCriticalBugs::test_trainer_registration_step_7_currency_parsing&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;tests/test_refiloe_complete.py:437: in test_trainer_registration_step_7_currency_parsing\n    assert result[&amp;#x27;data&amp;#x27;].get(&amp;#x27;pricing&amp;#x27;) == expected_value\nE   TypeError: &amp;#x27;Mock&amp;#x27; object is not subscriptable\n&#34;}], &#34;tests/test_refiloe_complete.py::TestCriticalBugs::test_ai_responds_naturally_not_rigid_commands&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;testId&#34;: &#34;tests/test_refiloe_complete.py::TestCriticalBugs::test_ai_responds_naturally_not_rigid_commands&#34;, &#34;duration&#34;: &#34;1 ms&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-testId\&#34;&gt;tests/test_refiloe_complete.py::TestCriticalBugs::test_ai_responds_naturally_not_rigid_commands&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;1 ms&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;No log output captured.&#34;}]}, &#34;renderCollapsed&#34;: [&#34;passed&#34;], &#34;initialSort&#34;: &#34;result&#34;, &#34;title&#34;: &#34;test-report.html&#34;}"></div>
+    <script>
+      (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+const { getCollapsedCategory, setCollapsedIds } = require('./storage.js')
+
+class DataManager {
+    setManager(data) {
+        const collapsedCategories = [...getCollapsedCategory(data.renderCollapsed)]
+        const collapsedIds = []
+        const tests = Object.values(data.tests).flat().map((test, index) => {
+            const collapsed = collapsedCategories.includes(test.result.toLowerCase())
+            const id = `test_${index}`
+            if (collapsed) {
+                collapsedIds.push(id)
+            }
+            return {
+                ...test,
+                id,
+                collapsed,
+            }
+        })
+        const dataBlob = { ...data, tests }
+        this.data = { ...dataBlob }
+        this.renderData = { ...dataBlob }
+        setCollapsedIds(collapsedIds)
+    }
+
+    get allData() {
+        return { ...this.data }
+    }
+
+    resetRender() {
+        this.renderData = { ...this.data }
+    }
+
+    setRender(data) {
+        this.renderData.tests = [...data]
+    }
+
+    toggleCollapsedItem(id) {
+        this.renderData.tests = this.renderData.tests.map((test) =>
+            test.id === id ? { ...test, collapsed: !test.collapsed } : test,
+        )
+    }
+
+    set allCollapsed(collapsed) {
+        this.renderData = { ...this.renderData, tests: [...this.renderData.tests.map((test) => (
+            { ...test, collapsed }
+        ))] }
+    }
+
+    get testSubset() {
+        return [...this.renderData.tests]
+    }
+
+    get environment() {
+        return this.renderData.environment
+    }
+
+    get initialSort() {
+        return this.data.initialSort
+    }
+}
+
+module.exports = {
+    manager: new DataManager(),
+}
+
+},{"./storage.js":8}],2:[function(require,module,exports){
+const mediaViewer = require('./mediaviewer.js')
+const templateEnvRow = document.getElementById('template_environment_row')
+const templateResult = document.getElementById('template_results-table__tbody')
+
+function htmlToElements(html) {
+    const temp = document.createElement('template')
+    temp.innerHTML = html
+    return temp.content.childNodes
+}
+
+const find = (selector, elem) => {
+    if (!elem) {
+        elem = document
+    }
+    return elem.querySelector(selector)
+}
+
+const findAll = (selector, elem) => {
+    if (!elem) {
+        elem = document
+    }
+    return [...elem.querySelectorAll(selector)]
+}
+
+const dom = {
+    getStaticRow: (key, value) => {
+        const envRow = templateEnvRow.content.cloneNode(true)
+        const isObj = typeof value === 'object' && value !== null
+        const values = isObj ? Object.keys(value).map((k) => `${k}: ${value[k]}`) : null
+
+        const valuesElement = htmlToElements(
+            values ? `<ul>${values.map((val) => `<li>${val}</li>`).join('')}<ul>` : `<div>${value}</div>`)[0]
+        const td = findAll('td', envRow)
+        td[0].textContent = key
+        td[1].appendChild(valuesElement)
+
+        return envRow
+    },
+    getResultTBody: ({ testId, id, log, extras, resultsTableRow, tableHtml, result, collapsed }) => {
+        const resultBody = templateResult.content.cloneNode(true)
+        resultBody.querySelector('tbody').classList.add(result.toLowerCase())
+        resultBody.querySelector('tbody').id = testId
+        resultBody.querySelector('.collapsible').dataset.id = id
+
+        resultsTableRow.forEach((html) => {
+            const t = document.createElement('template')
+            t.innerHTML = html
+            resultBody.querySelector('.collapsible').appendChild(t.content)
+        })
+
+        if (log) {
+            // Wrap lines starting with "E" with span.error to color those lines red
+            const wrappedLog = log.replace(/^E.*$/gm, (match) => `<span class="error">${match}</span>`)
+            resultBody.querySelector('.log').innerHTML = wrappedLog
+        } else {
+            resultBody.querySelector('.log').remove()
+        }
+
+        if (collapsed) {
+            resultBody.querySelector('.collapsible > td')?.classList.add('collapsed')
+            resultBody.querySelector('.extras-row').classList.add('hidden')
+        } else {
+            resultBody.querySelector('.collapsible > td')?.classList.remove('collapsed')
+        }
+
+        const media = []
+        extras?.forEach(({ name, format_type, content }) => {
+            if (['image', 'video'].includes(format_type)) {
+                media.push({ path: content, name, format_type })
+            }
+
+            if (format_type === 'html') {
+                resultBody.querySelector('.extraHTML').insertAdjacentHTML('beforeend', `<div>${content}</div>`)
+            }
+        })
+        mediaViewer.setup(resultBody, media)
+
+        // Add custom html from the pytest_html_results_table_html hook
+        tableHtml?.forEach((item) => {
+            resultBody.querySelector('td[class="extra"]').insertAdjacentHTML('beforeend', item)
+        })
+
+        return resultBody
+    },
+}
+
+module.exports = {
+    dom,
+    htmlToElements,
+    find,
+    findAll,
+}
+
+},{"./mediaviewer.js":6}],3:[function(require,module,exports){
+const { manager } = require('./datamanager.js')
+const { doSort } = require('./sort.js')
+const storageModule = require('./storage.js')
+
+const getFilteredSubSet = (filter) =>
+    manager.allData.tests.filter(({ result }) => filter.includes(result.toLowerCase()))
+
+const doInitFilter = () => {
+    const currentFilter = storageModule.getVisible()
+    const filteredSubset = getFilteredSubSet(currentFilter)
+    manager.setRender(filteredSubset)
+}
+
+const doFilter = (type, show) => {
+    if (show) {
+        storageModule.showCategory(type)
+    } else {
+        storageModule.hideCategory(type)
+    }
+
+    const currentFilter = storageModule.getVisible()
+    const filteredSubset = getFilteredSubSet(currentFilter)
+    manager.setRender(filteredSubset)
+
+    const sortColumn = storageModule.getSort()
+    doSort(sortColumn, true)
+}
+
+module.exports = {
+    doFilter,
+    doInitFilter,
+}
+
+},{"./datamanager.js":1,"./sort.js":7,"./storage.js":8}],4:[function(require,module,exports){
+const { redraw, bindEvents, renderStatic } = require('./main.js')
+const { doInitFilter } = require('./filter.js')
+const { doInitSort } = require('./sort.js')
+const { manager } = require('./datamanager.js')
+const data = JSON.parse(document.getElementById('data-container').dataset.jsonblob)
+
+function init() {
+    manager.setManager(data)
+    doInitFilter()
+    doInitSort()
+    renderStatic()
+    redraw()
+    bindEvents()
+}
+
+init()
+
+},{"./datamanager.js":1,"./filter.js":3,"./main.js":5,"./sort.js":7}],5:[function(require,module,exports){
+const { dom, find, findAll } = require('./dom.js')
+const { manager } = require('./datamanager.js')
+const { doSort } = require('./sort.js')
+const { doFilter } = require('./filter.js')
+const {
+    getVisible,
+    getCollapsedIds,
+    setCollapsedIds,
+    getSort,
+    getSortDirection,
+    possibleFilters,
+} = require('./storage.js')
+
+const removeChildren = (node) => {
+    while (node.firstChild) {
+        node.removeChild(node.firstChild)
+    }
+}
+
+const renderStatic = () => {
+    const renderEnvironmentTable = () => {
+        const environment = manager.environment
+        const rows = Object.keys(environment).map((key) => dom.getStaticRow(key, environment[key]))
+        const table = document.getElementById('environment')
+        removeChildren(table)
+        rows.forEach((row) => table.appendChild(row))
+    }
+    renderEnvironmentTable()
+}
+
+const addItemToggleListener = (elem) => {
+    elem.addEventListener('click', ({ target }) => {
+        const id = target.parentElement.dataset.id
+        manager.toggleCollapsedItem(id)
+
+        const collapsedIds = getCollapsedIds()
+        if (collapsedIds.includes(id)) {
+            const updated = collapsedIds.filter((item) => item !== id)
+            setCollapsedIds(updated)
+        } else {
+            collapsedIds.push(id)
+            setCollapsedIds(collapsedIds)
+        }
+        redraw()
+    })
+}
+
+const renderContent = (tests) => {
+    const sortAttr = getSort(manager.initialSort)
+    const sortAsc = JSON.parse(getSortDirection())
+    const rows = tests.map(dom.getResultTBody)
+    const table = document.getElementById('results-table')
+    const tableHeader = document.getElementById('results-table-head')
+
+    const newTable = document.createElement('table')
+    newTable.id = 'results-table'
+
+    // remove all sorting classes and set the relevant
+    findAll('.sortable', tableHeader).forEach((elem) => elem.classList.remove('asc', 'desc'))
+    tableHeader.querySelector(`.sortable[data-column-type="${sortAttr}"]`)?.classList.add(sortAsc ? 'desc' : 'asc')
+    newTable.appendChild(tableHeader)
+
+    if (!rows.length) {
+        const emptyTable = document.getElementById('template_results-table__body--empty').content.cloneNode(true)
+        newTable.appendChild(emptyTable)
+    } else {
+        rows.forEach((row) => {
+            if (!!row) {
+                findAll('.collapsible td:not(.col-links', row).forEach(addItemToggleListener)
+                find('.logexpander', row).addEventListener('click',
+                    (evt) => evt.target.parentNode.classList.toggle('expanded'),
+                )
+                newTable.appendChild(row)
+            }
+        })
+    }
+
+    table.replaceWith(newTable)
+}
+
+const renderDerived = () => {
+    const currentFilter = getVisible()
+    possibleFilters.forEach((result) => {
+        const input = document.querySelector(`input[data-test-result="${result}"]`)
+        input.checked = currentFilter.includes(result)
+    })
+}
+
+const bindEvents = () => {
+    const filterColumn = (evt) => {
+        const { target: element } = evt
+        const { testResult } = element.dataset
+
+        doFilter(testResult, element.checked)
+        const collapsedIds = getCollapsedIds()
+        const updated = manager.renderData.tests.map((test) => {
+            return {
+                ...test,
+                collapsed: collapsedIds.includes(test.id),
+            }
+        })
+        manager.setRender(updated)
+        redraw()
+    }
+
+    const header = document.getElementById('environment-header')
+    header.addEventListener('click', () => {
+        const table = document.getElementById('environment')
+        table.classList.toggle('hidden')
+        header.classList.toggle('collapsed')
+    })
+
+    findAll('input[name="filter_checkbox"]').forEach((elem) => {
+        elem.addEventListener('click', filterColumn)
+    })
+
+    findAll('.sortable').forEach((elem) => {
+        elem.addEventListener('click', (evt) => {
+            const { target: element } = evt
+            const { columnType } = element.dataset
+            doSort(columnType)
+            redraw()
+        })
+    })
+
+    document.getElementById('show_all_details').addEventListener('click', () => {
+        manager.allCollapsed = false
+        setCollapsedIds([])
+        redraw()
+    })
+    document.getElementById('hide_all_details').addEventListener('click', () => {
+        manager.allCollapsed = true
+        const allIds = manager.renderData.tests.map((test) => test.id)
+        setCollapsedIds(allIds)
+        redraw()
+    })
+}
+
+const redraw = () => {
+    const { testSubset } = manager
+
+    renderContent(testSubset)
+    renderDerived()
+}
+
+module.exports = {
+    redraw,
+    bindEvents,
+    renderStatic,
+}
+
+},{"./datamanager.js":1,"./dom.js":2,"./filter.js":3,"./sort.js":7,"./storage.js":8}],6:[function(require,module,exports){
+class MediaViewer {
+    constructor(assets) {
+        this.assets = assets
+        this.index = 0
+    }
+
+    nextActive() {
+        this.index = this.index === this.assets.length - 1 ? 0 : this.index + 1
+        return [this.activeFile, this.index]
+    }
+
+    prevActive() {
+        this.index = this.index === 0 ? this.assets.length - 1 : this.index -1
+        return [this.activeFile, this.index]
+    }
+
+    get currentIndex() {
+        return this.index
+    }
+
+    get activeFile() {
+        return this.assets[this.index]
+    }
+}
+
+
+const setup = (resultBody, assets) => {
+    if (!assets.length) {
+        resultBody.querySelector('.media').classList.add('hidden')
+        return
+    }
+
+    const mediaViewer = new MediaViewer(assets)
+    const container = resultBody.querySelector('.media-container')
+    const leftArrow = resultBody.querySelector('.media-container__nav--left')
+    const rightArrow = resultBody.querySelector('.media-container__nav--right')
+    const mediaName = resultBody.querySelector('.media__name')
+    const counter = resultBody.querySelector('.media__counter')
+    const imageEl = resultBody.querySelector('img')
+    const sourceEl = resultBody.querySelector('source')
+    const videoEl = resultBody.querySelector('video')
+
+    const setImg = (media, index) => {
+        if (media?.format_type === 'image') {
+            imageEl.src = media.path
+
+            imageEl.classList.remove('hidden')
+            videoEl.classList.add('hidden')
+        } else if (media?.format_type === 'video') {
+            sourceEl.src = media.path
+
+            videoEl.classList.remove('hidden')
+            imageEl.classList.add('hidden')
+        }
+
+        mediaName.innerText = media?.name
+        counter.innerText = `${index + 1} / ${assets.length}`
+    }
+    setImg(mediaViewer.activeFile, mediaViewer.currentIndex)
+
+    const moveLeft = () => {
+        const [media, index] = mediaViewer.prevActive()
+        setImg(media, index)
+    }
+    const doRight = () => {
+        const [media, index] = mediaViewer.nextActive()
+        setImg(media, index)
+    }
+    const openImg = () => {
+        window.open(mediaViewer.activeFile.path, '_blank')
+    }
+    if (assets.length === 1) {
+        container.classList.add('media-container--fullscreen')
+    } else {
+        leftArrow.addEventListener('click', moveLeft)
+        rightArrow.addEventListener('click', doRight)
+    }
+    imageEl.addEventListener('click', openImg)
+}
+
+module.exports = {
+    setup,
+}
+
+},{}],7:[function(require,module,exports){
+const { manager } = require('./datamanager.js')
+const storageModule = require('./storage.js')
+
+const genericSort = (list, key, ascending, customOrder) => {
+    let sorted
+    if (customOrder) {
+        sorted = list.sort((a, b) => {
+            const aValue = a.result.toLowerCase()
+            const bValue = b.result.toLowerCase()
+
+            const aIndex = customOrder.findIndex((item) => item.toLowerCase() === aValue)
+            const bIndex = customOrder.findIndex((item) => item.toLowerCase() === bValue)
+
+            // Compare the indices to determine the sort order
+            return aIndex - bIndex
+        })
+    } else {
+        sorted = list.sort((a, b) => a[key] === b[key] ? 0 : a[key] > b[key] ? 1 : -1)
+    }
+
+    if (ascending) {
+        sorted.reverse()
+    }
+    return sorted
+}
+
+const durationSort = (list, ascending) => {
+    const parseDuration = (duration) => {
+        if (duration.includes(':')) {
+            // If it's in the format "HH:mm:ss"
+            const [hours, minutes, seconds] = duration.split(':').map(Number)
+            return (hours * 3600 + minutes * 60 + seconds) * 1000
+        } else {
+            // If it's in the format "nnn ms"
+            return parseInt(duration)
+        }
+    }
+    const sorted = list.sort((a, b) => parseDuration(a['duration']) - parseDuration(b['duration']))
+    if (ascending) {
+        sorted.reverse()
+    }
+    return sorted
+}
+
+const doInitSort = () => {
+    const type = storageModule.getSort(manager.initialSort)
+    const ascending = storageModule.getSortDirection()
+    const list = manager.testSubset
+    const initialOrder = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed', 'Skipped', 'Passed']
+
+    storageModule.setSort(type)
+    storageModule.setSortDirection(ascending)
+
+    if (type?.toLowerCase() === 'original') {
+        manager.setRender(list)
+    } else {
+        let sortedList
+        switch (type) {
+        case 'duration':
+            sortedList = durationSort(list, ascending)
+            break
+        case 'result':
+            sortedList = genericSort(list, type, ascending, initialOrder)
+            break
+        default:
+            sortedList = genericSort(list, type, ascending)
+            break
+        }
+        manager.setRender(sortedList)
+    }
+}
+
+const doSort = (type, skipDirection) => {
+    const newSortType = storageModule.getSort(manager.initialSort) !== type
+    const currentAsc = storageModule.getSortDirection()
+    let ascending
+    if (skipDirection) {
+        ascending = currentAsc
+    } else {
+        ascending = newSortType ? false : !currentAsc
+    }
+    storageModule.setSort(type)
+    storageModule.setSortDirection(ascending)
+
+    const list = manager.testSubset
+    const sortedList = type === 'duration' ? durationSort(list, ascending) : genericSort(list, type, ascending)
+    manager.setRender(sortedList)
+}
+
+module.exports = {
+    doInitSort,
+    doSort,
+}
+
+},{"./datamanager.js":1,"./storage.js":8}],8:[function(require,module,exports){
+const possibleFilters = [
+    'passed',
+    'skipped',
+    'failed',
+    'error',
+    'xfailed',
+    'xpassed',
+    'rerun',
+]
+
+const getVisible = () => {
+    const url = new URL(window.location.href)
+    const settings = new URLSearchParams(url.search).get('visible')
+    const lower = (item) => {
+        const lowerItem = item.toLowerCase()
+        if (possibleFilters.includes(lowerItem)) {
+            return lowerItem
+        }
+        return null
+    }
+    return settings === null ?
+        possibleFilters :
+        [...new Set(settings?.split(',').map(lower).filter((item) => item))]
+}
+
+const hideCategory = (categoryToHide) => {
+    const url = new URL(window.location.href)
+    const visibleParams = new URLSearchParams(url.search).get('visible')
+    const currentVisible = visibleParams ? visibleParams.split(',') : [...possibleFilters]
+    const settings = [...new Set(currentVisible)].filter((f) => f !== categoryToHide).join(',')
+
+    url.searchParams.set('visible', settings)
+    window.history.pushState({}, null, unescape(url.href))
+}
+
+const showCategory = (categoryToShow) => {
+    if (typeof window === 'undefined') {
+        return
+    }
+    const url = new URL(window.location.href)
+    const currentVisible = new URLSearchParams(url.search).get('visible')?.split(',').filter(Boolean) ||
+        [...possibleFilters]
+    const settings = [...new Set([categoryToShow, ...currentVisible])]
+    const noFilter = possibleFilters.length === settings.length || !settings.length
+
+    noFilter ? url.searchParams.delete('visible') : url.searchParams.set('visible', settings.join(','))
+    window.history.pushState({}, null, unescape(url.href))
+}
+
+const getSort = (initialSort) => {
+    const url = new URL(window.location.href)
+    let sort = new URLSearchParams(url.search).get('sort')
+    if (!sort) {
+        sort = initialSort || 'result'
+    }
+    return sort
+}
+
+const setSort = (type) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('sort', type)
+    window.history.pushState({}, null, unescape(url.href))
+}
+
+const getCollapsedCategory = (renderCollapsed) => {
+    let categories
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        const collapsedItems = new URLSearchParams(url.search).get('collapsed')
+        switch (true) {
+        case !renderCollapsed && collapsedItems === null:
+            categories = ['passed']
+            break
+        case collapsedItems?.length === 0 || /^["']{2}$/.test(collapsedItems):
+            categories = []
+            break
+        case /^all$/.test(collapsedItems) || collapsedItems === null && /^all$/.test(renderCollapsed):
+            categories = [...possibleFilters]
+            break
+        default:
+            categories = collapsedItems?.split(',').map((item) => item.toLowerCase()) || renderCollapsed
+            break
+        }
+    } else {
+        categories = []
+    }
+    return categories
+}
+
+const getSortDirection = () => JSON.parse(sessionStorage.getItem('sortAsc')) || false
+const setSortDirection = (ascending) => sessionStorage.setItem('sortAsc', ascending)
+
+const getCollapsedIds = () => JSON.parse(sessionStorage.getItem('collapsedIds')) || []
+const setCollapsedIds = (list) => sessionStorage.setItem('collapsedIds', JSON.stringify(list))
+
+module.exports = {
+    getVisible,
+    hideCategory,
+    showCategory,
+    getCollapsedIds,
+    setCollapsedIds,
+    getSort,
+    setSort,
+    getSortDirection,
+    setSortDirection,
+    getCollapsedCategory,
+    possibleFilters,
+}
+
+},{}]},{},[4]);
+    </script>
+  </footer>
+</html>

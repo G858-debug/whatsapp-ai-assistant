@@ -1,0 +1,82 @@
+{
+  "total_fixes": 8,
+  "applied": 0,
+  "failed": 8,
+  "applied_fixes": [],
+  "failed_fixes": [
+    {
+      "type": "trainer_recognition",
+      "file": "services/ai_intent_handler.py",
+      "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration",
+      "diagnosis": "Not recognizing existing trainers by name",
+      "line": 0,
+      "add_check": true,
+      "check_code": "\n        # Check if user is an existing trainer\n        trainer = self.db.table('trainers').select('name').eq('whatsapp', phone).execute()\n        if trainer.data:\n            trainer_name = trainer.data[0]['name']\n            return f\"Welcome back, {trainer_name}! How can I help you today?\""
+    },
+    {
+      "type": "client_registration",
+      "file": "services/registration/client_registration.py",
+      "test": "tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration",
+      "diagnosis": "Client not receiving proper welcome message",
+      "line": 0,
+      "add_response": true,
+      "response_code": "\n        return {\n            \"success\": True,\n            \"message\": f\"Great! {client_name} has been added as your client.\"\n        }"
+    },
+    {
+      "type": "duplicate_check",
+      "file": "services/registration/trainer_registration.py",
+      "test": "tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt",
+      "diagnosis": "Not checking for existing registration",
+      "line": 0,
+      "add_check": true,
+      "check_code": "\n        # Check if trainer already registered\n        existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()\n        if existing.data:\n            return \"Welcome back! You're already registered. How can I help you today?\""
+    },
+    {
+      "type": "input_validation",
+      "file": "services/registration/trainer_registration.py",
+      "test": "tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input",
+      "diagnosis": "Not truncating long input",
+      "line": 0,
+      "add_validation": true,
+      "validation_code": "response = response[:255] if len(response) > 255 else response  # Truncate if too long"
+    },
+    {
+      "type": "phone_format",
+      "file": "utils/validators.py",
+      "test": "tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization",
+      "diagnosis": "Phone returns with + prefix but tests expect without",
+      "line": 0,
+      "search_pattern": "return True, f'+{phone_digits}', None",
+      "original_code": "return True, f'+{phone_digits}', None",
+      "fixed_code": "return True, phone_digits, None"
+    },
+    {
+      "type": "ai_intent",
+      "file": "services/ai_intent_handler.py",
+      "test": "tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands",
+      "diagnosis": "AI not recognizing basic commands",
+      "line": 0,
+      "add_patterns": true,
+      "pattern_code": "\n        # Common command patterns\n        command_patterns = {\n            'view_clients': [r'show.*clients?', r'list.*clients?', r'my clients?'],\n            'view_schedule': [r'show.*schedule', r'my schedule', r\"what.*today\"],\n            'add_client': [r'add.*client', r'new client', r'register.*client'],\n        }"
+    },
+    {
+      "type": "missing_method",
+      "file": "utils/validators.py",
+      "test": "tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats",
+      "diagnosis": "Method validate_time_format does not exist or time validation fails",
+      "line": 0,
+      "add_method": true,
+      "method_code": "\n    def validate_time_format(self, time_str: str):\n        \"\"\"Validate time format (wrapper for validate_time)\"\"\"\n        from typing import Tuple, Optional\n        is_valid, formatted_time, error = self.validate_time(time_str)\n        return is_valid, error"
+    },
+    {
+      "type": "currency_parsing",
+      "file": "services/registration/trainer_registration.py",
+      "test": "tests/test_refiloe_complete.py::TestCriticalBugs::test_trainer_registration_step_7_currency_parsing",
+      "diagnosis": "Currency value saved as string \"R450\" instead of number 450",
+      "line": 0,
+      "search_pattern": "'pricing_per_session': data.get('pricing', 300),",
+      "original_code": "'pricing_per_session': data.get('pricing', 300),",
+      "fixed_code": "'pricing_per_session': self._parse_currency(data.get('pricing', 300)),"
+    }
+  ]
+}
