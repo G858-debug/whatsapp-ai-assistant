@@ -41,7 +41,7 @@ tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registratio
 tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration FAILED
 tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration FAILED
 tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt PASSED
-tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format FAILED
+tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format PASSED
 tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input PASSED
 tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_special_characters_in_name PASSED
 tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_command_variations PASSED
@@ -87,8 +87,8 @@ _____ TestTrainerRegistrationReal.test_complete_trainer_registration_flow ______
 tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
     assert "step 1" in response.lower()
 E   assert 'step 1' in "welcome back, there! you're already registered. how can i help you today?"
-E    +  where "welcome back, there! you're already registered. how can i help you today?" = <built-in method lower of str object at 0x7fe8d7f1a930>()
-E    +    where <built-in method lower of str object at 0x7fe8d7f1a930> = "Welcome back, there! You're already registered. How can I help you today?".lower
+E    +  where "welcome back, there! you're already registered. how can i help you today?" = <built-in method lower of str object at 0x7f732ef69eb0>()
+E    +    where <built-in method lower of str object at 0x7f732ef69eb0> = "Welcome back, there! You're already registered. How can I help you today?".lower
 ___ TestTrainerRegistrationReal.test_trainer_recognition_after_registration ____
 tests/test_phase1_registration.py:189: in test_trainer_recognition_after_registration
     with patch('services.refiloe.AIIntentHandler') as mock_ai:
@@ -105,10 +105,6 @@ tests/test_phase1_registration.py:235: in test_client_receives_welcome_after_reg
 /opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/unittest/mock.py:1419: in get_original
     raise AttributeError(
 E   AttributeError: <module 'services.refiloe' from '/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/refiloe.py'> does not have the attribute 'AIIntentHandler'
-_____________ TestRegistrationEdgeCases.test_invalid_email_format ______________
-tests/test_phase1_registration.py:288: in test_invalid_email_format
-    assert result['success'] == False
-E   assert True == False
 ______________ TestAddClientReal.test_phone_number_normalization _______________
 tests/test_phase2_client_management.py:98: in test_phone_number_normalization
     assert normalized == expected_phone, \
@@ -128,57 +124,57 @@ E   assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 INFO     refiloe:logger.py:21 AI Intent detected: general_question with confidence 0.85
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AoIcHY09j-0nzPZ9HySCo-I"}}
+ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AWFI5-OAKDBIgiHwSswdEoC"}}
 INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
 _______________ TestCustomPricingReal.test_check_client_pricing ________________
 tests/test_phase2_client_management.py:239: in test_check_client_pricing
     assert 'r' in message or 'rand' in message or \
 E   AssertionError: Failed to show pricing with: What is Sarah's rate?
 E   assert ('r' in '' or 'rand' in '' or False)
-E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7fe8d7e5c740>)
+E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f732ef32b20>)
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 INFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.85
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"A_fIIZeaiXFNQs8sRNaOtbx"}}
+ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AchirnfHIIm6kwmzbD7NqkW"}}
 ______ TestClientManagementEdgeCases.test_add_client_with_duplicate_phone ______
 tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone
     assert 'already' in response.get('message', '').lower() or \
 E   assert ('already' in '' or 'exists' in '')
-E    +  where '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
-E    +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fe8c7f7d7c0>('message', '')
-E    +        where <built-in method get of dict object at 0x7fe8c7f7d7c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
-E    +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fe8c7f7d7c0>('message', '')
-E    +        where <built-in method get of dict object at 0x7fe8c7f7d7c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+E    +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f731efdd4c0>('message', '')
+E    +        where <built-in method get of dict object at 0x7f731efdd4c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+E    +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f731efdd4c0>('message', '')
+E    +        where <built-in method get of dict object at 0x7f731efdd4c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 INFO     refiloe:logger.py:21 AI Intent detected: registration_trainer with confidence 0.95
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AjK_TeeqGXWwujEWqKqoHLc"}}
+ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"APxgYZK2hhTMQG_CkHdbwRo"}}
 _____________ TestClientManagementEdgeCases.test_client_not_found ______________
 tests/test_phase2_client_management.py:311: in test_client_not_found
     assert 'not found' in response.get('message', '').lower() or \
 E   assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
-E    +  where '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
-E    +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fe8c7f6f840>('message', '')
-E    +        where <built-in method get of dict object at 0x7fe8c7f6f840> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
-E    +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fe8c7f6f840>('message', '')
-E    +        where <built-in method get of dict object at 0x7fe8c7f6f840> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
-E    +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fe8c7f6f840>('message', '')
-E    +        where <built-in method get of dict object at 0x7fe8c7f6f840> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+E    +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f731ee0f600>('message', '')
+E    +        where <built-in method get of dict object at 0x7f731ee0f600> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+E    +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f731ee0f600>('message', '')
+E    +        where <built-in method get of dict object at 0x7f731ee0f600> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+E    +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f731ee0f600>('message', '')
+E    +        where <built-in method get of dict object at 0x7f731ee0f600> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 ERROR    refiloe:logger.py:25 Error creating conversation state: 'Mock' object is not subscriptable
 INFO     refiloe:logger.py:21 AI Intent detected: pricing_inquiry with confidence 0.85
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"Apdn51lueWthiItiftYC2h6"}}
+ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AxfbPnd3tJDJtwMIEthDWOr"}}
 _______________ TestViewScheduleReal.test_view_schedule_commands _______________
 tests/test_phase3_scheduling.py:74: in test_view_schedule_commands
     assert 'schedule' in message or 'booking' in message or \
@@ -188,7 +184,7 @@ E   assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointme
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 INFO     refiloe:logger.py:21 AI Intent detected: general_question with confidence 0.95
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AerW_8-dZgoN0Aqd8bbKt3i"}}
+ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"A3O4nm8D_jDWvMRkiC0kYFt"}}
 INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
 ________________ TestBookSessionsReal.test_booking_time_formats ________________
 tests/test_phase3_scheduling.py:168: in test_booking_time_formats
@@ -201,23 +197,23 @@ _____________ TestPhase3_SchedulingBookings.test_cancel_reschedule _____________
 tests/test_refiloe_complete.py:329: in test_cancel_reschedule
     assert "reschedul" in response['message'].lower() or "moved" in response['message'].lower()
 E   assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
-E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fe8d822fec0>()
-E    +    where <built-in method lower of str object at 0x7fe8d822fec0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
-E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fe8d822fec0>()
-E    +    where <built-in method lower of str object at 0x7fe8d822fec0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f732f3281f0>()
+E    +    where <built-in method lower of str object at 0x7f732f3281f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f732f3281f0>()
+E    +    where <built-in method lower of str object at 0x7f732f3281f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 _______________ TestPhase6_PaymentsRevenue.test_request_payment ________________
 tests/test_refiloe_complete.py:368: in test_request_payment
     assert "payment" in response['message'].lower() or "invoice" in response['message'].lower()
 E   assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
-E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fe8d83d96b0>()
-E    +    where <built-in method lower of str object at 0x7fe8d83d96b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
-E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fe8d83d96b0>()
-E    +    where <built-in method lower of str object at 0x7fe8d83d96b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f732f3319d0>()
+E    +    where <built-in method lower of str object at 0x7f732f3319d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f732f3319d0>()
+E    +    where <built-in method lower of str object at 0x7f732f3319d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 _______________ TestPhase10_AdvancedFeatures.test_error_handling _______________
 tests/test_refiloe_complete.py:424: in test_error_handling
     assert any(word in response['message'].lower() for word in ["past", "future", "cannot"])
 E   assert False
-E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fe8c914adc0>)
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f732ef32dc0>)
 =============================== warnings summary ===============================
 ../../../../../opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: 19 warnings
   /opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
@@ -239,11 +235,10 @@ report saved to: test-results.json
 - Generated html report: file:///home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/test-report.html -
 =========================== short test summary info ============================
 FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow - assert 'step 1' in "welcome back, there! you're already registered. how can i help you today?"
- +  where "welcome back, there! you're already registered. how can i help you today?" = <built-in method lower of str object at 0x7fe8d7f1a930>()
- +    where <built-in method lower of str object at 0x7fe8d7f1a930> = "Welcome back, there! You're already registered. How can I help you today?".lower
+ +  where "welcome back, there! you're already registered. how can i help you today?" = <built-in method lower of str object at 0x7f732ef69eb0>()
+ +    where <built-in method lower of str object at 0x7f732ef69eb0> = "Welcome back, there! You're already registered. How can I help you today?".lower
 FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - AttributeError: <module 'services.refiloe' from '/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/refiloe.py'> does not have the attribute 'AIIntentHandler'
 FAILED tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration - AttributeError: <module 'services.refiloe' from '/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/refiloe.py'> does not have the attribute 'AIIntentHandler'
-FAILED tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format - assert True == False
 FAILED tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization - AssertionError: Expected 27821234567 but got +27821234567 for 0821234567
 assert '+27821234567' == '27821234567'
   - 27821234567
@@ -253,43 +248,43 @@ FAILED tests/test_phase2_client_management.py::TestViewClientsReal::test_view_cl
 assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 FAILED tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing - AssertionError: Failed to show pricing with: What is Sarah's rate?
 assert ('r' in '' or 'rand' in '' or False)
- +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7fe8d7e5c740>)
+ +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f732ef32b20>)
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone - assert ('already' in '' or 'exists' in '')
- +  where '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
- +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fe8c7f7d7c0>('message', '')
- +        where <built-in method get of dict object at 0x7fe8c7f7d7c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
- +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fe8c7f7d7c0>('message', '')
- +        where <built-in method get of dict object at 0x7fe8c7f7d7c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+ +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f731efdd4c0>('message', '')
+ +        where <built-in method get of dict object at 0x7f731efdd4c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+ +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f731efdd4c0>('message', '')
+ +        where <built-in method get of dict object at 0x7f731efdd4c0> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found - assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
- +  where '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
- +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fe8c7f6f840>('message', '')
- +        where <built-in method get of dict object at 0x7fe8c7f6f840> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
- +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fe8c7f6f840>('message', '')
- +        where <built-in method get of dict object at 0x7fe8c7f6f840> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7fe8dbd3fba0>()
- +    where <built-in method lower of str object at 0x7fe8dbd3fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fe8c7f6f840>('message', '')
- +        where <built-in method get of dict object at 0x7fe8c7f6f840> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+ +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f731ee0f600>('message', '')
+ +        where <built-in method get of dict object at 0x7f731ee0f600> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+ +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f731ee0f600>('message', '')
+ +        where <built-in method get of dict object at 0x7f731ee0f600> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f7332d3fba0>()
+ +    where <built-in method lower of str object at 0x7f7332d3fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f731ee0f600>('message', '')
+ +        where <built-in method get of dict object at 0x7f731ee0f600> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
 FAILED tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands - AssertionError: Failed to show schedule with: Show my schedule
 assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointment' in '' or 'no bookings' in '' or 'free' in '')
 FAILED tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats - AssertionError: Failed to validate time: 9am
 assert False == True
 FAILED tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule - assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
- +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fe8d822fec0>()
- +    where <built-in method lower of str object at 0x7fe8d822fec0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
- +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fe8d822fec0>()
- +    where <built-in method lower of str object at 0x7fe8d822fec0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f732f3281f0>()
+ +    where <built-in method lower of str object at 0x7f732f3281f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f732f3281f0>()
+ +    where <built-in method lower of str object at 0x7f732f3281f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 FAILED tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment - assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
- +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fe8d83d96b0>()
- +    where <built-in method lower of str object at 0x7fe8d83d96b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
- +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fe8d83d96b0>()
- +    where <built-in method lower of str object at 0x7fe8d83d96b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f732f3319d0>()
+ +    where <built-in method lower of str object at 0x7f732f3319d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f732f3319d0>()
+ +    where <built-in method lower of str object at 0x7f732f3319d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 FAILED tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling - assert False
- +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fe8c914adc0>)
-============ 14 failed, 42 passed, 20 warnings in 328.09s (0:05:28) ============
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f732ef32dc0>)
+============ 13 failed, 43 passed, 20 warnings in 225.59s (0:03:45) ============
