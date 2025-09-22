@@ -6,7 +6,7 @@ Pytest configuration and shared fixtures for all tests
 import pytest
 import os
 import sys
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime
 import pytz
 
@@ -15,6 +15,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Global flag to control mock vs real testing
 USE_REAL_CONNECTIONS = os.environ.get('USE_REAL_CONNECTIONS', 'true').lower() == 'true'
+
+
+def create_mock_supabase_response(data=None, count=None):
+    """Create a properly structured Supabase response mock"""
+    response = MagicMock()
+    response.data = data if data is not None else []
+    response.count = count
+    return response
 
 
 @pytest.fixture(scope="session")
@@ -50,20 +58,104 @@ def mock_db():
         except Exception as e:
             print(f"⚠️ Could not connect to real database: {e}")
     
-    # Fall back to mock
+    # Fall back to PROPERLY CONFIGURED mock
     print("📦 Using MOCK database for testing")
-    db = Mock()
+    db = MagicMock()
     
-    # Setup common database responses
-    db.table.return_value.select.return_value = db
-    db.table.return_value.insert.return_value = db
-    db.table.return_value.update.return_value = db
-    db.table.return_value.delete.return_value = db
-    db.eq.return_value = db
-    db.single.return_value = db
-    db.execute.return_value.data = []
+    # Create chainable mock that returns itself for most operations
+    mock_query = MagicMock()
+    mock_query.select.return_value = mock_query
+    mock_query.insert.return_value = mock_query
+    mock_query.update.return_value = mock_query
+    mock_query.delete.return_value = mock_query
+    mock_query.eq.return_value = mock_query
+    mock_query.neq.return_value = mock_query
+    mock_query.gt.return_value = mock_query
+    mock_query.lt.return_value = mock_query
+    mock_query.gte.return_value = mock_query
+    mock_query.lte.return_value = mock_query
+    mock_query.is_.return_value = mock_query
+    mock_query.in_.return_value = mock_query
+    mock_query.order.return_value = mock_query
+    mock_query.limit.return_value = mock_query
+    mock_query.single.return_value = mock_query
+    
+    # Configure execute to return proper response structure
+    mock_query.execute.return_value = create_mock_supabase_response([])
+    
+    # Configure table method
+    db.table.return_value = mock_query
+    
+    # Add auth mock
+    db.auth = MagicMock()
+    db.auth.sign_up.return_value = MagicMock(user=MagicMock(id='test-user-id'))
+    db.auth.sign_in_with_password.return_value = MagicMock(user=MagicMock(id='test-user-id'))
     
     return db
+
+
+@pytest.fixture(scope="function")
+def mock_session_db():
+    """Mock database that returns valid session data"""
+    db = MagicMock()
+    
+    # Configure for registration states
+    def registration_state_query(*args, **kwargs):
+        query = MagicMock()
+        query.eq.return_value = query
+        query.single.return_value = query
+        query.execute.return_value = create_mock_supabase_response([{
+            'phone_number': '27731863036',
+            'current_step': 1,
+            'trainer_data': {},
+            'updated_at': datetime.now().isoformat()
+        }])
+        return query
+    
+    # Configure for conversation states  
+    def conversation_state_query(*args, **kwargs):
+        query = MagicMock()
+        query.eq.return_value = query
+        query.order.return_value = query
+        query.limit.return_value = query
+        query.execute.return_value = create_mock_supabase_response([{
+            'phone_number': '27731863036',
+            'user_name': 'Test User',
+            'user_type': 'trainer',
+            'conversation_state': 'MAIN_MENU',
+            'state_data': {},
+            'message': 'Test message',
+            'created_at': datetime.now().isoformat()
+        }])
+        return query
+    
+    # Route table calls appropriately
+    def table_router(table_name):
+        if table_name == 'registration_states':
+            return registration_state_query()
+        elif table_name == 'conversation_states':
+            return conversation_state_query()
+        else:
+            # Default mock for other tables
+            default_query = MagicMock()
+            default_query.select.return_value = default_query
+            default_query.insert.return_value = default_query
+            default_query.update.return_value = default_query
+            default_query.delete.return_value = default_query
+            default_query.eq.return_value = default_query
+            default_query.execute.return_value = create_mock_supabase_response([])
+            return default_query
+    
+    db.table.side_effect = table_router
+    return db
+
+
+@pytest.fixture
+def mock_database_module(mock_session_db):
+    """Patch the database module with proper mocks"""
+    with patch('services.database.supabase', mock_session_db):
+        with patch('services.database.get_supabase_client', return_value=mock_session_db):
+            yield mock_session_db
 
 
 @pytest.fixture(scope="function")
