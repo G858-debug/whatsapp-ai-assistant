@@ -13,6 +13,23 @@ class Validators:
     
     # ============= PHONE VALIDATION =============
     
+    def normalize_phone_number(phone):
+        """Normalize phone number to format WITHOUT + prefix"""
+        if not phone:
+            return None
+        
+        # Remove all non-digit characters including +
+        phone = ''.join(filter(str.isdigit, str(phone)))
+        
+        # Handle South African numbers
+        if phone.startswith('0'):
+            phone = '27' + phone[1:]
+        elif not phone.startswith('27') and len(phone) == 9:
+            phone = '27' + phone
+        
+        # Return WITHOUT the + prefix to match test expectations
+        return phone  # Not '+' + phone
+    
     def validate_phone_number(self, phone: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Validate South African phone number
