@@ -91,12 +91,14 @@ class TrainerRegistrationHandler:
         """Start trainer registration with warm welcome"""
         try:
             existing = self.db.table('trainers').select('id', 'first_name').eq('whatsapp', phone).execute()
-            if existing.data and len(existing.data) > 0:
+            # Only return early if data actually exists
+            if existing and hasattr(existing, 'data') and existing.data and len(existing.data) > 0:
                 name = existing.data[0].get('first_name', 'there')
                 return f"Welcome back, {name}! You're already registered. How can I help you today?"
         except Exception as e:
             log_error(f"Error checking existing registration: {str(e)}")
         
+        # Continue with registration for new users
         return (
             "🎉 I'm so excited to help you grow your personal training business! "
             "Let's get you set up in just a few quick steps. Don't worry, this set up is free\n\n"
