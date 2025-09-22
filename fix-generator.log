@@ -3,7 +3,7 @@ Current directory: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
 test-results.json exists: True
 JSON keys: ['created', 'duration', 'exitcode', 'root', 'environment', 'summary', 'collectors', 'tests', 'warnings']
 Total tests in JSON: 56
-Failed tests in JSON: 14
+Failed tests in JSON: 13
 First failure: tests/test_phase1_registration.py::TestTrainerRegistrationRe
 Error type: <class 'str'>
 Error preview: tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
@@ -13,7 +13,7 @@ E   assert 'step 1' in "welcome back, there! you're already registered. how can
 
 🔍 Analyzing test failures...
 
-Found 14 failed tests
+Found 13 failed tests
 Analyzing: tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_tr...
   Error snippet: tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
     assert "step 1" in response.lower()
@@ -21,23 +21,17 @@ E   assert 'step 1' in "welco
   → Matched duplicate registration issue
 ✅ Generated fix for: duplicate_check
 Analyzing: tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_rec...
-  Error snippet: tests/test_phase1_registration.py:189: in test_trainer_recognition_after_registration
-    with patch('services.refiloe.AIIntentHandler') as mock_ai:
-/
-  → Matched Mock object issue
+  Error snippet: tests/test_phase1_registration.py:201: in test_trainer_recognition_after_registration
+    assert response.get('success') == True
+E   assert False == T
   → Matched trainer recognition issue
 ✅ Generated fix for: trainer_recognition
 Analyzing: tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_recei...
-  Error snippet: tests/test_phase1_registration.py:235: in test_client_receives_welcome_after_registration
-    with patch('services.refiloe.AIIntentHandler') as mock_a
-  → Matched Mock object issue
+  Error snippet: tests/test_phase1_registration.py:246: in test_client_receives_welcome_after_registration
+    assert response.get('success') == True
+E   assert False 
   → Matched client registration issue
 ✅ Generated fix for: client_registration
-Analyzing: tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email...
-  Error snippet: tests/test_phase1_registration.py:288: in test_invalid_email_format
-    assert result['success'] == False
-E   assert True == False
-  → No fix pattern matched
 Analyzing: tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_nor...
   Error snippet: tests/test_phase2_client_management.py:98: in test_phone_number_normalization
     assert normalized == expected_phone, \
@@ -58,11 +52,13 @@ Analyzing: tests/test_phase2_client_management.py::TestClientManagementEdgeCases
   Error snippet: tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone
     assert 'already' in response.get('message', '').lower() or \
 E
+  → Matched Mock object issue
   → No fix pattern matched
 Analyzing: tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_clie...
   Error snippet: tests/test_phase2_client_management.py:311: in test_client_not_found
     assert 'not found' in response.get('message', '').lower() or \
 E   assert ('n
+  → Matched Mock object issue
   → No fix pattern matched
 Analyzing: tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_comman...
   Error snippet: tests/test_phase3_scheduling.py:74: in test_view_schedule_commands
