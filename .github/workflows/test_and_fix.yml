@@ -182,6 +182,26 @@ jobs:
         
         # Don't exit with failure code here - let the step complete
         # The continue-on-error: true handles this
+
+    - name: Check for test loop
+      if: env.test_status == 'failure'
+      continue-on-error: false
+      run: |
+        echo "=== Checking for test failure loop ==="
+        
+        # Make the script executable
+        chmod +x .github/scripts/detect_test_loop.py
+        
+        # Run loop detection
+        if python .github/scripts/detect_test_loop.py < test-output.log; then
+          echo "No loop detected, proceeding with auto-fix..."
+        else
+          echo "❌ TEST LOOP DETECTED!"
+          echo "The auto-fix system is stuck in a loop."
+          echo "Manual intervention required."
+          echo "fixes_generated=false" >> $GITHUB_ENV
+          exit 1
+        fi
     
     - name: Upload test results
       if: always()
