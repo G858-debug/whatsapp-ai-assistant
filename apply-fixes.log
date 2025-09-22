@@ -1,20 +1,16 @@
-Applying 8 fixes...
+Applying 6 fixes...
+Backed up services/registration/trainer_registration.py
+⚠️ Could not apply fix to services/registration/trainer_registration.py
 Backed up services/ai_intent_handler.py
 ⚠️ Could not apply fix to services/ai_intent_handler.py
 Backed up services/registration/client_registration.py
 ⚠️ Could not apply fix to services/registration/client_registration.py
-Backed up services/registration/trainer_registration.py
-⚠️ Could not apply fix to services/registration/trainer_registration.py
-Backed up services/registration/trainer_registration.py
-⚠️ Could not apply fix to services/registration/trainer_registration.py
 Backed up utils/validators.py
 ⚠️ Could not apply fix to utils/validators.py
 Backed up services/ai_intent_handler.py
 ⚠️ Could not apply fix to services/ai_intent_handler.py
 Backed up utils/validators.py
 ⚠️ Could not apply fix to utils/validators.py
-Backed up services/registration/trainer_registration.py
-⚠️ Could not apply fix to services/registration/trainer_registration.py
 
 ✅ Applied 0 fixes
-❌ Failed 8 fixes
+❌ Failed 6 fixes
