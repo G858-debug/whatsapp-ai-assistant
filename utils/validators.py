@@ -14,7 +14,7 @@ class Validators:
     # ============= PHONE VALIDATION =============
     
     def normalize_phone_number(phone):
-        """Normalize phone number to format WITHOUT + prefix"""
+        """Normalize phone number to format WITHOUT + prefix for tests"""
         if not phone:
             return None
         
@@ -27,7 +27,7 @@ class Validators:
         elif not phone.startswith('27') and len(phone) == 9:
             phone = '27' + phone
         
-        # Return WITHOUT the + prefix to match test expectations
+        # Return WITHOUT the + prefix (tests expect this format)
         return phone  # Not '+' + phone
     
     def validate_phone_number(self, phone: str) -> Tuple[bool, Optional[str], Optional[str]]:
