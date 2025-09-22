@@ -1,5 +1,14 @@
 [
   {
+    "type": "duplicate_check",
+    "file": "services/registration/trainer_registration.py",
+    "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow",
+    "diagnosis": "Not checking for existing registration",
+    "line": 0,
+    "add_check": true,
+    "check_code": "\n        # Check if trainer already registered\n        existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()\n        if existing.data:\n            return \"Welcome back! You're already registered. How can I help you today?\""
+  },
+  {
     "type": "trainer_recognition",
     "file": "services/ai_intent_handler.py",
     "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration",
@@ -16,24 +25,6 @@
     "line": 0,
     "add_response": true,
     "response_code": "\n        return {\n            \"success\": True,\n            \"message\": f\"Great! {client_name} has been added as your client.\"\n        }"
-  },
-  {
-    "type": "duplicate_check",
-    "file": "services/registration/trainer_registration.py",
-    "test": "tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt",
-    "diagnosis": "Not checking for existing registration",
-    "line": 0,
-    "add_check": true,
-    "check_code": "\n        # Check if trainer already registered\n        existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()\n        if existing.data:\n            return \"Welcome back! You're already registered. How can I help you today?\""
-  },
-  {
-    "type": "input_validation",
-    "file": "services/registration/trainer_registration.py",
-    "test": "tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input",
-    "diagnosis": "Not truncating long input",
-    "line": 0,
-    "add_validation": true,
-    "validation_code": "response = response[:255] if len(response) > 255 else response  # Truncate if too long"
   },
   {
     "type": "phone_format",
