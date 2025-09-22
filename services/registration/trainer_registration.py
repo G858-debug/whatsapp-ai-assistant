@@ -231,7 +231,8 @@ class TrainerRegistrationHandler:
             return {'valid': True, 'value': value}
         
         elif field == 'email':
-            if '@' not in value or '.' not in value.split('@')[1] if '@' in value else False:
+            # Use the validator's email validation method
+            if not self.validator.validate_email(value):
                 return {
                     'valid': False,
                     'error': "📧 Hmm, that doesn't look like a valid email. Please try again!\nExample: john@gmail.com"
@@ -259,7 +260,14 @@ class TrainerRegistrationHandler:
         
         elif field == 'experience':
             try:
-                years = int(''.join(filter(str.isdigit, value)))
+                # Extract just digits from the input
+                digit_str = ''.join(filter(str.isdigit, value))
+                if not digit_str:
+                    return {
+                        'valid': False,
+                        'error': "Please enter just a number (e.g., 5)"
+                    }
+                years = int(digit_str)
                 if 0 <= years <= 50:
                     return {'valid': True, 'value': years}
                 else:
@@ -282,8 +290,12 @@ class TrainerRegistrationHandler:
             return {'valid': True, 'value': value}
         
         elif field == 'pricing':
-            # Parse price from various formats
-            price = self._parse_pricing(value)
+            # Use the validator's extract_price method if available
+            if hasattr(self.validator, 'extract_price'):
+                price = self.validator.extract_price(value)
+            else:
+                price = self._parse_pricing(value)
+            
             if price and 50 <= price <= 5000:
                 return {'valid': True, 'value': price}
             else:
@@ -330,7 +342,11 @@ class TrainerRegistrationHandler:
             last_name = name_parts[1] if len(name_parts) > 1 else ''
             
             # Ensure pricing is numeric
-            pricing = self._parse_pricing(data.get('pricing', 300))
+            if hasattr(self.validator, 'extract_price'):
+                pricing = self.validator.extract_price(str(data.get('pricing', 300)))
+            else:
+                pricing = self._parse_pricing(data.get('pricing', 300))
+            
             if not pricing:
                 pricing = 300
             
@@ -355,8 +371,18 @@ class TrainerRegistrationHandler:
                 trainer_id = result.data[0]['id']
                 log_info(f"Trainer registered: {full_name} ({trainer_id})")
                 
+                # Clear session
                 if hasattr(self, '_sessions') and phone in self._sessions:
                     del self._sessions[phone]
+                
+                # Mark registration as complete in database
+                try:
+                    self.db.table('registration_states').update({
+                        'completed': True,
+                        'completed_at': datetime.now(self.sa_tz).isoformat()
+                    }).eq('phone_number', phone).eq('user_type', 'trainer').execute()
+                except Exception as e:
+                    log_error(f"Error marking registration complete: {str(e)}")
                 
                 celebration = (
                     "🎊 *CONGRATULATIONS!* 🎊\n\n"
