@@ -186,7 +186,7 @@ class TestTrainerRegistrationReal:
         )
         
         # Configure AI response
-        with patch('services.refiloe.AIIntentHandler') as mock_ai:
+        with patch('services.ai_intent_handler.AIIntentHandler') as mock_ai:
             mock_ai_instance = MagicMock()
             mock_ai_instance.process_message.return_value = {
                 'success': True,
@@ -232,7 +232,7 @@ class TestClientRegistrationReal:
         """Test client receives proper welcome after being added"""
         refiloe, mock_db, mock_whatsapp = setup_client_services
         
-        with patch('services.refiloe.AIIntentHandler') as mock_ai:
+        with patch('services.ai_intent_handler.AIIntentHandler') as mock_ai:
             mock_ai_instance = MagicMock()
             mock_ai_instance.process_message.return_value = {
                 'success': True,
