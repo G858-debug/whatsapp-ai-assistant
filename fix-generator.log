@@ -2,44 +2,42 @@
 Current directory: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
 test-results.json exists: True
 JSON keys: ['created', 'duration', 'exitcode', 'root', 'environment', 'summary', 'collectors', 'tests', 'warnings']
-Total tests in JSON: 57
-Failed tests in JSON: 26
+Total tests in JSON: 56
+Failed tests in JSON: 25
 First failure: tests/test_phase1_registration.py::TestTrainerRegistrationRe
 Error type: <class 'str'>
-Error preview: tests/test_phase1_registration.py:107: in test_complete_trainer_registration_flow
-    assert result['success'] == True
-E   assert False == True
+Error preview: tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
+    assert "step 1" in response.lower()
+E   assert 'step 1' in "welcome back, there! you're already registered. how can
 === END DEBUG ===
 
 🔍 Analyzing test failures...
 
-Found 26 failed tests
+Found 25 failed tests
 Analyzing: tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_tr...
-  Error snippet: tests/test_phase1_registration.py:107: in test_complete_trainer_registration_flow
-    assert result['success'] == True
-E   assert False == True
-  → No fix pattern matched
+  Error snippet: tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
+    assert "step 1" in response.lower()
+E   assert 'step 1' in "welco
+  → Matched duplicate registration issue
+✅ Generated fix for: duplicate_check
 Analyzing: tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_rec...
-  Error snippet: tests/test_phase1_registration.py:231: in test_trainer_recognition_after_registration
-    assert 'john' in response.get('message', '').lower() or \
-E 
+  Error snippet: tests/test_phase1_registration.py:189: in test_trainer_recognition_after_registration
+    with patch('services.refiloe.AIIntentHandler') as mock_ai:
+/
+  → Matched Mock object issue
   → Matched trainer recognition issue
 ✅ Generated fix for: trainer_recognition
 Analyzing: tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_recei...
-  Error snippet: tests/test_phase1_registration.py:297: in test_client_receives_welcome_after_registration
-    assert 'added' in response.get('message', '').lower() or
+  Error snippet: tests/test_phase1_registration.py:235: in test_client_receives_welcome_after_registration
+    with patch('services.refiloe.AIIntentHandler') as mock_a
+  → Matched Mock object issue
   → Matched client registration issue
 ✅ Generated fix for: client_registration
-Analyzing: tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_reg...
-  Error snippet: tests/test_phase1_registration.py:339: in test_duplicate_registration_attempt
-    assert 'already' in response.lower() or \
-E   assert ('already' in "
-  → Matched duplicate registration issue
-✅ Generated fix for: duplicate_check
 Analyzing: tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_lon...
-  Error snippet: tests/test_phase1_registration.py:382: in test_extremely_long_input
-    assert len(result['data']['name']) <= 255  # Reasonable limit
-E   AssertionErr
+  Error snippet: tests/test_phase1_registration.py:303: in test_extremely_long_input
+    assert len(result['value']) <= 255
+E   AssertionError: assert 500 <= 255
+E    
   → Matched input length issue
 ✅ Generated fix for: input_validation
 Analyzing: tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_nor...
