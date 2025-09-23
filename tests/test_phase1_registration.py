@@ -28,25 +28,46 @@ class TestTrainerRegistrationReal:
     @pytest.fixture
     def setup_services(self):
         """Setup real services with properly configured mocks"""
-        # Create properly configured mock database
+        # Create mock database that handles different tables
         mock_db = MagicMock()
         
-        # Configure chainable queries
-        mock_query = MagicMock()
-        mock_query.select.return_value = mock_query
-        mock_query.insert.return_value = mock_query
-        mock_query.update.return_value = mock_query
-        mock_query.eq.return_value = mock_query
-        mock_query.single.return_value = mock_query
-        mock_query.execute.return_value = MagicMock(data=None)
+        def create_table_mock(table_name):
+            """Create a mock for specific table"""
+            table_mock = MagicMock()
+            
+            if table_name == 'trainers':
+                # For trainers table, always return empty (no existing trainer)
+                result = MagicMock()
+                result.data = []
+                table_mock.select.return_value.eq.return_value.execute.return_value = result
+                table_mock.insert.return_value.execute.return_value = MagicMock(
+                    data=[{'id': 'trainer-123'}]
+                )
+            elif table_name == 'registration_states':
+                # For registration states, return empty
+                result = MagicMock()
+                result.data = []
+                table_mock.select.return_value.eq.return_value.eq.return_value.execute.return_value = result
+                table_mock.select.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = result
+                table_mock.insert.return_value.execute.return_value = MagicMock(data=[])
+                table_mock.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+            else:
+                # Default behavior for other tables
+                result = MagicMock()
+                result.data = []
+                table_mock.select.return_value.eq.return_value.execute.return_value = result
+                table_mock.insert.return_value.execute.return_value = MagicMock(data=[])
+            
+            return table_mock
         
-        mock_db.table.return_value = mock_query
+        # Set the side_effect to handle different tables
+        mock_db.table.side_effect = create_table_mock
         
         # Mock WhatsApp
         mock_whatsapp = Mock()
         mock_whatsapp.send_message.return_value = {'success': True}
         
-        # Create real handler
+        # Create real handler with mocked dependencies
         handler = TrainerRegistrationHandler(mock_db, mock_whatsapp)
         
         # Create real Refiloe service
