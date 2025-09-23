@@ -79,21 +79,43 @@ class TestTrainerRegistrationReal:
     def test_complete_trainer_registration_flow(self, setup_services):
         """Test 1.1: Complete trainer onboarding flow"""
         handler, refiloe, mock_db, _ = setup_services
-
-        # Clear any existing mock data - make sure database returns empty
-        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
         
-        # Also configure the registration_states table to return empty
-        registration_mock = MagicMock()
-        registration_mock.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
-        mock_db.table.side_effect = lambda table_name: registration_mock if table_name == 'registration_states' else mock_db.table.return_value
-
         phone = "27731863036"
         
-        # Configure mock to return success on insert
-        mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(
-            data=[{'id': 'trainer-123'}]
-        )
+        # Create a more sophisticated mock that handles different tables correctly
+        def mock_table_handler(table_name):
+            table_mock = MagicMock()
+            
+            if table_name == 'trainers':
+                # For trainers table, always return empty (no existing trainer)
+                empty_result = MagicMock()
+                empty_result.data = []
+                table_mock.select.return_value.eq.return_value.execute.return_value = empty_result
+                # Allow insert to succeed
+                table_mock.insert.return_value.execute.return_value = MagicMock(
+                    data=[{'id': 'trainer-123', 'name': 'John Smith'}]
+                )
+            elif table_name == 'registration_states':
+                # For registration states, return empty
+                empty_result = MagicMock()
+                empty_result.data = []
+                table_mock.select.return_value.eq.return_value.eq.return_value.execute.return_value = empty_result
+                table_mock.select.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = empty_result
+                # Allow insert/update to succeed
+                table_mock.insert.return_value.execute.return_value = MagicMock(data=[])
+                table_mock.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+            else:
+                # Default for any other table
+                empty_result = MagicMock()
+                empty_result.data = []
+                table_mock.select.return_value.execute.return_value = empty_result
+                table_mock.insert.return_value.execute.return_value = MagicMock(data=[])
+            
+            return table_mock
+        
+        # Replace both the mock_db and handler's db to ensure it works
+        mock_db.table.side_effect = mock_table_handler
+        handler.db = mock_db  # Ensure handler uses our mock
         
         # Step 1: Start registration
         response = handler.start_registration(phone)
