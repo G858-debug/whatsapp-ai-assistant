@@ -59,10 +59,13 @@ class TestTrainerRegistrationReal:
         """Test 1.1: Complete trainer onboarding flow"""
         handler, refiloe, mock_db, _ = setup_services
 
-        # IMPORTANT: Configure mock to return NO existing trainer
-        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
-        # Also configure for the direct check
+        # Clear any existing mock data - make sure database returns empty
         mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+        
+        # Also configure the registration_states table to return empty
+        registration_mock = MagicMock()
+        registration_mock.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
+        mock_db.table.side_effect = lambda table_name: registration_mock if table_name == 'registration_states' else mock_db.table.return_value
 
         phone = "27731863036"
         
