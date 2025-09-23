@@ -186,54 +186,88 @@ class Validators:
         if not time_str:
             return False, None, "Time is required"
         
-        # Clean the input
-        time_str = time_str.strip().lower()
+        # Clean and normalize the input
+        original = time_str
+        time_str = time_str.strip()
         
-        # First try your existing datetime parsing for standard formats
-        for fmt in ['%H:%M', '%H:%M:%S', '%I:%M %p', '%I:%M%p']:
-            try:
-                parsed_time = datetime.strptime(time_str.strip().upper(), fmt)
-                formatted = parsed_time.strftime('%H:%M')
+        # Handle special case: "9am" or "9pm" (no space, no colon)
+        simple_am_pm = re.match(r'^(\d{1,2})(am|pm)$', time_str.lower())
+        if simple_am_pm:
+            hour = int(simple_am_pm.group(1))
+            is_pm = simple_am_pm.group(2) == 'pm'
+            
+            # Convert to 24-hour format
+            if is_pm and hour != 12:
+                hour += 12
+            elif not is_pm and hour == 12:
+                hour = 0
+                
+            if 0 <= hour <= 23:
+                formatted = f"{hour:02d}:00"
                 
                 # Check bounds
                 if min_time and formatted < min_time:
                     return False, None, f"Time cannot be before {min_time}"
                 if max_time and formatted > max_time:
                     return False, None, f"Time cannot be after {max_time}"
-                
+                    
                 return True, formatted, None
-            except ValueError:
-                continue
         
-        # If standard parsing failed, try regex patterns for other formats
-        patterns = [
-            # 9am, 9pm, 9 am, 9 pm (without minutes)
-            (r'^(\d{1,2})\s*(am|pm)$', lambda m: f"{int(m.group(1)):02d}:00"),
-            # 9 o'clock
-            (r'^(\d{1,2})\s*o[\'']?clock$', lambda m: f"{int(m.group(1)):02d}:00"),
+        # Handle "9 am" or "9 pm" or "9 AM" or "9 PM" (with space, any case)
+        space_am_pm = re.match(r'^(\d{1,2})\s+(am|pm)$', time_str.lower())
+        if space_am_pm:
+            hour = int(space_am_pm.group(1))
+            is_pm = space_am_pm.group(2) == 'pm'
+            
+            if is_pm and hour != 12:
+                hour += 12
+            elif not is_pm and hour == 12:
+                hour = 0
+                
+            if 0 <= hour <= 23:
+                formatted = f"{hour:02d}:00"
+                
+                # Check bounds
+                if min_time and formatted < min_time:
+                    return False, None, f"Time cannot be before {min_time}"
+                if max_time and formatted > max_time:
+                    return False, None, f"Time cannot be after {max_time}"
+                    
+                return True, formatted, None
+        
+        # Handle "9 o'clock"
+        oclock = re.match(r'^(\d{1,2})\s*o[\'']?clock$', time_str.lower())
+        if oclock:
+            hour = int(oclock.group(1))
+            if 0 <= hour <= 23:
+                formatted = f"{hour:02d}:00"
+                
+                # Check bounds
+                if min_time and formatted < min_time:
+                    return False, None, f"Time cannot be before {min_time}"
+                if max_time and formatted > max_time:
+                    return False, None, f"Time cannot be after {max_time}"
+                    
+                return True, formatted, None
+        
+        # Try standard datetime parsing for other formats (9:00, 09:00, 9:00am, etc.)
+        formats_to_try = [
+            '%H:%M',      # 14:30, 09:00
+            '%H:%M:%S',   # 14:30:00
+            '%I:%M %p',   # 2:30 PM
+            '%I:%M%p',    # 2:30PM
+            '%I:%M %P',   # 2:30 pm
+            '%I:%M%P',    # 2:30pm
         ]
         
-        for pattern, formatter in patterns:
-            match = re.match(pattern, time_str)
-            if match:
-                try:
-                    formatted = formatter(match)
-                    
-                    # Handle AM/PM conversion if present
-                    if 'am' in time_str or 'pm' in time_str:
-                        hour = int(formatted.split(':')[0])
-                        minute = formatted.split(':')[1]
+        for fmt in formats_to_try:
+            try:
+                # Try both original case and uppercase for AM/PM
+                for test_str in [time_str, time_str.upper(), time_str.lower()]:
+                    try:
+                        parsed_time = datetime.strptime(test_str, fmt)
+                        formatted = parsed_time.strftime('%H:%M')
                         
-                        if 'pm' in time_str and hour != 12:
-                            hour += 12
-                        elif 'am' in time_str and hour == 12:
-                            hour = 0
-                        
-                        formatted = f"{hour:02d}:{minute}"
-                    
-                    # Validate the hour and minute
-                    hour, minute = map(int, formatted.split(':'))
-                    if 0 <= hour <= 23 and 0 <= minute <= 59:
                         # Check bounds
                         if min_time and formatted < min_time:
                             return False, None, f"Time cannot be before {min_time}"
@@ -241,10 +275,10 @@ class Validators:
                             return False, None, f"Time cannot be after {max_time}"
                         
                         return True, formatted, None
-                    else:
-                        return False, None, "Invalid time"
-                except:
-                    pass
+                    except ValueError:
+                        continue
+            except:
+                continue
         
         return False, None, "Invalid time format"
 
