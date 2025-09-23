@@ -115,7 +115,7 @@ class TestTrainerRegistrationReal:
         
         # Replace both the mock_db and handler's db to ensure it works
         mock_db.table.side_effect = mock_table_handler
-        handler.db = mock_db  # Ensure handler uses our mock
+        handler.db = mock_db  # THIS IS CRITICAL - ensure handler uses our mock
         
         # Step 1: Start registration
         response = handler.start_registration(phone)
