@@ -177,38 +177,76 @@ class Validators:
                      min_time: Optional[str] = None,
                      max_time: Optional[str] = None) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Validate time string
-        
-        Returns:
-            Tuple of (is_valid, formatted_time, error_message)
+        Validate and parse time string into standard format
+        Returns: (is_valid, formatted_time, error_message)
         """
+        import re
+        from datetime import datetime
+        
         if not time_str:
             return False, None, "Time is required"
         
-        # Try to parse the time
-        try:
-            # Handle various formats
-            for fmt in ['%H:%M', '%H:%M:%S', '%I:%M %p', '%I:%M%p']:
+        # Clean the input
+        time_str = time_str.strip().lower()
+        
+        # First try your existing datetime parsing for standard formats
+        for fmt in ['%H:%M', '%H:%M:%S', '%I:%M %p', '%I:%M%p']:
+            try:
+                parsed_time = datetime.strptime(time_str.strip().upper(), fmt)
+                formatted = parsed_time.strftime('%H:%M')
+                
+                # Check bounds
+                if min_time and formatted < min_time:
+                    return False, None, f"Time cannot be before {min_time}"
+                if max_time and formatted > max_time:
+                    return False, None, f"Time cannot be after {max_time}"
+                
+                return True, formatted, None
+            except ValueError:
+                continue
+        
+        # If standard parsing failed, try regex patterns for other formats
+        patterns = [
+            # 9am, 9pm, 9 am, 9 pm (without minutes)
+            (r'^(\d{1,2})\s*(am|pm)$', lambda m: f"{int(m.group(1)):02d}:00"),
+            # 9 o'clock
+            (r'^(\d{1,2})\s*o[\'']?clock$', lambda m: f"{int(m.group(1)):02d}:00"),
+        ]
+        
+        for pattern, formatter in patterns:
+            match = re.match(pattern, time_str)
+            if match:
                 try:
-                    parsed_time = datetime.strptime(time_str.strip(), fmt)
-                    formatted = parsed_time.strftime('%H:%M')
-                    break
-                except ValueError:
-                    continue
-            else:
-                return False, None, "Invalid time format"
-            
-        except Exception:
-            return False, None, "Invalid time format"
+                    formatted = formatter(match)
+                    
+                    # Handle AM/PM conversion if present
+                    if 'am' in time_str or 'pm' in time_str:
+                        hour = int(formatted.split(':')[0])
+                        minute = formatted.split(':')[1]
+                        
+                        if 'pm' in time_str and hour != 12:
+                            hour += 12
+                        elif 'am' in time_str and hour == 12:
+                            hour = 0
+                        
+                        formatted = f"{hour:02d}:{minute}"
+                    
+                    # Validate the hour and minute
+                    hour, minute = map(int, formatted.split(':'))
+                    if 0 <= hour <= 23 and 0 <= minute <= 59:
+                        # Check bounds
+                        if min_time and formatted < min_time:
+                            return False, None, f"Time cannot be before {min_time}"
+                        if max_time and formatted > max_time:
+                            return False, None, f"Time cannot be after {max_time}"
+                        
+                        return True, formatted, None
+                    else:
+                        return False, None, "Invalid time"
+                except:
+                    pass
         
-        # Check bounds
-        if min_time and formatted < min_time:
-            return False, None, f"Time cannot be before {min_time}"
-        
-        if max_time and formatted > max_time:
-            return False, None, f"Time cannot be after {max_time}"
-        
-        return True, formatted, None
+        return False, None, "Invalid time format"
 
     def validate_time_format(self, time_str: str) -> tuple:
         """
