@@ -1,14 +1,5 @@
 [
   {
-    "type": "duplicate_check",
-    "file": "services/registration/trainer_registration.py",
-    "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow",
-    "diagnosis": "Not checking for existing registration",
-    "line": 0,
-    "add_check": true,
-    "check_code": "\n        # Check if trainer already registered\n        existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()\n        if existing.data:\n            return \"Welcome back! You're already registered. How can I help you today?\""
-  },
-  {
     "type": "trainer_recognition",
     "file": "services/ai_intent_handler.py",
     "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration",
@@ -25,16 +16,6 @@
     "line": 0,
     "add_response": true,
     "response_code": "\n        return {\n            \"success\": True,\n            \"message\": f\"Great! {client_name} has been added as your client.\"\n        }"
-  },
-  {
-    "type": "phone_format",
-    "file": "utils/validators.py",
-    "test": "tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization",
-    "diagnosis": "Phone returns with + prefix but tests expect without",
-    "line": 0,
-    "search_pattern": "return True, f'+{phone_digits}', None",
-    "original_code": "return True, f'+{phone_digits}', None",
-    "fixed_code": "return True, phone_digits, None"
   },
   {
     "type": "ai_intent",
