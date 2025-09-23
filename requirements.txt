@@ -47,3 +47,6 @@ pytest-cov==4.1.0
 
 # Production Server
 gunicorn==21.2.0
+
+# Report Lab
+reportlab==4.0.7
