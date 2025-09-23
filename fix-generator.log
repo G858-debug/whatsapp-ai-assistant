@@ -3,41 +3,35 @@ Current directory: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
 test-results.json exists: True
 JSON keys: ['created', 'duration', 'exitcode', 'root', 'environment', 'summary', 'collectors', 'tests', 'warnings']
 Total tests in JSON: 56
-Failed tests in JSON: 13
+Failed tests in JSON: 12
 First failure: tests/test_phase1_registration.py::TestTrainerRegistrationRe
 Error type: <class 'str'>
-Error preview: tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
+Error preview: tests/test_phase1_registration.py:80: in test_complete_trainer_registration_flow
     assert "step 1" in response.lower()
 E   assert 'step 1' in "welcome back, there! you're already registered. how can
 === END DEBUG ===
 
 🔍 Analyzing test failures...
 
-Found 13 failed tests
+Found 12 failed tests
 Analyzing: tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_tr...
-  Error snippet: tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
+  Error snippet: tests/test_phase1_registration.py:80: in test_complete_trainer_registration_flow
     assert "step 1" in response.lower()
 E   assert 'step 1' in "welco
   → Matched duplicate registration issue
 ✅ Generated fix for: duplicate_check
 Analyzing: tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_rec...
-  Error snippet: tests/test_phase1_registration.py:201: in test_trainer_recognition_after_registration
+  Error snippet: tests/test_phase1_registration.py:209: in test_trainer_recognition_after_registration
     assert response.get('success') == True
 E   assert False == T
   → Matched trainer recognition issue
 ✅ Generated fix for: trainer_recognition
 Analyzing: tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_recei...
-  Error snippet: tests/test_phase1_registration.py:246: in test_client_receives_welcome_after_registration
+  Error snippet: tests/test_phase1_registration.py:254: in test_client_receives_welcome_after_registration
     assert response.get('success') == True
 E   assert False 
   → Matched client registration issue
 ✅ Generated fix for: client_registration
-Analyzing: tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_nor...
-  Error snippet: tests/test_phase2_client_management.py:98: in test_phone_number_normalization
-    assert normalized == expected_phone, \
-E   AssertionError: Expected 
-  → Matched phone format issue
-✅ Generated fix for: phone_format
 Analyzing: tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_c...
   Error snippet: tests/test_phase2_client_management.py:160: in test_view_clients_commands
     assert 'sarah' in message or 'john' in message or 'mike' in message or \
@@ -84,7 +78,7 @@ Analyzing: tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_er
     assert any(word in response['message'].lower() for word in ["past", "future", "cannot"]
   → No fix pattern matched
 
-📝 Generated 6 fixes
+📝 Generated 5 fixes
 ✅ Created generated_fixes.json
 ✅ Created fix_summary.json
 ✅ Fix generation complete!

@@ -27,16 +27,6 @@
     "response_code": "\n        return {\n            \"success\": True,\n            \"message\": f\"Great! {client_name} has been added as your client.\"\n        }"
   },
   {
-    "type": "phone_format",
-    "file": "utils/validators.py",
-    "test": "tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization",
-    "diagnosis": "Phone returns with + prefix but tests expect without",
-    "line": 0,
-    "search_pattern": "return True, f'+{phone_digits}', None",
-    "original_code": "return True, f'+{phone_digits}', None",
-    "fixed_code": "return True, phone_digits, None"
-  },
-  {
     "type": "ai_intent",
     "file": "services/ai_intent_handler.py",
     "test": "tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands",
