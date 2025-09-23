@@ -58,7 +58,12 @@ class TestTrainerRegistrationReal:
     def test_complete_trainer_registration_flow(self, setup_services):
         """Test 1.1: Complete trainer onboarding flow"""
         handler, refiloe, mock_db, _ = setup_services
-        
+
+        # IMPORTANT: Configure mock to return NO existing trainer
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        # Also configure for the direct check
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+
         phone = "27731863036"
         
         # Configure mock to return success on insert
