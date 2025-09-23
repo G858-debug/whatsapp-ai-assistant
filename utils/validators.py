@@ -68,7 +68,7 @@ class Validators:
             if prefix not in valid_prefixes:
                 return False, None, "Invalid mobile number prefix"
             
-            return True, f"+27{phone_digits[1:]}", None
+            return True, f"27{phone_digits[1:]}", None
         
         # Without leading 0 (XXXXXXXXX)
         elif len(phone_digits) == 9:
