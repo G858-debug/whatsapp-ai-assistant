@@ -155,7 +155,7 @@ When responding to GitHub comments:
 
 ## Model Selection 🤖
 When processing requests:
-- **Sonnet 3.5** is used for: Simple fixes, single-file changes, documentation updates
+- **Sonnet 4** is used for: Simple fixes, single-file changes, documentation updates
 - **Opus 4.1** is used for: Complex analysis, multi-file changes, system design
 - Users can force a model with `@sonnet` or `@opus` flags
 - Consider cost implications: Opus is 5x more expensive than Sonnet
