@@ -1,9 +1,9 @@
 ============================= test session starts ==============================
 platform linux -- Python 3.11.13, pytest-7.4.2, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.11.13/x64/bin/python
 cachedir: .pytest_cache
-metadata: {'Python': '3.11.13', 'Platform': 'Linux-6.11.0-1018-azure-x86_64-with-glibc2.39', 'Packages': {'pytest': '7.4.2', 'pluggy': '1.6.0'}, 'Plugins': {'json-report': '1.5.0', 'metadata': '3.1.1', 'anyio': '4.10.0', 'cov': '4.1.0', 'html': '4.1.1'}, 'CI': 'true', 'JAVA_HOME': '/usr/lib/jvm/temurin-17-jdk-amd64'}
+metadata: {'Python': '3.11.13', 'Platform': 'Linux-6.11.0-1018-azure-x86_64-with-glibc2.39', 'Packages': {'pytest': '7.4.2', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.11.0', 'html': '4.1.1', 'json-report': '1.5.0', 'cov': '4.1.0', 'metadata': '3.1.1'}, 'CI': 'true', 'JAVA_HOME': '/usr/lib/jvm/temurin-17-jdk-amd64'}
 rootdir: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
-plugins: json-report-1.5.0, metadata-3.1.1, anyio-4.10.0, cov-4.1.0, html-4.1.1
+plugins: anyio-4.11.0, html-4.1.1, json-report-1.5.0, cov-4.1.0, metadata-3.1.1
 collecting ... collected 56 items
 
 tests/test_conversation_flows.py::TestBasicFunctionality::test_imports_work PASSED
@@ -17,11 +17,11 @@ tests/test_debug.py::test_can_import_basic_modules ✅ pytest imported successfu
 ✅ json imported successfully
 PASSED
 tests/test_debug.py::test_project_structure Current directory: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
-Directory contents: ['app_core.py', 'test-report.html', 'claude_response.md', 'utils', 'README.md', 'payment_integration.py', 'runtime.txt', 'requirements.txt', 'services', 'voice_helpers.py', 'static', 'claude.md', 'test_railway_api.py', '.git', 'supabase', '.github', 'routes', 'tests', '.test_failure_history.json', 'test-output.log', '.claude-config.json', 'payment_manager.py', 'backups', 'config.py', 'app.py', 'test-results.json', 'app_routes.py', 'fix-generator.log', 'apply-fixes.log', 'Procfile', 'comment.txt', 'summary.txt', '__pycache__', 'templates', 'nixpacks.toml', 'models', 'payfast_webhook.py']
+Directory contents: ['nixpacks.toml', 'apply-fixes.log', 'models', 'requirements.txt', 'summary.txt', '.git', 'fix_test_issues.py', 'utils', 'payfast_webhook.py', 'test-output.log', 'services', '.github', 'claude_response.md', 'claude.md', 'static', 'app_routes.py', 'test_railway_api.py', 'voice_helpers.py', '__pycache__', 'fix-generator.log', 'backups', '.test_failure_history.json', 'README.md', 'payment_manager.py', '.claude-config.json', 'routes', 'test-results.json', 'test-report.html', 'Procfile', 'tests', 'payment_integration.py', 'debug_time.py', 'config.py', 'app.py', 'app_core.py', 'templates', 'comment.txt', 'runtime.txt', 'supabase']
 ✅ services/ directory exists
-   Contents: ['helpers', 'ai_intent_handler.py', 'registration', 'ai_intent_core.py', 'ai_intent_responses.py']...
+   Contents: ['payment_commands.py', 'text_variation_handler.py', 'helpers', 'calendar_service.py', 'refiloe_handlers.py']...
 ✅ utils/ directory exists
-   Contents: ['logger.py', 'validators.py', 'railway_api.py', '__init__.py', 'input_sanitizer.py']...
+   Contents: ['phone_utils.py', 'logger.py', 'rate_limiter.py', 'railway_api.py', '__pycache__']...
 PASSED
 tests/test_debug.py::test_can_import_refiloe_modules ✅ services.refiloe imported successfully
 ✅ services.ai_intent_handler imported successfully
@@ -35,7 +35,7 @@ tests/test_debug.py::test_check_requirements ✅ flask is installed
 ✅ pytz is installed
 ✅ requests is installed
 PASSED
-tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow FAILED
+tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow PASSED
 tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_currency_parsing_variations PASSED
 tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_with_missing_fields PASSED
 tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration FAILED
@@ -45,7 +45,7 @@ tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email
 tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input PASSED
 tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_special_characters_in_name PASSED
 tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_command_variations PASSED
-tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization FAILED
+tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization PASSED
 tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_with_special_names PASSED
 tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands FAILED
 tests/test_phase2_client_management.py::TestCustomPricingReal::test_set_custom_pricing_variations PASSED
@@ -56,7 +56,7 @@ tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_set_
 tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found FAILED
 tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands FAILED
 tests/test_phase3_scheduling.py::TestBookSessionsReal::test_book_session_natural_language PASSED
-tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats FAILED
+tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats PASSED
 tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_date_parsing PASSED
 tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_cancel_booking_variations PASSED
 tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_reschedule_booking PASSED
@@ -83,42 +83,31 @@ tests/test_refiloe_complete.py::TestCriticalBugs::test_trainer_registration_step
 tests/test_refiloe_complete.py::TestCriticalBugs::test_ai_responds_naturally_not_rigid_commands PASSED
 
 =================================== FAILURES ===================================
-_____ TestTrainerRegistrationReal.test_complete_trainer_registration_flow ______
-tests/test_phase1_registration.py:72: in test_complete_trainer_registration_flow
-    assert "step 1" in response.lower()
-E   assert 'step 1' in "welcome back, there! you're already registered. how can i help you today?"
-E    +  where "welcome back, there! you're already registered. how can i help you today?" = <built-in method lower of str object at 0x7fd43a561eb0>()
-E    +    where <built-in method lower of str object at 0x7fd43a561eb0> = "Welcome back, there! You're already registered. How can I help you today?".lower
 ___ TestTrainerRegistrationReal.test_trainer_recognition_after_registration ____
-tests/test_phase1_registration.py:201: in test_trainer_recognition_after_registration
-    assert response.get('success') == True
-E   assert False == True
-E    +  where False = <built-in method get of dict object at 0x7fd42b6963c0>('success')
-E    +    where <built-in method get of dict object at 0x7fd42b6963c0> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+tests/test_phase1_registration.py:253: in test_trainer_recognition_after_registration
+    assert 'john' in response.get('response', '').lower() or \
+E   AssertionError: assert ('john' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'> or 'welcome' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'>)
+E    +  where <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'>()
+E    +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>.lower
+E    +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'> = <built-in method get of dict object at 0x7f1b75de1d40>('response', '')
+E    +        where <built-in method get of dict object at 0x7f1b75de1d40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+E    +  and   <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'>()
+E    +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>.lower
+E    +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'> = <built-in method get of dict object at 0x7f1b75de1d40>('response', '')
+E    +        where <built-in method get of dict object at 0x7f1b75de1d40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 INFO     refiloe:logger.py:21 Background scheduler started
 INFO     refiloe:logger.py:21 Routes setup complete
-ERROR    refiloe:logger.py:25 Error getting user context: 'list' object has no attribute 'get'
-ERROR    refiloe:logger.py:25 Error handling message: 'list' object has no attribute 'get'
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 __ TestClientRegistrationReal.test_client_receives_welcome_after_registration __
-tests/test_phase1_registration.py:246: in test_client_receives_welcome_after_registration
+tests/test_phase1_registration.py:297: in test_client_receives_welcome_after_registration
     assert response.get('success') == True
 E   assert False == True
-E    +  where False = <built-in method get of dict object at 0x7fd42b729b40>('success')
-E    +    where <built-in method get of dict object at 0x7fd42b729b40> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+E    +  where False = <built-in method get of dict object at 0x7f1b74cb5200>('success')
+E    +    where <built-in method get of dict object at 0x7f1b74cb5200> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: 'list' object has no attribute 'get'
 ERROR    refiloe:logger.py:25 Error handling message: 'list' object has no attribute 'get'
-______________ TestAddClientReal.test_phone_number_normalization _______________
-tests/test_phase2_client_management.py:98: in test_phone_number_normalization
-    assert normalized == expected_phone, \
-E   AssertionError: Expected 27821234567 but got +27821234567 for 0821234567
-E   assert '+27821234567' == '27821234567'
-E     - 27821234567
-E     + +27821234567
-E     ? +
------------------------------- Captured log setup ------------------------------
-INFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude
 ________________ TestViewClientsReal.test_view_clients_commands ________________
 tests/test_phase2_client_management.py:160: in test_view_clients_commands
     assert 'sarah' in message or 'john' in message or 'mike' in message or \
@@ -133,7 +122,7 @@ tests/test_phase2_client_management.py:239: in test_check_client_pricing
     assert 'r' in message or 'rand' in message or \
 E   AssertionError: Failed to show pricing with: What is Sarah's rate?
 E   assert ('r' in '' or 'rand' in '' or False)
-E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7fd42b68edc0>)
+E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f1b75f67bc0>)
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
@@ -142,14 +131,14 @@ ______ TestClientManagementEdgeCases.test_add_client_with_duplicate_phone ______
 tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone
     assert 'already' in response.get('message', '').lower() or \
 E   AssertionError: assert ('already' in '' or 'exists' in '')
-E    +  where '' = <built-in method lower of str object at 0x7fd43e33fba0>()
-E    +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fd43a5ec5c0>('message', '')
-E    +        where <built-in method get of dict object at 0x7fd43a5ec5c0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7fd43e33fba0>()
-E    +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fd43a5ec5c0>('message', '')
-E    +        where <built-in method get of dict object at 0x7fd43a5ec5c0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+E    +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f1b74981640>('message', '')
+E    +        where <built-in method get of dict object at 0x7f1b74981640> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+E    +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f1b74981640>('message', '')
+E    +        where <built-in method get of dict object at 0x7f1b74981640> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
@@ -158,18 +147,18 @@ _____________ TestClientManagementEdgeCases.test_client_not_found ______________
 tests/test_phase2_client_management.py:311: in test_client_not_found
     assert 'not found' in response.get('message', '').lower() or \
 E   assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
-E    +  where '' = <built-in method lower of str object at 0x7fd43e33fba0>()
-E    +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fd42b681900>('message', '')
-E    +        where <built-in method get of dict object at 0x7fd42b681900> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7fd43e33fba0>()
-E    +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fd42b681900>('message', '')
-E    +        where <built-in method get of dict object at 0x7fd42b681900> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7fd43e33fba0>()
-E    +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7fd42b681900>('message', '')
-E    +        where <built-in method get of dict object at 0x7fd42b681900> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+E    +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f1b749b8740>('message', '')
+E    +        where <built-in method get of dict object at 0x7f1b749b8740> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+E    +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f1b749b8740>('message', '')
+E    +        where <built-in method get of dict object at 0x7f1b749b8740> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+E    +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f1b749b8740>('message', '')
+E    +        where <built-in method get of dict object at 0x7f1b749b8740> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 ERROR    refiloe:logger.py:25 Error creating conversation state: 'Mock' object is not subscriptable
@@ -183,34 +172,27 @@ E   assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointme
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
-________________ TestBookSessionsReal.test_booking_time_formats ________________
-tests/test_phase3_scheduling.py:168: in test_booking_time_formats
-    assert is_valid == True, f"Failed to validate time: {time_format}"
-E   AssertionError: Failed to validate time: 9am
-E   assert False == True
------------------------------- Captured log setup ------------------------------
-INFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude
 _____________ TestPhase3_SchedulingBookings.test_cancel_reschedule _____________
 tests/test_refiloe_complete.py:329: in test_cancel_reschedule
     assert "reschedul" in response['message'].lower() or "moved" in response['message'].lower()
 E   assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
-E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fd43a9cc1f0>()
-E    +    where <built-in method lower of str object at 0x7fd43a9cc1f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
-E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fd43a9cc1f0>()
-E    +    where <built-in method lower of str object at 0x7fd43a9cc1f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1b84f4c810>()
+E    +    where <built-in method lower of str object at 0x7f1b84f4c810> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1b84f4c810>()
+E    +    where <built-in method lower of str object at 0x7f1b84f4c810> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 _______________ TestPhase6_PaymentsRevenue.test_request_payment ________________
 tests/test_refiloe_complete.py:368: in test_request_payment
     assert "payment" in response['message'].lower() or "invoice" in response['message'].lower()
 E   assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
-E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fd43a9299d0>()
-E    +    where <built-in method lower of str object at 0x7fd43a9299d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
-E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fd43a9299d0>()
-E    +    where <built-in method lower of str object at 0x7fd43a9299d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1b84ffe0b0>()
+E    +    where <built-in method lower of str object at 0x7f1b84ffe0b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1b84ffe0b0>()
+E    +    where <built-in method lower of str object at 0x7f1b84ffe0b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 _______________ TestPhase10_AdvancedFeatures.test_error_handling _______________
 tests/test_refiloe_complete.py:424: in test_error_handling
     assert any(word in response['message'].lower() for word in ["past", "future", "cannot"])
 E   assert False
-E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fd42b766b20>)
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f1b75e0e0a0>)
 =============================== warnings summary ===============================
 ../../../../../opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: 19 warnings
   /opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
@@ -231,61 +213,57 @@ tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_rec
 report saved to: test-results.json
 - Generated html report: file:///home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/test-report.html -
 =========================== short test summary info ============================
-FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow - assert 'step 1' in "welcome back, there! you're already registered. how can i help you today?"
- +  where "welcome back, there! you're already registered. how can i help you today?" = <built-in method lower of str object at 0x7fd43a561eb0>()
- +    where <built-in method lower of str object at 0x7fd43a561eb0> = "Welcome back, there! You're already registered. How can I help you today?".lower
-FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - assert False == True
- +  where False = <built-in method get of dict object at 0x7fd42b6963c0>('success')
- +    where <built-in method get of dict object at 0x7fd42b6963c0> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - AssertionError: assert ('john' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'> or 'welcome' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'>)
+ +  where <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'>()
+ +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>.lower
+ +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'> = <built-in method get of dict object at 0x7f1b75de1d40>('response', '')
+ +        where <built-in method get of dict object at 0x7f1b75de1d40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+ +  and   <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='139755918528976'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'>()
+ +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='139755918532176'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>.lower
+ +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'> = <built-in method get of dict object at 0x7f1b75de1d40>('response', '')
+ +        where <built-in method get of dict object at 0x7f1b75de1d40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
 FAILED tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration - assert False == True
- +  where False = <built-in method get of dict object at 0x7fd42b729b40>('success')
- +    where <built-in method get of dict object at 0x7fd42b729b40> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
-FAILED tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization - AssertionError: Expected 27821234567 but got +27821234567 for 0821234567
-assert '+27821234567' == '27821234567'
-  - 27821234567
-  + +27821234567
-  ? +
+ +  where False = <built-in method get of dict object at 0x7f1b74cb5200>('success')
+ +    where <built-in method get of dict object at 0x7f1b74cb5200> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
 FAILED tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands - AssertionError: Failed to list clients with command: Show my clients
 assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 FAILED tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing - AssertionError: Failed to show pricing with: What is Sarah's rate?
 assert ('r' in '' or 'rand' in '' or False)
- +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7fd42b68edc0>)
+ +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f1b75f67bc0>)
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone - AssertionError: assert ('already' in '' or 'exists' in '')
- +  where '' = <built-in method lower of str object at 0x7fd43e33fba0>()
- +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fd43a5ec5c0>('message', '')
- +        where <built-in method get of dict object at 0x7fd43a5ec5c0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7fd43e33fba0>()
- +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fd43a5ec5c0>('message', '')
- +        where <built-in method get of dict object at 0x7fd43a5ec5c0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+ +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f1b74981640>('message', '')
+ +        where <built-in method get of dict object at 0x7f1b74981640> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+ +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f1b74981640>('message', '')
+ +        where <built-in method get of dict object at 0x7f1b74981640> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found - assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
- +  where '' = <built-in method lower of str object at 0x7fd43e33fba0>()
- +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fd42b681900>('message', '')
- +        where <built-in method get of dict object at 0x7fd42b681900> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7fd43e33fba0>()
- +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fd42b681900>('message', '')
- +        where <built-in method get of dict object at 0x7fd42b681900> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7fd43e33fba0>()
- +    where <built-in method lower of str object at 0x7fd43e33fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7fd42b681900>('message', '')
- +        where <built-in method get of dict object at 0x7fd42b681900> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140549220270992'>, 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+ +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f1b749b8740>('message', '')
+ +        where <built-in method get of dict object at 0x7f1b749b8740> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+ +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f1b749b8740>('message', '')
+ +        where <built-in method get of dict object at 0x7f1b749b8740> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f1b8893fba0>()
+ +    where <built-in method lower of str object at 0x7f1b8893fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f1b749b8740>('message', '')
+ +        where <built-in method get of dict object at 0x7f1b749b8740> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='139755918608848'>, 'success': True}.get
 FAILED tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands - AssertionError: Failed to show schedule with: Show my schedule
 assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointment' in '' or 'no bookings' in '' or 'free' in '')
-FAILED tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats - AssertionError: Failed to validate time: 9am
-assert False == True
 FAILED tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule - assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
- +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fd43a9cc1f0>()
- +    where <built-in method lower of str object at 0x7fd43a9cc1f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
- +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fd43a9cc1f0>()
- +    where <built-in method lower of str object at 0x7fd43a9cc1f0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1b84f4c810>()
+ +    where <built-in method lower of str object at 0x7f1b84f4c810> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1b84f4c810>()
+ +    where <built-in method lower of str object at 0x7f1b84f4c810> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 FAILED tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment - assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
- +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fd43a9299d0>()
- +    where <built-in method lower of str object at 0x7fd43a9299d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
- +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fd43a9299d0>()
- +    where <built-in method lower of str object at 0x7fd43a9299d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1b84ffe0b0>()
+ +    where <built-in method lower of str object at 0x7f1b84ffe0b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1b84ffe0b0>()
+ +    where <built-in method lower of str object at 0x7f1b84ffe0b0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 FAILED tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling - assert False
- +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fd42b766b20>)
-================= 13 failed, 43 passed, 20 warnings in 39.77s ==================
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f1b75e0e0a0>)
+================= 10 failed, 46 passed, 20 warnings in 48.09s ==================
