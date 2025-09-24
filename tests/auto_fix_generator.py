@@ -1,223 +1,230 @@
 #!/usr/bin/env python3
 """
-Auto-Fix Generator for Refiloe
-Analyzes test failures and generates automated fixes
+Improved Auto-Fix Generator - Better pattern recognition and fix generation
 """
 
 import json
 import re
-import os
 from typing import Dict, List, Optional
 from pathlib import Path
 
-# ADD DEBUGGING SECTION
-print("=== AUTO FIX GENERATOR DEBUG ===")
-print(f"Current directory: {os.getcwd()}")
-print(f"test-results.json exists: {os.path.exists('test-results.json')}")
 
-if os.path.exists('test-results.json'):
-    with open('test-results.json', 'r') as f:
-        data = json.load(f)
-    print(f"JSON keys: {list(data.keys())}")
-    if 'tests' in data:
-        print(f"Total tests in JSON: {len(data['tests'])}")
-        failed = [t for t in data['tests'] if t.get('outcome') == 'failed']
-        print(f"Failed tests in JSON: {len(failed)}")
-        if failed and len(failed) > 0:
-            print(f"First failure: {failed[0].get('nodeid', 'UNKNOWN')[:60]}")
-            # Show what the error looks like
-            first_error = failed[0].get('call', {}).get('longrepr', '')
-            print(f"Error type: {type(first_error)}")
-            if isinstance(first_error, str):
-                print(f"Error preview: {first_error[:200]}")
-    else:
-        print("ERROR: No 'tests' key in JSON!")
-print("=== END DEBUG ===\n")
-
-class AutoFixGenerator:
-    """Generates fixes for common test failures"""
+class ImprovedAutoFixGenerator:
+    """Enhanced fix generator with better pattern matching"""
     
     def __init__(self):
         self.test_results = self.load_test_results()
         self.fixes = []
-        
+        self.fix_patterns = self.initialize_fix_patterns()
+    
+    def initialize_fix_patterns(self) -> List[Dict]:
+        """Initialize comprehensive fix patterns"""
+        return [
+            {
+                'pattern': r"currency|pricing|R\d+|price.*string.*expected.*number",
+                'type': 'currency_parsing',
+                'file_pattern': 'trainer_registration',
+                'solution': 'add_currency_parser'
+            },
+            {
+                'pattern': r"phone.*format|\+27.*expected.*27|normalize.*phone",
+                'type': 'phone_format',
+                'file_pattern': 'validators',
+                'solution': 'fix_phone_format'
+            },
+            {
+                'pattern': r"already.*registered|duplicate.*registration|existing.*trainer",
+                'type': 'duplicate_check',
+                'file_pattern': 'trainer_registration',
+                'solution': 'add_duplicate_check'
+            },
+            {
+                'pattern': r"trainer.*recognition|recognize.*trainer|existing.*trainer.*name",
+                'type': 'trainer_recognition',
+                'file_pattern': 'ai_intent',
+                'solution': 'add_trainer_check'
+            },
+            {
+                'pattern': r"client.*welcome|client.*added|welcome.*message",
+                'type': 'client_registration',
+                'file_pattern': 'client_registration',
+                'solution': 'fix_welcome_message'
+            },
+            {
+                'pattern': r"command.*not.*recognized|ai.*intent|view.*clients|show.*schedule",
+                'type': 'ai_intent',
+                'file_pattern': 'ai_intent',
+                'solution': 'improve_intent_recognition'
+            },
+            {
+                'pattern': r"validate_time_format.*not.*found|missing.*method|AttributeError.*validate",
+                'type': 'missing_method',
+                'file_pattern': 'validators',
+                'solution': 'add_missing_method'
+            },
+            {
+                'pattern': r"Mock.*object|mock.*not.*callable|Mock.*has.*no.*attribute",
+                'type': 'mock_issue',
+                'file_pattern': 'test_',
+                'solution': 'fix_mock_setup'
+            }
+        ]
+    
     def load_test_results(self) -> Dict:
-        """Load test results from pytest json report"""
+        """Load test results from JSON file"""
         try:
             with open('test-results.json', 'r') as f:
-                return json.load(f)
+                data = json.load(f)
+                print(f"📥 Loaded test results: {len(data.get('tests', []))} tests")
+                return data
         except FileNotFoundError:
-            print("No test results found")
+            print("❌ test-results.json not found")
+            return {}
+        except json.JSONDecodeError as e:
+            print(f"❌ Error parsing test-results.json: {e}")
             return {}
     
-    def analyze_failure(self, test: Dict) -> Optional[Dict]:
-        """Analyze test failure and generate fix"""
+    def extract_error_context(self, test: Dict) -> Dict:
+        """Extract comprehensive error context from test failure"""
+        context = {
+            'test_name': test.get('nodeid', ''),
+            'error_message': '',
+            'error_type': '',
+            'file_path': '',
+            'line_number': 0,
+            'assertion': ''
+        }
         
-        test_name = test.get('nodeid', '')
+        # Parse the call information
+        call_info = test.get('call', {})
+        if call_info:
+            # Get the full error message
+            longrepr = call_info.get('longrepr', '')
+            if longrepr:
+                context['error_message'] = longrepr[:500]  # First 500 chars
+                
+                # Extract error type
+                if 'AssertionError' in longrepr:
+                    context['error_type'] = 'assertion'
+                elif 'AttributeError' in longrepr:
+                    context['error_type'] = 'missing_attribute'
+                elif 'KeyError' in longrepr:
+                    context['error_type'] = 'missing_key'
+                elif 'TypeError' in longrepr:
+                    context['error_type'] = 'type_error'
+                
+                # Extract file and line number
+                file_match = re.search(r'(\w+\.py):(\d+):', longrepr)
+                if file_match:
+                    context['file_path'] = file_match.group(1)
+                    context['line_number'] = int(file_match.group(2))
+                
+                # Extract assertion details
+                assert_match = re.search(r'assert (.+)', longrepr)
+                if assert_match:
+                    context['assertion'] = assert_match.group(1)
         
-        # Handle different formats of longrepr
-        call_data = test.get('call', {})
-        longrepr = call_data.get('longrepr', '')
+        return context
+    
+    def determine_fix_type(self, context: Dict) -> Optional[Dict]:
+        """Determine the type of fix needed based on error context"""
+        error_text = f"{context['error_message']} {context['test_name']} {context['assertion']}"
+        error_text_lower = error_text.lower()
         
-        if isinstance(longrepr, list):
-            error_msg = ' '.join(str(item) for item in longrepr)
-        elif isinstance(longrepr, dict):
-            error_msg = json.dumps(longrepr)
+        # Check each pattern
+        for pattern_config in self.fix_patterns:
+            if re.search(pattern_config['pattern'], error_text_lower):
+                print(f"  ✅ Matched pattern: {pattern_config['type']}")
+                return pattern_config
+        
+        # Fallback patterns for common issues
+        if 'mock' in error_text_lower:
+            print(f"  ⚠️ Mock-related issue detected")
+            return None  # Skip mock issues as they're test setup problems
+        
+        print(f"  ❓ No pattern matched")
+        return None
+    
+    def generate_fix(self, test: Dict, context: Dict, fix_config: Dict) -> Optional[Dict]:
+        """Generate a specific fix based on the error and fix type"""
+        fix_type = fix_config['type']
+        test_file = test.get('nodeid', '').split('::')[0]
+        
+        # Determine target file
+        if 'trainer_registration' in fix_config['file_pattern']:
+            target_file = 'services/registration/trainer_registration.py'
+        elif 'client_registration' in fix_config['file_pattern']:
+            target_file = 'services/registration/client_registration.py'
+        elif 'validators' in fix_config['file_pattern']:
+            target_file = 'utils/validators.py'
+        elif 'ai_intent' in fix_config['file_pattern']:
+            target_file = 'services/ai_intent_handler.py'
         else:
-            error_msg = str(longrepr)
+            # Try to guess from test name
+            if 'phase1' in test_file:
+                target_file = 'services/registration/trainer_registration.py'
+            elif 'phase2' in test_file:
+                target_file = 'services/registration/client_registration.py'
+            else:
+                target_file = 'services/ai_intent_handler.py'
         
-        # Debug: Print what we're analyzing
-        print(f"Analyzing: {test_name[:80]}...")
-        print(f"  Error snippet: {error_msg[:150]}")
+        # Create fix based on type
+        fix = {
+            'type': fix_type,
+            'file': target_file,
+            'test': test.get('nodeid', ''),
+            'diagnosis': self.get_diagnosis(fix_type, context),
+            'line': context['line_number']
+        }
         
-        # NEW: Handle Mock object errors (most common in the test output)
-        if "Mock" in error_msg or "mock" in error_msg.lower():
-            print("  → Matched Mock object issue")
-            
-            # Different types of mock errors
-            if "object of type 'Mock' has no len()" in error_msg:
-                return {
-                    'type': 'mock_database_fix',
-                    'file': 'services/registration/trainer_registration.py',
-                    'test': test_name,
-                    'diagnosis': 'Mock object being used instead of proper database connection',
-                    'line': 0,
-                    'add_check': True,
-                    'check_code': '''
-        # Ensure database connection is valid
-        if not hasattr(self.db, 'table') or not callable(getattr(self.db, 'table', None)):
-            logger.error("Invalid database connection")
-            return {"success": False, "message": "Database connection error"}'''
-                }
-            
-            elif "'Mock' object is not reversible" in error_msg:
-                return {
-                    'type': 'mock_list_fix',
-                    'file': 'services/ai_intent_handler.py',
-                    'test': test_name,
-                    'diagnosis': 'Mock object being used for list operations',
-                    'line': 0,
-                    'add_validation': True,
-                    'validation_code': '''
-        # Ensure history is a valid list
-        if not isinstance(history, list):
-            history = []'''
-                }
-            
-            elif "Mock.keys() returned a non-iterable" in error_msg:
-                return {
-                    'type': 'mock_dict_fix',
-                    'file': 'services/ai_intent_handler.py',
-                    'test': test_name,
-                    'diagnosis': 'Mock object being used as dictionary',
-                    'line': 0,
-                    'add_validation': True,
-                    'validation_code': '''
-        # Ensure context is a valid dictionary
-        if not isinstance(context, dict):
-            context = {}'''
-                }
-        
-        # Critical: Currency parsing fix - make pattern matching more flexible
-        if ("R450" in error_msg and "450" in error_msg and "pricing" in error_msg) or \
-           ("pricing_per_session" in error_msg) or \
-           ("currency" in test_name.lower() and "parsing" in test_name.lower()):
-            print("  → Matched currency parsing issue")
-            return {
-                'type': 'currency_parsing',
-                'file': 'services/registration/trainer_registration.py',
-                'test': test_name,
-                'diagnosis': 'Currency value saved as string "R450" instead of number 450',
-                'line': 0,
-                'search_pattern': "'pricing_per_session': data.get('pricing', 300),",
-                'original_code': "'pricing_per_session': data.get('pricing', 300),",
-                'fixed_code': "'pricing_per_session': self._parse_currency(data.get('pricing', 300)),"
-            }
-        
-        # Phone number format issue - more flexible matching
-        if ("+27" in error_msg and "27821234567" in error_msg) or \
-           ("Expected 27" in error_msg and "got +27" in error_msg) or \
-           ("phone" in test_name.lower() and "normalization" in test_name.lower()):
-            print("  → Matched phone format issue")
-            return {
-                'type': 'phone_format',
-                'file': 'utils/validators.py',
-                'test': test_name,
-                'diagnosis': 'Phone returns with + prefix but tests expect without',
-                'line': 0,
-                'search_pattern': "return True, f'+{phone_digits}', None",
-                'original_code': "return True, f'+{phone_digits}', None",
-                'fixed_code': "return True, phone_digits, None"
-            }
-        
-        # Missing validate_time_format method
-        if "validate_time_format" in error_msg or \
-           ("Failed to validate time" in error_msg and "9am" in error_msg) or \
-           ("booking_time_formats" in test_name):
-            print("  → Matched time format issue")
-            return {
-                'type': 'missing_method',
-                'file': 'utils/validators.py',
-                'test': test_name,
-                'diagnosis': 'Method validate_time_format does not exist or time validation fails',
-                'line': 0,
+        # Add specific fix details based on type
+        if fix_type == 'currency_parsing':
+            fix.update({
+                'search_pattern': "'pricing_per_session': data.get('pricing'",
+                'fixed_code': "'pricing_per_session': self._parse_currency(data.get('pricing', 300))",
                 'add_method': True,
-                'method_code': '''
-    def validate_time_format(self, time_str: str):
-        """Validate time format (wrapper for validate_time)"""
-        from typing import Tuple, Optional
-        is_valid, formatted_time, error = self.validate_time(time_str)
-        return is_valid, error'''
-            }
+                'method_name': '_parse_currency'
+            })
         
-        # Duplicate registration check - more flexible
-        if "duplicate_registration" in test_name.lower() or \
-           ("already" in error_msg and "registration" in error_msg) or \
-           ("already" in error_msg and "step 1" in error_msg.lower()):
-            print("  → Matched duplicate registration issue")
-            return {
-                'type': 'duplicate_check',
-                'file': 'services/registration/trainer_registration.py',
-                'test': test_name,
-                'diagnosis': 'Not checking for existing registration',
-                'line': 0,
+        elif fix_type == 'phone_format':
+            fix.update({
+                'search_pattern': "return True, f'+{phone_digits}', None",
+                'fixed_code': "return True, phone_digits, None"
+            })
+        
+        elif fix_type == 'duplicate_check':
+            fix.update({
                 'add_check': True,
                 'check_code': '''
         # Check if trainer already registered
         existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()
         if existing.data:
-            return "Welcome back! You're already registered. How can I help you today?"'''
-            }
+            return {"success": True, "message": "Welcome back! You're already registered. How can I help you today?"}'''
+            })
         
-        # Input length validation
-        if ("assert 500 <= 255" in error_msg) or \
-           ("500" in error_msg and "255" in error_msg and "len" in error_msg.lower()) or \
-           ("extremely_long_input" in test_name.lower()):
-            print("  → Matched input length issue")
-            return {
-                'type': 'input_validation',
-                'file': 'services/registration/trainer_registration.py',
-                'test': test_name,
-                'diagnosis': 'Not truncating long input',
-                'line': 0,
-                'add_validation': True,
-                'validation_code': "response = response[:255] if len(response) > 255 else response  # Truncate if too long"
-            }
+        elif fix_type == 'trainer_recognition':
+            fix.update({
+                'add_check': True,
+                'check_code': '''
+        # Check if user is an existing trainer
+        trainer = self.db.table('trainers').select('name').eq('whatsapp', phone).execute()
+        if trainer.data:
+            trainer_name = trainer.data[0]['name']
+            return {"success": True, "message": f"Welcome back, {trainer_name}! How can I help you today?"}'''
+            })
         
-        # AI intent recognition issues - broader matching
-        if ("Failed to list clients" in error_msg) or \
-           ("Failed to show schedule" in error_msg) or \
-           ("view_clients" in test_name.lower() and "client" not in error_msg.lower()) or \
-           ("view_schedule" in test_name.lower() and "schedule" not in error_msg.lower()) or \
-           ("show my clients" in error_msg.lower()) or \
-           ("show my schedule" in error_msg.lower()):
-            print("  → Matched AI intent issue")
-            return {
-                'type': 'ai_intent',
-                'file': 'services/ai_intent_handler.py',
-                'test': test_name,
-                'diagnosis': 'AI not recognizing basic commands',
-                'line': 0,
+        elif fix_type == 'client_registration':
+            fix.update({
+                'add_response': True,
+                'response_code': '''
+        return {
+            "success": True,
+            "message": f"Great! {client_name} has been added as your client."
+        }'''
+            })
+        
+        elif fix_type == 'ai_intent':
+            fix.update({
                 'add_patterns': True,
                 'pattern_code': '''
         # Common command patterns
@@ -225,55 +232,51 @@ class AutoFixGenerator:
             'view_clients': [r'show.*clients?', r'list.*clients?', r'my clients?'],
             'view_schedule': [r'show.*schedule', r'my schedule', r"what.*today"],
             'add_client': [r'add.*client', r'new client', r'register.*client'],
+            'book_session': [r'book.*session', r'schedule.*training', r'book.*time']
         }'''
-            }
+            })
         
-        # NEW: Handle trainer recognition issues
-        if ("trainer_recognition" in test_name.lower()) or \
-           ("john" in error_msg.lower() and "welcome" not in error_msg.lower()) or \
-           ("Should recognize and greet trainer by name" in error_msg):
-            print("  → Matched trainer recognition issue")
-            return {
-                'type': 'trainer_recognition',
-                'file': 'services/ai_intent_handler.py',
-                'test': test_name,
-                'diagnosis': 'Not recognizing existing trainers by name',
-                'line': 0,
-                'add_check': True,
-                'check_code': '''
-        # Check if user is an existing trainer
-        trainer = self.db.table('trainers').select('name').eq('whatsapp', phone).execute()
-        if trainer.data:
-            trainer_name = trainer.data[0]['name']
-            return f"Welcome back, {trainer_name}! How can I help you today?"'''
-            }
+        elif fix_type == 'missing_method':
+            # Determine which method is missing
+            if 'validate_time_format' in context['error_message']:
+                fix.update({
+                    'add_method': True,
+                    'method_code': '''
+    def validate_time_format(self, time_str):
+        """Validate time format"""
+        import re
+        patterns = [
+            r'^\d{1,2}:\d{2}$',  # 9:00, 09:00
+            r'^\d{1,2}:\d{2}\s*[aApP][mM]$',  # 9:00am, 09:00 PM
+            r'^\d{1,2}[aApP][mM]$'  # 9am, 10PM
+        ]
         
-        # NEW: Handle client registration issues  
-        if ("client_receives_welcome" in test_name.lower()) or \
-           ("added" in error_msg and "registered" in error_msg):
-            print("  → Matched client registration issue")
-            return {
-                'type': 'client_registration',
-                'file': 'services/registration/client_registration.py',
-                'test': test_name,
-                'diagnosis': 'Client not receiving proper welcome message',
-                'line': 0,
-                'add_response': True,
-                'response_code': '''
-        return {
-            "success": True,
-            "message": f"Great! {client_name} has been added as your client."
-        }'''
-            }
+        for pattern in patterns:
+            if re.match(pattern, time_str.strip()):
+                return True
+        return False'''
+                })
         
-        print("  → No fix pattern matched")
-        return None
+        return fix
+    
+    def get_diagnosis(self, fix_type: str, context: Dict) -> str:
+        """Generate a human-readable diagnosis"""
+        diagnoses = {
+            'currency_parsing': 'Currency value saved as string instead of number',
+            'phone_format': 'Phone number format inconsistency (+ prefix)',
+            'duplicate_check': 'Not checking for existing registration',
+            'trainer_recognition': 'Not recognizing existing trainers by name',
+            'client_registration': 'Client not receiving proper welcome message',
+            'ai_intent': 'AI not recognizing natural language commands',
+            'missing_method': f'Missing method: {context.get("assertion", "validation method")}',
+            'mock_issue': 'Test mock configuration issue'
+        }
+        return diagnoses.get(fix_type, 'Issue detected in code')
     
     def process_all_failures(self):
         """Process all test failures and generate fixes"""
-        
         if not self.test_results:
-            print("No test results to process")
+            print("❌ No test results to process")
             return
         
         # Get failed tests
@@ -282,56 +285,101 @@ class AutoFixGenerator:
             if test.get('outcome') == 'failed'
         ]
         
-        print(f"\nFound {len(failed_tests)} failed tests")
+        print(f"\n📊 Found {len(failed_tests)} failed tests")
+        print("=" * 60)
         
         # Track unique fixes to avoid duplicates
         unique_fixes = {}
+        skipped_count = 0
         
-        for test in failed_tests:
-            fix = self.analyze_failure(test)
-            if fix:
-                # Use fix type and file as unique key
-                key = f"{fix['type']}_{fix['file']}"
-                if key not in unique_fixes:
-                    unique_fixes[key] = fix
-                    self.fixes.append(fix)
-                    print(f"✅ Generated fix for: {fix['type']}")
+        for i, test in enumerate(failed_tests, 1):
+            test_name = test.get('nodeid', 'Unknown')
+            print(f"\n[{i}/{len(failed_tests)}] Analyzing: {test_name[:80]}...")
+            
+            # Extract error context
+            context = self.extract_error_context(test)
+            
+            # Determine fix type
+            fix_config = self.determine_fix_type(context)
+            
+            if fix_config:
+                # Generate fix
+                fix = self.generate_fix(test, context, fix_config)
+                
+                if fix:
+                    # Use fix type and file as unique key
+                    key = f"{fix['type']}_{fix['file']}"
+                    
+                    if key not in unique_fixes:
+                        unique_fixes[key] = fix
+                        self.fixes.append(fix)
+                        print(f"  ✅ Generated fix: {fix['type']}")
+                    else:
+                        print(f"  ⏭️  Duplicate fix skipped")
+                else:
+                    print(f"  ❌ Could not generate fix")
+            else:
+                if 'mock' in context['error_message'].lower():
+                    print(f"  ⏭️  Skipped: Mock/test setup issue")
+                else:
+                    print(f"  ❓ No fix pattern matched")
+                skipped_count += 1
+        
+        print("\n" + "=" * 60)
+        print(f"📝 Summary:")
+        print(f"  Total failures: {len(failed_tests)}")
+        print(f"  Fixes generated: {len(self.fixes)}")
+        print(f"  Skipped: {skipped_count}")
         
         # Save fixes
         self.save_fixes()
     
     def save_fixes(self) -> None:
         """Save generated fixes to file"""
-        
         if self.fixes:
             with open('generated_fixes.json', 'w') as f:
                 json.dump(self.fixes, f, indent=2)
-            print(f"\n📝 Generated {len(self.fixes)} fixes")
-            print("✅ Created generated_fixes.json")
+            
+            print(f"\n✅ Saved {len(self.fixes)} fixes to generated_fixes.json")
+            
+            # Create summary for PR
+            summary = {
+                'total_tests': len(self.test_results.get('tests', [])),
+                'failed_tests': len([t for t in self.test_results.get('tests', []) 
+                                   if t.get('outcome') == 'failed']),
+                'fixes_generated': len(self.fixes),
+                'fix_types': {}
+            }
+            
+            for fix in self.fixes:
+                fix_type = fix['type']
+                summary['fix_types'][fix_type] = summary['fix_types'].get(fix_type, 0) + 1
+            
+            with open('fix_summary.json', 'w') as f:
+                json.dump(summary, f, indent=2)
+            
+            print("✅ Created fix_summary.json")
+            
+            # Display fix type breakdown
+            print("\n📊 Fix Types Generated:")
+            for fix_type, count in summary['fix_types'].items():
+                print(f"  - {fix_type}: {count}")
         else:
             print("\n⚠️ No fixes were generated")
-            print("   Check that error patterns match the actual test failures")
-            print("   Most failures seem to be Mock-related - check test setup")
-        
-        # Create summary for PR
-        summary = {
-            'total_tests': len(self.test_results.get('tests', [])),
-            'failed_tests': len([t for t in self.test_results.get('tests', []) if t.get('outcome') == 'failed']),
-            'fixes_generated': len(self.fixes),
-            'fix_types': {}
-        }
-        
-        for fix in self.fixes:
-            fix_type = fix['type']
-            summary['fix_types'][fix_type] = summary['fix_types'].get(fix_type, 0) + 1
-        
-        with open('fix_summary.json', 'w') as f:
-            json.dump(summary, f, indent=2)
-        
-        print("✅ Created fix_summary.json")
+            
+            # Create empty files so the workflow doesn't fail
+            with open('generated_fixes.json', 'w') as f:
+                json.dump([], f)
+            
+            with open('fix_summary.json', 'w') as f:
+                json.dump({'fixes_generated': 0}, f)
+
 
 if __name__ == "__main__":
-    print("🔍 Analyzing test failures...")
-    generator = AutoFixGenerator()
+    print("🔍 Refiloe Auto-Fix Generator v2.0")
+    print("=" * 60)
+    
+    generator = ImprovedAutoFixGenerator()
     generator.process_all_failures()
-    print("✅ Fix generation complete!")
+    
+    print("\n✅ Fix generation complete!")
