@@ -247,7 +247,7 @@ class Validators:
             return True, formatted, None
         
         # Handle "9 o'clock"
-        oclock = re.match(r'^(\d{1,2})\s*o[\'']?clock$', time_str.lower())
+        oclock = re.match(r'^(\d{1,2})\s*o\'?clock$', time_str.lower())
         if oclock:
             hour = int(oclock.group(1))
             
