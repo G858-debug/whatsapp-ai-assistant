@@ -189,13 +189,19 @@ class Validators:
         # Clean and normalize the input
         original = time_str
         time_str = time_str.strip()
+
+        print(f"DEBUG 1: Checking '{time_str}'")  # ADD THIS FOR DEBUGGING
         
         # Handle special case: "9am" or "9pm" (no space, no colon)
         simple_am_pm = re.match(r'^(\d{1,2})(am|pm)$', time_str.lower())
-        print(f"DEBUG: Testing '{time_str}' -> match: {simple_am_pm is not None}")  # ADD THIS LINE FOR TESTING
+        print(f"DEBUG 2: simple_am_pm match = {simple_am_pm}")  # ADD THIS FOR DEBUGGING
+        print(f"DEBUG 3: bool(simple_am_pm) = {bool(simple_am_pm)}")  # ADD THIS FOR DEBUGGING
+                         
         if simple_am_pm:
+            print(f"DEBUG 4: Inside if block!")  # ADD THIS FOR DEBUGGING
             hour = int(simple_am_pm.group(1))
             is_pm = simple_am_pm.group(2) == 'pm'
+            print(f"DEBUG 5: hour={hour}, is_pm={is_pm}")  # ADD THIS FOR DEBUGGING
             
             # Convert to 24-hour format
             if is_pm and hour != 12:
@@ -204,14 +210,20 @@ class Validators:
                 hour = 0
                 
             formatted = f"{hour:02d}:00"
+            print(f"DEBUG 6: formatted={formatted}")  # ADD THIS FOR DEBUGGING
             
             # Check bounds
             if min_time and formatted < min_time:
+                print(f"DEBUG 7: Failed min_time check")  # ADD THIS FOR DEBUGGING
                 return False, None, f"Time cannot be before {min_time}"
             if max_time and formatted > max_time:
+                print(f"DEBUG 8: Failed max_time check")  # ADD THIS FOR DEBUGGING
                 return False, None, f"Time cannot be after {max_time}"
-                
+
+            print(f"DEBUG 9: Returning True, {formatted}, None")  # ADD THIS FOR DEBUGGING
             return True, formatted, None
+
+        print(f"DEBUG 10: simple_am_pm did not match, continuing...")  # ADD THIS FOR DEBUGGING
         
         # Handle "9 am" or "9 pm" or "9 AM" or "9 PM" (with space, any case)
         space_am_pm = re.match(r'^(\d{1,2})\s+(am|pm)$', time_str.lower())
