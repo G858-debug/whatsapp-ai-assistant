@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""Loop detection script - prevents infinite auto-fix loops"""
-
 import json
 import hashlib
 import sys
 from pathlib import Path
 
 def get_failure_signature():
-    """Generate a signature from failed tests"""
     try:
         with open('test-results.json', 'r') as f:
             data = json.load(f)
@@ -33,7 +30,8 @@ def main():
         print("No failures found")
         sys.exit(0)
     
-    print(f"Signature: {current_sig}, Failed: {len(failed_tests)}")
+    print(f"Current signature: {current_sig}")
+    print(f"Failed tests: {len(failed_tests)}")
     
     history_dir = Path('.test-history')
     history_dir.mkdir(exist_ok=True)
@@ -70,7 +68,4 @@ def main():
     sys.exit(0)
 
 if __name__ == "__main__":
-    if not sys.stdin.isatty():
-        sys.exit(0)  # Compatibility mode
-    else:
-        main()
+    main()
