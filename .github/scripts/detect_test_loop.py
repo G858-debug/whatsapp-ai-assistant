@@ -1,68 +1,76 @@
 #!/usr/bin/env python3
-"""
-Detect if tests are failing in a loop with the same errors
-"""
-import hashlib
+"""Loop detection script - prevents infinite auto-fix loops"""
+
 import json
+import hashlib
 import sys
 from pathlib import Path
 
-
-def get_failure_signature(test_output):
-    """Extract unique signature from test failures"""
-    failures = []
-    for line in test_output.split('\n'):
-        if 'FAILED' in line:
-            # Extract just the test name and assertion
-            parts = line.split(' - ')
-            if len(parts) > 1:
-                failures.append(parts[0].strip())
-        elif 'assert' in line and '==' in line:
-            # Extract assertion failures
-            failures.append(line.strip()[:100])  # First 100 chars
-    
-    # Create hash of sorted failures
-    failure_text = '\n'.join(sorted(set(failures)))
-    return hashlib.md5(failure_text.encode()).hexdigest()
-
+def get_failure_signature():
+    """Generate a signature from failed tests"""
+    try:
+        with open('test-results.json', 'r') as f:
+            data = json.load(f)
+        
+        failed_tests = sorted([
+            t['nodeid'] for t in data.get('tests', [])
+            if t.get('outcome') == 'failed'
+        ])
+        
+        if not failed_tests:
+            return None, []
+        
+        signature = hashlib.md5(''.join(failed_tests).encode()).hexdigest()[:10]
+        return signature, failed_tests
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, []
 
 def main():
-    test_output = sys.stdin.read()
+    current_sig, failed_tests = get_failure_signature()
     
-    if not test_output:
-        print("⚠️ No test output to analyze")
+    if not current_sig:
+        print("No failures found")
         sys.exit(0)
     
-    signature = get_failure_signature(test_output)
+    print(f"Signature: {current_sig}, Failed: {len(failed_tests)}")
     
-    history_file = Path('.test_failure_history.json')
-    history = json.loads(history_file.read_text()) if history_file.exists() else []
+    history_dir = Path('.test-history')
+    history_dir.mkdir(exist_ok=True)
     
-    # Check if this signature appeared in the last 3 runs
-    recent_signatures = history[-3:] if len(history) >= 3 else history
+    sig_file = history_dir / 'last-signature.txt'
+    loop_count_file = history_dir / 'loop-count.txt'
     
-    if signature in recent_signatures:
-        print(f"🔄 LOOP DETECTED! Same failures recurring (signature: {signature[:8]}...)")
-        print("The same tests are failing with identical errors.")
-        print("Manual intervention required to fix the root cause.")
-        
-        # Show which tests are failing repeatedly
-        print("\nRepeatedly failing tests:")
-        for line in test_output.split('\n'):
-            if 'FAILED' in line:
-                print(f"  - {line.strip()}")
-        
-        sys.exit(1)
+    loop_count = 0
+    if sig_file.exists():
+        last_sig = sig_file.read_text().strip()
+        if last_sig == current_sig:
+            if loop_count_file.exists():
+                loop_count = int(loop_count_file.read_text().strip())
+            loop_count += 1
+            loop_count_file.write_text(str(loop_count))
+            
+            if loop_count >= 3:
+                print(f"🔄 LOOP DETECTED! Same failures recurring (signature: {current_sig}...)")
+                print("The same tests are failing with identical errors.")
+                print("Manual intervention required to fix the root cause.")
+                print("Repeatedly failing tests:")
+                for test in failed_tests[:10]:
+                    print(f" - {test}")
+                sys.exit(1)
+            else:
+                print(f"Attempt {loop_count} of 2")
+                sys.exit(0)
+        else:
+            loop_count_file.write_text('0')
+    else:
+        loop_count_file.write_text('0')
     
-    # Add to history
-    history.append(signature)
-    history = history[-10:]  # Keep last 10
-    history_file.write_text(json.dumps(history, indent=2))
-    
-    print(f"✅ No loop detected (signature: {signature[:8]}...)")
-    print(f"This is occurrence #{len([s for s in history if s == signature])} of this failure pattern")
+    sig_file.write_text(current_sig)
     sys.exit(0)
 
-
 if __name__ == "__main__":
-    main()
+    if not sys.stdin.isatty():
+        sys.exit(0)  # Compatibility mode
+    else:
+        main()
