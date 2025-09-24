@@ -117,7 +117,6 @@ jobs:
         # First, try to run the comprehensive real-world tests
         if [ -f "tests/test_refiloe_real_world.py" ]; then
           echo "Running real-world comprehensive tests..."
-          # CRITICAL FIX: Use PIPESTATUS to capture pytest exit code, not tee's
           python -m pytest tests/test_refiloe_real_world.py \
             --ignore=tests/test_pr_generation.py \
             --ignore=tests/test_fix_generation.py \
@@ -128,10 +127,9 @@ jobs:
             -v \
             --tb=short \
             --capture=no 2>&1 | tee test-output.log
-          TEST_EXIT_CODE=${PIPESTATUS[0]}  # CRITICAL: Get pytest's exit code, not tee's
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
         else
           echo "Real-world tests not found, running basic tests..."
-          # CRITICAL FIX: Use PIPESTATUS to capture pytest exit code, not tee's
           python -m pytest tests/ \
             --ignore=tests/test_railway_api.py \
             --ignore=tests/test_calendar_service.py \
@@ -144,7 +142,7 @@ jobs:
             -v \
             --tb=short \
             --capture=no 2>&1 | tee test-output.log
-          TEST_EXIT_CODE=${PIPESTATUS[0]}  # CRITICAL: Get pytest's exit code, not tee's
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
         fi
         
         # CRITICAL FIX: Capture the actual pytest exit code
@@ -175,108 +173,105 @@ jobs:
           # Always show test summary
           if [ -f "test-results.json" ]; then
             echo "=== Test Summary ==="
-            # Use single-line Python command
             python -c "import json; d=json.load(open('test-results.json')); s=d.get('summary',{}); print(f\"Total: {s.get('total',0)}, Passed: {s.get('passed',0)}, Failed: {s.get('failed',0)}\")" || true
           fi
         fi
 
-    - name: Check for test loop (Improved)
+    - name: Check for test loop
       if: env.test_status == 'failure'
       continue-on-error: false
       run: |
         echo "=== Checking for test failure loop ==="
         
-        # Create the loop detection script inline if it doesn't exist
-        cat > detect_test_loop.py << 'EOF'
-#!/usr/bin/env python3
-import json
-import hashlib
-import sys
-from pathlib import Path
-
-def get_failure_signature(test_results_file):
-    """Generate a signature from failed tests"""
-    try:
-        with open(test_results_file, 'r') as f:
-            data = json.load(f)
+        # Create the detect_test_loop.py script if it doesn't exist
+        mkdir -p .github/scripts
         
-        failed_tests = sorted([
-            t['nodeid'] for t in data.get('tests', [])
-            if t.get('outcome') == 'failed'
-        ])
+        cat > .github/scripts/detect_test_loop.py << 'EOLOOP'
+        #!/usr/bin/env python3
+        import json
+        import hashlib
+        import sys
+        from pathlib import Path
         
-        if not failed_tests:
-            return None
+        def get_failure_signature():
+            try:
+                with open('test-results.json', 'r') as f:
+                    data = json.load(f)
+                
+                failed_tests = sorted([
+                    t['nodeid'] for t in data.get('tests', [])
+                    if t.get('outcome') == 'failed'
+                ])
+                
+                if not failed_tests:
+                    return None, []
+                
+                signature = hashlib.md5(''.join(failed_tests).encode()).hexdigest()[:10]
+                return signature, failed_tests
+            except Exception as e:
+                print(f"Error: {e}")
+                return None, []
         
-        # Create signature from test names
-        signature = hashlib.md5(''.join(failed_tests).encode()).hexdigest()[:10]
-        return signature, failed_tests
-    except Exception as e:
-        print(f"Error reading test results: {e}")
-        return None, []
-
-# Main logic
-history_dir = Path('.test-history')
-history_dir.mkdir(exist_ok=True)
-
-current_sig, failed_tests = get_failure_signature('test-results.json')
-
-if not current_sig:
-    print("No test failures found")
-    sys.exit(0)
-
-# Check previous signature
-sig_file = history_dir / 'last-signature.txt'
-loop_count_file = history_dir / 'loop-count.txt'
-
-if sig_file.exists():
-    last_sig = sig_file.read_text().strip()
-    
-    if last_sig == current_sig:
-        # Same failures - check loop count
-        loop_count = 1
-        if loop_count_file.exists():
-            loop_count = int(loop_count_file.read_text().strip()) + 1
+        def main():
+            current_sig, failed_tests = get_failure_signature()
+            
+            if not current_sig:
+                print("No failures found")
+                sys.exit(0)
+            
+            print(f"Current signature: {current_sig}")
+            print(f"Failed tests: {len(failed_tests)}")
+            
+            history_dir = Path('.test-history')
+            history_dir.mkdir(exist_ok=True)
+            
+            sig_file = history_dir / 'last-signature.txt'
+            loop_count_file = history_dir / 'loop-count.txt'
+            
+            loop_count = 0
+            if sig_file.exists():
+                last_sig = sig_file.read_text().strip()
+                if last_sig == current_sig:
+                    if loop_count_file.exists():
+                        loop_count = int(loop_count_file.read_text().strip())
+                    loop_count += 1
+                    loop_count_file.write_text(str(loop_count))
+                    
+                    if loop_count >= 3:
+                        print(f"🔄 LOOP DETECTED! Same failures recurring (signature: {current_sig}...)")
+                        print("The same tests are failing with identical errors.")
+                        print("Manual intervention required to fix the root cause.")
+                        print("Repeatedly failing tests:")
+                        for test in failed_tests[:10]:
+                            print(f" - {test}")
+                        sys.exit(1)
+                    else:
+                        print(f"Attempt {loop_count} of 2")
+                        sys.exit(0)
+                else:
+                    loop_count_file.write_text('0')
+            else:
+                loop_count_file.write_text('0')
+            
+            sig_file.write_text(current_sig)
+            sys.exit(0)
         
-        loop_count_file.write_text(str(loop_count))
+        if __name__ == "__main__":
+            main()
+        EOLOOP
         
-        print(f"🔄 LOOP DETECTED! Same failures recurring (signature: {current_sig}...)")
-        print("The same tests are failing with identical errors.")
-        
-        if loop_count > 2:  # Allow 2 attempts before giving up
-            print("Manual intervention required to fix the root cause.")
-            print("Repeatedly failing tests:")
-            for test in failed_tests[:10]:
-                print(f" - {test}")
-            sys.exit(1)  # Exit with error to stop the workflow
-        else:
-            print(f"Attempt {loop_count} of 2 to auto-fix...")
-            sys.exit(0)  # Continue trying
-    else:
-        # Different failures - reset
-        loop_count_file.write_text('0')
-else:
-    # First run
-    loop_count_file.write_text('0')
-
-# Save current signature
-sig_file.write_text(current_sig)
-print(f"✅ New failure signature: {current_sig}")
-print(f"Failed tests: {len(failed_tests)}")
-sys.exit(0)
-EOF
+        # Make it executable and run it
+        chmod +x .github/scripts/detect_test_loop.py
         
         # Run loop detection
-        if python detect_test_loop.py; then
-          echo "No blocking loop detected, proceeding with auto-fix..."
-          echo "fixes_can_proceed=true" >> $GITHUB_ENV
+        if python .github/scripts/detect_test_loop.py; then
+          echo "No loop detected, proceeding with auto-fix..."
         else
           echo "❌ TEST LOOP DETECTED!"
           echo "The auto-fix system is stuck in a loop."
           echo "Manual intervention required."
           echo "fixes_generated=false" >> $GITHUB_ENV
-          echo "fixes_can_proceed=false" >> $GITHUB_ENV
-          # Don't exit with error - let workflow continue but skip fixes
+          exit 1
         fi
     
     - name: Upload test results
@@ -299,7 +294,7 @@ EOF
           echo "Test Results JSON:"
           cat test-results.json | python -m json.tool | head -100 || true
           
-          # Extract and show failed tests using single-line command
+          # Extract and show failed tests
           echo ""
           echo "=== Failed Tests ==="
           python -c "import json; d=json.load(open('test-results.json')); [print(f\"❌ {t.get('nodeid','Unknown')}\") for t in d.get('tests',[]) if t.get('outcome')=='failed']" || true
@@ -309,148 +304,86 @@ EOF
     
     - name: Analyze failures and generate fixes
       id: analyze-fixes
-      if: env.test_status == 'failure' && env.fixes_can_proceed == 'true'
+      if: always() && env.test_status == 'failure'
       run: |
         echo "=== Starting fix analysis ==="
         echo "Step triggered with test_status: ${{ env.test_status }}"
         
-        # Remove any old generated files first (important!)
+        # Remove any old generated files first
         rm -f generated_fixes.json fix_summary.json fix-generator.log || true
         
-        # Ensure the improved generator exists, create if not
-        if [ ! -f "tests/auto_fix_generator.py" ]; then
-          echo "Creating improved auto_fix_generator.py..."
-          cat > tests/auto_fix_generator.py << 'GENERATOR_EOF'
-#!/usr/bin/env python3
-"""
-Auto-Fix Generator - Analyzes test failures and generates fixes
-"""
-
-import json
-import re
-from typing import Dict, List, Optional
-
-
-class AutoFixGenerator:
-    """Generate fixes for test failures"""
-    
-    def __init__(self):
-        self.test_results = self.load_test_results()
-        self.fixes = []
-    
-    def load_test_results(self) -> Dict:
-        """Load test results from JSON file"""
-        try:
-            with open('test-results.json', 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading test results: {e}")
-            return {}
-    
-    def analyze_failure(self, test: Dict) -> Optional[Dict]:
-        """Analyze a test failure and generate fix"""
-        test_name = test.get('nodeid', '')
-        error_msg = test.get('call', {}).get('longrepr', '')
+        # Check current directory and files
+        pwd
+        ls -la tests/auto_fix_generator.py || echo "Generator file not found!"
         
-        print(f"Analyzing: {test_name[:80]}...")
-        
-        # Skip mock-related failures
-        if 'Mock' in error_msg or 'mock' in test_name.lower():
-            print("  → Skipped: Mock issue")
-            return None
-        
-        # Currency parsing issue
-        if 'currency' in error_msg.lower() or 'R450' in error_msg:
-            return {
-                'type': 'currency_parsing',
-                'file': 'services/registration/trainer_registration.py',
-                'test': test_name,
-                'diagnosis': 'Currency parsing issue'
-            }
-        
-        # Phone format issue
-        if 'phone' in error_msg.lower() or '+27' in error_msg:
-            return {
-                'type': 'phone_format',
-                'file': 'utils/validators.py',
-                'test': test_name,
-                'diagnosis': 'Phone format issue'
-            }
-        
-        # AI intent issue
-        if 'intent' in error_msg.lower() or 'command' in error_msg.lower():
-            return {
-                'type': 'ai_intent',
-                'file': 'services/ai_intent_handler.py',
-                'test': test_name,
-                'diagnosis': 'AI intent recognition issue'
-            }
-        
-        return None
-    
-    def process_all_failures(self):
-        """Process all test failures"""
-        if not self.test_results:
-            print("No test results to process")
-            return
-        
-        failed_tests = [
-            t for t in self.test_results.get('tests', [])
-            if t.get('outcome') == 'failed'
-        ]
-        
-        print(f"Found {len(failed_tests)} failed tests")
-        
-        for test in failed_tests:
-            fix = self.analyze_failure(test)
-            if fix:
-                # Avoid duplicates
-                if not any(f['type'] == fix['type'] and f['file'] == fix['file'] for f in self.fixes):
-                    self.fixes.append(fix)
-                    print(f"  ✅ Generated fix: {fix['type']}")
-        
-        self.save_fixes()
-    
-    def save_fixes(self):
-        """Save generated fixes"""
-        with open('generated_fixes.json', 'w') as f:
-            json.dump(self.fixes, f, indent=2)
-        
-        print(f"\n📝 Generated {len(self.fixes)} fixes")
-        
-        # Create summary
-        with open('fix_summary.json', 'w') as f:
-            json.dump({
-                'total_tests': len(self.test_results.get('tests', [])),
-                'failed_tests': len([t for t in self.test_results.get('tests', []) if t.get('outcome') == 'failed']),
-                'fixes_generated': len(self.fixes)
-            }, f, indent=2)
-
-
-if __name__ == "__main__":
-    generator = AutoFixGenerator()
-    generator.process_all_failures()
-GENERATOR_EOF
-        fi
-        
-        # Run the generator
-        if python tests/auto_fix_generator.py 2>&1 | tee fix-generator.log; then
-          echo "✅ Fix generator completed"
-        else
-          echo "⚠️ Fix generator had issues"
-        fi
-        
-        # Check if fixes were generated
-        if [ -f "generated_fixes.json" ]; then
-          FIX_COUNT=$(python -c "import json; print(len(json.load(open('generated_fixes.json'))))" 2>/dev/null || echo "0")
-          echo "Generated $FIX_COUNT fixes"
+        # Show test results exist
+        if [ -f "test-results.json" ]; then
+          echo "test-results.json exists, size: $(stat -c%s test-results.json 2>/dev/null || stat -f%z test-results.json 2>/dev/null || echo 'unknown') bytes"
           
-          if [ "$FIX_COUNT" -gt "0" ]; then
-            echo "fixes_generated=true" >> $GITHUB_ENV
+          # Show first few lines of test results for debugging
+          echo "=== First 500 chars of test-results.json ==="
+          head -c 500 test-results.json || true
+          echo ""
+          
+          # Count tests
+          TOTAL_TESTS=$(python -c "import json; d=json.load(open('test-results.json')); print(len(d.get('tests',[])))" 2>/dev/null || echo "0")
+          FAILED_COUNT=$(python -c "import json; d=json.load(open('test-results.json')); print(len([t for t in d.get('tests',[]) if t.get('outcome')=='failed']))" 2>/dev/null || echo "0")
+          
+          echo "Total tests in file: $TOTAL_TESTS"
+          echo "Failed tests in file: $FAILED_COUNT"
+          
+          # Show some failed test names
+          echo "=== Failed test names ==="
+          python -c "import json; d=json.load(open('test-results.json')); [print(t.get('nodeid','Unknown')[:80]) for t in d.get('tests',[])[:5] if t.get('outcome')=='failed']" 2>/dev/null || echo "Could not extract test names"
+          
+          if [ "$FAILED_COUNT" -gt "0" ]; then
+            echo "Running fix generator on $FAILED_COUNT failures..."
+            
+            # Ensure the generator script exists
+            if [ ! -f "tests/auto_fix_generator.py" ]; then
+              echo "ERROR: auto_fix_generator.py not found!"
+              echo "fixes_generated=false" >> $GITHUB_ENV
+              exit 0
+            fi
+            
+            # Run with explicit python path
+            echo "=== Running generator ==="
+            python3 tests/auto_fix_generator.py 2>&1 | tee fix-generator.log
+            GENERATOR_EXIT=${PIPESTATUS[0]}
+            
+            echo "Generator exit code: $GENERATOR_EXIT"
+            
+            # Show generator output
+            echo "=== Generator Output ==="
+            cat fix-generator.log || true
+            
+            # Check results
+            if [ -f "generated_fixes.json" ]; then
+              echo "✅ generated_fixes.json created"
+              echo "=== Generated Fixes ==="
+              cat generated_fixes.json | python -m json.tool | head -50 || cat generated_fixes.json | head -50
+              
+              # Count fixes
+              FIX_COUNT=$(python -c "import json; print(len(json.load(open('generated_fixes.json'))))" 2>/dev/null || echo "0")
+              echo "Generated $FIX_COUNT fixes"
+              
+              if [ "$FIX_COUNT" -gt "0" ]; then
+                echo "fixes_generated=true" >> $GITHUB_ENV
+                echo "✅ Setting fixes_generated=true"
+              else
+                echo "⚠️ Fix file exists but contains no fixes"
+                echo "fixes_generated=false" >> $GITHUB_ENV
+              fi
+            else
+              echo "❌ No generated_fixes.json file created"
+              echo "fixes_generated=false" >> $GITHUB_ENV
+            fi
           else
+            echo "No failures found in test results"
             echo "fixes_generated=false" >> $GITHUB_ENV
           fi
         else
+          echo "❌ test-results.json not found!"
           echo "fixes_generated=false" >> $GITHUB_ENV
         fi
     
@@ -461,86 +394,6 @@ GENERATOR_EOF
       run: |
         echo "=== Applying fixes and creating PR ==="
         
-        # Ensure apply_fixes.py exists
-        if [ ! -f "tests/apply_fixes.py" ]; then
-          echo "Creating apply_fixes.py..."
-          cat > tests/apply_fixes.py << 'APPLIER_EOF'
-#!/usr/bin/env python3
-"""
-Apply generated fixes to the codebase
-"""
-
-import json
-import os
-import shutil
-from datetime import datetime
-
-
-class FixApplier:
-    """Apply fixes to code files"""
-    
-    def __init__(self):
-        self.fixes = self.load_fixes()
-        self.backup_dir = f"backups/{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        self.applied_fixes = []
-        self.failed_fixes = []
-    
-    def load_fixes(self):
-        """Load fixes from file"""
-        try:
-            with open('generated_fixes.json', 'r') as f:
-                return json.load(f)
-        except:
-            return []
-    
-    def create_backup(self, file_path):
-        """Backup file before modifying"""
-        os.makedirs(self.backup_dir, exist_ok=True)
-        if os.path.exists(file_path):
-            backup_path = os.path.join(self.backup_dir, os.path.basename(file_path))
-            shutil.copy2(file_path, backup_path)
-            print(f"Backed up {file_path}")
-    
-    def apply_fix(self, fix):
-        """Apply a single fix"""
-        file_path = fix.get('file')
-        if not file_path or not os.path.exists(file_path):
-            self.failed_fixes.append(fix)
-            return False
-        
-        self.create_backup(file_path)
-        
-        # For now, just log what would be fixed
-        print(f"Would fix {fix['type']} in {file_path}")
-        self.applied_fixes.append(fix)
-        return True
-    
-    def apply_all_fixes(self):
-        """Apply all fixes"""
-        for fix in self.fixes:
-            self.apply_fix(fix)
-        
-        # Save summary
-        with open('fix_summary.json', 'w') as f:
-            json.dump({
-                'total_fixes': len(self.fixes),
-                'applied': len(self.applied_fixes),
-                'failed': len(self.failed_fixes),
-                'applied_fixes': self.applied_fixes,
-                'failed_fixes': self.failed_fixes
-            }, f, indent=2)
-        
-        print(f"Applied {len(self.applied_fixes)} fixes")
-        print(f"Failed {len(self.failed_fixes)} fixes")
-        return len(self.applied_fixes) > 0
-
-
-if __name__ == "__main__":
-    applier = FixApplier()
-    success = applier.apply_all_fixes()
-APPLIER_EOF
-        fi
-        
         # Configure git
         git config --global user.name 'Refiloe Auto-Fix Bot'
         git config --global user.email 'bot@refiloe.ai'
@@ -549,32 +402,53 @@ APPLIER_EOF
         BRANCH_NAME="auto-fix-$(date +%Y%m%d-%H%M%S)"
         git checkout -b $BRANCH_NAME
         
-        # Apply fixes
-        python tests/apply_fixes.py 2>&1 | tee apply-fixes.log
+        # Show what fixes will be applied
+        echo "=== Fixes to Apply ==="
+        cat generated_fixes.json | python -m json.tool | head -30 || true
         
-        # Check for changes
+        # Apply fixes
+        echo "=== Applying Fixes ==="
+        if python tests/apply_fixes.py 2>&1 | tee apply-fixes.log; then
+          echo "✅ Fixes applied successfully"
+        else
+          echo "⚠️ Some fixes may have failed to apply"
+          cat apply-fixes.log || true
+        fi
+        
+        # Show what changed
+        echo "=== Git Status ==="
+        git status
+        
+        echo "=== Git Diff ==="
+        git diff | head -100 || true
+        
+        # Commit changes if any
         if [[ -n $(git status -s) ]]; then
           echo "Files were modified, creating commit..."
           git add -A
-          git commit -m "🔧 Auto-fix: Resolve test failures
-          
-          Automated fixes applied by test_and_fix workflow"
+          git commit -m "🔧 Auto-fix: Resolve conversation flow issues
+
+          Automated fixes for test failures:
+          $(python tests/get_fix_summary.py 2>/dev/null || echo 'Various test fixes')"
           
           # Push branch
+          echo "Pushing branch $BRANCH_NAME..."
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
           git push origin $BRANCH_NAME
           
-          # Create PR
+          # Create PR using GitHub CLI
+          echo "Creating Pull Request..."
           gh pr create \
-            --title "🔧 Auto-Fix: Test Failures" \
-            --body "This PR contains automated fixes for test failures.
-            
-            Please review the changes carefully before merging." \
+            --title "🔧 Auto-Fix: Conversation Flow Issues" \
+            --body "$(python tests/generate_pr_description.py 2>/dev/null || echo 'Automated fixes for test failures')" \
             --base main \
             --head $BRANCH_NAME \
-            --label "auto-fix" || echo "PR creation failed"
+            --label "auto-fix" \
+            --assignee ${{ github.actor }} || echo "PR creation failed - you may need to create it manually"
         else
-          echo "No files changed"
+          echo "No files were changed - no PR needed"
+          echo "=== Debug: Check why no changes ==="
+          ls -la services/registration/trainer_registration.py utils/validators.py 2>/dev/null || true
         fi
     
     - name: Post test summary to PR
@@ -584,6 +458,7 @@ APPLIER_EOF
         script: |
           const fs = require('fs');
           
+          // Check if test-results.json exists
           if (!fs.existsSync('test-results.json')) {
             console.log('No test results file found');
             return;
@@ -598,7 +473,7 @@ APPLIER_EOF
           const emoji = failed === 0 ? '✅' : '❌';
           const status = failed === 0 ? 'All tests passed!' : `${failed} test(s) failed`;
           
-          const comment = `## ${emoji} Test Results
+          const comment = `## ${emoji} Conversation Flow Test Results
           
           **Status:** ${status}
           **Passed:** ${passed}/${total}
@@ -627,5 +502,15 @@ APPLIER_EOF
     - name: Celebrate success
       if: success() && env.test_status == 'success'
       run: |
-        echo "🎉 ALL TESTS PASSED! 🎉"
+        echo "🎉🎉🎉 ALL TESTS PASSED! 🎉🎉🎉"
+        echo "================================"
+        echo "✅ Test suite is working correctly"
+        echo "✅ All conversation flows passed"
         echo "✅ No fixes needed"
+        echo "================================"
+    
+    - name: Send notification
+      if: failure() && github.ref == 'refs/heads/main'
+      run: |
+        echo "Tests failed on main branch - would send notification here"
+        # Could integrate with Slack, email, or WhatsApp notification
