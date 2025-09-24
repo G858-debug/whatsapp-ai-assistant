@@ -192,6 +192,7 @@ class Validators:
         
         # Handle special case: "9am" or "9pm" (no space, no colon)
         simple_am_pm = re.match(r'^(\d{1,2})(am|pm)$', time_str.lower())
+        print(f"DEBUG: Testing '{time_str}' -> match: {simple_am_pm is not None}")  # ADD THIS LINE FOR TESTING
         if simple_am_pm:
             hour = int(simple_am_pm.group(1))
             is_pm = simple_am_pm.group(2) == 'pm'
