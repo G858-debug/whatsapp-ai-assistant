@@ -200,8 +200,8 @@ jobs:
                   return 'claude-opus-4-1-20250805', 32000, 'full', "Opus 4.1 (forced)"
               
               if force_sonnet:
-                  print("🎯 Force flag: Using Sonnet 3.5")
-                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Sonnet 3.5 (forced)"
+                  print("🎯 Force flag: Using Sonnet 4")
+                  return 'claude-sonnet-4-20250822', 8000, 'targeted', "Sonnet 4 (forced)"
               
               if force_haiku:
                   print("🎯 Force flag: Using Haiku 3")
@@ -210,11 +210,11 @@ jobs:
               # For multi-step tasks, use appropriate model based on step
               if is_multi_step:
                   if 'analyze' in task_lower or 'step 1' in task_lower:
-                      return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Analysis step (Sonnet 3.5)"
+                      return 'claude-sonnet-4-20250822', 8000, 'targeted', "Analysis step (Sonnet 4)"
                   elif 'implement' in task_lower or 'create' in task_lower:
                       return 'claude-opus-4-1-20250805', 16000, 'full', "Implementation step (Opus 4.1)"
                   else:
-                      return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Standard step (Sonnet 3.5)"
+                      return 'claude-sonnet-4-20250822', 8000, 'targeted', "Standard step (Sonnet 4)"
               
               # HAIKU 3 TRIGGERS (Ultra-simple tasks - $0.25/million tokens)
               haiku_triggers = [
@@ -225,7 +225,7 @@ jobs:
                   'update version', 'change url', 'fix link'
               ]
               
-              # SONNET 3.5 TRIGGERS (Moderate tasks - $3/million tokens)
+              # SONNET 4 TRIGGERS (Moderate tasks - $3/million tokens)
               sonnet_triggers = [
                   'fix function', 'update method', 'fix indentation', 'indentationerror',
                   'syntax error', 'fix import', 'add validation', 'add check',
@@ -252,19 +252,19 @@ jobs:
               if is_haiku and not is_sonnet and not is_opus:
                   return 'claude-3-haiku-20240307', 4000, 'minimal', "Trivial task (Haiku 3)"
               elif is_sonnet and not is_opus:
-                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Moderate task (Sonnet 3.5)"
+                  return 'claude-sonnet-4-20250822', 8000, 'targeted', "Moderate task (Sonnet 4)"
               elif is_opus:
                   return 'claude-opus-4-1-20250805', 16000, 'full', "Complex task (Opus 4.1)"
               elif len(task) < 50:
                   return 'claude-3-haiku-20240307', 4000, 'minimal', "Short request (Haiku 3)"
               elif len(task) < 150:
-                  return 'claude-3-5-sonnet-20241022', 8000, 'targeted', "Standard task (Sonnet 3.5)"
+                  return 'claude-sonnet-4-20250822', 8000, 'targeted', "Standard task (Sonnet 4)"
               else:
                   return 'claude-opus-4-1-20250805', 16000, 'full', "Long request (Opus 4.1)"
           
           # Select model
           selected_model, max_tokens, context_level, model_reason = select_model_and_context(task, comment)
-          model_name = "Opus 4.1" if "opus" in selected_model else "Sonnet 3.5" if "sonnet" in selected_model else "Haiku 3"
+          model_name = "Opus 4.1" if "opus" in selected_model else "Sonnet 4" if "sonnet" in selected_model else "Haiku 3"
           
           print(f"🤖 Model: {model_name}")
           print(f"📝 Reason: {model_reason}")
