@@ -202,16 +202,15 @@ class Validators:
             elif not is_pm and hour == 12:
                 hour = 0
                 
-            if 0 <= hour <= 23:
-                formatted = f"{hour:02d}:00"
+            formatted = f"{hour:02d}:00"
+            
+            # Check bounds
+            if min_time and formatted < min_time:
+                return False, None, f"Time cannot be before {min_time}"
+            if max_time and formatted > max_time:
+                return False, None, f"Time cannot be after {max_time}"
                 
-                # Check bounds
-                if min_time and formatted < min_time:
-                    return False, None, f"Time cannot be before {min_time}"
-                if max_time and formatted > max_time:
-                    return False, None, f"Time cannot be after {max_time}"
-                    
-                return True, formatted, None
+            return True, formatted, None
         
         # Handle "9 am" or "9 pm" or "9 AM" or "9 PM" (with space, any case)
         space_am_pm = re.match(r'^(\d{1,2})\s+(am|pm)$', time_str.lower())
@@ -223,32 +222,31 @@ class Validators:
                 hour += 12
             elif not is_pm and hour == 12:
                 hour = 0
+                        
+            formatted = f"{hour:02d}:00"
+            
+            # Check bounds
+            if min_time and formatted < min_time:
+                return False, None, f"Time cannot be before {min_time}"
+            if max_time and formatted > max_time:
+                return False, None, f"Time cannot be after {max_time}"
                 
-            if 0 <= hour <= 23:
-                formatted = f"{hour:02d}:00"
-                
-                # Check bounds
-                if min_time and formatted < min_time:
-                    return False, None, f"Time cannot be before {min_time}"
-                if max_time and formatted > max_time:
-                    return False, None, f"Time cannot be after {max_time}"
-                    
-                return True, formatted, None
+            return True, formatted, None
         
         # Handle "9 o'clock"
         oclock = re.match(r'^(\d{1,2})\s*o[\'']?clock$', time_str.lower())
         if oclock:
             hour = int(oclock.group(1))
-            if 0 <= hour <= 23:
-                formatted = f"{hour:02d}:00"
+            
+            formatted = f"{hour:02d}:00"
+            
+            # Check bounds
+            if min_time and formatted < min_time:
+                return False, None, f"Time cannot be before {min_time}"
+            if max_time and formatted > max_time:
+                return False, None, f"Time cannot be after {max_time}"
                 
-                # Check bounds
-                if min_time and formatted < min_time:
-                    return False, None, f"Time cannot be before {min_time}"
-                if max_time and formatted > max_time:
-                    return False, None, f"Time cannot be after {max_time}"
-                    
-                return True, formatted, None
+            return True, formatted, None
         
         # Try standard datetime parsing for other formats (9:00, 09:00, 9:00am, etc.)
         formats_to_try = [
