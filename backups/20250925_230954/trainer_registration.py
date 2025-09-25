@@ -24,23 +24,6 @@ class TrainerRegistrationHandler:
             6: {'field': 'pricing', 'prompt': self._get_pricing_prompt}
         }
     
-
-    def _parse_currency(self, value):
-        """Parse currency value to numeric"""
-        if isinstance(value, (int, float)):
-            return value
-        
-        import re
-        # Remove R, spaces, commas
-        cleaned = re.sub(r'[Rr,\s]', '', str(value))
-        # Remove any text like "per session"
-        cleaned = re.sub(r'per.*', '', cleaned, flags=re.IGNORECASE)
-        
-        try:
-            return float(cleaned) if cleaned else 400
-        except:
-            return 400  # Default value
-
     def get_or_create_session(self, phone: str) -> Dict:
         """Get or create registration session data from database"""
         try:
