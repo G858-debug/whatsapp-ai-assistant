@@ -11,11 +11,11 @@
 
 📝 Processing currency_parsing fix for services/registration/trainer_registration.py
   ✅ Added currency parsing
-✅ Successfully applied currency_parsing fix to services/registration/trainer_registration.py
+⚠️ No changes made to services/registration/trainer_registration.py
 ----------------------------------------
 📝 Summary saved to fix_summary.json
 
 ============================================================
 📊 Summary:
-  ✅ Applied: 1 fixes
-  ❌ Failed: 0 fixes
+  ✅ Applied: 0 fixes
+  ❌ Failed: 1 fixes

@@ -1,8 +1,9 @@
 {
   "total_fixes": 1,
-  "applied": 1,
-  "failed": 0,
-  "applied_fixes": [
+  "applied": 0,
+  "failed": 1,
+  "applied_fixes": [],
+  "failed_fixes": [
     {
       "type": "currency_parsing",
       "file": "services/registration/trainer_registration.py",
@@ -10,6 +11,5 @@
       "diagnosis": "Currency parsing needed"
     }
   ],
-  "failed_fixes": [],
-  "timestamp": "2025-09-25T17:45:57.382536"
+  "timestamp": "2025-09-25T17:49:38.281083"
 }
