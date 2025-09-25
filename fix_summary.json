@@ -1,63 +1,15 @@
 {
-  "total_fixes": 6,
-  "applied": 0,
-  "failed": 6,
-  "applied_fixes": [],
-  "failed_fixes": [
+  "total_fixes": 1,
+  "applied": 1,
+  "failed": 0,
+  "applied_fixes": [
     {
-      "type": "duplicate_check",
+      "type": "currency_parsing",
       "file": "services/registration/trainer_registration.py",
-      "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow",
-      "diagnosis": "Not checking for existing registration",
-      "line": 0,
-      "add_check": true,
-      "check_code": "\n        # Check if trainer already registered\n        existing = self.db.table('trainers').select('id').eq('whatsapp', phone).execute()\n        if existing.data:\n            return \"Welcome back! You're already registered. How can I help you today?\""
-    },
-    {
-      "type": "trainer_recognition",
-      "file": "services/ai_intent_handler.py",
-      "test": "tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration",
-      "diagnosis": "Not recognizing existing trainers by name",
-      "line": 0,
-      "add_check": true,
-      "check_code": "\n        # Check if user is an existing trainer\n        trainer = self.db.table('trainers').select('name').eq('whatsapp', phone).execute()\n        if trainer.data:\n            trainer_name = trainer.data[0]['name']\n            return f\"Welcome back, {trainer_name}! How can I help you today?\""
-    },
-    {
-      "type": "client_registration",
-      "file": "services/registration/client_registration.py",
-      "test": "tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration",
-      "diagnosis": "Client not receiving proper welcome message",
-      "line": 0,
-      "add_response": true,
-      "response_code": "\n        return {\n            \"success\": True,\n            \"message\": f\"Great! {client_name} has been added as your client.\"\n        }"
-    },
-    {
-      "type": "phone_format",
-      "file": "utils/validators.py",
-      "test": "tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization",
-      "diagnosis": "Phone returns with + prefix but tests expect without",
-      "line": 0,
-      "search_pattern": "return True, f'+{phone_digits}', None",
-      "original_code": "return True, f'+{phone_digits}', None",
-      "fixed_code": "return True, phone_digits, None"
-    },
-    {
-      "type": "ai_intent",
-      "file": "services/ai_intent_handler.py",
-      "test": "tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands",
-      "diagnosis": "AI not recognizing basic commands",
-      "line": 0,
-      "add_patterns": true,
-      "pattern_code": "\n        # Common command patterns\n        command_patterns = {\n            'view_clients': [r'show.*clients?', r'list.*clients?', r'my clients?'],\n            'view_schedule': [r'show.*schedule', r'my schedule', r\"what.*today\"],\n            'add_client': [r'add.*client', r'new client', r'register.*client'],\n        }"
-    },
-    {
-      "type": "missing_method",
-      "file": "utils/validators.py",
-      "test": "tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats",
-      "diagnosis": "Method validate_time_format does not exist or time validation fails",
-      "line": 0,
-      "add_method": true,
-      "method_code": "\n    def validate_time_format(self, time_str: str):\n        \"\"\"Validate time format (wrapper for validate_time)\"\"\"\n        from typing import Tuple, Optional\n        is_valid, formatted_time, error = self.validate_time(time_str)\n        return is_valid, error"
+      "test": "tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing",
+      "diagnosis": "Currency parsing needed"
     }
-  ]
+  ],
+  "failed_fixes": [],
+  "timestamp": "2025-09-25T22:25:01.327710"
 }
