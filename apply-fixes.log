@@ -1,16 +1,21 @@
-Applying 6 fixes...
-Backed up services/registration/trainer_registration.py
-⚠️ Could not apply fix to services/registration/trainer_registration.py
-Backed up services/ai_intent_handler.py
-⚠️ Could not apply fix to services/ai_intent_handler.py
-Backed up services/registration/client_registration.py
-⚠️ Could not apply fix to services/registration/client_registration.py
-Backed up utils/validators.py
-⚠️ Could not apply fix to utils/validators.py
-Backed up services/ai_intent_handler.py
-⚠️ Could not apply fix to services/ai_intent_handler.py
-Backed up utils/validators.py
-⚠️ Could not apply fix to utils/validators.py
+🚀 Refiloe Auto-Fix Applier v2.0
+============================================================
+📥 Loaded 1 fixes from generated_fixes.json
 
-✅ Applied 0 fixes
-❌ Failed 6 fixes
+🔧 Starting to apply 1 fixes...
+
+============================================================
+
+[1/1] Applying fix...
+💾 Backed up services/registration/trainer_registration.py
+
+📝 Processing currency_parsing fix for services/registration/trainer_registration.py
+  ✅ Added currency parsing
+✅ Successfully applied currency_parsing fix to services/registration/trainer_registration.py
+----------------------------------------
+📝 Summary saved to fix_summary.json
+
+============================================================
+📊 Summary:
+  ✅ Applied: 1 fixes
+  ❌ Failed: 0 fixes
