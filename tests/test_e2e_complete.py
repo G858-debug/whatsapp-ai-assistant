@@ -27,9 +27,9 @@ class RefiloeE2ETester:
             os.getenv('SUPABASE_SERVICE_KEY')
         )
         
-        # Import the actual message handler
-        from app_core import process_whatsapp_message
-        self.process_message = process_whatsapp_message
+        # Import the actual message handler  
+        from services.refiloe import RefiloeService
+        self.process_message = RefiloeService().handle_message
         
         # Test phone numbers
         self.test_trainer_phone = "27000E2E01"
