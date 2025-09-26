@@ -30,7 +30,6 @@ class RefiloeE2ETesterExtended:
         # Import what we need
         from services.refiloe import RefiloeService
         from supabase import create_client
-        import os
         
         # Create a Supabase client
         supabase_url = os.getenv('SUPABASE_URL', 'https://test.supabase.co')
