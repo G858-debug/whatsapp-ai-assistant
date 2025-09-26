@@ -4,7 +4,7 @@ cachedir: .pytest_cache
 metadata: {'Python': '3.11.13', 'Platform': 'Linux-6.11.0-1018-azure-x86_64-with-glibc2.39', 'Packages': {'pytest': '7.4.2', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.11.0', 'html': '4.1.1', 'json-report': '1.5.0', 'cov': '4.1.0', 'metadata': '3.1.1'}, 'CI': 'true', 'JAVA_HOME': '/usr/lib/jvm/temurin-17-jdk-amd64'}
 rootdir: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
 plugins: anyio-4.11.0, html-4.1.1, json-report-1.5.0, cov-4.1.0, metadata-3.1.1
-collecting ... collected 69 items
+collecting ... collected 91 items
 
 tests/test_conversation_flows.py::TestBasicFunctionality::test_imports_work PASSED
 tests/test_conversation_flows.py::TestBasicFunctionality::test_mock_message PASSED
@@ -45,9 +45,9 @@ tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions ERROR
 tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule ERROR
 tests/test_integration_real.py::TestRealIntegration::test_trainer_registration_database Checking if tables exist...
 ✅ trainers table exists
-✅ Trainer created with ID: 32908a6a-df6a-49f6-b2b2-d46d2a308e43
+✅ Trainer created with ID: 1e2b1483-f8cb-40e7-a00e-ca83b3d9a47a
 PASSED
-tests/test_integration_real.py::TestRealIntegration::test_client_management_real ✅ Client created for trainer 7b7f7747-619f-4350-8bb2-0557dfb12aaf
+tests/test_integration_real.py::TestRealIntegration::test_client_management_real ✅ Client created for trainer 59461ec9-408d-42f3-825e-2c9e4b596032
 PASSED
 tests/test_integration_real.py::TestRealIntegration::test_booking_system_real FAILED
 tests/test_integration_real.py::TestRealIntegration::test_ai_integration_simple SKIPPED
@@ -82,6 +82,28 @@ tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_reschedule_booki
 tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_double_booking_prevention PASSED
 tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_past_date_booking_prevention PASSED
 tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_invalid_time_slots PASSED
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients ERROR
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_check_habit_compliance ERROR
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_send_habit_reminders ERROR
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_send_workouts ERROR
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_start_assessment ERROR
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_view_assessment_results ERROR
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_request_payment ERROR
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_check_revenue ERROR
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_payment_confirmation ERROR
+tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_view_dashboard ERROR
+tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_client_analytics ERROR
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_booking ERROR
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_habit_logging ERROR
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_progress ERROR
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_view_challenges ERROR
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_join_leave_challenges ERROR
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_leaderboard ERROR
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_bulk_operations ERROR
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_natural_language ERROR
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_error_handling ERROR
+tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_check_scheduled_reminders ERROR
+tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_subscription_monitoring ERROR
 tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_new_trainer_onboarding PASSED
 tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_trainer_recognition PASSED
 tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_add_client_variations PASSED
@@ -105,51 +127,293 @@ tests/test_refiloe_complete.py::TestCriticalBugs::test_ai_responds_naturally_not
 __ ERROR at setup of TestPhase1_Registration.test_complete_trainer_onboarding __
 tests/test_e2e_complete.py:91: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 _ ERROR at setup of TestPhase1_Registration.test_trainer_recognition_after_registration _
 tests/test_e2e_complete.py:91: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 ___ ERROR at setup of TestPhase2_ClientManagement.test_add_client_variations ___
 tests/test_e2e_complete.py:166: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 _______ ERROR at setup of TestPhase2_ClientManagement.test_view_clients ________
 tests/test_e2e_complete.py:166: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 ______ ERROR at setup of TestPhase2_ClientManagement.test_custom_pricing _______
 tests/test_e2e_complete.py:166: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 __________ ERROR at setup of TestPhase3_Scheduling.test_view_schedule __________
 tests/test_e2e_complete.py:247: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 __________ ERROR at setup of TestPhase3_Scheduling.test_book_sessions __________
 tests/test_e2e_complete.py:247: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
-    from app_core import process_whatsapp_message
-E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 ________ ERROR at setup of TestPhase3_Scheduling.test_cancel_reschedule ________
 tests/test_e2e_complete.py:247: in setup_method
     self.tester = RefiloeE2ETester()
-tests/test_e2e_complete.py:31: in __init__
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+___ ERROR at setup of TestPhase4_HabitTracking.test_setup_habits_for_clients ___
+tests/test_phases_4_11.py:32: in __init__
     from app_core import process_whatsapp_message
 E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:140: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+____ ERROR at setup of TestPhase4_HabitTracking.test_check_habit_compliance ____
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:140: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_____ ERROR at setup of TestPhase4_HabitTracking.test_send_habit_reminders _____
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:140: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_____ ERROR at setup of TestPhase5_WorkoutsAssessments.test_send_workouts ______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:206: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+____ ERROR at setup of TestPhase5_WorkoutsAssessments.test_start_assessment ____
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:206: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_ ERROR at setup of TestPhase5_WorkoutsAssessments.test_view_assessment_results _
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:206: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+______ ERROR at setup of TestPhase6_PaymentsRevenue.test_request_payment _______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:265: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_______ ERROR at setup of TestPhase6_PaymentsRevenue.test_check_revenue ________
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:265: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+____ ERROR at setup of TestPhase6_PaymentsRevenue.test_payment_confirmation ____
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:265: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+______ ERROR at setup of TestPhase7_AnalyticsReports.test_view_dashboard _______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:325: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_____ ERROR at setup of TestPhase7_AnalyticsReports.test_client_analytics ______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:325: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_______ ERROR at setup of TestPhase8_ClientFeatures.test_client_booking ________
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:368: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+____ ERROR at setup of TestPhase8_ClientFeatures.test_client_habit_logging _____
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:368: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_______ ERROR at setup of TestPhase8_ClientFeatures.test_client_progress _______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:368: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_________ ERROR at setup of TestPhase9_Challenges.test_view_challenges _________
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:431: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+______ ERROR at setup of TestPhase9_Challenges.test_join_leave_challenges ______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:431: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+___________ ERROR at setup of TestPhase9_Challenges.test_leaderboard ___________
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:431: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_____ ERROR at setup of TestPhase10_AdvancedFeatures.test_bulk_operations ______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:491: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_____ ERROR at setup of TestPhase10_AdvancedFeatures.test_natural_language _____
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:491: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+______ ERROR at setup of TestPhase10_AdvancedFeatures.test_error_handling ______
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:491: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_ ERROR at setup of TestPhase11_AutomatedFeatures.test_check_scheduled_reminders _
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:550: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_ ERROR at setup of TestPhase11_AutomatedFeatures.test_subscription_monitoring _
+tests/test_phases_4_11.py:32: in __init__
+    from app_core import process_whatsapp_message
+E   ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
+
+During handling of the above exception, another exception occurred:
+tests/test_phases_4_11.py:550: in setup_method
+    self.tester = RefiloeE2ETesterExtended()
+tests/test_phases_4_11.py:38: in __init__
+    refiloe_service = RefiloeService()
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
 =================================== FAILURES ===================================
 _________________ TestRealIntegration.test_booking_system_real _________________
 tests/test_integration_real.py:182: in test_booking_system_real
@@ -160,50 +424,25 @@ E   postgrest.exceptions.APIError: {'code': 'PGRST204', 'details': None, 'hint':
 ___ TestTrainerRegistrationReal.test_trainer_recognition_after_registration ____
 tests/test_phase1_registration.py:253: in test_trainer_recognition_after_registration
     assert 'john' in response.get('response', '').lower() or \
-E   assert ('john' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" or 'welcome' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌")
-E    +  where "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
-E    +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
-E    +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
-E    +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
-E    +  and   "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
-E    +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
-E    +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
-E    +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
+E   AssertionError: assert ('john' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'> or 'welcome' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'>)
+E    +  where <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'>()
+E    +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>.lower
+E    +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'> = <built-in method get of dict object at 0x7f5e4299edc0>('response', '')
+E    +        where <built-in method get of dict object at 0x7f5e4299edc0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+E    +  and   <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'>()
+E    +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>.lower
+E    +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'> = <built-in method get of dict object at 0x7f5e4299edc0>('response', '')
+E    +        where <built-in method get of dict object at 0x7f5e4299edc0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
 ------------------------------ Captured log call -------------------------------
-INFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude
 INFO     refiloe:logger.py:21 Background scheduler started
 INFO     refiloe:logger.py:21 Routes setup complete
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Object of type MagicMock is not JSON serializable
-Traceback (most recent call last):
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 56, in understand_message
-    prompt = self._create_intent_prompt(
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 121, in _create_intent_prompt
-    {json.dumps(context, indent=2)}
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/__init__.py", line 238, in dumps
-    **kw).encode(obj)
-          ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/encoder.py", line 202, in encode
-    chunks = list(chunks)
-             ^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/encoder.py", line 432, in _iterencode
-    yield from _iterencode_dict(o, _current_indent_level)
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
-    yield from chunks
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/encoder.py", line 439, in _iterencode
-    o = _default(o)
-        ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/encoder.py", line 180, in default
-    raise TypeError(f'Object of type {o.__class__.__name__} '
-TypeError: Object of type MagicMock is not JSON serializable
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"A09FQWvBYVTNNxorB2e9kBE"}}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 __ TestClientRegistrationReal.test_client_receives_welcome_after_registration __
 tests/test_phase1_registration.py:297: in test_client_receives_welcome_after_registration
     assert response.get('success') == True
 E   assert False == True
-E    +  where False = <built-in method get of dict object at 0x7f1a07abb640>('success')
-E    +    where <built-in method get of dict object at 0x7f1a07abb640> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+E    +  where False = <built-in method get of dict object at 0x7f5e43afc0c0>('success')
+E    +    where <built-in method get of dict object at 0x7f5e43afc0c0> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: 'list' object has no attribute 'get'
 ERROR    refiloe:logger.py:25 Error handling message: 'list' object has no attribute 'get'
@@ -215,136 +454,53 @@ E   assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhYgZm9BUwEejfhLcG'}
-Traceback (most recent call last):
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
-    response = self.client.messages.create(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py", line 275, in wrapper
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py", line 888, in create
-    return self._post(
-           ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1277, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 954, in request
-    return self._request(
-           ^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
-    raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhYgZm9BUwEejfhLcG'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"ADCi5wMtjnwCfYosdGVvPR0"}}
-INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 _______________ TestCustomPricingReal.test_check_client_pricing ________________
 tests/test_phase2_client_management.py:239: in test_check_client_pricing
     assert 'r' in message or 'rand' in message or \
 E   AssertionError: Failed to show pricing with: What is Sarah's rate?
 E   assert ('r' in '' or 'rand' in '' or False)
-E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f1a08c36960>)
+E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f5e52843e60>)
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhn5xozms5hjxmvft7'}
-Traceback (most recent call last):
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
-    response = self.client.messages.create(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py", line 275, in wrapper
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py", line 888, in create
-    return self._post(
-           ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1277, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 954, in request
-    return self._request(
-           ^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
-    raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhn5xozms5hjxmvft7'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AwHQNq0ChEMKnkSplmqKN7b"}}
-INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 ______ TestClientManagementEdgeCases.test_add_client_with_duplicate_phone ______
 tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone
     assert 'already' in response.get('message', '').lower() or \
-E   assert ('already' in '' or 'exists' in '')
-E    +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E   AssertionError: assert ('already' in '' or 'exists' in '')
+E    +  where '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+E    +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f5e42982f40>('message', '')
+E    +        where <built-in method get of dict object at 0x7f5e42982f40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+E    +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f5e42982f40>('message', '')
+E    +        where <built-in method get of dict object at 0x7f5e42982f40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhqCVMd55A7w9PhYEF'}
-Traceback (most recent call last):
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
-    response = self.client.messages.create(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py", line 275, in wrapper
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py", line 888, in create
-    return self._post(
-           ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1277, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 954, in request
-    return self._request(
-           ^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
-    raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhqCVMd55A7w9PhYEF'}
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"A8j0B1sgMqgTxIP7VXauhOQ"}}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 _____________ TestClientManagementEdgeCases.test_client_not_found ______________
 tests/test_phase2_client_management.py:311: in test_client_not_found
     assert 'not found' in response.get('message', '').lower() or \
 E   assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
-E    +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+E    +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f5e428d1b00>('message', '')
+E    +        where <built-in method get of dict object at 0x7f5e428d1b00> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+E    +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f5e428d1b00>('message', '')
+E    +        where <built-in method get of dict object at 0x7f5e428d1b00> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+E    +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f5e428d1b00>('message', '')
+E    +        where <built-in method get of dict object at 0x7f5e428d1b00> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 ERROR    refiloe:logger.py:25 Error creating conversation state: 'Mock' object is not subscriptable
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhyChZteQyBh7yearY'}
-Traceback (most recent call last):
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
-    response = self.client.messages.create(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py", line 275, in wrapper
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py", line 888, in create
-    return self._post(
-           ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1277, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 954, in request
-    return self._request(
-           ^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
-    raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhyChZteQyBh7yearY'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AywauTEc4z-8Bg71ZOjKyC2"}}
-INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 _______________ TestViewScheduleReal.test_view_schedule_commands _______________
 tests/test_phase3_scheduling.py:74: in test_view_schedule_commands
     assert 'schedule' in message or 'booking' in message or \
@@ -353,55 +509,34 @@ E   assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointme
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHi2Tf4PKDKCp8BBAuk'}
-Traceback (most recent call last):
-  File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
-    response = self.client.messages.create(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_utils/_utils.py", line 275, in wrapper
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/resources/messages.py", line 888, in create
-    return self._post(
-           ^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1277, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 954, in request
-    return self._request(
-           ^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
-    raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHi2Tf4PKDKCp8BBAuk'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"ASPnj7CkqyuZxBM7XvxO2GS"}}
-INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
 _____________ TestPhase3_SchedulingBookings.test_cancel_reschedule _____________
 tests/test_refiloe_complete.py:329: in test_cancel_reschedule
     assert "reschedul" in response['message'].lower() or "moved" in response['message'].lower()
 E   assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
-E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
-E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f5e52dc93e0>()
+E    +    where <built-in method lower of str object at 0x7f5e52dc93e0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f5e52dc93e0>()
+E    +    where <built-in method lower of str object at 0x7f5e52dc93e0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 _______________ TestPhase6_PaymentsRevenue.test_request_payment ________________
 tests/test_refiloe_complete.py:368: in test_request_payment
     assert "payment" in response['message'].lower() or "invoice" in response['message'].lower()
 E   assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
-E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
-E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f5e52d56ab0>()
+E    +    where <built-in method lower of str object at 0x7f5e52d56ab0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f5e52d56ab0>()
+E    +    where <built-in method lower of str object at 0x7f5e52d56ab0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 _______________ TestPhase10_AdvancedFeatures.test_error_handling _______________
 tests/test_refiloe_complete.py:424: in test_error_handling
     assert any(word in response['message'].lower() for word in ["past", "future", "cannot"])
 E   assert False
-E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f1a08c374c0>)
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f5e426a35a0>)
 =============================== warnings summary ===============================
 ../../../../../opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: 19 warnings
   /opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
     model.update_forward_refs()
 
-tests/test_e2e_complete.py::TestPhase1_Registration::test_complete_trainer_onboarding
+tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration
   /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/analytics.py:7: DeprecationWarning: 
   Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
   (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
@@ -417,65 +552,87 @@ report saved to: test-results.json
 - Generated html report: file:///home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/test-report.html -
 =========================== short test summary info ============================
 FAILED tests/test_integration_real.py::TestRealIntegration::test_booking_system_real - postgrest.exceptions.APIError: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'booking_date' column of 'bookings' in the schema cache"}
-FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - assert ('john' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" or 'welcome' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌")
- +  where "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
- +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
- +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
- +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
- +  and   "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
- +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
- +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
- +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
+FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - AssertionError: assert ('john' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'> or 'welcome' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'>)
+ +  where <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'>()
+ +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>.lower
+ +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'> = <built-in method get of dict object at 0x7f5e4299edc0>('response', '')
+ +        where <built-in method get of dict object at 0x7f5e4299edc0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+ +  and   <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140042839471504'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'>()
+ +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140042848488208'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>.lower
+ +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'> = <built-in method get of dict object at 0x7f5e4299edc0>('response', '')
+ +        where <built-in method get of dict object at 0x7f5e4299edc0> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
 FAILED tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration - assert False == True
- +  where False = <built-in method get of dict object at 0x7f1a07abb640>('success')
- +    where <built-in method get of dict object at 0x7f1a07abb640> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+ +  where False = <built-in method get of dict object at 0x7f5e43afc0c0>('success')
+ +    where <built-in method get of dict object at 0x7f5e43afc0c0> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
 FAILED tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands - AssertionError: Failed to list clients with command: Show my clients
 assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 FAILED tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing - AssertionError: Failed to show pricing with: What is Sarah's rate?
 assert ('r' in '' or 'rand' in '' or False)
- +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f1a08c36960>)
-FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone - assert ('already' in '' or 'exists' in '')
- +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
- +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
- +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f5e52843e60>)
+FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone - AssertionError: assert ('already' in '' or 'exists' in '')
+ +  where '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+ +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f5e42982f40>('message', '')
+ +        where <built-in method get of dict object at 0x7f5e42982f40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+ +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f5e42982f40>('message', '')
+ +        where <built-in method get of dict object at 0x7f5e42982f40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found - assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
- +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
- +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
- +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
- +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+ +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f5e428d1b00>('message', '')
+ +        where <built-in method get of dict object at 0x7f5e428d1b00> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+ +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f5e428d1b00>('message', '')
+ +        where <built-in method get of dict object at 0x7f5e428d1b00> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7f5e5673fba0>()
+ +    where <built-in method lower of str object at 0x7f5e5673fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f5e428d1b00>('message', '')
+ +        where <built-in method get of dict object at 0x7f5e428d1b00> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140042821037136'>, 'success': True}.get
 FAILED tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands - AssertionError: Failed to show schedule with: Show my schedule
 assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointment' in '' or 'no bookings' in '' or 'free' in '')
 FAILED tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule - assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
- +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
- +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
- +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
- +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f5e52dc93e0>()
+ +    where <built-in method lower of str object at 0x7f5e52dc93e0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f5e52dc93e0>()
+ +    where <built-in method lower of str object at 0x7f5e52dc93e0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 FAILED tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment - assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
- +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
- +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
- +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
- +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f5e52d56ab0>()
+ +    where <built-in method lower of str object at 0x7f5e52d56ab0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f5e52d56ab0>()
+ +    where <built-in method lower of str object at 0x7f5e52d56ab0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 FAILED tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling - assert False
- +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f1a08c374c0>)
-ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_complete_trainer_onboarding - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_trainer_recognition_after_registration - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_add_client_variations - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_view_clients - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_custom_pricing - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_view_schedule - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-======= 11 failed, 49 passed, 1 skipped, 20 warnings, 8 errors in 58.40s =======
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f5e426a35a0>)
+ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_complete_trainer_onboarding - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_trainer_recognition_after_registration - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_add_client_variations - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_view_clients - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_custom_pricing - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_view_schedule - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_check_habit_compliance - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_send_habit_reminders - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_send_workouts - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_start_assessment - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_view_assessment_results - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_request_payment - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_check_revenue - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_payment_confirmation - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_view_dashboard - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_client_analytics - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_booking - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_habit_logging - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_progress - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase9_Challenges::test_view_challenges - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase9_Challenges::test_join_leave_challenges - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase9_Challenges::test_leaderboard - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_bulk_operations - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_natural_language - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_error_handling - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_check_scheduled_reminders - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_subscription_monitoring - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+= 11 failed, 49 passed, 1 skipped, 20 warnings, 30 errors in 86.85s (0:01:26) ==
