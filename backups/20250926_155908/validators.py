@@ -28,7 +28,7 @@ class Validators:
             phone = '27' + phone
         
         # Return WITHOUT the + prefix (tests expect this format)
-        return True, phone_digits, None
+        return phone  # Not '+' + phone
     
     def validate_phone_number(self, phone: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """
