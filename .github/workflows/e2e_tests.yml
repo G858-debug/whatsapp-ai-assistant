@@ -44,7 +44,7 @@ jobs:
       if: always()
       run: |
         python -c "
-from tests.test_e2e_complete import RefiloeE2ETester
-tester = RefiloeE2ETester()
-tester.cleanup_test_data()
+        from tests.test_e2e_complete import RefiloeE2ETester
+        tester = RefiloeE2ETester()
+        tester.cleanup_test_data()
         " || echo "Cleanup done"
