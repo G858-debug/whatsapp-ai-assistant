@@ -32,9 +32,12 @@ class RefiloeE2ETesterExtended:
             from app_core import process_whatsapp_message
             self.process_message = process_whatsapp_message
         except ImportError:
-            # Alternative import path
-            from services.refiloe import process_message
-            self.process_message = process_message
+            # Import the RefiloeService class instead
+            from services.refiloe import RefiloeService
+            # Create an instance of RefiloeService
+            refiloe_service = RefiloeService()
+            # Use the handle_message method
+            self.process_message = refiloe_service.handle_message
         
         # Test phone numbers
         self.test_trainer_phone = "27000E2E01"
