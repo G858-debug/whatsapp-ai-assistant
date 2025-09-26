@@ -11,7 +11,7 @@
 
 📝 Processing currency_parsing fix for services/registration/trainer_registration.py
   ✅ Added currency parsing
-✅ Successfully applied currency_parsing fix to services/registration/trainer_registration.py
+⚠️ No changes made to services/registration/trainer_registration.py
 ----------------------------------------
 
 [2/2] Applying fix...
@@ -19,12 +19,12 @@
 
 📝 Processing phone_format fix for utils/validators.py
   🔍 Applying phone format fix to utils/validators.py
-  ✅ Fixed phone number format
-✅ Successfully applied phone_format fix to utils/validators.py
+  ⚠️ Phone format pattern not found
+⚠️ No changes made to utils/validators.py
 ----------------------------------------
 📝 Summary saved to fix_summary.json
 
 ============================================================
 📊 Summary:
-  ✅ Applied: 2 fixes
-  ❌ Failed: 0 fixes
+  ✅ Applied: 0 fixes
+  ❌ Failed: 2 fixes
