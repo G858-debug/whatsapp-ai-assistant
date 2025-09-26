@@ -27,17 +27,21 @@ class RefiloeE2ETesterExtended:
             os.getenv('SUPABASE_SERVICE_KEY')
         )
         
-        # Import the actual message handler
-        try:
-            from app_core import process_whatsapp_message
-            self.process_message = process_whatsapp_message
-        except ImportError:
-            # Import the RefiloeService class instead
-            from services.refiloe import RefiloeService
-            # Create an instance of RefiloeService
-            refiloe_service = RefiloeService()
-            # Use the handle_message method
-            self.process_message = refiloe_service.handle_message
+        # Import what we need
+        from services.refiloe import RefiloeService
+        from supabase import create_client
+        import os
+        
+        # Create a Supabase client
+        supabase_url = os.getenv('SUPABASE_URL', 'https://test.supabase.co')
+        supabase_key = os.getenv('SUPABASE_KEY', 'test-key')
+        supabase_client = create_client(supabase_url, supabase_key)
+        
+        # Create the RefiloeService with the required parameter
+        refiloe_service = RefiloeService(supabase_client)
+        
+        # Use the handle_message method
+        self.process_message = refiloe_service.handle_message
         
         # Test phone numbers
         self.test_trainer_phone = "27000E2E01"
