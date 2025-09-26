@@ -45,9 +45,9 @@ tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions ERROR
 tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule ERROR
 tests/test_integration_real.py::TestRealIntegration::test_trainer_registration_database Checking if tables exist...
 ✅ trainers table exists
-✅ Trainer created with ID: 32908a6a-df6a-49f6-b2b2-d46d2a308e43
+✅ Trainer created with ID: 41a4d1fe-a1cf-4271-8cd5-033ece8a4183
 PASSED
-tests/test_integration_real.py::TestRealIntegration::test_client_management_real ✅ Client created for trainer 7b7f7747-619f-4350-8bb2-0557dfb12aaf
+tests/test_integration_real.py::TestRealIntegration::test_client_management_real ✅ Client created for trainer 5b81ebfe-7c29-4c2a-a423-901ddaa2547a
 PASSED
 tests/test_integration_real.py::TestRealIntegration::test_booking_system_real FAILED
 tests/test_integration_real.py::TestRealIntegration::test_ai_integration_simple SKIPPED
@@ -160,15 +160,15 @@ E   postgrest.exceptions.APIError: {'code': 'PGRST204', 'details': None, 'hint':
 ___ TestTrainerRegistrationReal.test_trainer_recognition_after_registration ____
 tests/test_phase1_registration.py:253: in test_trainer_recognition_after_registration
     assert 'john' in response.get('response', '').lower() or \
-E   assert ('john' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" or 'welcome' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌")
-E    +  where "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
-E    +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
-E    +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
-E    +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
-E    +  and   "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
-E    +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
-E    +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
-E    +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
+E   assert ('john' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" or 'welcome' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌")
+E    +  where "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method lower of str object at 0x7f9ffd5c3870>()
+E    +    where <built-in method lower of str object at 0x7f9ffd5c3870> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌".lower
+E    +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method get of dict object at 0x7f9ffdd234c0>('response', '')
+E    +        where <built-in method get of dict object at 0x7f9ffdd234c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌", 'success': True}.get
+E    +  and   "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method lower of str object at 0x7f9ffd5c3870>()
+E    +    where <built-in method lower of str object at 0x7f9ffd5c3870> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌".lower
+E    +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method get of dict object at 0x7f9ffdd234c0>('response', '')
+E    +        where <built-in method get of dict object at 0x7f9ffdd234c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌", 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 INFO     refiloe:logger.py:21 AI Intent Handler initialized with Claude
 INFO     refiloe:logger.py:21 Background scheduler started
@@ -197,13 +197,13 @@ Traceback (most recent call last):
   File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/json/encoder.py", line 180, in default
     raise TypeError(f'Object of type {o.__class__.__name__} '
 TypeError: Object of type MagicMock is not JSON serializable
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"A09FQWvBYVTNNxorB2e9kBE"}}
+ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AGDwBYXLP4fmyDEv5T3l1bE"}}
 __ TestClientRegistrationReal.test_client_receives_welcome_after_registration __
 tests/test_phase1_registration.py:297: in test_client_receives_welcome_after_registration
     assert response.get('success') == True
 E   assert False == True
-E    +  where False = <built-in method get of dict object at 0x7f1a07abb640>('success')
-E    +    where <built-in method get of dict object at 0x7f1a07abb640> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+E    +  where False = <built-in method get of dict object at 0x7f9ffc1b7900>('success')
+E    +    where <built-in method get of dict object at 0x7f9ffc1b7900> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: 'list' object has no attribute 'get'
 ERROR    refiloe:logger.py:25 Error handling message: 'list' object has no attribute 'get'
@@ -215,7 +215,7 @@ E   assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhYgZm9BUwEejfhLcG'}
+ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMZG6jGS3V9CewEcc4'}
 Traceback (most recent call last):
   File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
     response = self.client.messages.create(
@@ -234,19 +234,19 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^
   File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
     raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhYgZm9BUwEejfhLcG'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"ADCi5wMtjnwCfYosdGVvPR0"}}
+anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMZG6jGS3V9CewEcc4'}
+ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AavuvoNVCYK66nbM597S4Pi"}}
 INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
 _______________ TestCustomPricingReal.test_check_client_pricing ________________
 tests/test_phase2_client_management.py:239: in test_check_client_pricing
     assert 'r' in message or 'rand' in message or \
 E   AssertionError: Failed to show pricing with: What is Sarah's rate?
 E   assert ('r' in '' or 'rand' in '' or False)
-E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f1a08c36960>)
+E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f9ffd2b6960>)
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhn5xozms5hjxmvft7'}
+ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMmdjfRetjKJ1b1zRz'}
 Traceback (most recent call last):
   File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
     response = self.client.messages.create(
@@ -265,25 +265,25 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^
   File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
     raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhn5xozms5hjxmvft7'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AwHQNq0ChEMKnkSplmqKN7b"}}
+anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMmdjfRetjKJ1b1zRz'}
+ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AArASy2Yufv9AYz1-ZDU6mf"}}
 INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
 ______ TestClientManagementEdgeCases.test_add_client_with_duplicate_phone ______
 tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone
     assert 'already' in response.get('message', '').lower() or \
 E   assert ('already' in '' or 'exists' in '')
-E    +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7fa01013fba0>()
+E    +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f9ffc19a280>('message', '')
+E    +        where <built-in method get of dict object at 0x7f9ffc19a280> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7fa01013fba0>()
+E    +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f9ffc19a280>('message', '')
+E    +        where <built-in method get of dict object at 0x7f9ffc19a280> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhqCVMd55A7w9PhYEF'}
+ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMpWsj8YQpCk1ip3u5'}
 Traceback (most recent call last):
   File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
     response = self.client.messages.create(
@@ -302,28 +302,28 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^
   File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
     raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhqCVMd55A7w9PhYEF'}
-ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"A8j0B1sgMqgTxIP7VXauhOQ"}}
+anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMpWsj8YQpCk1ip3u5'}
+ERROR    refiloe:logger.py:25 Failed to send message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"ARYmXU-DTcteNvLbUT2kEtG"}}
 _____________ TestClientManagementEdgeCases.test_client_not_found ______________
 tests/test_phase2_client_management.py:311: in test_client_not_found
     assert 'not found' in response.get('message', '').lower() or \
 E   assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
-E    +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
-E    +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
-E    +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
-E    +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
-E    +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+E    +  where '' = <built-in method lower of str object at 0x7fa01013fba0>()
+E    +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f9ffc179380>('message', '')
+E    +        where <built-in method get of dict object at 0x7f9ffc179380> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7fa01013fba0>()
+E    +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f9ffc179380>('message', '')
+E    +        where <built-in method get of dict object at 0x7f9ffc179380> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7fa01013fba0>()
+E    +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7f9ffc179380>('message', '')
+E    +        where <built-in method get of dict object at 0x7f9ffc179380> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
 ERROR    refiloe:logger.py:25 Error creating conversation state: 'Mock' object is not subscriptable
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhyChZteQyBh7yearY'}
+ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMwjhsAELMDwa4xRny'}
 Traceback (most recent call last):
   File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
     response = self.client.messages.create(
@@ -342,8 +342,8 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^
   File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
     raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHhyChZteQyBh7yearY'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AywauTEc4z-8Bg71ZOjKyC2"}}
+anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMwjhsAELMDwa4xRny'}
+ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AUdV7lVBPqRtuykam4n7yY2"}}
 INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
 _______________ TestViewScheduleReal.test_view_schedule_commands _______________
 tests/test_phase3_scheduling.py:74: in test_view_schedule_commands
@@ -353,7 +353,7 @@ E   assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointme
 ------------------------------ Captured log call -------------------------------
 ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
 ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
-ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHi2Tf4PKDKCp8BBAuk'}
+ERROR    refiloe:logger.py:25 AI intent understanding failed: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMzcb9rbffQXead6d2'}
 Traceback (most recent call last):
   File "/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/services/ai_intent_handler.py", line 64, in understand_message
     response = self.client.messages.create(
@@ -372,30 +372,30 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^
   File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/anthropic/_base_client.py", line 1058, in _request
     raise self._make_status_error_from_response(err.response) from None
-anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXHi2Tf4PKDKCp8BBAuk'}
-ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"ASPnj7CkqyuZxBM7XvxO2GS"}}
+anthropic.NotFoundError: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: claude-sonnet-4-20250822'}, 'request_id': 'req_011CTXJMzcb9rbffQXead6d2'}
+ERROR    refiloe:logger.py:25 Failed to send button message: {"error":{"message":"Invalid OAuth access token - Cannot parse access token","type":"OAuthException","code":190,"fbtrace_id":"AWsWUpPMN8CeT325jxeENA4"}}
 INFO     refiloe:logger.py:21 Updated conversation state for 27731863036: AWAITING_REGISTRATION_CHOICE
 _____________ TestPhase3_SchedulingBookings.test_cancel_reschedule _____________
 tests/test_refiloe_complete.py:329: in test_cancel_reschedule
     assert "reschedul" in response['message'].lower() or "moved" in response['message'].lower()
 E   assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
-E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
-E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fa00c7d23a0>()
+E    +    where <built-in method lower of str object at 0x7fa00c7d23a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fa00c7d23a0>()
+E    +    where <built-in method lower of str object at 0x7fa00c7d23a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 _______________ TestPhase6_PaymentsRevenue.test_request_payment ________________
 tests/test_refiloe_complete.py:368: in test_request_payment
     assert "payment" in response['message'].lower() or "invoice" in response['message'].lower()
 E   assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
-E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
-E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
-E    +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fa00c7d8170>()
+E    +    where <built-in method lower of str object at 0x7fa00c7d8170> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fa00c7d8170>()
+E    +    where <built-in method lower of str object at 0x7fa00c7d8170> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 _______________ TestPhase10_AdvancedFeatures.test_error_handling _______________
 tests/test_refiloe_complete.py:424: in test_error_handling
     assert any(word in response['message'].lower() for word in ["past", "future", "cannot"])
 E   assert False
-E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f1a08c374c0>)
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f9ffd2b74c0>)
 =============================== warnings summary ===============================
 ../../../../../opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: 19 warnings
   /opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
@@ -417,59 +417,59 @@ report saved to: test-results.json
 - Generated html report: file:///home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/test-report.html -
 =========================== short test summary info ============================
 FAILED tests/test_integration_real.py::TestRealIntegration::test_booking_system_real - postgrest.exceptions.APIError: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'booking_date' column of 'bookings' in the schema cache"}
-FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - assert ('john' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" or 'welcome' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌")
- +  where "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
- +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
- +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
- +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
- +  and   "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method lower of str object at 0x7f1a08ecba50>()
- +    where <built-in method lower of str object at 0x7f1a08ecba50> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌".lower
- +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌" = <built-in method get of dict object at 0x7f1a07b247c0>('response', '')
- +        where <built-in method get of dict object at 0x7f1a07b247c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='139749793098384'>! 🙌", 'success': True}.get
+FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - assert ('john' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" or 'welcome' in "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌")
+ +  where "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method lower of str object at 0x7f9ffd5c3870>()
+ +    where <built-in method lower of str object at 0x7f9ffd5c3870> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌".lower
+ +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method get of dict object at 0x7f9ffdd234c0>('response', '')
+ +        where <built-in method get of dict object at 0x7f9ffdd234c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌", 'success': True}.get
+ +  and   "hey there <magicmock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method lower of str object at 0x7f9ffd5c3870>()
+ +    where <built-in method lower of str object at 0x7f9ffd5c3870> = "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌".lower
+ +      where "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌" = <built-in method get of dict object at 0x7f9ffdd234c0>('response', '')
+ +        where <built-in method get of dict object at 0x7f9ffdd234c0> = {'response': "Hey there <MagicMock name='mock.select().eq().single().execute().data.get()' id='140325124714320'>! 🙌", 'success': True}.get
 FAILED tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration - assert False == True
- +  where False = <built-in method get of dict object at 0x7f1a07abb640>('success')
- +    where <built-in method get of dict object at 0x7f1a07abb640> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+ +  where False = <built-in method get of dict object at 0x7f9ffc1b7900>('success')
+ +    where <built-in method get of dict object at 0x7f9ffc1b7900> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
 FAILED tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands - AssertionError: Failed to list clients with command: Show my clients
 assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
 FAILED tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing - AssertionError: Failed to show pricing with: What is Sarah's rate?
 assert ('r' in '' or 'rand' in '' or False)
- +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f1a08c36960>)
+ +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7f9ffd2b6960>)
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone - assert ('already' in '' or 'exists' in '')
- +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
- +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a08caa100>('message', '')
- +        where <built-in method get of dict object at 0x7f1a08caa100> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7fa01013fba0>()
+ +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f9ffc19a280>('message', '')
+ +        where <built-in method get of dict object at 0x7f9ffc19a280> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7fa01013fba0>()
+ +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f9ffc19a280>('message', '')
+ +        where <built-in method get of dict object at 0x7f9ffc19a280> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?", 'success': True}.get
 FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found - assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
- +  where '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
- +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
- +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
- +  and   '' = <built-in method lower of str object at 0x7f1a1b93fba0>()
- +    where <built-in method lower of str object at 0x7f1a1b93fba0> = ''.lower
- +      where '' = <built-in method get of dict object at 0x7f1a07985700>('message', '')
- +        where <built-in method get of dict object at 0x7f1a07985700> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+ +  where '' = <built-in method lower of str object at 0x7fa01013fba0>()
+ +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f9ffc179380>('message', '')
+ +        where <built-in method get of dict object at 0x7f9ffc179380> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7fa01013fba0>()
+ +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f9ffc179380>('message', '')
+ +        where <built-in method get of dict object at 0x7f9ffc179380> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7fa01013fba0>()
+ +    where <built-in method lower of str object at 0x7fa01013fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7f9ffc179380>('message', '')
+ +        where <built-in method get of dict object at 0x7f9ffc179380> = {'response': "My apologies, I'm having trouble understanding this request. I'll let Support know about this. In the meantime, are you looking to manage clients, check your schedule, or something else?\n\nLet's get you started on your fitness journey! 🚀\n\nHow can I help you today?", 'success': True}.get
 FAILED tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands - AssertionError: Failed to show schedule with: Show my schedule
 assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointment' in '' or 'no bookings' in '' or 'free' in '')
 FAILED tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule - assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
- +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
- +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
- +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7f1a17f8a2c0>()
- +    where <built-in method lower of str object at 0x7f1a17f8a2c0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fa00c7d23a0>()
+ +    where <built-in method lower of str object at 0x7fa00c7d23a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fa00c7d23a0>()
+ +    where <built-in method lower of str object at 0x7fa00c7d23a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
 FAILED tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment - assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
- +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
- +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
- +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7f1a17f7c0d0>()
- +    where <built-in method lower of str object at 0x7f1a17f7c0d0> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fa00c7d8170>()
+ +    where <built-in method lower of str object at 0x7fa00c7d8170> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fa00c7d8170>()
+ +    where <built-in method lower of str object at 0x7fa00c7d8170> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
 FAILED tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling - assert False
- +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f1a08c374c0>)
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7f9ffd2b74c0>)
 ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_complete_trainer_onboarding - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
 ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_trainer_recognition_after_registration - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
 ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_add_client_variations - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
@@ -478,4 +478,4 @@ ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_custom_prici
 ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_view_schedule - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
 ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
 ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule - ImportError: cannot import name 'process_whatsapp_message' from 'app_core' (/home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/app_core.py)
-======= 11 failed, 49 passed, 1 skipped, 20 warnings, 8 errors in 58.40s =======
+======= 11 failed, 49 passed, 1 skipped, 20 warnings, 8 errors in 51.57s =======
