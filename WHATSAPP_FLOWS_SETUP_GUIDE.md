@@ -74,6 +74,12 @@ The main reasons why WhatsApp Flows aren't being sent:
    - Monitor Railway logs for Flow-related messages
    - Look for success/failure indicators
 
+## Version Requirements
+
+**Flow JSON Version:** `7.3` (required for WhatsApp Business Manager)  
+**Message API Version:** `3.0` (for sending Flow messages)  
+**Data API Version:** `3.0` (for Flow data handling)
+
 ## Current Flow Message Format
 
 ```json

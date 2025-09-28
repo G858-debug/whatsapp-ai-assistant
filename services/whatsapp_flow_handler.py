@@ -93,7 +93,7 @@ class WhatsAppFlowHandler:
             flow_data = {
                 "name": "trainer_onboarding_flow",
                 "categories": ["UTILITY"],
-                "version": "3.0",
+                "version": "7.3",
                 "screens": self.flow_data.get('screens', [])
             }
             
