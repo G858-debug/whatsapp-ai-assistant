@@ -30,7 +30,7 @@ colorlog==6.7.0
 # Data Processing
 # Updated for Python 3.13 compatibility
 pandas==2.2.3
-numpy==2.3.3
+numpy==1.26.4
 pyarrow==14.0.1
 
 # Security
