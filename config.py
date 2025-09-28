@@ -20,7 +20,7 @@ class Config:
     # AI config
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-    AI_MODEL = os.environ.get('AI_MODEL', 'claude-sonnet-4-20250822')
+    AI_MODEL = os.environ.get('AI_MODEL', 'claude-sonnet-4-20250514')
     
     # PayFast config
     PAYFAST_MERCHANT_ID = os.environ.get('PAYFAST_MERCHANT_ID')

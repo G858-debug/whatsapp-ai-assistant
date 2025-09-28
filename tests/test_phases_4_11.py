@@ -9,6 +9,10 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class RefiloeE2ETesterExtended:
     """
@@ -33,7 +37,7 @@ class RefiloeE2ETesterExtended:
         
         # Create a Supabase client
         supabase_url = os.getenv('SUPABASE_URL', 'https://test.supabase.co')
-        supabase_key = os.getenv('SUPABASE_KEY', 'test-key')
+        supabase_key = os.getenv('SUPABASE_SERVICE_KEY', 'test-key')
         supabase_client = create_client(supabase_url, supabase_key)
         
         # Create the RefiloeService with the required parameter
@@ -94,15 +98,9 @@ class RefiloeE2ETesterExtended:
         if not phone:
             phone = self.test_trainer_phone
         
-        mock_message = {
-            "from": phone,
-            "text": {"body": message},
-            "type": "text",
-            "timestamp": str(int(time.time()))
-        }
-        
         try:
-            response = self.process_message(mock_message)
+            # Call RefiloeService.handle_message with correct parameters: (phone, text)
+            response = self.process_message(phone, message)
         except Exception as e:
             response = {"error": str(e)}
         

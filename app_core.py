@@ -35,7 +35,6 @@ def setup_app_core(app):
     from utils.logger import setup_logger
     logger = setup_logger()
     whatsapp_service = WhatsAppService(Config, supabase, logger)
-    ai_handler = AIIntentHandler(Config, supabase)
     scheduler_service = SchedulerService(supabase, whatsapp_service)
     assessment_service = EnhancedAssessmentService(supabase)
     habit_service = HabitTrackingService(supabase)
@@ -48,6 +47,26 @@ def setup_app_core(app):
     input_sanitizer = InputSanitizer(Config)
     calendar_service = CalendarService(supabase, Config)
     refiloe_service = RefiloeService(supabase)
+    
+    # Create services dictionary for AI intent handler
+    services_dict = {
+        'whatsapp': whatsapp_service,
+        'scheduler': scheduler_service,
+        'assessment': assessment_service,
+        'habit': habit_service,
+        'workout': workout_service,
+        'subscription': subscription_manager,
+        'analytics': analytics_service,
+        'payment': payment_manager,
+        'payfast': payfast_handler,
+        'rate_limiter': rate_limiter,
+        'input_sanitizer': input_sanitizer,
+        'calendar': calendar_service,
+        'refiloe': refiloe_service
+    }
+    
+    # Initialize AI handler with access to all services
+    ai_handler = AIIntentHandler(Config, supabase, services_dict)
     
     # Initialize models
     trainer_model = TrainerModel(supabase, Config)

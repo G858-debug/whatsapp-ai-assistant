@@ -199,7 +199,7 @@ class TestRealIntegration:
             
             # Use correct model name
             response = client.messages.create(
-                model="claude-4-sonnet-20241022",  # Fixed model name
+                model="claude-sonnet-4-20250514",  # Latest Claude Sonnet 4
                 max_tokens=100,
                 messages=[
                     {"role": "user", "content": "What is 2 plus 2? Just give the number."}

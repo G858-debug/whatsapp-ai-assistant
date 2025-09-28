@@ -28,8 +28,9 @@ colorlog==6.7.0
 # Using requests for API calls
 
 # Data Processing
-pandas==2.2.0
-numpy==1.26.4
+# Updated for Python 3.13 compatibility
+pandas==2.2.3
+numpy==2.3.3
 
 # Security
 cryptography==41.0.4

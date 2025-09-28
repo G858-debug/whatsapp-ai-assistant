@@ -1,0 +1,189 @@
+WHATSAPP AI ASSISTANT - TEST RESULTS
+==================================================
+Timestamp: 2025-09-28T14:06:57.671277
+Python Version: 3.13.2 (tags/v3.13.2:4f8bb39, Feb  4 2025, 15:23:48) [MSC v.1942 64 bit (AMD64)]
+Working Directory: C:\Users\Howard.Nkosi\Desktop\Refiloe M\Github code\whatsapp-ai-assistant
+Return Code: 1
+
+==================================================
+STDOUT:
+============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-7.4.2, pluggy-1.6.0 -- C:\Users\Howard.Nkosi\Desktop\Refiloe M\Github code\whatsapp-ai-assistant\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Howard.Nkosi\Desktop\Refiloe M\Github code\whatsapp-ai-assistant
+plugins: anyio-4.11.0, cov-4.1.0
+collecting ... collected 22 items
+
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients FAILED [  4%]
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_check_habit_compliance FAILED [  9%]
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_send_habit_reminders PASSED [ 13%]
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_send_workouts FAILED [ 18%]
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_start_assessment FAILED [ 22%]
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_view_assessment_results FAILED [ 27%]
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_request_payment FAILED [ 31%]
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_check_revenue PASSED [ 36%]
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_payment_confirmation FAILED [ 40%]
+tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_view_dashboard FAILED [ 45%]
+tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_client_analytics FAILED [ 50%]
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_booking FAILED [ 54%]
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_habit_logging FAILED [ 59%]
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_progress FAILED [ 63%]
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_view_challenges FAILED [ 68%]
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_join_leave_challenges FAILED [ 72%]
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_leaderboard FAILED [ 77%]
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_bulk_operations FAILED [ 81%]
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_natural_language PASSED [ 86%]
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_error_handling PASSED [ 90%]
+tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_check_scheduled_reminders PASSED [ 95%]
+tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_subscription_monitoring PASSED [100%]
+
+================================== FAILURES ===================================
+___________ TestPhase4_HabitTracking.test_setup_habits_for_clients ____________
+tests\test_phases_4_11.py:165: in test_setup_habits_for_clients
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase4_HabitTracking.test_setup_habits_for_clients.<locals>.<genexpr> at 0x00000208360C6DC0>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+____________ TestPhase4_HabitTracking.test_check_habit_compliance _____________
+tests\test_phases_4_11.py:186: in test_check_habit_compliance
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase4_HabitTracking.test_check_habit_compliance.<locals>.<genexpr> at 0x0000020836907AE0>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+______________ TestPhase5_WorkoutsAssessments.test_send_workouts ______________
+tests\test_phases_4_11.py:230: in test_send_workouts
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_send_workouts.<locals>.<genexpr> at 0x0000020836904120>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+____________ TestPhase5_WorkoutsAssessments.test_start_assessment _____________
+tests\test_phases_4_11.py:246: in test_start_assessment
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_start_assessment.<locals>.<genexpr> at 0x0000020836905E00>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+_________ TestPhase5_WorkoutsAssessments.test_view_assessment_results _________
+tests\test_phases_4_11.py:261: in test_view_assessment_results
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_view_assessment_results.<locals>.<genexpr> at 0x0000020837995D20>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+_______________ TestPhase6_PaymentsRevenue.test_request_payment _______________
+tests\test_phases_4_11.py:289: in test_request_payment
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase6_PaymentsRevenue.test_request_payment.<locals>.<genexpr> at 0x0000020837996A40>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+____________ TestPhase6_PaymentsRevenue.test_payment_confirmation _____________
+tests\test_phases_4_11.py:321: in test_payment_confirmation
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase6_PaymentsRevenue.test_payment_confirmation.<locals>.<genexpr> at 0x00000208379C1700>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+_______________ TestPhase7_AnalyticsReports.test_view_dashboard _______________
+tests\test_phases_4_11.py:349: in test_view_dashboard
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase7_AnalyticsReports.test_view_dashboard.<locals>.<genexpr> at 0x00000208379C2C00>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+______________ TestPhase7_AnalyticsReports.test_client_analytics ______________
+tests\test_phases_4_11.py:364: in test_client_analytics
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase7_AnalyticsReports.test_client_analytics.<locals>.<genexpr> at 0x00000208379C17E0>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+________________ TestPhase8_ClientFeatures.test_client_booking ________________
+tests\test_phases_4_11.py:394: in test_client_booking
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_booking.<locals>.<genexpr> at 0x00000208379C3220>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+_____________ TestPhase8_ClientFeatures.test_client_habit_logging _____________
+tests\test_phases_4_11.py:411: in test_client_habit_logging
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_habit_logging.<locals>.<genexpr> at 0x00000208379D03C0>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+_______________ TestPhase8_ClientFeatures.test_client_progress ________________
+tests\test_phases_4_11.py:427: in test_client_progress
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_progress.<locals>.<genexpr> at 0x00000208379D1380>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+_________________ TestPhase9_Challenges.test_view_challenges __________________
+tests\test_phases_4_11.py:455: in test_view_challenges
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase9_Challenges.test_view_challenges.<locals>.<genexpr> at 0x00000208379D1C40>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+______________ TestPhase9_Challenges.test_join_leave_challenges _______________
+tests\test_phases_4_11.py:471: in test_join_leave_challenges
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase9_Challenges.test_join_leave_challenges.<locals>.<genexpr> at 0x00000208379D2A40>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+___________________ TestPhase9_Challenges.test_leaderboard ____________________
+tests\test_phases_4_11.py:487: in test_leaderboard
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase9_Challenges.test_leaderboard.<locals>.<genexpr> at 0x00000208379D12A0>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+______________ TestPhase10_AdvancedFeatures.test_bulk_operations ______________
+tests\test_phases_4_11.py:514: in test_bulk_operations
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_bulk_operations.<locals>.<genexpr> at 0x00000208379D3A00>)
+-------------------------- Captured stdout teardown ---------------------------
+\u26a0\ufe0f Cleanup warning: {'code': '42P01', 'details': None, 'hint': None, 'message': 'relation "public.workouts" does not exist'}
+============================== warnings summary ===============================
+.venv\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Howard.Nkosi\Desktop\Refiloe M\Github code\whatsapp-ai-assistant\.venv\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients
+  C:\Users\Howard.Nkosi\Desktop\Refiloe M\Github code\whatsapp-ai-assistant\.venv\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+tests/test_phases_4_11.py: 19 warnings
+  C:\Users\Howard.Nkosi\Desktop\Refiloe M\Github code\whatsapp-ai-assistant\.venv\Lib\site-packages\gotrue\types.py:679: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
+    model.update_forward_refs()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients
+FAILED tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_check_habit_compliance
+FAILED tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_send_workouts
+FAILED tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_start_assessment
+FAILED tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_view_assessment_results
+FAILED tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_request_payment
+FAILED tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_payment_confirmation
+FAILED tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_view_dashboard
+FAILED tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_client_analytics
+FAILED tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_booking
+FAILED tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_habit_logging
+FAILED tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_progress
+FAILED tests/test_phases_4_11.py::TestPhase9_Challenges::test_view_challenges
+FAILED tests/test_phases_4_11.py::TestPhase9_Challenges::test_join_leave_challenges
+FAILED tests/test_phases_4_11.py::TestPhase9_Challenges::test_leaderboard - a...
+FAILED tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_bulk_operations
+============ 16 failed, 6 passed, 21 warnings in 148.40s (0:02:28) ============
+
+==================================================
+STDERR:
+
+==================================================
