@@ -195,13 +195,13 @@ class WhatsAppFlowHandler:
         """Process completed trainer onboarding flow"""
         try:
             flow_name = flow_data.get('name')
-            if flow_name != 'trainer_onboarding':
+            if flow_name != 'trainer_onboarding_flow':
                 return {
                     'success': False,
                     'error': 'Invalid flow type'
                 }
             
-            # Extract flow action payload
+            # Extract flow action payload - updated for new structure
             action_payload = flow_data.get('flow_action_payload', {})
             flow_token = flow_data.get('flow_token')
             
@@ -211,8 +211,16 @@ class WhatsAppFlowHandler:
                     'error': 'Missing flow data'
                 }
             
-            # Extract form data
-            trainer_data = self._extract_trainer_data(action_payload)
+            # Check if flow was completed (reached terminal screen)
+            if action_payload.get('screen') != 'registration_complete':
+                return {
+                    'success': False,
+                    'error': 'Flow not completed',
+                    'message': 'Please complete all steps in the registration flow'
+                }
+            
+            # Extract form data from the new structure
+            trainer_data = self._extract_trainer_data_from_flow(action_payload)
             
             if not trainer_data:
                 return {
@@ -256,35 +264,68 @@ class WhatsAppFlowHandler:
                 'error': str(e)
             }
     
-    def _extract_trainer_data(self, action_payload: Dict) -> Dict:
-        """Extract trainer data from flow action payload"""
+    def _extract_trainer_data_from_flow(self, action_payload: Dict) -> Dict:
+        """Extract trainer data from new flow structure"""
         try:
             # Get phone number from flow token or context
             phone_number = self._get_phone_from_flow_token(action_payload.get('flow_token'))
             
+            # Extract data from form responses
+            form_data = action_payload.get('data', {})
+            
+            # Parse name (split first and last name)
+            full_name = form_data.get('full_name', '')
+            name_parts = full_name.strip().split(' ', 1)
+            first_name = name_parts[0] if name_parts else ''
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
+            # Parse pricing (ensure it's numeric)
+            pricing_str = form_data.get('pricing_per_session', '500')
+            try:
+                pricing = float(pricing_str) if pricing_str else 500.0
+            except (ValueError, TypeError):
+                pricing = 500.0
+            
+            # Handle available days (could be string or list)
+            available_days = form_data.get('available_days', [])
+            if isinstance(available_days, str):
+                available_days = [available_days]
+            
+            # Handle notification preferences (could be string or list)
+            notification_prefs = form_data.get('notification_preferences', [])
+            if isinstance(notification_prefs, str):
+                notification_prefs = [notification_prefs]
+            
             trainer_data = {
                 'phone': phone_number,
-                'name': action_payload.get('full_name', ''),
-                'email': action_payload.get('email', ''),
-                'city': action_payload.get('city', ''),
-                'specialization': action_payload.get('specialization', ''),
-                'experience_years': action_payload.get('experience_years', ''),
-                'pricing_per_session': float(action_payload.get('pricing_per_session', 500)),
-                'available_days': action_payload.get('available_days', []),
-                'preferred_time_slots': action_payload.get('preferred_time_slots', ''),
-                'subscription_plan': action_payload.get('subscription_plan', 'free'),
-                'notification_preferences': action_payload.get('notification_preferences', []),
-                'terms_accepted': action_payload.get('terms_accepted', False),
-                'marketing_consent': action_payload.get('marketing_consent', False),
-                'status': 'pending_approval',
+                'name': full_name,
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': form_data.get('email', ''),
+                'city': form_data.get('city', ''),
+                'specialization': form_data.get('specialization', ''),
+                'experience_years': form_data.get('experience_years', '0-1'),
+                'pricing_per_session': pricing,
+                'available_days': available_days,
+                'preferred_time_slots': form_data.get('preferred_time_slots', ''),
+                'subscription_plan': form_data.get('subscription_plan', 'free'),
+                'notification_preferences': notification_prefs,
+                'terms_accepted': bool(form_data.get('terms_accepted', False)),
+                'marketing_consent': bool(form_data.get('marketing_consent', False)),
+                'status': 'active',  # Changed from pending_approval to active
                 'created_at': datetime.now().isoformat()
             }
             
+            log_info(f"Extracted trainer data: {trainer_data['name']} ({trainer_data['email']})")
             return trainer_data
             
         except Exception as e:
-            log_error(f"Error extracting trainer data: {str(e)}")
+            log_error(f"Error extracting trainer data from flow: {str(e)}")
             return {}
+    
+    def _extract_trainer_data(self, action_payload: Dict) -> Dict:
+        """Legacy method - kept for backward compatibility"""
+        return self._extract_trainer_data_from_flow(action_payload)
     
     def _validate_trainer_data(self, trainer_data: Dict) -> Dict:
         """Validate trainer data from flow"""
