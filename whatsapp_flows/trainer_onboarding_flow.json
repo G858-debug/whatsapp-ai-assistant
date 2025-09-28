@@ -4,51 +4,62 @@
     {
       "id": "welcome",
       "title": "Welcome to Refiloe! 🎉",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "Welcome to Refiloe, your AI-powered fitness assistant! Let's get you set up as a trainer in just a few steps."
-        },
-        "footer": {
-          "type": "footer",
-          "text": "This will take about 2 minutes"
-        }
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
+          {
+            "type": "BODY",
+            "text": "Welcome to Refiloe, your AI-powered fitness assistant! Let's get you set up as a trainer in just a few steps.",
+            "__example__": "Welcome to Refiloe, your AI-powered fitness assistant! Let's get you set up as a trainer in just a few steps."
+          },
+          {
+            "type": "FOOTER",
+            "text": "This will take about 2 minutes",
+            "__example__": "This will take about 2 minutes"
+          }
+        ]
       }
     },
     {
       "id": "basic_info",
       "title": "Basic Information",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "First, let's get your basic information"
-        },
-        "components": [
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
           {
-            "type": "text",
-            "name": "full_name",
-            "label": "Full Name",
-            "placeholder": "Enter your full name",
-            "required": true,
-            "min_length": 2,
-            "max_length": 100
+            "type": "BODY",
+            "text": "First, let's get your basic information",
+            "__example__": "First, let's get your basic information"
           },
           {
-            "type": "text",
-            "name": "email",
-            "label": "Email Address",
-            "placeholder": "your.email@example.com",
-            "required": true,
-            "input_type": "email"
-          },
-          {
-            "type": "text",
-            "name": "city",
-            "label": "City",
-            "placeholder": "e.g., Johannesburg, Cape Town",
-            "required": true,
-            "min_length": 2,
-            "max_length": 50
+            "type": "FORM",
+            "name": "basic_info_form",
+            "children": [
+              {
+                "type": "INPUT",
+                "name": "full_name",
+                "label": "Full Name",
+                "placeholder": "Enter your full name",
+                "required": true,
+                "input_type": "TEXT"
+              },
+              {
+                "type": "INPUT",
+                "name": "email",
+                "label": "Email Address",
+                "placeholder": "your.email@example.com",
+                "required": true,
+                "input_type": "EMAIL"
+              },
+              {
+                "type": "INPUT",
+                "name": "city",
+                "label": "City",
+                "placeholder": "e.g., Johannesburg, Cape Town",
+                "required": true,
+                "input_type": "TEXT"
+              }
+            ]
           }
         ]
       }
@@ -56,89 +67,95 @@
     {
       "id": "business_details",
       "title": "Business Details",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "Tell us about your training business"
-        },
-        "components": [
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
           {
-            "type": "dropdown",
-            "name": "specialization",
-            "label": "Training Specialization",
-            "required": true,
-            "options": [
-              {
-                "id": "personal_training",
-                "title": "Personal Training"
-              },
-              {
-                "id": "group_fitness",
-                "title": "Group Fitness"
-              },
-              {
-                "id": "strength_training",
-                "title": "Strength Training"
-              },
-              {
-                "id": "cardio_fitness",
-                "title": "Cardio Fitness"
-              },
-              {
-                "id": "yoga_pilates",
-                "title": "Yoga & Pilates"
-              },
-              {
-                "id": "sports_coaching",
-                "title": "Sports Coaching"
-              },
-              {
-                "id": "nutrition_coaching",
-                "title": "Nutrition Coaching"
-              },
-              {
-                "id": "general_fitness",
-                "title": "General Fitness"
-              }
-            ]
+            "type": "BODY",
+            "text": "Tell us about your training business",
+            "__example__": "Tell us about your training business"
           },
           {
-            "type": "dropdown",
-            "name": "experience_years",
-            "label": "Years of Experience",
-            "required": true,
-            "options": [
+            "type": "FORM",
+            "name": "business_form",
+            "children": [
               {
-                "id": "0-1",
-                "title": "0-1 years"
+                "type": "SELECT",
+                "name": "specialization",
+                "label": "Training Specialization",
+                "required": true,
+                "options": [
+                  {
+                    "id": "personal_training",
+                    "title": "Personal Training"
+                  },
+                  {
+                    "id": "group_fitness",
+                    "title": "Group Fitness"
+                  },
+                  {
+                    "id": "strength_training",
+                    "title": "Strength Training"
+                  },
+                  {
+                    "id": "cardio_fitness",
+                    "title": "Cardio Fitness"
+                  },
+                  {
+                    "id": "yoga_pilates",
+                    "title": "Yoga & Pilates"
+                  },
+                  {
+                    "id": "sports_coaching",
+                    "title": "Sports Coaching"
+                  },
+                  {
+                    "id": "nutrition_coaching",
+                    "title": "Nutrition Coaching"
+                  },
+                  {
+                    "id": "general_fitness",
+                    "title": "General Fitness"
+                  }
+                ]
               },
               {
-                "id": "2-3",
-                "title": "2-3 years"
+                "type": "SELECT",
+                "name": "experience_years",
+                "label": "Years of Experience",
+                "required": true,
+                "options": [
+                  {
+                    "id": "0-1",
+                    "title": "0-1 years"
+                  },
+                  {
+                    "id": "2-3",
+                    "title": "2-3 years"
+                  },
+                  {
+                    "id": "4-5",
+                    "title": "4-5 years"
+                  },
+                  {
+                    "id": "6-10",
+                    "title": "6-10 years"
+                  },
+                  {
+                    "id": "10+",
+                    "title": "10+ years"
+                  }
+                ]
               },
               {
-                "id": "4-5",
-                "title": "4-5 years"
-              },
-              {
-                "id": "6-10",
-                "title": "6-10 years"
-              },
-              {
-                "id": "10+",
-                "title": "10+ years"
+                "type": "INPUT",
+                "name": "pricing_per_session",
+                "label": "Price per Session (ZAR)",
+                "placeholder": "e.g., 500",
+                "required": true,
+                "input_type": "NUMBER"
               }
             ]
-          },
-          {
-            "type": "text",
-            "name": "pricing_per_session",
-            "label": "Price per Session (ZAR)",
-            "placeholder": "e.g., 500",
-            "required": true,
-            "input_type": "number",
-            "min_value": 100,
-            "max_value": 5000
           }
         ]
       }
@@ -146,73 +163,81 @@
     {
       "id": "availability",
       "title": "Availability",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "When are you available for training sessions?"
-        },
-        "components": [
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
           {
-            "type": "checkbox",
-            "name": "available_days",
-            "label": "Available Days",
-            "required": true,
-            "options": [
-              {
-                "id": "monday",
-                "title": "Monday"
-              },
-              {
-                "id": "tuesday",
-                "title": "Tuesday"
-              },
-              {
-                "id": "wednesday",
-                "title": "Wednesday"
-              },
-              {
-                "id": "thursday",
-                "title": "Thursday"
-              },
-              {
-                "id": "friday",
-                "title": "Friday"
-              },
-              {
-                "id": "saturday",
-                "title": "Saturday"
-              },
-              {
-                "id": "sunday",
-                "title": "Sunday"
-              }
-            ]
+            "type": "BODY",
+            "text": "When are you available for training sessions?",
+            "__example__": "When are you available for training sessions?"
           },
           {
-            "type": "dropdown",
-            "name": "preferred_time_slots",
-            "label": "Preferred Time Slots",
-            "required": true,
-            "options": [
+            "type": "FORM",
+            "name": "availability_form",
+            "children": [
               {
-                "id": "early_morning",
-                "title": "Early Morning (5:00-8:00)"
+                "type": "CHECKBOX",
+                "name": "available_days",
+                "label": "Available Days",
+                "required": true,
+                "options": [
+                  {
+                    "id": "monday",
+                    "title": "Monday"
+                  },
+                  {
+                    "id": "tuesday",
+                    "title": "Tuesday"
+                  },
+                  {
+                    "id": "wednesday",
+                    "title": "Wednesday"
+                  },
+                  {
+                    "id": "thursday",
+                    "title": "Thursday"
+                  },
+                  {
+                    "id": "friday",
+                    "title": "Friday"
+                  },
+                  {
+                    "id": "saturday",
+                    "title": "Saturday"
+                  },
+                  {
+                    "id": "sunday",
+                    "title": "Sunday"
+                  }
+                ]
               },
               {
-                "id": "morning",
-                "title": "Morning (8:00-12:00)"
-              },
-              {
-                "id": "afternoon",
-                "title": "Afternoon (12:00-17:00)"
-              },
-              {
-                "id": "evening",
-                "title": "Evening (17:00-20:00)"
-              },
-              {
-                "id": "flexible",
-                "title": "Flexible - Any Time"
+                "type": "SELECT",
+                "name": "preferred_time_slots",
+                "label": "Preferred Time Slots",
+                "required": true,
+                "options": [
+                  {
+                    "id": "early_morning",
+                    "title": "Early Morning (5:00-8:00)"
+                  },
+                  {
+                    "id": "morning",
+                    "title": "Morning (8:00-12:00)"
+                  },
+                  {
+                    "id": "afternoon",
+                    "title": "Afternoon (12:00-17:00)"
+                  },
+                  {
+                    "id": "evening",
+                    "title": "Evening (17:00-20:00)"
+                  },
+                  {
+                    "id": "flexible",
+                    "title": "Flexible - Any Time"
+                  }
+                ]
               }
             ]
           }
@@ -222,56 +247,64 @@
     {
       "id": "preferences",
       "title": "Preferences",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "Set your communication preferences"
-        },
-        "components": [
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
           {
-            "type": "dropdown",
-            "name": "subscription_plan",
-            "label": "Choose Your Plan",
-            "required": true,
-            "options": [
-              {
-                "id": "free",
-                "title": "Free Plan - Up to 5 clients",
-                "description": "Perfect for getting started"
-              },
-              {
-                "id": "premium",
-                "title": "Premium Plan - Up to 25 clients",
-                "description": "R299/month - Most popular"
-              },
-              {
-                "id": "pro",
-                "title": "Pro Plan - Unlimited clients",
-                "description": "R599/month - For established trainers"
-              }
-            ]
+            "type": "BODY",
+            "text": "Set your communication preferences",
+            "__example__": "Set your communication preferences"
           },
           {
-            "type": "checkbox",
-            "name": "notification_preferences",
-            "label": "Notification Preferences",
-            "required": false,
-            "options": [
+            "type": "FORM",
+            "name": "preferences_form",
+            "children": [
               {
-                "id": "booking_notifications",
-                "title": "Booking Notifications"
+                "type": "SELECT",
+                "name": "subscription_plan",
+                "label": "Choose Your Plan",
+                "required": true,
+                "options": [
+                  {
+                    "id": "free",
+                    "title": "Free Plan - Up to 5 clients",
+                    "description": "Perfect for getting started"
+                  },
+                  {
+                    "id": "premium",
+                    "title": "Premium Plan - Up to 25 clients",
+                    "description": "R299/month - Most popular"
+                  },
+                  {
+                    "id": "pro",
+                    "title": "Pro Plan - Unlimited clients",
+                    "description": "R599/month - For established trainers"
+                  }
+                ]
               },
               {
-                "id": "payment_reminders",
-                "title": "Payment Reminders"
-              },
-              {
-                "id": "client_progress_updates",
-                "title": "Client Progress Updates"
-              },
-              {
-                "id": "marketing_emails",
-                "title": "Marketing & Tips"
+                "type": "CHECKBOX",
+                "name": "notification_preferences",
+                "label": "Notification Preferences",
+                "required": false,
+                "options": [
+                  {
+                    "id": "booking_notifications",
+                    "title": "Booking Notifications"
+                  },
+                  {
+                    "id": "payment_reminders",
+                    "title": "Payment Reminders"
+                  },
+                  {
+                    "id": "client_progress_updates",
+                    "title": "Client Progress Updates"
+                  },
+                  {
+                    "id": "marketing_emails",
+                    "title": "Marketing & Tips"
+                  }
+                ]
               }
             ]
           }
@@ -281,40 +314,50 @@
     {
       "id": "verification",
       "title": "Review & Submit",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "Please review your information before submitting"
-        },
-        "components": [
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
           {
-            "type": "text",
-            "name": "review_summary",
-            "label": "Summary",
-            "readonly": true,
-            "value": "{{full_name}} - {{specialization}} - {{pricing_per_session}} ZAR/session"
+            "type": "BODY",
+            "text": "Please review your information before submitting",
+            "__example__": "Please review your information before submitting"
           },
           {
-            "type": "checkbox",
-            "name": "terms_accepted",
-            "label": "Terms & Conditions",
-            "required": true,
-            "options": [
+            "type": "FORM",
+            "name": "verification_form",
+            "children": [
               {
-                "id": "terms",
-                "title": "I agree to the Terms of Service and Privacy Policy"
-              }
-            ]
-          },
-          {
-            "type": "checkbox",
-            "name": "marketing_consent",
-            "label": "Marketing Consent",
-            "required": false,
-            "options": [
+                "type": "INPUT",
+                "name": "review_summary",
+                "label": "Summary",
+                "placeholder": "{{full_name}} - {{specialization}} - {{pricing_per_session}} ZAR/session",
+                "required": false,
+                "input_type": "TEXT",
+                "readonly": true
+              },
               {
-                "id": "marketing",
-                "title": "I would like to receive marketing communications"
+                "type": "CHECKBOX",
+                "name": "terms_accepted",
+                "label": "Terms & Conditions",
+                "required": true,
+                "options": [
+                  {
+                    "id": "terms",
+                    "title": "I agree to the Terms of Service and Privacy Policy"
+                  }
+                ]
+              },
+              {
+                "type": "CHECKBOX",
+                "name": "marketing_consent",
+                "label": "Marketing Consent",
+                "required": false,
+                "options": [
+                  {
+                    "id": "marketing",
+                    "title": "I would like to receive marketing communications"
+                  }
+                ]
               }
             ]
           }
@@ -324,35 +367,21 @@
     {
       "id": "success",
       "title": "Welcome to Refiloe! 🎉",
-      "data": {
-        "body": {
-          "type": "body",
-          "text": "Congratulations {{full_name}}! Your trainer profile has been created successfully. We'll review your application and get back to you within 24 hours."
-        },
-        "footer": {
-          "type": "footer",
-          "text": "You'll receive a confirmation email shortly"
-        }
+      "layout": {
+        "type": "SINGLE_COLUMN",
+        "children": [
+          {
+            "type": "BODY",
+            "text": "Congratulations {{full_name}}! Your trainer profile has been created successfully. We'll review your application and get back to you within 24 hours.",
+            "__example__": "Congratulations John Doe! Your trainer profile has been created successfully. We'll review your application and get back to you within 24 hours."
+          },
+          {
+            "type": "FOOTER",
+            "text": "You'll receive a confirmation email shortly",
+            "__example__": "You'll receive a confirmation email shortly"
+          }
+        ]
       }
     }
-  ],
-  "metadata": {
-    "flow_name": "Trainer Onboarding",
-    "flow_version": "1.0",
-    "flow_category": "onboarding",
-    "flow_description": "Complete trainer registration and profile setup",
-    "estimated_completion_time": "2-3 minutes",
-    "required_fields": [
-      "full_name",
-      "email", 
-      "city",
-      "specialization",
-      "experience_years",
-      "pricing_per_session",
-      "available_days",
-      "preferred_time_slots",
-      "subscription_plan",
-      "terms_accepted"
-    ]
-  }
+  ]
 }
