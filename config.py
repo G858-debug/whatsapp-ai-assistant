@@ -8,6 +8,9 @@ class Config:
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
     SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
     
+    # Railway API config
+    RAILWAY_API_TOKEN = os.environ.get('RAILWAY_API_TOKEN')
+    
     # WhatsApp API config
     WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'https://graph.facebook.com/v17.0/671257819413918/messages')
     WHATSAPP_API_TOKEN = os.environ.get('ACCESS_TOKEN')  # Gets from Railway's ACCESS_TOKEN
