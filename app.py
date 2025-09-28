@@ -18,6 +18,7 @@ setup_routes(app)
 from routes.calendar import calendar_bp
 from routes.payment import payment_bp
 from routes.webhooks import webhooks_bp
+from routes.flow_webhook import setup_flow_webhook
 from payfast_webhook import payfast_webhook_bp
 
 # Register blueprints (NO dashboard_bp here!)
@@ -25,6 +26,15 @@ app.register_blueprint(calendar_bp, url_prefix='/calendar')
 app.register_blueprint(payment_bp, url_prefix='/payment')
 app.register_blueprint(webhooks_bp)  # NO PREFIX - webhook should be at /webhook
 app.register_blueprint(payfast_webhook_bp)  # PayFast at /webhooks/payfast
+
+# Setup flow webhook (requires supabase and whatsapp_service)
+from supabase import create_client
+from services.whatsapp import WhatsAppService
+from config import Config
+
+supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+whatsapp_service = WhatsAppService(Config)
+setup_flow_webhook(app, supabase, whatsapp_service)
 
 if __name__ == '__main__':
     # Use Railway's PORT environment variable

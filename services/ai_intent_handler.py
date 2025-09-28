@@ -643,10 +643,12 @@ class AIIntentHandler:
         if intent == 'greeting':
             import random
             greetings = [
-                f"Hey {name}! 👋",
-                f"Hi {name}! Good to hear from you 😊",
-                f"Hello {name}!",
-                f"Hey there {name}! 🙌"
+                f"Hey {name}! 👋 I'm doing great, thanks for asking! Hope you're good too.",
+                f"Hi {name}! 😊 I'm wonderful, thank you! Hope you're good too.",
+                f"Hello {name}! 🙌 I'm doing fantastic! Hope you're good too.",
+                f"Hey there {name}! 💪 I'm excellent, thanks! Hope you're good too.",
+                f"Hi {name}! 😄 I'm doing really well! Hope you're good too.",
+                f"Hello {name}! 🌟 I'm great, thank you! Hope you're good too."
             ]
             return random.choice(greetings)
         
@@ -656,7 +658,7 @@ class AIIntentHandler:
             'send_workout', 'start_assessment', 'view_assessment_results', 'request_payment',
             'view_dashboard', 'view_analytics', 'book_session', 'log_habit', 'view_client_progress',
             'challenges', 'view_schedule', 'view_clients', 'view_client_attendance', 'session_booking_request', 'session_booking',
-            'progress_inquiry', 'client_analytics', 'leaderboard', 'error_handling'
+            'progress_inquiry', 'client_analytics', 'leaderboard', 'error_handling', 'trainer_registration', 'start_onboarding'
         ]
         
         if intent in complex_intents:
@@ -669,6 +671,12 @@ class AIIntentHandler:
                 f"I'm always here for you, {name}! 24/7, rain or shine ☀️",
                 f"Yep, still here {name}! Not going anywhere 😄",
                 f"Present and accounted for! What's on your mind, {name}?"
+            ],
+            'how_are_you_response': [
+                f"That's great to hear, {name}! 😊 I'm here to help with your fitness goals whenever you're ready.",
+                f"Awesome, {name}! 💪 I'm ready to help you achieve your fitness goals. What would you like to work on today?",
+                f"Wonderful, {name}! 🌟 I'm here to support your fitness journey. What can I help you with?",
+                f"Fantastic, {name}! 🙌 I'm ready to help you reach your fitness goals. What's on your mind today?"
             ],
             'casual_chat': [
                 f"I'm doing great, {name}! Just here helping trainers and clients stay fit. How are things with you?",
@@ -799,6 +807,8 @@ class AIIntentHandler:
                 return self._handle_leaderboard(phone, intent_data, sender_type, sender_data)
             elif intent == 'error_handling':
                 return self._handle_error_handling(phone, intent_data, sender_type, sender_data)
+            elif intent in ['trainer_registration', 'start_onboarding']:
+                return self._handle_trainer_onboarding(phone, intent_data, sender_type, sender_data)
             else:
                 return f"I understand you want to {intent.replace('_', ' ')}, but I need more information to help you with that."
                 
@@ -1502,3 +1512,38 @@ class AIIntentHandler:
         except Exception as e:
             log_error(f"Error in error handling: {str(e)}")
             return "I encountered an error processing your request. Please try again or contact support."
+    
+    def _handle_trainer_onboarding(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle trainer onboarding requests using WhatsApp Flows"""
+        try:
+            log_info(f"Handling trainer onboarding request from {phone}")
+            
+            # Check if user is already a trainer
+            existing_trainer = self.db.table('trainers').select('*').eq('whatsapp', phone).execute()
+            if existing_trainer.data:
+                trainer = existing_trainer.data[0]
+                return f"You're already registered as a trainer, {trainer['name']}! If you need help with your account, just let me know."
+            
+            # Check if user has an active onboarding flow
+            flow_handler = self._get_service('flow_handler')
+            if flow_handler:
+                flow_status = flow_handler.get_flow_status(phone)
+                if flow_status.get('has_active_flow'):
+                    return "You already have an onboarding flow in progress! Please complete it or let me know if you need help."
+            
+            # Send WhatsApp Flow for trainer onboarding
+            if flow_handler:
+                result = flow_handler.send_trainer_onboarding_flow(phone)
+                
+                if result.get('success'):
+                    return "🚀 Perfect! I've sent you a professional onboarding form. Please complete it to set up your trainer profile. This will take about 2 minutes and includes all the information we need to get you started!"
+                else:
+                    log_error(f"Failed to send onboarding flow: {result.get('error')}")
+                    return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"
+            else:
+                # Fallback to chat-based onboarding
+                return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"
+            
+        except Exception as e:
+            log_error(f"Error handling trainer onboarding: {str(e)}")
+            return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"

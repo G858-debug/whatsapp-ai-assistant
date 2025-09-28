@@ -7,6 +7,7 @@ from datetime import datetime
 from config import Config
 from services.whatsapp import WhatsAppService
 from services.refiloe import RefiloeService
+from services.whatsapp_flow_handler import WhatsAppFlowHandler
 from services.ai_intent_handler import AIIntentHandler
 from services.scheduler import SchedulerService
 from services.assessment import EnhancedAssessmentService
@@ -47,6 +48,7 @@ def setup_app_core(app):
     input_sanitizer = InputSanitizer(Config)
     calendar_service = CalendarService(supabase, Config)
     refiloe_service = RefiloeService(supabase)
+    flow_handler = WhatsAppFlowHandler(supabase, whatsapp_service)
     
     # Create services dictionary for AI intent handler
     services_dict = {
@@ -62,7 +64,8 @@ def setup_app_core(app):
         'rate_limiter': rate_limiter,
         'input_sanitizer': input_sanitizer,
         'calendar': calendar_service,
-        'refiloe': refiloe_service
+        'refiloe': refiloe_service,
+        'flow_handler': flow_handler
     }
     
     # Initialize AI handler with access to all services
