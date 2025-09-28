@@ -36,7 +36,8 @@ try:
     # Only setup flow webhook if we have the required environment variables
     if Config.SUPABASE_URL and Config.SUPABASE_SERVICE_KEY:
         supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
-        whatsapp_service = WhatsAppService(Config)
+        from utils.logger import log_info
+        whatsapp_service = WhatsAppService(Config, supabase, log_info)
         setup_flow_webhook(app, supabase, whatsapp_service)
     else:
         print("Warning: Supabase credentials not found. Flow webhook setup skipped.")
