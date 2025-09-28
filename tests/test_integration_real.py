@@ -75,13 +75,16 @@ class TestRealIntegration:
             );
             
             CREATE TABLE bookings (
-                id SERIAL PRIMARY KEY,
-                trainer_id INTEGER REFERENCES trainers(id),
-                client_id INTEGER REFERENCES clients(id),
-                booking_date DATE NOT NULL,
-                time_slot VARCHAR(10) NOT NULL,
-                status VARCHAR(50) DEFAULT 'confirmed',
-                created_at TIMESTAMP DEFAULT NOW()
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+                session_datetime TIMESTAMPTZ NOT NULL,
+                duration_minutes INTEGER DEFAULT 60,
+                price DECIMAL(10,2) NOT NULL,
+                status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled', 'no_show')),
+                session_notes TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
             );
             """)
             pytest.skip("Database tables not set up. Please create them first.")
@@ -176,9 +179,10 @@ class TestRealIntegration:
         booking = self.db.table('bookings').insert({
             'trainer_id': trainer_id,
             'client_id': None,  # Can be None for test
-            'booking_date': tomorrow.date().isoformat(),
-            'time_slot': '09:00',
-            'status': 'confirmed'
+            'session_datetime': tomorrow.isoformat(),
+            'duration_minutes': 60,
+            'price': 500.00,
+            'status': 'scheduled'
         }).execute()
         
         # Verify booking exists
@@ -199,7 +203,7 @@ class TestRealIntegration:
             
             # Use correct model name
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",  # Latest Claude Sonnet 4
+                model="claude-3-5-sonnet-20241022",  # Latest Claude Sonnet 3.5
                 max_tokens=100,
                 messages=[
                     {"role": "user", "content": "What is 2 plus 2? Just give the number."}

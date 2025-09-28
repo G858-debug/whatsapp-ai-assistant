@@ -122,6 +122,23 @@ def setup_app_core(app):
     
     return app, scheduler
 
+def process_whatsapp_message(phone, text):
+    """
+    Process WhatsApp messages - wrapper function for compatibility with tests
+    """
+    try:
+        # Get the refiloe service from app config
+        from app import app
+        refiloe_service = app.config['services']['refiloe']
+        
+        # Process the message
+        result = refiloe_service.handle_message({'from': phone, 'text': {'body': text}, 'type': 'text'})
+        return result
+    except Exception as e:
+        from utils.logger import log_error
+        log_error(f"Error processing WhatsApp message: {str(e)}")
+        return {'success': False, 'error': str(e)}
+
 def setup_scheduled_tasks(scheduler, scheduler_service, supabase):
     """Setup scheduled background tasks"""
     

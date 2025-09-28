@@ -28,20 +28,13 @@ app.register_blueprint(webhooks_bp)  # NO PREFIX - webhook should be at /webhook
 app.register_blueprint(payfast_webhook_bp)  # PayFast at /webhooks/payfast
 
 # Setup flow webhook (requires supabase and whatsapp_service)
-try:
-    from supabase import create_client
-    from services.whatsapp import WhatsAppService
-    from config import Config
-    
-    # Only setup flow webhook if we have the required environment variables
-    if Config.SUPABASE_URL and Config.SUPABASE_SERVICE_KEY:
-        supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
-        whatsapp_service = WhatsAppService(Config)
-        setup_flow_webhook(app, supabase, whatsapp_service)
-    else:
-        print("Warning: Supabase credentials not found. Flow webhook setup skipped.")
-except Exception as e:
-    print(f"Warning: Failed to setup flow webhook: {str(e)}")
+from supabase import create_client
+from services.whatsapp import WhatsAppService
+from config import Config
+
+supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+whatsapp_service = WhatsAppService(Config)
+setup_flow_webhook(app, supabase, whatsapp_service)
 
 if __name__ == '__main__':
     # Use Railway's PORT environment variable

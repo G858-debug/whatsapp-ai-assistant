@@ -274,9 +274,10 @@ class TestPhase3_Scheduling:
             {
                 'trainer_id': self.trainer_id,
                 'client_id': self.client_id,
-                'booking_date': tomorrow.isoformat(),
-                'time_slot': '09:00',
-                'status': 'confirmed'
+                'session_datetime': tomorrow.isoformat(),
+                'duration_minutes': 60,
+                'price': 500.00,
+                'status': 'scheduled'
             }
         ]).execute()
         
@@ -316,9 +317,10 @@ class TestPhase3_Scheduling:
         booking = self.db.table('bookings').insert({
             'trainer_id': self.trainer_id,
             'client_id': self.client_id,
-            'booking_date': tomorrow.isoformat(),
-            'time_slot': '09:00',
-            'status': 'confirmed'
+            'session_datetime': tomorrow.isoformat(),
+            'duration_minutes': 60,
+            'price': 500.00,
+            'status': 'scheduled'
         }).execute().data[0]
         
         # Test cancellation

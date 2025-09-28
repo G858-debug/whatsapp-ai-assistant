@@ -31,6 +31,7 @@ colorlog==6.7.0
 # Updated for Python 3.13 compatibility
 pandas==2.2.3
 numpy==2.3.3
+pyarrow==14.0.1
 
 # Security
 cryptography==41.0.4

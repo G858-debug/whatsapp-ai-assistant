@@ -26,8 +26,9 @@ class AIIntentHandler:
         # Initialize Claude
         if config.ANTHROPIC_API_KEY:
             self.client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            self.model = "claude-sonnet-4-20250514"
-            log_info("AI Intent Handler initialized with Claude")
+            # Use config model or fallback to working model
+            self.model = getattr(config, 'AI_MODEL', 'claude-sonnet-4-20250514')
+            log_info(f"AI Intent Handler initialized with Claude model: {self.model}")
         else:
             self.client = None
             log_warning("No Anthropic API key - falling back to keyword matching")
