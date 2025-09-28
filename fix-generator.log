@@ -1,5 +1,4 @@
-Analyzing 11 failures...
-  → Skipping mock issue in tests/test_phase1_registration.py::TestTrainerRegi
+Analyzing 32 failures...
   ✅ Generated currency_parsing fix
   ✅ Generated phone_format fix
 Saved 2 fixes

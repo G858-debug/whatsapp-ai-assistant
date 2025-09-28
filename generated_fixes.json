@@ -2,7 +2,7 @@
   {
     "type": "currency_parsing",
     "file": "services/registration/trainer_registration.py",
-    "test": "tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing",
+    "test": "tests/test_phase2_client_management.py::TestCustomPricingReal::test_set_custom_pricing_variations",
     "diagnosis": "Currency parsing needed"
   },
   {
