@@ -1553,6 +1553,14 @@ class AIIntentHandler:
     def _start_chat_based_onboarding(self, phone: str) -> str:
         """Start chat-based trainer onboarding as fallback"""
         try:
+            # Set conversation state to REGISTRATION
+            from services.refiloe import RefiloeService
+            refiloe_service = RefiloeService(self.db)
+            refiloe_service.update_conversation_state(phone, 'REGISTRATION', {
+                'type': 'trainer',
+                'current_step': 0
+            })
+            
             # Get the trainer registration handler
             trainer_reg_handler = self._get_service('trainer_registration')
             if trainer_reg_handler:
