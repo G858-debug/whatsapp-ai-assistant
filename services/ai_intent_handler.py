@@ -1539,11 +1539,26 @@ class AIIntentHandler:
                     return "🚀 Perfect! I've sent you a professional onboarding form. Please complete it to set up your trainer profile. This will take about 2 minutes and includes all the information we need to get you started!"
                 else:
                     log_error(f"Failed to send onboarding flow: {result.get('error')}")
-                    return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"
+                    # Fallback to chat-based onboarding
+                    return self._start_chat_based_onboarding(phone)
             else:
                 # Fallback to chat-based onboarding
-                return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"
+                return self._start_chat_based_onboarding(phone)
             
         except Exception as e:
             log_error(f"Error handling trainer onboarding: {str(e)}")
+            return self._start_chat_based_onboarding(phone)
+    
+    def _start_chat_based_onboarding(self, phone: str) -> str:
+        """Start chat-based trainer onboarding as fallback"""
+        try:
+            # Get the trainer registration handler
+            trainer_reg_handler = self._get_service('trainer_registration')
+            if trainer_reg_handler:
+                return trainer_reg_handler.start_registration(phone)
+            else:
+                # Direct fallback message
+                return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"
+        except Exception as e:
+            log_error(f"Error starting chat-based onboarding: {str(e)}")
             return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"

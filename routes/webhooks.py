@@ -55,7 +55,7 @@ def whatsapp_webhook():
                                 
                                 # Handle different message types
                                 if message_type == 'interactive':
-                                    # This is a button click or list reply
+                                    # This is a button click, list reply, or flow response
                                     interactive = message.get('interactive', {})
                                     interactive_type = interactive.get('type')
                                     
@@ -71,6 +71,24 @@ def whatsapp_webhook():
                                         text = list_reply.get('title', '')
                                         button_id = list_reply.get('id', '')
                                         log_info(f"List selected - ID: {button_id}, Title: {text}")
+                                    elif interactive_type == 'flow':
+                                        # Flow response - handle via flow webhook
+                                        flow_response = interactive.get('flow_response', {})
+                                        if flow_response:
+                                            log_info(f"Flow response received from {phone}")
+                                            # Process flow response via flow handler
+                                            try:
+                                                from app import app
+                                                flow_handler = app.config['services'].get('flow_handler')
+                                                if flow_handler:
+                                                    result = flow_handler.handle_flow_response(flow_response)
+                                                    if result.get('success'):
+                                                        log_info(f"Flow processed successfully: {result.get('message')}")
+                                                    else:
+                                                        log_error(f"Flow processing failed: {result.get('error')}")
+                                            except Exception as e:
+                                                log_error(f"Error processing flow response: {str(e)}")
+                                            continue  # Skip normal message processing for flows
                                 
                                 elif message_type == 'button':
                                     # Legacy button format

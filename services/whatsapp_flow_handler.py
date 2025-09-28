@@ -24,7 +24,9 @@ class WhatsAppFlowHandler:
     def _load_flow_data(self) -> Dict:
         """Load the trainer onboarding flow JSON"""
         try:
-            flow_path = os.path.join(os.path.dirname(__file__), 'whatsapp_flows', 'trainer_onboarding_flow.json')
+            # Get the project root directory (go up one level from services)
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            flow_path = os.path.join(project_root, 'whatsapp_flows', 'trainer_onboarding_flow.json')
             with open(flow_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
@@ -94,8 +96,8 @@ class WhatsAppFlowHandler:
                     'error': 'Failed to create flow message'
                 }
             
-            # Send via WhatsApp service
-            result = self.whatsapp_service.send_message(phone_number, flow_message)
+            # Send via WhatsApp service using the flow message method
+            result = self.whatsapp_service.send_flow_message(flow_message)
             
             if result.get('success'):
                 # Store flow token for tracking

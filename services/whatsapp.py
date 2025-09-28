@@ -270,3 +270,36 @@ class WhatsAppService:
         except Exception as e:
             log_error(f"Error sending WhatsApp button message: {str(e)}")
             return {'success': False, 'error': str(e)}
+    
+    def send_flow_message(self, flow_message: Dict) -> Dict:
+        """Send WhatsApp flow message"""
+        try:
+            # Extract phone number and format it
+            phone = self._format_phone_number(flow_message.get('to', ''))
+            
+            # Update the phone number in the message
+            flow_message['to'] = phone
+            
+            # Send request
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=flow_message,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                log_info(f"Flow message sent to {phone}")
+                return {'success': True, 'message_id': response.json().get('messages', [{}])[0].get('id')}
+            else:
+                log_error(f"Failed to send flow message: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            log_error(f"Error sending WhatsApp flow message: {str(e)}")
+            return {'success': False, 'error': str(e)}
