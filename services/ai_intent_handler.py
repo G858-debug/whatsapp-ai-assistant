@@ -1540,10 +1540,14 @@ class AIIntentHandler:
                     return "🚀 Perfect! I've sent you a professional onboarding form. Please complete it to set up your trainer profile. This will take about 2 minutes and includes all the information we need to get you started!"
                 else:
                     log_error(f"Failed to send onboarding flow: {result.get('error')}")
+                    # Check if fallback is explicitly required
+                    if result.get('fallback_required'):
+                        log_info(f"Flow not available, falling back to text-based registration: {result.get('message')}")
                     # Fallback to chat-based onboarding
                     return self._start_chat_based_onboarding(phone)
             else:
                 # Fallback to chat-based onboarding
+                log_info("Flow handler not available, using text-based registration")
                 return self._start_chat_based_onboarding(phone)
             
         except Exception as e:

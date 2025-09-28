@@ -40,6 +40,8 @@ class WhatsAppFlowHandler:
                 flow_token = f"trainer_onboarding_{phone_number}_{int(datetime.now().timestamp())}"
             
             message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
                 "to": phone_number,
                 "type": "interactive",
                 "interactive": {
@@ -55,14 +57,16 @@ class WhatsAppFlowHandler:
                         "text": "Complete your profile setup"
                     },
                     "action": {
-                        "name": "trainer_onboarding",
+                        "name": "flow",
                         "parameters": {
+                            "flow_message_version": "3",
                             "flow_token": flow_token,
-                            "flow_id": "trainer_onboarding_flow",
+                            "flow_name": "trainer_onboarding_flow",
                             "flow_cta": "Start Setup",
+                            "flow_action": "navigate",
                             "flow_action_payload": {
                                 "screen": "welcome",
-                                "flow_data": self.flow_data
+                                "data": {}
                             }
                         }
                     }
@@ -76,6 +80,60 @@ class WhatsAppFlowHandler:
             log_error(f"Error creating flow message: {str(e)}")
             return {}
     
+    def create_and_publish_flow(self) -> Dict:
+        """Create and publish the trainer onboarding flow in WhatsApp Business Manager"""
+        try:
+            # Check if flow already exists
+            existing_flow = self.get_flow_by_name("trainer_onboarding_flow")
+            if existing_flow.get('success'):
+                log_info("Flow already exists, using existing flow")
+                return {'success': True, 'flow_id': existing_flow.get('flow_id')}
+            
+            # Create the flow
+            flow_data = {
+                "name": "trainer_onboarding_flow",
+                "categories": ["UTILITY"],
+                "version": "3.0",
+                "screens": self.flow_data.get('screens', [])
+            }
+            
+            result = self._create_flow_via_api(flow_data)
+            if result.get('success'):
+                log_info(f"Flow created successfully: {result.get('flow_id')}")
+                return result
+            else:
+                log_error(f"Failed to create flow: {result.get('error')}")
+                return result
+                
+        except Exception as e:
+            log_error(f"Error creating and publishing flow: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_flow_by_name(self, flow_name: str) -> Dict:
+        """Get flow by name from WhatsApp Business Manager"""
+        try:
+            # This would require implementing the Flows API
+            # For now, return a placeholder
+            return {'success': False, 'error': 'Flow lookup not implemented'}
+        except Exception as e:
+            log_error(f"Error getting flow by name: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _create_flow_via_api(self, flow_data: Dict) -> Dict:
+        """Create flow via WhatsApp Business API"""
+        try:
+            # This would require implementing the Flows API
+            # For now, return a placeholder indicating manual setup required
+            log_warning("Flow creation via API not implemented. Flow must be created manually in WhatsApp Business Manager.")
+            return {
+                'success': False, 
+                'error': 'Flow must be created manually in WhatsApp Business Manager first',
+                'message': 'Please create the flow "trainer_onboarding_flow" in your WhatsApp Business Manager'
+            }
+        except Exception as e:
+            log_error(f"Error creating flow via API: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
     def send_trainer_onboarding_flow(self, phone_number: str) -> Dict:
         """Send the trainer onboarding flow to a phone number"""
         try:
@@ -86,6 +144,17 @@ class WhatsAppFlowHandler:
                     'success': False,
                     'error': 'User is already registered as a trainer',
                     'message': 'You are already registered as a trainer! If you need help, please contact support.'
+                }
+            
+            # Ensure flow exists and is published
+            flow_result = self.create_and_publish_flow()
+            if not flow_result.get('success'):
+                log_warning(f"Flow not available: {flow_result.get('error')}")
+                return {
+                    'success': False,
+                    'error': 'Flow not available',
+                    'message': 'WhatsApp Flow registration is not available. Please use text-based registration.',
+                    'fallback_required': True
                 }
             
             # Create flow message
