@@ -2,6 +2,7 @@ from flask import Flask
 from config import Config
 from app_core import setup_app_core
 from app_routes import setup_routes
+from routes.whatsapp_flow import whatsapp_flow_bp
 import os
 
 # Create Flask app
@@ -10,6 +11,9 @@ app.config.from_object(Config)
 
 # Setup core services and models (this already registers dashboard_bp!)
 app, scheduler = setup_app_core(app)
+
+# Register the blueprint
+app.register_blueprint(whatsapp_flow_bp)
 
 # Setup basic routes
 setup_routes(app)
