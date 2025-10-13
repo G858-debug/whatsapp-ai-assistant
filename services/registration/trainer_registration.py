@@ -111,9 +111,13 @@ class TrainerRegistrationHandler:
             # Only return early if data actually exists
             if existing and hasattr(existing, 'data') and existing.data and len(existing.data) > 0:
                 name = existing.data[0].get('first_name', 'there')
+                self.track_registration_analytics(phone, 'already_registered')
                 return f"Welcome back, {name}! You're already registered. How can I help you today?"
         except Exception as e:
             log_error(f"Error checking existing registration: {str(e)}")
+        
+        # Track registration start
+        self.track_registration_analytics(phone, 'started', step=0)
         
         # Continue with registration for new users
         return (
@@ -135,11 +139,17 @@ class TrainerRegistrationHandler:
             validated = self._validate_field(field, message)
             
             if not validated['valid']:
+                # Track validation error
+                self.track_registration_analytics(phone, 'validation_error', step=current_step, 
+                                                error_field=field, error_message=validated['error'])
                 return {
                     'success': False,
                     'message': validated['error'],
                     'continue': True
                 }
+            
+            # Track successful step completion
+            self.track_registration_analytics(phone, 'step_completed', step=current_step)
             
             data[field] = validated['value']
             self.save_session(phone, data, current_step)
@@ -161,6 +171,8 @@ class TrainerRegistrationHandler:
             
         except Exception as e:
             log_error(f"Error handling registration: {str(e)}")
+            self.track_registration_analytics(phone, 'system_error', step=current_step, 
+                                            error_message=str(e))
             return {
                 'success': False,
                 'message': "😅 Oops! Something went wrong. Let's try that again.",
@@ -388,6 +400,9 @@ class TrainerRegistrationHandler:
                 trainer_id = result.data[0]['id']
                 log_info(f"Trainer registered: {full_name} ({trainer_id})")
                 
+                # Track successful completion
+                self.track_registration_analytics(phone, 'completed')
+                
                 # Clear session
                 if hasattr(self, '_sessions') and phone in self._sessions:
                     del self._sessions[phone]
@@ -424,8 +439,125 @@ class TrainerRegistrationHandler:
                 
         except Exception as e:
             log_error(f"Error completing registration: {str(e)}")
+            self.track_registration_analytics(phone, 'completion_error', error_message=str(e))
             return {
                 'success': False,
                 'message': "😅 Almost there! We hit a small snag. Please try again.",
                 'continue': False
+            }
+    
+    def track_registration_analytics(self, phone: str, event: str, step: int = None, 
+                                   error_field: str = None, error_message: str = None):
+        """Track registration analytics for optimization"""
+        try:
+            analytics_data = {
+                'phone_number': phone,
+                'event_type': event,  # 'started', 'step_completed', 'validation_error', 'completed', 'abandoned', 'system_error', 'already_registered'
+                'step_number': step,
+                'timestamp': datetime.now(self.sa_tz).isoformat(),
+                'user_type': 'trainer'
+            }
+            
+            # Add error details if applicable
+            if error_field:
+                analytics_data['error_field'] = error_field
+            if error_message:
+                analytics_data['error_message'] = error_message[:500]  # Limit length
+            
+            # Insert analytics data
+            self.db.table('registration_analytics').insert(analytics_data).execute()
+            
+            log_info(f"Tracked registration analytics: {phone} - {event} - step {step}")
+            
+        except Exception as e:
+            log_error(f"Error tracking registration analytics: {str(e)}")
+            # Don't let analytics errors break the registration flow
+    
+    def get_registration_analytics_summary(self, days: int = 7) -> Dict:
+        """Get registration analytics summary for the last N days"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Calculate date range
+            end_date = datetime.now(self.sa_tz)
+            start_date = end_date - timedelta(days=days)
+            
+            # Query analytics data
+            result = self.db.table('registration_analytics').select('*').gte(
+                'timestamp', start_date.isoformat()
+            ).lte('timestamp', end_date.isoformat()).execute()
+            
+            analytics_data = result.data if result.data else []
+            
+            # Process analytics
+            summary = {
+                'period_days': days,
+                'total_events': len(analytics_data),
+                'registrations_started': 0,
+                'registrations_completed': 0,
+                'validation_errors': 0,
+                'system_errors': 0,
+                'already_registered': 0,
+                'completion_rate': 0,
+                'step_drop_off': {},
+                'common_errors': {},
+                'error_fields': {}
+            }
+            
+            started_phones = set()
+            completed_phones = set()
+            
+            for event in analytics_data:
+                event_type = event.get('event_type')
+                step = event.get('step_number')
+                phone = event.get('phone_number')
+                error_field = event.get('error_field')
+                error_message = event.get('error_message', '')
+                
+                if event_type == 'started':
+                    summary['registrations_started'] += 1
+                    started_phones.add(phone)
+                elif event_type == 'completed':
+                    summary['registrations_completed'] += 1
+                    completed_phones.add(phone)
+                elif event_type == 'validation_error':
+                    summary['validation_errors'] += 1
+                    
+                    # Track error fields
+                    if error_field:
+                        summary['error_fields'][error_field] = summary['error_fields'].get(error_field, 0) + 1
+                    
+                    # Track common error messages
+                    if error_message:
+                        summary['common_errors'][error_message] = summary['common_errors'].get(error_message, 0) + 1
+                        
+                elif event_type == 'system_error':
+                    summary['system_errors'] += 1
+                elif event_type == 'already_registered':
+                    summary['already_registered'] += 1
+                
+                # Track step drop-off
+                if step is not None:
+                    summary['step_drop_off'][step] = summary['step_drop_off'].get(step, 0) + 1
+            
+            # Calculate completion rate
+            unique_started = len(started_phones)
+            unique_completed = len(completed_phones)
+            
+            if unique_started > 0:
+                summary['completion_rate'] = round((unique_completed / unique_started) * 100, 2)
+            
+            summary['unique_registrations_started'] = unique_started
+            summary['unique_registrations_completed'] = unique_completed
+            
+            log_info(f"Generated registration analytics summary: {summary['completion_rate']}% completion rate")
+            
+            return summary
+            
+        except Exception as e:
+            log_error(f"Error generating registration analytics summary: {str(e)}")
+            return {
+                'error': str(e),
+                'period_days': days,
+                'total_events': 0
             }

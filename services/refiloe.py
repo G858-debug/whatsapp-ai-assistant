@@ -276,12 +276,45 @@ class RefiloeService:
                         reg_handler = TrainerRegistrationHandler(self.db, whatsapp_service)
                         state_manager = RegistrationStateManager(self.db)
                         
-                        # Get current registration state from database
-                        reg_state = state_manager.get_registration_state(phone)
+                        # Get comprehensive registration summary
+                        reg_summary = state_manager.get_registration_summary(phone)
                         
-                        if reg_state:
-                            current_step = reg_state.get('current_step', 0)
-                            data = reg_state.get('data', {})
+                        if reg_summary.get('exists'):
+                            # Check if registration is expired
+                            if reg_summary.get('is_expired'):
+                                log_info(f"Registration expired for {phone}, starting fresh")
+                                # Clean up expired state and start fresh
+                                state_manager.cleanup_expired_registrations()
+                                welcome_message = reg_handler.start_registration(phone)
+                                whatsapp_service.send_message(phone, welcome_message)
+                                
+                                # Update conversation state
+                                self.update_conversation_state(phone, 'REGISTRATION', {
+                                    'type': 'trainer',
+                                    'current_step': 0
+                                })
+                                
+                                return {'success': True, 'response': welcome_message}
+                            
+                            # Check if can resume
+                            if not reg_summary.get('can_resume'):
+                                log_info(f"Registration cannot be resumed for {phone}, starting fresh")
+                                welcome_message = reg_handler.start_registration(phone)
+                                whatsapp_service.send_message(phone, welcome_message)
+                                
+                                # Update conversation state
+                                self.update_conversation_state(phone, 'REGISTRATION', {
+                                    'type': 'trainer',
+                                    'current_step': 0
+                                })
+                                
+                                return {'success': True, 'response': welcome_message}
+                            
+                            current_step = reg_summary.get('current_step', 0)
+                            data = reg_summary.get('data', {})
+                            progress_pct = reg_summary.get('progress_percentage', 0)
+                            
+                            log_info(f"Resuming registration for {phone}: step {current_step}, {progress_pct}% complete")
                             
                             # Process the registration step using correct method
                             reg_result = reg_handler.handle_registration_response(
