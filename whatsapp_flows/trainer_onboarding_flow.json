@@ -1,21 +1,42 @@
 {
   "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "welcome": ["basic_info"],
+    "basic_info": ["business_details"],
+    "business_details": ["availability"],
+    "availability": ["preferences"],
+    "preferences": ["business_setup"],
+    "business_setup": ["pricing_smart"],
+    "pricing_smart": ["terms_agreement"],
+    "terms_agreement": ["registration_complete"],
+    "registration_complete": []
+  },
   "screens": [
     {
       "id": "welcome",
       "title": "Welcome to Refiloe! 🎉",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "Welcome to Refiloe, your AI-powered fitness assistant! Let's get you set up as a trainer in just a few steps.",
-            "__example__": "Welcome to Refiloe, your AI-powered fitness assistant! Let's get you set up as a trainer in just a few steps."
+            "type": "TextBody",
+            "text": "My name is Refiloe, I'm your AI-powered personal assistant! Let's get you set up as a trainer in just a few steps. 💪"
           },
           {
-            "type": "FOOTER",
-            "text": "This will take about 2 minutes",
-            "__example__": "This will take about 2 minutes"
+            "type": "Image",
+            "src": "https://refiloeradebe.co.za/wp-content/uploads/2025/09/GPT_Image_1_also_two_small_dumbells_in_the_background_against_0-683x1024.png"
+          },
+          {
+            "type": "Footer",
+            "label": "This will take about 2 minutes ⏱️",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "basic_info"
+              }
+            }
           }
         ]
       }
@@ -24,40 +45,50 @@
       "id": "basic_info",
       "title": "Basic Information",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "First, let's get your basic information",
-            "__example__": "First, let's get your basic information"
+            "type": "TextBody",
+            "text": "First, let's get your basic information 📝"
           },
           {
-            "type": "FORM",
+            "type": "Form",
             "name": "basic_info_form",
             "children": [
               {
-                "type": "INPUT",
-                "name": "full_name",
-                "label": "Full Name",
-                "placeholder": "Enter your full name",
-                "required": true,
-                "input_type": "TEXT"
+                "type": "TextInput",
+                "name": "first_name",
+                "label": "First Name",
+                "required": true
               },
               {
-                "type": "INPUT",
+                "type": "TextInput",
+                "name": "surname",
+                "label": "Surname",
+                "required": true
+              },
+              {
+                "type": "TextInput",
                 "name": "email",
                 "label": "Email Address",
-                "placeholder": "your.email@example.com",
-                "required": true,
-                "input_type": "EMAIL"
+                "required": true
               },
               {
-                "type": "INPUT",
+                "type": "TextInput",
                 "name": "city",
-                "label": "City",
-                "placeholder": "e.g., Johannesburg, Cape Town",
-                "required": true,
-                "input_type": "TEXT"
+                "label": "City / Location",
+                "required": true
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "business_details"
+                  }
+                }
               }
             ]
           }
@@ -68,23 +99,28 @@
       "id": "business_details",
       "title": "Business Details",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "Tell us about your training business",
-            "__example__": "Tell us about your training business"
+            "type": "TextBody",
+            "text": "Tell us about your training business 💼"
           },
           {
-            "type": "FORM",
+            "type": "Form",
             "name": "business_form",
             "children": [
               {
-                "type": "SELECT",
-                "name": "specialization",
-                "label": "Training Specialization",
+                "type": "TextInput",
+                "name": "business_name",
+                "label": "Business Name",
+                "required": false
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "specializations",
+                "label": "Training Specializations (select all that apply)",
                 "required": true,
-                "options": [
+                "data-source": [
                   {
                     "id": "personal_training",
                     "title": "Personal Training"
@@ -114,17 +150,21 @@
                     "title": "Nutrition Coaching"
                   },
                   {
+                    "id": "rehabilitation",
+                    "title": "Rehabilitation & Recovery"
+                  },
+                  {
                     "id": "general_fitness",
                     "title": "General Fitness"
                   }
                 ]
               },
               {
-                "type": "SELECT",
+                "type": "Dropdown",
                 "name": "experience_years",
                 "label": "Years of Experience",
                 "required": true,
-                "options": [
+                "data-source": [
                   {
                     "id": "0-1",
                     "title": "0-1 years"
@@ -148,12 +188,21 @@
                 ]
               },
               {
-                "type": "INPUT",
+                "type": "TextInput",
                 "name": "pricing_per_session",
-                "label": "Price per Session (ZAR)",
-                "placeholder": "e.g., 500",
-                "required": true,
-                "input_type": "NUMBER"
+                "label": "Average price per session",
+                "required": true
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability"
+                  }
+                }
               }
             ]
           }
@@ -164,23 +213,22 @@
       "id": "availability",
       "title": "Availability",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "When are you available for training sessions?",
-            "__example__": "When are you available for training sessions?"
+            "type": "TextBody",
+            "text": "When are you available for training sessions? 📅"
           },
           {
-            "type": "FORM",
+            "type": "Form",
             "name": "availability_form",
             "children": [
               {
-                "type": "CHECKBOX",
+                "type": "CheckboxGroup",
                 "name": "available_days",
-                "label": "Available Days",
+                "label": "Available Days (select all that apply)",
                 "required": true,
-                "options": [
+                "data-source": [
                   {
                     "id": "monday",
                     "title": "Monday"
@@ -212,11 +260,11 @@
                 ]
               },
               {
-                "type": "SELECT",
+                "type": "Dropdown",
                 "name": "preferred_time_slots",
                 "label": "Preferred Time Slots",
                 "required": true,
-                "options": [
+                "data-source": [
                   {
                     "id": "early_morning",
                     "title": "Early Morning (5:00-8:00)"
@@ -238,6 +286,17 @@
                     "title": "Flexible - Any Time"
                   }
                 ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "preferences"
+                  }
+                }
               }
             ]
           }
@@ -246,65 +305,48 @@
     },
     {
       "id": "preferences",
-      "title": "Preferences",
+      "title": "Subscription Plan",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "Set your communication preferences",
-            "__example__": "Set your communication preferences"
+            "type": "TextBody",
+            "text": "Choose your subscription plan 🎯"
           },
           {
-            "type": "FORM",
+            "type": "Form",
             "name": "preferences_form",
             "children": [
               {
-                "type": "SELECT",
+                "type": "Dropdown",
                 "name": "subscription_plan",
                 "label": "Choose Your Plan",
                 "required": true,
-                "options": [
+                "data-source": [
                   {
                     "id": "free",
-                    "title": "Free Plan - Up to 5 clients",
-                    "description": "Perfect for getting started"
+                    "title": "Free Plan - Up to 5 clients"
                   },
                   {
                     "id": "premium",
-                    "title": "Premium Plan - Up to 25 clients",
-                    "description": "R299/month - Most popular"
+                    "title": "Premium Plan - Up to 25 clients"
                   },
                   {
                     "id": "pro",
-                    "title": "Pro Plan - Unlimited clients",
-                    "description": "R599/month - For established trainers"
+                    "title": "Pro Plan - Unlimited clients"
                   }
                 ]
               },
               {
-                "type": "CHECKBOX",
-                "name": "notification_preferences",
-                "label": "Notification Preferences",
-                "required": false,
-                "options": [
-                  {
-                    "id": "booking_notifications",
-                    "title": "Booking Notifications"
-                  },
-                  {
-                    "id": "payment_reminders",
-                    "title": "Payment Reminders"
-                  },
-                  {
-                    "id": "client_progress_updates",
-                    "title": "Client Progress Updates"
-                  },
-                  {
-                    "id": "marketing_emails",
-                    "title": "Marketing & Tips"
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "business_setup"
                   }
-                ]
+                }
               }
             ]
           }
@@ -312,52 +354,57 @@
       }
     },
     {
-      "id": "verification",
-      "title": "Review & Submit",
+      "id": "business_setup",
+      "title": "Additional Services",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "Please review your information before submitting",
-            "__example__": "Please review your information before submitting"
+            "type": "TextBody",
+            "text": "What additional services do you offer? 🏢"
           },
           {
-            "type": "FORM",
-            "name": "verification_form",
+            "type": "Form",
+            "name": "business_setup_form",
             "children": [
               {
-                "type": "INPUT",
-                "name": "review_summary",
-                "label": "Summary",
-                "placeholder": "{{full_name}} - {{specialization}} - {{pricing_per_session}} ZAR/session",
+                "type": "CheckboxGroup",
+                "name": "services_offered",
+                "label": "Services You Offer (select all that apply)",
                 "required": false,
-                "input_type": "TEXT",
-                "readonly": true
-              },
-              {
-                "type": "CHECKBOX",
-                "name": "terms_accepted",
-                "label": "Terms & Conditions",
-                "required": true,
-                "options": [
+                "data-source": [
                   {
-                    "id": "terms",
-                    "title": "I agree to the Terms of Service and Privacy Policy"
+                    "id": "in_person_training",
+                    "title": "In-Person Training"
+                  },
+                  {
+                    "id": "online_training",
+                    "title": "Online Training"
+                  },
+                  {
+                    "id": "nutrition_planning",
+                    "title": "Nutrition Planning"
+                  },
+                  {
+                    "id": "fitness_assessments",
+                    "title": "Fitness Assessments"
+                  },
+                  {
+                    "id": "group_classes",
+                    "title": "Group Classes"
                   }
                 ]
               },
               {
-                "type": "CHECKBOX",
-                "name": "marketing_consent",
-                "label": "Marketing Consent",
-                "required": false,
-                "options": [
-                  {
-                    "id": "marketing",
-                    "title": "I would like to receive marketing communications"
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "pricing_smart"
                   }
-                ]
+                }
               }
             ]
           }
@@ -365,20 +412,125 @@
       }
     },
     {
-      "id": "success",
-      "title": "Welcome to Refiloe! 🎉",
+      "id": "pricing_smart",
+      "title": "Pricing Options",
       "layout": {
-        "type": "SINGLE_COLUMN",
+        "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "BODY",
-            "text": "Congratulations {{full_name}}! Your trainer profile has been created successfully. We'll review your application and get back to you within 24 hours.",
-            "__example__": "Congratulations John Doe! Your trainer profile has been created successfully. We'll review your application and get back to you within 24 hours."
+            "type": "TextBody",
+            "text": "Set up your pricing options 💰"
           },
           {
-            "type": "FOOTER",
-            "text": "You'll receive a confirmation email shortly",
-            "__example__": "You'll receive a confirmation email shortly"
+            "type": "Form",
+            "name": "pricing_form",
+            "children": [
+              {
+                "type": "CheckboxGroup",
+                "name": "pricing_flexibility",
+                "label": "Pricing Options (select all that apply)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "package_discounts",
+                    "title": "Package Discounts"
+                  },
+                  {
+                    "id": "student_discounts",
+                    "title": "Student Discounts"
+                  },
+                  {
+                    "id": "group_rates",
+                    "title": "Group Session Rates"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "terms_agreement"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "terms_agreement",
+      "title": "Terms & Conditions",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Please agree to our terms to complete your registration."
+          },
+          {
+            "type": "Form",
+            "name": "terms_form",
+            "children": [
+              {
+                "type": "TextBody",
+                "text": "View our Terms of Service:\nhttps://refiloe.ai/terms\n\nView our Privacy Policy:\nhttps://refiloe.ai/privacy"
+              },
+              {
+                "type": "OptIn",
+                "name": "terms_accepted",
+                "label": "I have read and agree to the Terms of Service and Privacy Policy",
+                "required": true
+              },
+              {
+                "type": "TextArea",
+                "name": "additional_notes",
+                "label": "Additional Notes",
+                "required": false
+              },
+              {
+                "type": "Footer",
+                "label": "Complete Registration",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "registration_complete"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "registration_complete",
+      "title": "Congratulations!!",
+      "terminal": true,
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Your trainer profile has been created successfully. We'll send you a link to set up your availability schedule."
+          },
+          {
+            "type": "Image",
+            "src": "https://refiloeradebe.co.za/wp-content/uploads/2025/09/gemini-2.5-flash-image-preview_A_cinematic_portrait_photograph_of_Give_me_more_variations_of_her_face_and_smile._I_want_her_to_loo-3-683x1024.png"
+          },
+          {
+            "type": "Footer",
+            "label": "Close",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "success": true
+              }
+            }
           }
         ]
       }
