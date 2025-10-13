@@ -81,87 +81,116 @@ class WhatsAppFlowHandler:
             return {}
     
     def create_and_publish_flow(self) -> Dict:
-        """Create and publish the trainer onboarding flow in WhatsApp Business Manager"""
+        """Create and publish the trainer onboarding flow using enhanced API"""
         try:
+            from services.whatsapp_flow_api import WhatsAppFlowAPI
+            
+            # Initialize enhanced API manager
+            flow_api = WhatsAppFlowAPI()
+            
+            # Test API connectivity first
+            connectivity_test = flow_api.test_api_connectivity()
+            
+            if not connectivity_test.get('success'):
+                log_warning(f"API connectivity test failed: {connectivity_test.get('error')}")
+                return {
+                    'success': False,
+                    'error': 'WhatsApp API connectivity failed',
+                    'details': connectivity_test.get('error'),
+                    'fallback_recommended': True
+                }
+            
             # Check if flow already exists
             existing_flow = self.get_flow_by_name("trainer_onboarding_flow")
             if existing_flow.get('success'):
                 log_info("Flow already exists, using existing flow")
                 return {'success': True, 'flow_id': existing_flow.get('flow_id')}
             
-            # Create the flow
-            flow_data = {
-                "name": "trainer_onboarding_flow",
-                "categories": ["UTILITY"],
-                "version": "7.3",
-                "screens": self.flow_data.get('screens', [])
-            }
+            # Create complete flow with JSON
+            flow_name = "trainer_onboarding_flow"
+            categories = ["LEAD_GENERATION", "SIGN_UP"]  # Use valid categories
             
-            result = self._create_flow_via_api(flow_data)
+            result = flow_api.create_complete_flow(flow_name, self.flow_data, categories)
+            
             if result.get('success'):
-                log_info(f"Flow created successfully: {result.get('flow_id')}")
-                return result
+                flow_id = result.get('flow_id')
+                status = result.get('status')
+                ready_for_use = result.get('ready_for_use', False)
+                
+                log_info(f"Flow creation result: {flow_name} (ID: {flow_id}, Status: {status}, Ready: {ready_for_use})")
+                
+                if ready_for_use:
+                    return {
+                        'success': True,
+                        'flow_id': flow_id,
+                        'status': status,
+                        'message': 'Flow created and published successfully',
+                        'ready_for_use': True
+                    }
+                else:
+                    # Flow created but not published (likely due to endpoint verification)
+                    log_info(f"Flow created but requires manual publishing: {result.get('publish_error')}")
+                    return {
+                        'success': True,
+                        'flow_id': flow_id,
+                        'status': status,
+                        'message': 'Flow created successfully but requires endpoint verification for publishing',
+                        'ready_for_use': False,
+                        'next_steps': result.get('next_steps', []),
+                        'recommendation': result.get('recommendation')
+                    }
             else:
                 log_error(f"Failed to create flow: {result.get('error')}")
-                return result
+                return {
+                    'success': False,
+                    'error': result.get('error'),
+                    'fallback_recommended': True
+                }
                 
         except Exception as e:
             log_error(f"Error creating and publishing flow: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            return {
+                'success': False,
+                'error': str(e),
+                'fallback_recommended': True
+            }
     
     def get_flow_by_name(self, flow_name: str) -> Dict:
-        """Get flow by name from WhatsApp Business Manager"""
+        """Get flow by name using enhanced API"""
         try:
-            import requests
+            from services.whatsapp_flow_api import WhatsAppFlowAPI
             
-            # Check configuration first
-            if not hasattr(Config, 'WHATSAPP_ACCESS_TOKEN') or not Config.WHATSAPP_ACCESS_TOKEN:
-                return {'success': False, 'error': 'WhatsApp Access Token not configured'}
+            # Initialize enhanced API manager
+            flow_api = WhatsAppFlowAPI()
             
-            if not hasattr(Config, 'WHATSAPP_BUSINESS_ACCOUNT_ID') or not Config.WHATSAPP_BUSINESS_ACCOUNT_ID:
-                return {'success': False, 'error': 'WhatsApp Business Account ID not configured'}
+            # List all flows
+            flows_result = flow_api.list_flows()
             
-            url = f"https://graph.facebook.com/v18.0/{Config.WHATSAPP_BUSINESS_ACCOUNT_ID}/flows"
-            headers = {'Authorization': f'Bearer {Config.WHATSAPP_ACCESS_TOKEN}'}
-            
-            response = requests.get(url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                flows_data = response.json()
-                flows = flows_data.get('data', [])
-                
-                for flow in flows:
-                    if flow.get('name') == flow_name:
-                        return {
-                            'success': True,
-                            'flow_id': flow.get('id'),
-                            'flow_data': flow
-                        }
-                
-                return {'success': False, 'error': f'Flow "{flow_name}" not found'}
-            
-            elif response.status_code == 400:
-                error_data = response.json()
-                error_msg = error_data.get('error', {}).get('message', 'Bad request')
-                
-                if 'nonexisting field (flows)' in error_msg:
-                    return {
-                        'success': False, 
-                        'error': 'Invalid Business Account ID - flows not accessible',
-                        'suggestion': 'Check WHATSAPP_BUSINESS_ACCOUNT_ID configuration'
-                    }
-                else:
-                    return {'success': False, 'error': f'API Error: {error_msg}'}
-            
-            elif response.status_code == 401:
+            if not flows_result.get('success'):
                 return {
-                    'success': False, 
-                    'error': 'Unauthorized - check access token permissions',
-                    'suggestion': 'Ensure token has whatsapp_business_management permission'
+                    'success': False,
+                    'error': flows_result.get('error'),
+                    'suggestion': 'Check WhatsApp API configuration and permissions'
                 }
             
-            else:
-                return {'success': False, 'error': f'API Error: {response.status_code} - {response.text}'}
+            # Search for flow by name
+            flows = flows_result.get('flows', [])
+            
+            for flow in flows:
+                if flow.get('name') == flow_name:
+                    return {
+                        'success': True,
+                        'flow_id': flow.get('id'),
+                        'flow_data': flow,
+                        'status': flow.get('status'),
+                        'categories': flow.get('categories', [])
+                    }
+            
+            return {
+                'success': False,
+                'error': f'Flow "{flow_name}" not found',
+                'available_flows': [flow.get('name') for flow in flows]
+            }
                 
         except Exception as e:
             log_error(f"Error getting flow by name: {str(e)}")
