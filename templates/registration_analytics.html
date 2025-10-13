@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registration Analytics Dashboard</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background-color: #f5f5f5;
+        color: #333;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        font-size: 1.2em;
+        opacity: 0.9;
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .metric-card {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        transition: transform 0.2s;
+      }
+
+      .metric-card:hover {
+        transform: translateY(-2px);
+      }
+
+      .metric-value {
+        font-size: 2.5em;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .metric-label {
+        color: #666;
+        font-size: 1.1em;
+      }
+
+      .status-healthy {
+        color: #28a745;
+      }
+      .status-warning {
+        color: #ffc107;
+      }
+      .status-critical {
+        color: #dc3545;
+      }
+
+      .chart-container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+      }
+
+      .chart-title {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+        color: #333;
+      }
+
+      .recommendations {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .recommendation {
+        padding: 15px;
+        margin-bottom: 15px;
+        border-left: 4px solid #007bff;
+        background: #f8f9fa;
+        border-radius: 5px;
+      }
+
+      .recommendation.high-priority {
+        border-left-color: #dc3545;
+      }
+
+      .recommendation.medium-priority {
+        border-left-color: #ffc107;
+      }
+
+      .recommendation-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .recommendation-action {
+        color: #666;
+        font-style: italic;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 50px;
+        color: #666;
+      }
+
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+
+      .refresh-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1em;
+        margin-bottom: 20px;
+      }
+
+      .refresh-btn:hover {
+        background: #0056b3;
+      }
+
+      .last-updated {
+        text-align: center;
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📊 Registration Analytics</h1>
+        <p>Real-time insights into trainer registration performance</p>
+      </div>
+
+      <button class="refresh-btn" onclick="loadAnalytics()">
+        🔄 Refresh Data
+      </button>
+
+      <div id="loading" class="loading">
+        <p>Loading analytics data...</p>
+      </div>
+
+      <div id="error" class="error" style="display: none">
+        <p>Error loading analytics data. Please try again.</p>
+      </div>
+
+      <div id="dashboard" style="display: none">
+        <!-- Key Metrics -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value" id="completion-rate">--</div>
+            <div class="metric-label">Completion Rate</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="total-started">--</div>
+            <div class="metric-label">Registrations Started</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="total-completed">--</div>
+            <div class="metric-label">Registrations Completed</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="error-rate">--</div>
+            <div class="metric-label">Error Rate</div>
+          </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="chart-container">
+          <div class="chart-title">System Health Status</div>
+          <div id="system-health">
+            <p>
+              <strong>Overall Status:</strong>
+              <span id="health-status">--</span>
+            </p>
+            <p><strong>Last 24 Hours:</strong> <span id="last-24h">--</span></p>
+            <div id="alerts-container"></div>
+          </div>
+        </div>
+
+        <!-- Funnel Analysis -->
+        <div class="chart-container">
+          <div class="chart-title">Registration Funnel</div>
+          <div id="funnel-chart">
+            <p>Step-by-step completion rates:</p>
+            <div id="funnel-steps"></div>
+          </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="recommendations">
+          <div class="chart-title">Optimization Recommendations</div>
+          <div id="recommendations-list">
+            <p>Loading recommendations...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="last-updated">
+        Last updated: <span id="last-updated">--</span>
+      </div>
+    </div>
+
+    <script>
+      // Load analytics data
+      async function loadAnalytics() {
+        try {
+          document.getElementById("loading").style.display = "block";
+          document.getElementById("error").style.display = "none";
+          document.getElementById("dashboard").style.display = "none";
+
+          // Load overview analytics
+          const overviewResponse = await fetch(
+            "/api/registration/analytics/overview?days=30"
+          );
+          const overviewData = await overviewResponse.json();
+
+          if (overviewData.status === "success") {
+            updateDashboard(overviewData.data);
+          } else {
+            throw new Error("Failed to load analytics data");
+          }
+
+          // Load real-time metrics
+          const healthResponse = await fetch(
+            "/api/registration/analytics/health"
+          );
+          const healthData = await healthResponse.json();
+
+          if (healthData.status === "success") {
+            updateSystemHealth(healthData.data);
+          }
+
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("dashboard").style.display = "block";
+          document.getElementById("last-updated").textContent =
+            new Date().toLocaleString();
+        } catch (error) {
+          console.error("Error loading analytics:", error);
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("error").style.display = "block";
+        }
+      }
+
+      function updateDashboard(data) {
+        const overview = data.overview || {};
+
+        // Update key metrics
+        document.getElementById("completion-rate").textContent = `${
+          overview.completion_rate || 0
+        }%`;
+        document.getElementById("total-started").textContent =
+          overview.unique_started || 0;
+        document.getElementById("total-completed").textContent =
+          overview.unique_completed || 0;
+        document.getElementById("error-rate").textContent = `${
+          overview.error_rate || 0
+        }%`;
+
+        // Color code completion rate
+        const completionRateElement =
+          document.getElementById("completion-rate");
+        const rate = overview.completion_rate || 0;
+        if (rate >= 80) {
+          completionRateElement.className = "metric-value status-healthy";
+        } else if (rate >= 60) {
+          completionRateElement.className = "metric-value status-warning";
+        } else {
+          completionRateElement.className = "metric-value status-critical";
+        }
+
+        // Update funnel analysis
+        updateFunnelChart(data.funnel_analysis || {});
+
+        // Update recommendations
+        updateRecommendations(data.recommendations || []);
+      }
+
+      function updateSystemHealth(healthData) {
+        const status = healthData.overall_status || "unknown";
+        const statusElement = document.getElementById("health-status");
+
+        statusElement.textContent =
+          status.charAt(0).toUpperCase() + status.slice(1);
+
+        if (status === "healthy") {
+          statusElement.className = "status-healthy";
+        } else if (status === "warning") {
+          statusElement.className = "status-warning";
+        } else {
+          statusElement.className = "status-critical";
+        }
+
+        // Update 24h metrics
+        const last24h = healthData.last_24h_metrics || {};
+        document.getElementById("last-24h").textContent = `${
+          last24h.registrations_started || 0
+        } started, ${last24h.registrations_completed || 0} completed`;
+
+        // Update alerts
+        const alertsContainer = document.getElementById("alerts-container");
+        const alerts = healthData.alerts || [];
+
+        if (alerts.length > 0) {
+          alertsContainer.innerHTML =
+            "<h4>Active Alerts:</h4>" +
+            alerts
+              .map(
+                (alert) =>
+                  `<p class="status-${alert.type}">${alert.message}</p>`
+              )
+              .join("");
+        } else {
+          alertsContainer.innerHTML =
+            '<p class="status-healthy">No active alerts</p>';
+        }
+      }
+
+      function updateFunnelChart(funnelData) {
+        const stepsContainer = document.getElementById("funnel-steps");
+        const stepNames = [
+          "Name",
+          "Business",
+          "Email",
+          "Specialization",
+          "Experience",
+          "Location",
+          "Pricing",
+        ];
+        const stepCompletion = funnelData.step_completion || {};
+
+        let html = "";
+        for (let i = 0; i < stepNames.length; i++) {
+          const completions = stepCompletion[i] || 0;
+          const dropOff = funnelData.step_drop_off
+            ? funnelData.step_drop_off[i] || 0
+            : 0;
+
+          html += `
+                    <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                        <strong>Step ${i + 1}: ${stepNames[i]}</strong><br>
+                        Completions: ${completions} | Drop-off: ${dropOff}%
+                    </div>
+                `;
+        }
+
+        stepsContainer.innerHTML = html;
+      }
+
+      function updateRecommendations(recommendations) {
+        const container = document.getElementById("recommendations-list");
+
+        if (recommendations.length === 0) {
+          container.innerHTML =
+            '<p class="status-healthy">🎉 No optimization recommendations - system is performing well!</p>';
+          return;
+        }
+
+        const html = recommendations
+          .map(
+            (rec) => `
+                <div class="recommendation ${rec.priority}-priority">
+                    <div class="recommendation-title">${rec.title}</div>
+                    <div>${rec.description}</div>
+                    <div class="recommendation-action">Action: ${rec.action}</div>
+                </div>
+            `
+          )
+          .join("");
+
+        container.innerHTML = html;
+      }
+
+      // Load analytics on page load
+      document.addEventListener("DOMContentLoaded", loadAnalytics);
+
+      // Auto-refresh every 5 minutes
+      setInterval(loadAnalytics, 5 * 60 * 1000);
+    </script>
+  </body>
+</html>
