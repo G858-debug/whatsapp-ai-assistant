@@ -112,9 +112,57 @@ class WhatsAppFlowHandler:
     def get_flow_by_name(self, flow_name: str) -> Dict:
         """Get flow by name from WhatsApp Business Manager"""
         try:
-            # This would require implementing the Flows API
-            # For now, return a placeholder
-            return {'success': False, 'error': 'Flow lookup not implemented'}
+            import requests
+            
+            # Check configuration first
+            if not hasattr(Config, 'WHATSAPP_ACCESS_TOKEN') or not Config.WHATSAPP_ACCESS_TOKEN:
+                return {'success': False, 'error': 'WhatsApp Access Token not configured'}
+            
+            if not hasattr(Config, 'WHATSAPP_BUSINESS_ACCOUNT_ID') or not Config.WHATSAPP_BUSINESS_ACCOUNT_ID:
+                return {'success': False, 'error': 'WhatsApp Business Account ID not configured'}
+            
+            url = f"https://graph.facebook.com/v18.0/{Config.WHATSAPP_BUSINESS_ACCOUNT_ID}/flows"
+            headers = {'Authorization': f'Bearer {Config.WHATSAPP_ACCESS_TOKEN}'}
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                flows_data = response.json()
+                flows = flows_data.get('data', [])
+                
+                for flow in flows:
+                    if flow.get('name') == flow_name:
+                        return {
+                            'success': True,
+                            'flow_id': flow.get('id'),
+                            'flow_data': flow
+                        }
+                
+                return {'success': False, 'error': f'Flow "{flow_name}" not found'}
+            
+            elif response.status_code == 400:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', 'Bad request')
+                
+                if 'nonexisting field (flows)' in error_msg:
+                    return {
+                        'success': False, 
+                        'error': 'Invalid Business Account ID - flows not accessible',
+                        'suggestion': 'Check WHATSAPP_BUSINESS_ACCOUNT_ID configuration'
+                    }
+                else:
+                    return {'success': False, 'error': f'API Error: {error_msg}'}
+            
+            elif response.status_code == 401:
+                return {
+                    'success': False, 
+                    'error': 'Unauthorized - check access token permissions',
+                    'suggestion': 'Ensure token has whatsapp_business_management permission'
+                }
+            
+            else:
+                return {'success': False, 'error': f'API Error: {response.status_code} - {response.text}'}
+                
         except Exception as e:
             log_error(f"Error getting flow by name: {str(e)}")
             return {'success': False, 'error': str(e)}
@@ -122,20 +170,135 @@ class WhatsAppFlowHandler:
     def _create_flow_via_api(self, flow_data: Dict) -> Dict:
         """Create flow via WhatsApp Business API"""
         try:
-            # This would require implementing the Flows API
-            # For now, return a placeholder indicating manual setup required
-            log_warning("Flow creation via API not implemented. Flow must be created manually in WhatsApp Business Manager.")
+            import requests
+            
+            # Check if we have the necessary configuration for Flow API
+            if not hasattr(Config, 'WHATSAPP_ACCESS_TOKEN') or not Config.WHATSAPP_ACCESS_TOKEN:
+                log_warning("WhatsApp Access Token not configured for Flow API")
+                return {
+                    'success': False, 
+                    'error': 'WhatsApp Access Token not configured',
+                    'fallback_recommended': True
+                }
+            
+            if not hasattr(Config, 'WHATSAPP_BUSINESS_ACCOUNT_ID') or not Config.WHATSAPP_BUSINESS_ACCOUNT_ID:
+                log_warning("WhatsApp Business Account ID not configured for Flow API")
+                return {
+                    'success': False, 
+                    'error': 'WhatsApp Business Account ID not configured',
+                    'fallback_recommended': True
+                }
+            
+            # Prepare API request
+            url = f"https://graph.facebook.com/v18.0/{Config.WHATSAPP_BUSINESS_ACCOUNT_ID}/flows"
+            headers = {
+                'Authorization': f'Bearer {Config.WHATSAPP_ACCESS_TOKEN}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Prepare flow payload for WhatsApp API
+            api_payload = {
+                "name": flow_data.get("name", "trainer_onboarding_flow"),
+                "categories": ["UTILITY"],
+                "clone_flow_id": None,  # Not cloning from existing flow
+                "endpoint_uri": f"{Config.BASE_URL}/webhook/flow"  # Our flow webhook endpoint
+            }
+            
+            log_info(f"Creating WhatsApp Flow via API: {api_payload['name']}")
+            log_info(f"API URL: {url}")
+            
+            # Make API request to create flow
+            response = requests.post(url, headers=headers, json=api_payload, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                flow_id = result.get('id')
+                
+                if flow_id:
+                    log_info(f"Flow created successfully with ID: {flow_id}")
+                    
+                    # Now publish the flow JSON to the created flow
+                    publish_result = self._publish_flow_json(flow_id, flow_data)
+                    
+                    if publish_result.get('success'):
+                        return {
+                            'success': True,
+                            'flow_id': flow_id,
+                            'message': f'Flow created and published successfully: {flow_id}'
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'error': f'Flow created but publishing failed: {publish_result.get("error")}',
+                            'flow_id': flow_id,
+                            'fallback_recommended': True
+                        }
+                else:
+                    return {
+                        'success': False,
+                        'error': 'Flow created but no ID returned',
+                        'fallback_recommended': True
+                    }
+            
+            elif response.status_code == 400:
+                error_data = response.json()
+                error_message = error_data.get('error', {}).get('message', 'Bad request')
+                
+                # Check if flow already exists
+                if 'already exists' in error_message.lower() or 'duplicate' in error_message.lower():
+                    log_info("Flow already exists, attempting to get existing flow ID")
+                    existing_flow = self._get_existing_flow_by_name(flow_data.get("name", "trainer_onboarding_flow"))
+                    
+                    if existing_flow.get('success'):
+                        return existing_flow
+                
+                log_error(f"Flow creation failed (400): {error_message}")
+                return {
+                    'success': False,
+                    'error': f'Flow creation failed: {error_message}',
+                    'fallback_recommended': True
+                }
+            
+            elif response.status_code == 401:
+                log_error("Flow creation failed: Unauthorized - check access token")
+                return {
+                    'success': False,
+                    'error': 'Unauthorized - invalid access token',
+                    'fallback_recommended': True
+                }
+            
+            else:
+                log_error(f"Flow creation failed with status {response.status_code}: {response.text}")
+                return {
+                    'success': False,
+                    'error': f'API Error: {response.status_code} - {response.text}',
+                    'fallback_recommended': True
+                }
+            
+        except requests.exceptions.Timeout:
+            log_error("Flow creation timed out")
             return {
-                'success': False, 
-                'error': 'Flow must be created manually in WhatsApp Business Manager first',
-                'message': 'Please create the flow "trainer_onboarding_flow" in your WhatsApp Business Manager'
+                'success': False,
+                'error': 'Flow creation request timed out',
+                'fallback_recommended': True
+            }
+        except requests.exceptions.RequestException as e:
+            log_error(f"Network error during flow creation: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Network error: {str(e)}',
+                'fallback_recommended': True
             }
         except Exception as e:
-            log_error(f"Error creating flow via API: {str(e)}")
-            return {'success': False, 'error': str(e)}
+            log_error(f"Unexpected error in flow API creation: {str(e)}")
+            return {
+                'success': False, 
+                'error': str(e),
+                'fallback_recommended': True
+            }
 
     def send_trainer_onboarding_flow(self, phone_number: str) -> Dict:
-        """Send the trainer onboarding flow to a phone number"""
+        """Send the trainer onboarding flow to a phone number with automatic fallback"""
         try:
             # Check if user is already a trainer
             existing_trainer = self.supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
@@ -146,46 +309,51 @@ class WhatsAppFlowHandler:
                     'message': 'You are already registered as a trainer! If you need help, please contact support.'
                 }
             
-            # Ensure flow exists and is published
-            flow_result = self.create_and_publish_flow()
-            if not flow_result.get('success'):
-                log_warning(f"Flow not available: {flow_result.get('error')}")
-                return {
-                    'success': False,
-                    'error': 'Flow not available',
-                    'message': 'WhatsApp Flow registration is not available. Please use text-based registration.',
-                    'fallback_required': True
-                }
+            # Try WhatsApp Flow first
+            flow_result = self._attempt_flow_sending(phone_number)
             
-            # Create flow message
-            flow_message = self.create_flow_message(phone_number)
-            if not flow_message:
-                return {
-                    'success': False,
-                    'error': 'Failed to create flow message'
-                }
+            if flow_result.get('success'):
+                log_info(f"WhatsApp Flow sent successfully to {phone_number}")
+                return flow_result
             
-            # Send via WhatsApp service using the flow message method
-            result = self.whatsapp_service.send_flow_message(flow_message)
+            # AUTOMATIC FALLBACK: Start text-based registration
+            log_info(f"WhatsApp Flow failed for {phone_number}, automatically falling back to text registration")
+            log_info(f"Flow failure reason: {flow_result.get('error', 'Unknown error')}")
             
-            if result.get('success'):
-                # Store flow token for tracking
-                self._store_flow_token(phone_number, flow_message['interactive']['action']['parameters']['flow_token'])
-                
+            fallback_result = self._start_text_based_registration(phone_number)
+            
+            if fallback_result.get('success'):
                 return {
                     'success': True,
-                    'message': 'Trainer onboarding flow sent successfully',
-                    'flow_token': flow_message['interactive']['action']['parameters']['flow_token']
+                    'method': 'text_fallback',
+                    'message': 'Started text-based registration (WhatsApp Flow not available)',
+                    'fallback_reason': flow_result.get('error', 'Flow unavailable')
                 }
             else:
                 return {
                     'success': False,
-                    'error': 'Failed to send flow message',
-                    'details': result.get('error')
+                    'error': 'Both flow and text registration failed',
+                    'details': {
+                        'flow_error': flow_result.get('error'),
+                        'fallback_error': fallback_result.get('error')
+                    }
                 }
                 
         except Exception as e:
-            log_error(f"Error sending trainer onboarding flow: {str(e)}")
+            log_error(f"Error in trainer onboarding flow with fallback: {str(e)}")
+            
+            # Last resort fallback
+            try:
+                fallback_result = self._start_text_based_registration(phone_number)
+                if fallback_result.get('success'):
+                    return {
+                        'success': True,
+                        'method': 'emergency_fallback',
+                        'message': 'Started text-based registration (emergency fallback)'
+                    }
+            except Exception as fallback_error:
+                log_error(f"Emergency fallback also failed: {str(fallback_error)}")
+            
             return {
                 'success': False,
                 'error': str(e)
@@ -443,6 +611,254 @@ Welcome to the Refiloe family! 💪"""
         except Exception as e:
             log_error(f"Error getting phone from flow token: {str(e)}")
         return None
+    
+    def _attempt_flow_sending(self, phone_number: str) -> Dict:
+        """Attempt to send WhatsApp Flow (separated for testing)"""
+        try:
+            # Ensure flow exists and is published
+            flow_result = self.create_and_publish_flow()
+            if not flow_result.get('success'):
+                return {
+                    'success': False,
+                    'error': f'Flow creation failed: {flow_result.get("error")}',
+                    'fallback_required': True
+                }
+            
+            # Create flow message
+            flow_message = self.create_flow_message(phone_number)
+            if not flow_message:
+                return {
+                    'success': False,
+                    'error': 'Failed to create flow message',
+                    'fallback_required': True
+                }
+            
+            # Send via WhatsApp service
+            result = self.whatsapp_service.send_flow_message(flow_message)
+            
+            if result.get('success'):
+                # Store flow token for tracking
+                self._store_flow_token(phone_number, flow_message['interactive']['action']['parameters']['flow_token'])
+                
+                return {
+                    'success': True,
+                    'message': 'Trainer onboarding flow sent successfully',
+                    'flow_token': flow_message['interactive']['action']['parameters']['flow_token']
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to send flow message: {result.get("error")}',
+                    'fallback_required': True
+                }
+                
+        except Exception as e:
+            log_error(f"Error attempting flow sending: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'fallback_required': True
+            }
+    
+    def _start_text_based_registration(self, phone_number: str) -> Dict:
+        """Start text-based registration as fallback"""
+        try:
+            from services.registration.trainer_registration import TrainerRegistrationHandler
+            from services.registration.registration_state import RegistrationStateManager
+            
+            # Initialize handlers
+            trainer_reg = TrainerRegistrationHandler(self.supabase, self.whatsapp_service)
+            state_manager = RegistrationStateManager(self.supabase)
+            
+            # Check for existing registration state
+            existing_state = state_manager.get_registration_state(phone_number)
+            
+            if existing_state and existing_state.get('user_type') == 'trainer':
+                # Resume existing registration
+                current_step = existing_state.get('current_step', 0)
+                
+                if current_step == 0:
+                    welcome_message = trainer_reg.start_registration(phone_number)
+                else:
+                    # Create resume message
+                    step_info = trainer_reg.STEPS.get(current_step)
+                    if step_info:
+                        welcome_message = (
+                            f"Welcome back! Let's continue your trainer registration.\n\n"
+                            f"📝 *Step {current_step + 1} of 7*\n\n"
+                            f"{step_info['prompt'](current_step + 1)}"
+                        )
+                    else:
+                        # Fallback to restart if step is invalid
+                        welcome_message = trainer_reg.start_registration(phone_number)
+                        current_step = 0
+                
+                log_info(f"Resuming trainer registration for {phone_number} at step {current_step}")
+            else:
+                # Start new registration
+                welcome_message = trainer_reg.start_registration(phone_number)
+                state_manager.create_registration_state(phone_number, 'trainer')
+                current_step = 0
+                log_info(f"Starting new trainer registration for {phone_number}")
+            
+            # Send welcome message
+            send_result = self.whatsapp_service.send_message(phone_number, welcome_message)
+            
+            if send_result.get('success', True):  # Assume success if no explicit failure
+                return {
+                    'success': True,
+                    'message': welcome_message,
+                    'registration_step': current_step,
+                    'method': 'text_based'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to send welcome message: {send_result.get("error")}'
+                }
+                
+        except ImportError as e:
+            log_error(f"Import error in text-based registration fallback: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Registration modules not available: {str(e)}'
+            }
+        except Exception as e:
+            log_error(f"Error starting text-based registration: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def handle_trainer_registration_request(self, phone_number: str) -> Dict:
+        """Main entry point for trainer registration - tries flow first, falls back to text"""
+        try:
+            log_info(f"Processing trainer registration request for {phone_number}")
+            
+            # Check if user is already registered
+            existing_trainer = self.supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
+            if existing_trainer.data:
+                trainer_name = existing_trainer.data[0].get('first_name', 'there')
+                return {
+                    'success': True,
+                    'already_registered': True,
+                    'message': f"Welcome back, {trainer_name}! You're already registered as a trainer. How can I help you today?"
+                }
+            
+            # Try to send WhatsApp Flow with automatic fallback
+            result = self.send_trainer_onboarding_flow(phone_number)
+            
+            if result.get('success'):
+                if result.get('method') == 'text_fallback':
+                    # Text registration started successfully
+                    return {
+                        'success': True,
+                        'method': 'text_registration',
+                        'message': result.get('message'),
+                        'conversation_state_update': {
+                            'state': 'REGISTRATION',
+                            'context': {
+                                'type': 'trainer',
+                                'current_step': 0
+                            }
+                        }
+                    }
+                else:
+                    # WhatsApp Flow sent successfully
+                    return {
+                        'success': True,
+                        'method': 'whatsapp_flow',
+                        'message': 'WhatsApp Flow sent! Please complete the registration form.',
+                        'flow_token': result.get('flow_token')
+                    }
+            else:
+                # Both methods failed
+                return {
+                    'success': False,
+                    'error': 'Registration system temporarily unavailable',
+                    'message': 'Sorry, our registration system is temporarily unavailable. Please try again later or contact support.',
+                    'details': result.get('details', result.get('error'))
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling trainer registration request: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'Something went wrong with registration. Please try again later.'
+            }
+    
+    def _publish_flow_json(self, flow_id: str, flow_data: Dict) -> Dict:
+        """Publish flow JSON to an existing flow"""
+        try:
+            import requests
+            
+            url = f"https://graph.facebook.com/v18.0/{flow_id}/assets"
+            headers = {
+                'Authorization': f'Bearer {Config.WHATSAPP_ACCESS_TOKEN}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Prepare flow JSON payload
+            flow_json_payload = {
+                "name": "flow.json",
+                "asset_type": "FLOW_JSON",
+                "flow_json": json.dumps(self.flow_data)  # Use the loaded flow data
+            }
+            
+            log_info(f"Publishing flow JSON to flow ID: {flow_id}")
+            
+            response = requests.post(url, headers=headers, json=flow_json_payload, timeout=30)
+            
+            if response.status_code == 200:
+                log_info(f"Flow JSON published successfully to flow {flow_id}")
+                return {'success': True, 'message': 'Flow JSON published successfully'}
+            else:
+                log_error(f"Flow JSON publishing failed: {response.status_code} - {response.text}")
+                return {
+                    'success': False,
+                    'error': f'Publishing failed: {response.status_code} - {response.text}'
+                }
+                
+        except Exception as e:
+            log_error(f"Error publishing flow JSON: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _get_existing_flow_by_name(self, flow_name: str) -> Dict:
+        """Get existing flow by name"""
+        try:
+            import requests
+            
+            url = f"https://graph.facebook.com/v18.0/{Config.WHATSAPP_BUSINESS_ACCOUNT_ID}/flows"
+            headers = {
+                'Authorization': f'Bearer {Config.WHATSAPP_ACCESS_TOKEN}'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                flows_data = response.json()
+                flows = flows_data.get('data', [])
+                
+                for flow in flows:
+                    if flow.get('name') == flow_name:
+                        flow_id = flow.get('id')
+                        log_info(f"Found existing flow: {flow_name} with ID: {flow_id}")
+                        return {
+                            'success': True,
+                            'flow_id': flow_id,
+                            'message': f'Using existing flow: {flow_id}'
+                        }
+                
+                log_warning(f"No existing flow found with name: {flow_name}")
+                return {'success': False, 'error': f'No flow found with name: {flow_name}'}
+            else:
+                log_error(f"Failed to list flows: {response.status_code} - {response.text}")
+                return {'success': False, 'error': f'Failed to list flows: {response.text}'}
+                
+        except Exception as e:
+            log_error(f"Error getting existing flow: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
     def get_flow_status(self, phone_number: str) -> Dict:
         """Get the status of a flow for a phone number"""

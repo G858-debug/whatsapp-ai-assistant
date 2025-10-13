@@ -14,8 +14,11 @@ class Config:
     # WhatsApp API config
     WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'https://graph.facebook.com/v17.0/671257819413918/messages')
     WHATSAPP_API_TOKEN = os.environ.get('ACCESS_TOKEN')  # Gets from Railway's ACCESS_TOKEN
+    WHATSAPP_ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')  # Alias for flow handler
     WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get('VERIFY_TOKEN', 'texts_to_refiloe_radebe')
     PHONE_NUMBER_ID = os.environ.get('PHONE_NUMBER_ID', '671257819413918')
+    WHATSAPP_BUSINESS_ACCOUNT_ID = os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '671257819413918')  # Often same as phone number ID
+    WHATSAPP_FLOW_PRIVATE_KEY = os.environ.get('WHATSAPP_FLOW_PRIVATE_KEY')  # For flow encryption
     
     # AI config
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')

@@ -395,66 +395,64 @@ class RefiloeService:
                     # Check for trainer registration
                     if any(trigger in text_lower for trigger in ["i'm a trainer", "trainer", "💼"]):
                         try:
-                            from services.registration.trainer_registration import TrainerRegistrationHandler
-                            from services.registration.registration_state import RegistrationStateManager
+                            from services.whatsapp_flow_handler import WhatsAppFlowHandler
                             
-                            # Initialize handlers
-                            reg_handler = TrainerRegistrationHandler(self.db, whatsapp_service)
-                            state_manager = RegistrationStateManager(self.db)
+                            # Initialize flow handler with automatic fallback
+                            flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
                             
-                            # Check if user already has a registration in progress
-                            existing_state = state_manager.get_registration_state(phone)
+                            # Handle trainer registration with flow + fallback
+                            reg_result = flow_handler.handle_trainer_registration_request(phone)
                             
-                            if existing_state and existing_state.get('user_type') == 'trainer':
-                                # Resume existing registration
-                                current_step = existing_state.get('current_step', 0)
-                                data = existing_state.get('data', {})
+                            if reg_result.get('success'):
+                                if reg_result.get('already_registered'):
+                                    # User is already registered
+                                    whatsapp_service.send_message(phone, reg_result['message'])
+                                    return {'success': True, 'response': reg_result['message']}
                                 
-                                if current_step == 0:
-                                    # Just started, show welcome again
-                                    welcome_message = reg_handler.start_registration(phone)
-                                else:
-                                    # Show current step prompt
-                                    step_info = reg_handler.STEPS.get(current_step)
-                                    if step_info:
-                                        welcome_message = (
-                                            f"Welcome back! Let's continue your registration.\n\n"
-                                            f"{step_info['prompt'](current_step + 1)}"
+                                elif reg_result.get('method') == 'text_registration':
+                                    # Text-based registration started (fallback)
+                                    whatsapp_service.send_message(phone, reg_result['message'])
+                                    
+                                    # Update conversation state for text registration
+                                    state_update = reg_result.get('conversation_state_update', {})
+                                    if state_update:
+                                        self.update_conversation_state(
+                                            phone, 
+                                            state_update.get('state', 'REGISTRATION'),
+                                            state_update.get('context', {})
                                         )
-                                    else:
-                                        welcome_message = reg_handler.start_registration(phone)
-                                        current_step = 0
+                                    
+                                    self.save_message(phone, reg_result['message'], 'bot', 'registration_start')
+                                    log_info(f"Started text-based trainer registration for {phone}")
+                                    return {'success': True, 'response': reg_result['message']}
                                 
-                                # Update conversation state
-                                self.update_conversation_state(phone, 'REGISTRATION', {
-                                    'type': 'trainer',
-                                    'current_step': current_step
-                                })
-                            else:
-                                # Start new registration
-                                welcome_message = reg_handler.start_registration(phone)
-                                
-                                # Create new registration state
-                                state_manager.create_registration_state(phone, 'trainer')
-                                
-                                # Update conversation state
-                                self.update_conversation_state(phone, 'REGISTRATION', {
-                                    'type': 'trainer',
-                                    'current_step': 0
-                                })
+                                elif reg_result.get('method') == 'whatsapp_flow':
+                                    # WhatsApp Flow sent successfully
+                                    confirmation_msg = (
+                                        "🎉 I've sent you a registration form! Please complete it to get started.\n\n"
+                                        "If you don't see the form, I'll help you register step by step instead."
+                                    )
+                                    whatsapp_service.send_message(phone, confirmation_msg)
+                                    
+                                    # Don't update conversation state for flows - they handle their own completion
+                                    self.save_message(phone, confirmation_msg, 'bot', 'flow_sent')
+                                    log_info(f"Sent WhatsApp Flow for trainer registration to {phone}")
+                                    return {'success': True, 'response': confirmation_msg}
                             
-                            whatsapp_service.send_message(phone, welcome_message)
-                            self.save_message(phone, welcome_message, 'bot', 'registration_start')
-                            log_info(f"Started/resumed trainer registration for {phone}")
-                            return {'success': True, 'response': welcome_message}
+                            else:
+                                # Registration failed
+                                error_msg = reg_result.get('message', 'Registration system temporarily unavailable. Please try again later.')
+                                whatsapp_service.send_message(phone, error_msg)
+                                log_error(f"Trainer registration failed for {phone}: {reg_result.get('error')}")
+                                return {'success': False, 'response': error_msg}
                             
                         except ImportError as e:
-                            log_error(f"Import error: {str(e)}")
+                            log_error(f"Import error in flow handler: {str(e)}")
                             error_msg = "Registration system temporarily unavailable. Please try again later."
                             whatsapp_service.send_message(phone, error_msg)
                             return {'success': False, 'response': error_msg}
                         except Exception as e:
-                            log_error(f"Error starting trainer registration: {str(e)}")
+                            log_error(f"Error in trainer registration flow: {str(e)}")
                             error_msg = "Sorry, I couldn't start the registration process. Please try again or type 'help' for assistance."
                             whatsapp_service.send_message(phone, error_msg)
                             return {'success': False, 'response': error_msg}
