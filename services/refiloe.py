@@ -266,55 +266,79 @@ class RefiloeService:
                 log_info(f"User {phone} is in registration flow, context: {conv_state.get('context', {})}")
                 
                 registration_type = conv_state.get('context', {}).get('type')
-                current_step = conv_state.get('context', {}).get('current_step', 0)
                 
                 if registration_type == 'trainer':
                     try:
                         from services.registration.trainer_registration import TrainerRegistrationHandler
-                        reg = TrainerRegistrationHandler(self.db, whatsapp_service)
+                        from services.registration.registration_state import RegistrationStateManager
                         
-                        # Process the registration step
-                        reg_result = reg.process_step(phone, text, current_step)
+                        # Initialize handlers
+                        reg_handler = TrainerRegistrationHandler(self.db, whatsapp_service)
+                        state_manager = RegistrationStateManager(self.db)
                         
-                        if reg_result.get('message'):
-                            whatsapp_service.send_message(phone, reg_result['message'])
+                        # Get current registration state from database
+                        reg_state = state_manager.get_registration_state(phone)
                         
-                        # Update state or clear if complete
-                        if reg_result.get('complete'):
-                            self.update_conversation_state(phone, 'IDLE')
-                            log_info(f"Trainer registration completed for {phone}")
+                        if reg_state:
+                            current_step = reg_state.get('current_step', 0)
+                            data = reg_state.get('data', {})
+                            
+                            # Process the registration step using correct method
+                            reg_result = reg_handler.handle_registration_response(
+                                phone, text, current_step, data
+                            )
+                            
+                            if reg_result.get('success'):
+                                # Send response message
+                                if reg_result.get('message'):
+                                    whatsapp_service.send_message(phone, reg_result['message'])
+                                
+                                # Check if registration is complete
+                                if not reg_result.get('continue', True):
+                                    # Registration completed
+                                    self.update_conversation_state(phone, 'IDLE')
+                                    log_info(f"Trainer registration completed for {phone}")
+                                else:
+                                    # Update conversation state with new step
+                                    new_step = reg_result.get('next_step', current_step + 1)
+                                    new_context = conv_state.get('context', {})
+                                    new_context['current_step'] = new_step
+                                    self.update_conversation_state(phone, 'REGISTRATION', new_context)
+                                    log_info(f"Updated registration step for {phone} to {new_step}")
+                                
+                                return {'success': True, 'response': reg_result.get('message', '')}
+                            else:
+                                # Validation error - send error message but continue registration
+                                if reg_result.get('message'):
+                                    whatsapp_service.send_message(phone, reg_result['message'])
+                                return {'success': True, 'response': reg_result.get('message', '')}
                         else:
-                            # Update the conversation state with new step
-                            new_context = conv_state.get('context', {})
-                            new_context['current_step'] = reg_result.get('next_step', current_step + 1)
-                            self.update_conversation_state(phone, 'REGISTRATION', new_context)
-                            log_info(f"Updated registration step for {phone} to {new_context['current_step']}")
-                        
-                        return {'success': True, 'response': reg_result.get('message', '')}
+                            # No registration state found - restart registration
+                            log_warning(f"No registration state found for {phone}, restarting")
+                            welcome_message = reg_handler.start_registration(phone)
+                            whatsapp_service.send_message(phone, welcome_message)
+                            
+                            # Update conversation state
+                            self.update_conversation_state(phone, 'REGISTRATION', {
+                                'type': 'trainer',
+                                'current_step': 0
+                            })
+                            
+                            return {'success': True, 'response': welcome_message}
                         
                     except ImportError as e:
-                        log_error(f"Import error in registration: {str(e)}")
-                        # Try old class name for backward compatibility
-                        try:
-                            from services.registration.trainer_registration import TrainerRegistration
-                            reg = TrainerRegistration(self.db)
-                            reg_result = reg.process_registration_response(phone, text)
-                            
-                            if reg_result.get('message'):
-                                whatsapp_service.send_message(phone, reg_result['message'])
-                            
-                            if reg_result.get('complete'):
-                                self.update_conversation_state(phone, 'IDLE')
-                            
-                            return {'success': True, 'response': reg_result.get('message', '')}
-                        except:
-                            log_error("Registration module not found")
-                            self.update_conversation_state(phone, 'IDLE')
+                        log_error(f"Import error in trainer registration: {str(e)}")
+                        error_msg = "Registration system temporarily unavailable. Please try again later."
+                        whatsapp_service.send_message(phone, error_msg)
+                        self.update_conversation_state(phone, 'IDLE')
+                        return {'success': False, 'response': error_msg}
                             
                     except Exception as e:
                         log_error(f"Error processing trainer registration: {str(e)}")
-                        # Don't let registration errors break the flow
+                        error_msg = "Something went wrong with your registration. Let's start over."
+                        whatsapp_service.send_message(phone, error_msg)
                         self.update_conversation_state(phone, 'IDLE')
+                        return {'success': False, 'response': error_msg}
                 
                 elif registration_type == 'client':
                     try:
@@ -372,29 +396,61 @@ class RefiloeService:
                     if any(trigger in text_lower for trigger in ["i'm a trainer", "trainer", "💼"]):
                         try:
                             from services.registration.trainer_registration import TrainerRegistrationHandler
-                            reg = TrainerRegistrationHandler(self.db, whatsapp_service)
+                            from services.registration.registration_state import RegistrationStateManager
                             
-                            welcome_message = reg.start_registration(phone)
+                            # Initialize handlers
+                            reg_handler = TrainerRegistrationHandler(self.db, whatsapp_service)
+                            state_manager = RegistrationStateManager(self.db)
+                            
+                            # Check if user already has a registration in progress
+                            existing_state = state_manager.get_registration_state(phone)
+                            
+                            if existing_state and existing_state.get('user_type') == 'trainer':
+                                # Resume existing registration
+                                current_step = existing_state.get('current_step', 0)
+                                data = existing_state.get('data', {})
+                                
+                                if current_step == 0:
+                                    # Just started, show welcome again
+                                    welcome_message = reg_handler.start_registration(phone)
+                                else:
+                                    # Show current step prompt
+                                    step_info = reg_handler.STEPS.get(current_step)
+                                    if step_info:
+                                        welcome_message = (
+                                            f"Welcome back! Let's continue your registration.\n\n"
+                                            f"{step_info['prompt'](current_step + 1)}"
+                                        )
+                                    else:
+                                        welcome_message = reg_handler.start_registration(phone)
+                                        current_step = 0
+                                
+                                # Update conversation state
+                                self.update_conversation_state(phone, 'REGISTRATION', {
+                                    'type': 'trainer',
+                                    'current_step': current_step
+                                })
+                            else:
+                                # Start new registration
+                                welcome_message = reg_handler.start_registration(phone)
+                                
+                                # Create new registration state
+                                state_manager.create_registration_state(phone, 'trainer')
+                                
+                                # Update conversation state
+                                self.update_conversation_state(phone, 'REGISTRATION', {
+                                    'type': 'trainer',
+                                    'current_step': 0
+                                })
+                            
                             whatsapp_service.send_message(phone, welcome_message)
-                            
-                            import uuid
-                            session_id = str(uuid.uuid4())
-                            
-                            # Update conversation state to registration mode
-                            self.update_conversation_state(phone, 'REGISTRATION', {
-                                'type': 'trainer',
-                                'step': 'name',
-                                'session_id': session_id,
-                                'current_step': 0
-                            })
-                            
                             self.save_message(phone, welcome_message, 'bot', 'registration_start')
-                            log_info(f"Started trainer registration for {phone}")
+                            log_info(f"Started/resumed trainer registration for {phone}")
                             return {'success': True, 'response': welcome_message}
                             
                         except ImportError as e:
                             log_error(f"Import error: {str(e)}")
-                            error_msg = "Registration module not available. Please contact support."
+                            error_msg = "Registration system temporarily unavailable. Please try again later."
                             whatsapp_service.send_message(phone, error_msg)
                             return {'success': False, 'response': error_msg}
                         except Exception as e:
