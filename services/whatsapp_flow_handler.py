@@ -362,68 +362,120 @@ class WhatsAppFlowHandler:
     def handle_flow_response(self, flow_data: Dict) -> Dict:
         """Process completed trainer onboarding flow"""
         try:
-            flow_name = flow_data.get('name')
+            # Extract phone number from flow data
+            phone_number = flow_data.get('phone_number')
+            
+            if not phone_number:
+                log_error("No phone number in flow response data")
+                return {
+                    'success': False,
+                    'error': 'Missing phone number in flow data'
+                }
+            
+            log_info(f"Processing flow response for {phone_number}")
+            
+            # Extract flow response payload
+            flow_response = flow_data.get('flow_response', {})
+            
+            if not flow_response:
+                log_error("No flow_response in flow data")
+                return {
+                    'success': False,
+                    'error': 'Missing flow response data'
+                }
+            
+            # Get flow name and token
+            flow_name = flow_response.get('name', 'trainer_onboarding_flow')
+            flow_token = flow_response.get('flow_token')
+            
+            log_info(f"Flow name: {flow_name}, Flow token: {flow_token}")
+            
+            # Validate flow type
             if flow_name != 'trainer_onboarding_flow':
                 return {
                     'success': False,
-                    'error': 'Invalid flow type'
+                    'error': f'Invalid flow type: {flow_name}'
                 }
             
-            # Extract flow action payload - updated for new structure
-            action_payload = flow_data.get('flow_action_payload', {})
-            flow_token = flow_data.get('flow_token')
-            
-            if not action_payload or not flow_token:
-                return {
-                    'success': False,
-                    'error': 'Missing flow data'
-                }
-            
-            # Check if flow was completed (reached terminal screen)
-            if action_payload.get('screen') != 'registration_complete':
-                return {
-                    'success': False,
-                    'error': 'Flow not completed',
-                    'message': 'Please complete all steps in the registration flow'
-                }
-            
-            # Extract form data from the new structure
-            trainer_data = self._extract_trainer_data_from_flow(action_payload)
+            # Extract form data from flow response
+            trainer_data = self._extract_trainer_data_from_flow_response(flow_response, phone_number)
             
             if not trainer_data:
                 return {
                     'success': False,
-                    'error': 'Failed to extract trainer data'
+                    'error': 'Failed to extract trainer data from flow'
                 }
+            
+            log_info(f"Extracted trainer data: {trainer_data.get('name', 'Unknown')} - {trainer_data.get('email', 'No email')}")
             
             # Validate required fields
             validation_result = self._validate_trainer_data(trainer_data)
             if not validation_result['valid']:
+                log_error(f"Trainer data validation failed: {validation_result['errors']}")
                 return {
                     'success': False,
                     'error': 'Validation failed',
                     'details': validation_result['errors']
                 }
             
-            # Create trainer record
-            trainer_id = self._create_trainer_record(trainer_data, flow_token)
-            
-            if trainer_id:
-                # Send confirmation message
-                confirmation_message = self._create_confirmation_message(trainer_data)
-                self.whatsapp_service.send_message(trainer_data['phone'], confirmation_message)
+            # Use existing trainer registration system for consistency
+            try:
+                from services.registration.trainer_registration import TrainerRegistrationHandler
                 
-                return {
-                    'success': True,
-                    'message': 'Trainer profile created successfully',
-                    'trainer_id': trainer_id,
-                    'confirmation_sent': True
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': 'Failed to create trainer record'
-                }
+                # Create trainer using existing registration system
+                reg_handler = TrainerRegistrationHandler(self.supabase, self.whatsapp_service)
+                
+                # Complete registration using existing system
+                completion_result = reg_handler._complete_registration(phone_number, trainer_data)
+                
+                if completion_result.get('success'):
+                    trainer_id = completion_result.get('trainer_id')
+                    
+                    log_info(f"Trainer registration completed via flow: {trainer_id}")
+                    
+                    # Mark any existing registration state as complete
+                    try:
+                        from services.registration.registration_state import RegistrationStateManager
+                        state_manager = RegistrationStateManager(self.supabase)
+                        
+                        # Mark registration as complete
+                        existing_state = state_manager.get_registration_state(phone_number)
+                        if existing_state:
+                            state_manager.complete_registration(phone_number, 'trainer')
+                    except Exception as state_error:
+                        log_warning(f"Could not update registration state: {str(state_error)}")
+                    
+                    return {
+                        'success': True,
+                        'message': 'Trainer profile created successfully via WhatsApp Flow',
+                        'trainer_id': trainer_id,
+                        'method': 'whatsapp_flow'
+                    }
+                else:
+                    log_error(f"Registration completion failed: {completion_result.get('message')}")
+                    return {
+                        'success': False,
+                        'error': f'Registration failed: {completion_result.get("message")}'
+                    }
+                    
+            except ImportError as e:
+                log_error(f"Could not import registration handler: {str(e)}")
+                
+                # Fallback: create trainer record directly
+                trainer_id = self._create_trainer_record_direct(trainer_data, flow_token)
+                
+                if trainer_id:
+                    return {
+                        'success': True,
+                        'message': 'Trainer profile created successfully (direct method)',
+                        'trainer_id': trainer_id,
+                        'method': 'direct_creation'
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': 'Failed to create trainer record'
+                    }
                 
         except Exception as e:
             log_error(f"Error handling flow response: {str(e)}")
@@ -431,6 +483,104 @@ class WhatsAppFlowHandler:
                 'success': False,
                 'error': str(e)
             }
+    
+    def _extract_trainer_data_from_flow_response(self, flow_response: Dict, phone_number: str) -> Dict:
+        """Extract trainer data from WhatsApp flow response"""
+        try:
+            # Get form data from flow response
+            # WhatsApp flows return data in different possible structures
+            form_data = {}
+            
+            # Try different possible data structures
+            if 'data' in flow_response:
+                form_data = flow_response['data']
+            elif 'flow_action_payload' in flow_response:
+                form_data = flow_response['flow_action_payload'].get('data', {})
+            elif 'response' in flow_response:
+                form_data = flow_response['response']
+            
+            log_info(f"Extracted form data keys: {list(form_data.keys())}")
+            
+            # Map flow form fields to trainer data structure
+            # Based on our trainer_onboarding_flow.json structure
+            
+            # Basic info (from basic_info screen)
+            full_name = form_data.get('full_name', '')
+            email = form_data.get('email', '')
+            city = form_data.get('city', '')
+            
+            # Business details (from business_details screen)
+            specialization = form_data.get('specialization', '')
+            experience_years = form_data.get('experience_years', '0-1')
+            pricing_per_session = form_data.get('pricing_per_session', 500)
+            
+            # Availability (from availability screen)
+            available_days = form_data.get('available_days', [])
+            preferred_time_slots = form_data.get('preferred_time_slots', '')
+            
+            # Preferences (from preferences screen)
+            subscription_plan = form_data.get('subscription_plan', 'free')
+            notification_preferences = form_data.get('notification_preferences', [])
+            
+            # Terms (from verification screen)
+            terms_accepted = form_data.get('terms_accepted', False)
+            marketing_consent = form_data.get('marketing_consent', False)
+            
+            # Parse name into first and last name
+            name_parts = full_name.strip().split(' ', 1) if full_name else ['', '']
+            first_name = name_parts[0] if name_parts else ''
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
+            # Ensure pricing is numeric
+            try:
+                pricing = float(pricing_per_session) if pricing_per_session else 500.0
+            except (ValueError, TypeError):
+                pricing = 500.0
+            
+            # Convert experience years to numeric for compatibility
+            experience_numeric = 0
+            if experience_years:
+                if experience_years == '0-1':
+                    experience_numeric = 1
+                elif experience_years == '2-3':
+                    experience_numeric = 2
+                elif experience_years == '4-5':
+                    experience_numeric = 4
+                elif experience_years == '6-10':
+                    experience_numeric = 7
+                elif experience_years == '10+':
+                    experience_numeric = 10
+            
+            # Create trainer data structure compatible with existing registration system
+            trainer_data = {
+                'name': full_name,
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': email.lower() if email else '',
+                'city': city,
+                'specialization': specialization,
+                'experience': experience_numeric,  # Numeric for existing system
+                'experience_years': experience_years,  # Original for new fields
+                'pricing': pricing,  # For existing system
+                'pricing_per_session': pricing,  # For new fields
+                'available_days': available_days,
+                'preferred_time_slots': preferred_time_slots,
+                'subscription_plan': subscription_plan,
+                'notification_preferences': notification_preferences,
+                'terms_accepted': bool(terms_accepted),
+                'marketing_consent': bool(marketing_consent),
+                'phone': phone_number,
+                'whatsapp': phone_number,
+                'registration_method': 'whatsapp_flow'
+            }
+            
+            log_info(f"Mapped trainer data for {full_name}: specialization={specialization}, pricing={pricing}")
+            
+            return trainer_data
+            
+        except Exception as e:
+            log_error(f"Error extracting trainer data from flow response: {str(e)}")
+            return {}
     
     def _extract_trainer_data_from_flow(self, action_payload: Dict) -> Dict:
         """Extract trainer data from new flow structure"""
@@ -526,6 +676,59 @@ class WhatsAppFlowHandler:
             'valid': len(errors) == 0,
             'errors': errors
         }
+    
+    def _create_trainer_record_direct(self, trainer_data: Dict, flow_token: str) -> Optional[str]:
+        """Create trainer record directly in database (fallback method)"""
+        try:
+            from datetime import datetime
+            
+            # Prepare data for database
+            db_data = {
+                'name': trainer_data.get('name', ''),
+                'first_name': trainer_data.get('first_name', ''),
+                'last_name': trainer_data.get('last_name', ''),
+                'whatsapp': trainer_data.get('phone', ''),
+                'email': trainer_data.get('email', ''),
+                'city': trainer_data.get('city', ''),
+                'specialization': trainer_data.get('specialization', ''),
+                'years_experience': trainer_data.get('experience', 0),
+                'pricing_per_session': trainer_data.get('pricing', 500),
+                'status': 'active',
+                'registration_method': 'whatsapp_flow',
+                'flow_token': flow_token,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Add optional fields if available
+            if trainer_data.get('available_days'):
+                db_data['available_days'] = json.dumps(trainer_data['available_days'])
+            if trainer_data.get('preferred_time_slots'):
+                db_data['preferred_time_slots'] = trainer_data['preferred_time_slots']
+            if trainer_data.get('subscription_plan'):
+                db_data['subscription_plan'] = trainer_data['subscription_plan']
+            if trainer_data.get('notification_preferences'):
+                db_data['notification_preferences'] = json.dumps(trainer_data['notification_preferences'])
+            
+            # Insert into database
+            result = self.supabase.table('trainers').insert(db_data).execute()
+            
+            if result.data:
+                trainer_id = result.data[0]['id']
+                log_info(f"Created trainer record directly: {trainer_id}")
+                
+                # Send confirmation message
+                confirmation_message = self._create_confirmation_message(trainer_data)
+                self.whatsapp_service.send_message(trainer_data['phone'], confirmation_message)
+                
+                return trainer_id
+            else:
+                log_error("Failed to create trainer record - no data returned")
+                return None
+                
+        except Exception as e:
+            log_error(f"Error creating trainer record directly: {str(e)}")
+            return None
     
     def _create_trainer_record(self, trainer_data: Dict, flow_token: str) -> Optional[str]:
         """Create trainer record in database"""

@@ -33,32 +33,95 @@ def setup_flow_webhook(app, supabase, whatsapp_service):
             
             log_info(f"Received flow webhook: {json.dumps(webhook_data, indent=2)}")
             
-            # Extract flow data
-            flow_data = webhook_data.get('entry', [{}])[0].get('changes', [{}])[0].get('value', {})
+            # Extract flow data from WhatsApp webhook structure
+            entries = webhook_data.get('entry', [])
             
-            if not flow_data:
-                log_warning("No flow data found in webhook")
-                return jsonify({'status': 'error', 'message': 'No flow data found'}), 400
+            if not entries:
+                log_warning("No entries found in webhook data")
+                return jsonify({'status': 'error', 'message': 'No entries found'}), 400
             
-            # Process flow messages
-            messages = flow_data.get('messages', [])
+            processed_count = 0
             
-            for message in messages:
-                if message.get('type') == 'interactive' and message.get('interactive', {}).get('type') == 'flow':
-                    # Handle flow response
-                    interactive_data = message.get('interactive', {})
-                    flow_response = interactive_data.get('flow_response', {})
+            for entry in entries:
+                changes = entry.get('changes', [])
+                
+                for change in changes:
+                    value = change.get('value', {})
                     
-                    if flow_response:
-                        # Process the flow response
-                        result = flow_handler.handle_flow_response(flow_response)
+                    # Handle flow completion messages
+                    messages = value.get('messages', [])
+                    
+                    for message in messages:
+                        phone_number = message.get('from')
+                        message_type = message.get('type')
                         
-                        if result.get('success'):
-                            log_info(f"Flow processed successfully: {result.get('message')}")
-                        else:
-                            log_error(f"Flow processing failed: {result.get('error')}")
+                        if message_type == 'interactive':
+                            interactive = message.get('interactive', {})
+                            
+                            if interactive.get('type') == 'flow':
+                                # This is a flow completion
+                                flow_response_data = interactive.get('flow_response', {})
+                                
+                                if flow_response_data:
+                                    log_info(f"Processing flow completion from {phone_number}")
+                                    
+                                    # Add phone number to flow response data
+                                    flow_response_data['phone_number'] = phone_number
+                                    flow_response_data['message_id'] = message.get('id')
+                                    flow_response_data['timestamp'] = message.get('timestamp')
+                                    
+                                    # Process the flow response
+                                    result = flow_handler.handle_flow_response(flow_response_data)
+                                    
+                                    if result.get('success'):
+                                        log_info(f"Flow processed successfully for {phone_number}: {result.get('message')}")
+                                        processed_count += 1
+                                        
+                                        # Update conversation state to clear registration mode
+                                        # This allows the user to use normal AI features after registration
+                                        try:
+                                            from services.refiloe import RefiloeAI
+                                            refiloe = RefiloeAI(supabase, whatsapp_service)
+                                            refiloe.update_conversation_state(phone_number, 'IDLE')
+                                            log_info(f"Cleared registration state for {phone_number}")
+                                        except Exception as state_error:
+                                            log_warning(f"Could not clear conversation state: {str(state_error)}")
+                                        
+                                    else:
+                                        log_error(f"Flow processing failed for {phone_number}: {result.get('error')}")
+                                        
+                                        # Send error message to user
+                                        error_message = (
+                                            "Sorry, there was an issue processing your registration. "
+                                            "Please try again or contact support."
+                                        )
+                                        whatsapp_service.send_message(phone_number, error_message)
+                    
+                    # Handle flow interaction events (button clicks, screen changes)
+                    flow_events = value.get('flow_events', [])
+                    
+                    for flow_event in flow_events:
+                        event_type = flow_event.get('type')
+                        phone_number = flow_event.get('from')
+                        
+                        if event_type in ['flow_started', 'flow_screen_changed']:
+                            log_info(f"Flow event: {event_type} from {phone_number}")
+                            # Could track analytics here
+                        
+                        elif event_type == 'flow_abandoned':
+                            log_info(f"Flow abandoned by {phone_number}")
+                            
+                            # Optionally send a follow-up message
+                            follow_up_message = (
+                                "I noticed you didn't complete the registration form. "
+                                "No worries! Just type 'I'm a trainer' again and I'll help you register step by step."
+                            )
+                            whatsapp_service.send_message(phone_number, follow_up_message)
             
-            return jsonify({'status': 'success'}), 200
+            if processed_count > 0:
+                log_info(f"Successfully processed {processed_count} flow completions")
+            
+            return jsonify({'status': 'success', 'processed': processed_count}), 200
             
         except Exception as e:
             log_error(f"Error processing flow webhook: {str(e)}")

@@ -81,6 +81,30 @@ class RegistrationStateManager:
             log_error(f"Error updating registration state: {str(e)}")
             return False
     
+    def complete_registration(self, phone: str, user_type: str) -> bool:
+        """Mark registration as completed"""
+        try:
+            update_data = {
+                'completed': True,
+                'completed_at': datetime.now(self.sa_tz).isoformat(),
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            result = self.db.table('registration_states').update(
+                update_data
+            ).eq('phone_number', phone).eq('user_type', user_type).eq('completed', False).execute()
+            
+            if result.data:
+                log_info(f"Marked registration as complete for {phone} ({user_type})")
+                return True
+            else:
+                log_warning(f"No registration state found to complete for {phone}")
+                return False
+            
+        except Exception as e:
+            log_error(f"Error completing registration state: {str(e)}")
+            return False
+    
     def get_progress(self, phone: str, user_type: str) -> tuple:
         """Get registration progress"""
         state = self.get_registration_state(phone)
