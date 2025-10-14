@@ -152,9 +152,8 @@ class TrainerRegistrationHandler:
             self.track_registration_analytics(phone, 'step_completed', step=current_step)
             
             data[field] = validated['value']
-            self.save_session(phone, data, current_step)
-            
             next_step = current_step + 1
+            self.save_session(phone, data, next_step)
             
             if next_step >= len(self.STEPS):
                 return self._complete_registration(phone, data)
