@@ -1,0 +1,1425 @@
+table_name,create_ddl
+assessment_access_tokens,"CREATE TABLE public.assessment_access_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  token character varying(255) NOT NULL,
+  client_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  used_count integer(32,0) DEFAULT 0,
+  last_accessed timestamp with time zone,
+  CONSTRAINT ""2200_33564_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_33564_2_not_null"" CHECK (token IS NOT NULL),
+  CONSTRAINT ""2200_33564_5_not_null"" CHECK (expires_at IS NOT NULL),
+  CONSTRAINT assessment_access_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT assessment_access_tokens_token_key UNIQUE (token)
+);
+  CREATE UNIQUE INDEX assessment_access_tokens_pkey ON public.assessment_access_tokens USING btree (id)
+  CREATE UNIQUE INDEX assessment_access_tokens_token_key ON public.assessment_access_tokens USING btree (token)
+  CREATE INDEX idx_assessment_tokens ON public.assessment_access_tokens USING btree (token)"
+assessment_photos,"CREATE TABLE public.assessment_photos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  assessment_id uuid,
+  client_id uuid,
+  photo_type character varying(50),
+  photo_url text NOT NULL,
+  thumbnail_url text,
+  caption text,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  is_deleted boolean DEFAULT false,
+  CONSTRAINT ""2200_28991_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_28991_5_not_null"" CHECK (photo_url IS NOT NULL),
+  CONSTRAINT assessment_photos_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.fitness_assessments(id),
+  CONSTRAINT assessment_photos_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX assessment_photos_pkey ON public.assessment_photos USING btree (id)
+  CREATE INDEX idx_photos_assessment ON public.assessment_photos USING btree (assessment_id)
+  CREATE INDEX idx_photos_client ON public.assessment_photos USING btree (client_id)"
+assessment_reminders,"CREATE TABLE public.assessment_reminders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  client_id uuid,
+  template_id uuid,
+  due_date timestamp with time zone NOT NULL,
+  reminder_type character varying(50),
+  sent_at timestamp with time zone,
+  status character varying(20) DEFAULT 'pending'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_29072_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_29072_5_not_null"" CHECK (due_date IS NOT NULL),
+  CONSTRAINT assessment_reminders_pkey PRIMARY KEY (id),
+  CONSTRAINT assessment_reminders_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.assessment_templates(id)
+);
+  CREATE UNIQUE INDEX assessment_reminders_pkey ON public.assessment_reminders USING btree (id)
+  CREATE INDEX idx_reminders_due ON public.assessment_reminders USING btree (due_date, status)"
+assessment_templates,"CREATE TABLE public.assessment_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  template_name character varying(255) DEFAULT 'Default Template'::character varying,
+  is_active boolean DEFAULT true,
+  completed_by character varying(20) DEFAULT 'client'::character varying,
+  frequency character varying(20) DEFAULT 'once'::character varying,
+  next_due_date timestamp with time zone,
+  send_reminders boolean DEFAULT true,
+  include_health boolean DEFAULT true,
+  include_lifestyle boolean DEFAULT true,
+  include_goals boolean DEFAULT true,
+  include_measurements boolean DEFAULT true,
+  include_tests boolean DEFAULT true,
+  include_photos boolean DEFAULT true,
+  health_questions jsonb DEFAULT '[]'::jsonb,
+  lifestyle_questions jsonb DEFAULT '[]'::jsonb,
+  goals_questions jsonb DEFAULT '[]'::jsonb,
+  measurement_fields jsonb DEFAULT '[]'::jsonb,
+  test_fields jsonb DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_28925_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT assessment_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT assessment_templates_trainer_id_template_name_key UNIQUE (trainer_id, template_name)
+);
+  CREATE UNIQUE INDEX assessment_templates_pkey ON public.assessment_templates USING btree (id)
+  CREATE UNIQUE INDEX assessment_templates_trainer_id_template_name_key ON public.assessment_templates USING btree (trainer_id, template_name)
+  CREATE INDEX idx_templates_trainer ON public.assessment_templates USING btree (trainer_id)"
+assessments,"CREATE TABLE public.assessments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL,
+  assessment_type character varying(50) NOT NULL,
+  questions jsonb NOT NULL DEFAULT '{}'::jsonb,
+  answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+  score numeric(5,2),
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86675_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86675_2_not_null"" CHECK (client_id IS NOT NULL),
+  CONSTRAINT ""2200_86675_3_not_null"" CHECK (assessment_type IS NOT NULL),
+  CONSTRAINT ""2200_86675_4_not_null"" CHECK (questions IS NOT NULL),
+  CONSTRAINT ""2200_86675_5_not_null"" CHECK (answers IS NOT NULL),
+  CONSTRAINT assessments_assessment_type_check CHECK (((assessment_type)::text = ANY ((ARRAY['initial'::character varying, 'progress'::character varying, 'final'::character varying])::text[]))),
+  CONSTRAINT assessments_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT assessments_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX assessments_pkey ON public.assessments USING btree (id)
+  CREATE INDEX idx_assessments_type ON public.assessments USING btree (assessment_type)
+  CREATE INDEX idx_assessments_completed ON public.assessments USING btree (completed_at)"
+bookings,"CREATE TABLE public.bookings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid NOT NULL,
+  client_id uuid NOT NULL,
+  session_datetime timestamp with time zone NOT NULL,
+  duration_minutes integer(32,0) DEFAULT 60,
+  price numeric(10,2) NOT NULL,
+  status character varying(20) DEFAULT 'scheduled'::character varying,
+  session_notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86588_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86588_2_not_null"" CHECK (trainer_id IS NOT NULL),
+  CONSTRAINT ""2200_86588_3_not_null"" CHECK (client_id IS NOT NULL),
+  CONSTRAINT ""2200_86588_4_not_null"" CHECK (session_datetime IS NOT NULL),
+  CONSTRAINT ""2200_86588_6_not_null"" CHECK (price IS NOT NULL),
+  CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT bookings_pkey PRIMARY KEY (id),
+  CONSTRAINT bookings_status_check CHECK (((status)::text = ANY ((ARRAY['scheduled'::character varying, 'completed'::character varying, 'cancelled'::character varying, 'no_show'::character varying])::text[]))),
+  CONSTRAINT bookings_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES public.trainers(id)
+);
+  CREATE UNIQUE INDEX bookings_pkey ON public.bookings USING btree (id)
+  CREATE INDEX idx_bookings_trainer ON public.bookings USING btree (trainer_id)
+  CREATE INDEX idx_bookings_client ON public.bookings USING btree (client_id)
+  CREATE INDEX idx_bookings_datetime ON public.bookings USING btree (session_datetime)
+  CREATE INDEX idx_bookings_status ON public.bookings USING btree (status)"
+challenge_participants,"CREATE TABLE public.challenge_participants (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  challenge_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  user_type character varying(20) NOT NULL,
+  joined_at timestamp with time zone DEFAULT now(),
+  status character varying(50) DEFAULT 'active'::character varying,
+  final_position integer(32,0),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86857_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86857_2_not_null"" CHECK (challenge_id IS NOT NULL),
+  CONSTRAINT ""2200_86857_3_not_null"" CHECK (user_id IS NOT NULL),
+  CONSTRAINT ""2200_86857_4_not_null"" CHECK (user_type IS NOT NULL),
+  CONSTRAINT challenge_participants_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id),
+  CONSTRAINT challenge_participants_pkey PRIMARY KEY (id),
+  CONSTRAINT check_status_valid CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'completed'::character varying, 'withdrawn'::character varying, 'disqualified'::character varying])::text[]))),
+  CONSTRAINT check_user_type_valid CHECK (((user_type)::text = ANY ((ARRAY['trainer'::character varying, 'client'::character varying])::text[]))),
+  CONSTRAINT unique_challenge_participant UNIQUE (challenge_id, user_id, user_type)
+);
+  CREATE UNIQUE INDEX challenge_participants_pkey ON public.challenge_participants USING btree (id)
+  CREATE UNIQUE INDEX unique_challenge_participant ON public.challenge_participants USING btree (challenge_id, user_id, user_type)
+  CREATE INDEX idx_challenge_participants_challenge ON public.challenge_participants USING btree (challenge_id)
+  CREATE INDEX idx_challenge_participants_user ON public.challenge_participants USING btree (user_id, user_type)
+  CREATE INDEX idx_challenge_participants_status ON public.challenge_participants USING btree (status)"
+challenge_progress,"CREATE TABLE public.challenge_progress (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  participant_id uuid NOT NULL,
+  challenge_id uuid NOT NULL,
+  date date NOT NULL DEFAULT CURRENT_DATE,
+  value_achieved numeric(10,2) NOT NULL DEFAULT 0,
+  points_earned integer(32,0) DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86876_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86876_2_not_null"" CHECK (participant_id IS NOT NULL),
+  CONSTRAINT ""2200_86876_3_not_null"" CHECK (challenge_id IS NOT NULL),
+  CONSTRAINT ""2200_86876_4_not_null"" CHECK (date IS NOT NULL),
+  CONSTRAINT ""2200_86876_5_not_null"" CHECK (value_achieved IS NOT NULL),
+  CONSTRAINT challenge_progress_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id),
+  CONSTRAINT challenge_progress_participant_id_fkey FOREIGN KEY (participant_id) REFERENCES public.challenge_participants(id),
+  CONSTRAINT challenge_progress_pkey PRIMARY KEY (id),
+  CONSTRAINT unique_progress_per_day UNIQUE (participant_id, date)
+);
+  CREATE UNIQUE INDEX challenge_progress_pkey ON public.challenge_progress USING btree (id)
+  CREATE UNIQUE INDEX unique_progress_per_day ON public.challenge_progress USING btree (participant_id, date)
+  CREATE INDEX idx_challenge_progress_participant ON public.challenge_progress USING btree (participant_id)
+  CREATE INDEX idx_challenge_progress_challenge ON public.challenge_progress USING btree (challenge_id)
+  CREATE INDEX idx_challenge_progress_date ON public.challenge_progress USING btree (date)"
+challenges,"CREATE TABLE public.challenges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_by uuid,
+  name character varying(200) NOT NULL,
+  description text,
+  type character varying(50) NOT NULL,
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  target_value numeric(10,2),
+  points_reward integer(32,0) NOT NULL DEFAULT 100,
+  is_active boolean DEFAULT true,
+  max_participants integer(32,0),
+  challenge_rules jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86836_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86836_3_not_null"" CHECK (name IS NOT NULL),
+  CONSTRAINT ""2200_86836_5_not_null"" CHECK (type IS NOT NULL),
+  CONSTRAINT ""2200_86836_6_not_null"" CHECK (start_date IS NOT NULL),
+  CONSTRAINT ""2200_86836_7_not_null"" CHECK (end_date IS NOT NULL),
+  CONSTRAINT ""2200_86836_9_not_null"" CHECK (points_reward IS NOT NULL),
+  CONSTRAINT challenges_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.trainers(id),
+  CONSTRAINT challenges_pkey PRIMARY KEY (id),
+  CONSTRAINT check_dates CHECK ((end_date > start_date)),
+  CONSTRAINT check_max_participants CHECK (((max_participants IS NULL) OR (max_participants > 0))),
+  CONSTRAINT check_points_positive CHECK ((points_reward > 0))
+);
+  CREATE UNIQUE INDEX challenges_pkey ON public.challenges USING btree (id)
+  CREATE INDEX idx_challenges_created_by ON public.challenges USING btree (created_by)
+  CREATE INDEX idx_challenges_dates ON public.challenges USING btree (start_date, end_date)
+  CREATE INDEX idx_challenges_active ON public.challenges USING btree (is_active)"
+client_exercise_preferences,"CREATE TABLE public.client_exercise_preferences (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  client_id uuid,
+  trainer_id uuid,
+  muscle_group character varying(50),
+  preferred_exercises jsonb,
+  avoided_exercises jsonb,
+  notes text,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_25322_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT client_exercise_preferences_client_id_muscle_group_key UNIQUE (client_id, muscle_group),
+  CONSTRAINT client_exercise_preferences_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX client_exercise_preferences_pkey ON public.client_exercise_preferences USING btree (id)
+  CREATE UNIQUE INDEX client_exercise_preferences_client_id_muscle_group_key ON public.client_exercise_preferences USING btree (client_id, muscle_group)
+  CREATE INDEX idx_client_preferences ON public.client_exercise_preferences USING btree (client_id)"
+client_habits,"CREATE TABLE public.client_habits (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  trainer_id uuid,
+  template_id uuid,
+  custom_name character varying(100),
+  target_value integer(32,0),
+  frequency character varying(20) DEFAULT 'daily'::character varying,
+  reminder_time time without time zone,
+  is_active boolean DEFAULT true,
+  start_date date DEFAULT CURRENT_DATE,
+  end_date date,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_42734_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT client_habits_pkey PRIMARY KEY (id),
+  CONSTRAINT client_habits_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.habit_templates(id)
+);
+  CREATE UNIQUE INDEX client_habits_pkey ON public.client_habits USING btree (id)"
+client_payment_consents,"CREATE TABLE public.client_payment_consents (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  trainer_id uuid,
+  consent_given boolean DEFAULT false,
+  consent_date timestamp with time zone,
+  consent_whatsapp_message text,
+  preferred_payment_method character varying(50) DEFAULT 'payfast'::character varying,
+  preferred_payment_day integer(32,0),
+  auto_approve_payments boolean DEFAULT false,
+  max_auto_approve_amount numeric(8,2) DEFAULT 1000.00,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_36972_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT client_payment_consents_client_id_trainer_id_key UNIQUE (client_id, trainer_id),
+  CONSTRAINT client_payment_consents_pkey PRIMARY KEY (id),
+  CONSTRAINT client_payment_consents_preferred_payment_day_check CHECK (((preferred_payment_day >= 1) AND (preferred_payment_day <= 28)))
+);
+  CREATE UNIQUE INDEX client_payment_consents_pkey ON public.client_payment_consents USING btree (id)
+  CREATE UNIQUE INDEX client_payment_consents_client_id_trainer_id_key ON public.client_payment_consents USING btree (client_id, trainer_id)"
+client_payment_preferences,"CREATE TABLE public.client_payment_preferences (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  trainer_id uuid,
+  preferred_payment_day integer(32,0),
+  auto_approve_enabled boolean DEFAULT false,
+  auto_approve_max_amount numeric(8,2) DEFAULT 1000.00,
+  require_itemized_invoice boolean DEFAULT true,
+  send_payment_reminders boolean DEFAULT true,
+  reminder_days_before integer(32,0) DEFAULT 2,
+  send_payment_receipts boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37658_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT client_payment_preferences_client_id_trainer_id_key UNIQUE (client_id, trainer_id),
+  CONSTRAINT client_payment_preferences_pkey PRIMARY KEY (id),
+  CONSTRAINT client_payment_preferences_preferred_payment_day_check CHECK (((preferred_payment_day >= 1) AND (preferred_payment_day <= 28)))
+);
+  CREATE UNIQUE INDEX client_payment_preferences_pkey ON public.client_payment_preferences USING btree (id)
+  CREATE UNIQUE INDEX client_payment_preferences_client_id_trainer_id_key ON public.client_payment_preferences USING btree (client_id, trainer_id)"
+client_payment_tokens,"CREATE TABLE public.client_payment_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  trainer_id uuid,
+  payfast_token character varying(255) NOT NULL,
+  payfast_token_status character varying(50) DEFAULT 'active'::character varying,
+  card_last_four character varying(4),
+  card_brand character varying(50),
+  card_exp_month integer(32,0),
+  card_exp_year integer(32,0),
+  card_holder_name character varying(255),
+  is_default boolean DEFAULT false,
+  created_via character varying(50) DEFAULT 'whatsapp'::character varying,
+  consent_given boolean DEFAULT true,
+  consent_date timestamp with time zone DEFAULT now(),
+  consent_message text,
+  max_amount_per_transaction numeric(8,2) DEFAULT 5000.00,
+  max_transactions_per_month integer(32,0) DEFAULT 10,
+  transactions_this_month integer(32,0) DEFAULT 0,
+  last_transaction_date timestamp with time zone,
+  last_verified_date timestamp with time zone,
+  suspended_at timestamp with time zone,
+  suspended_reason text,
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37626_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_37626_4_not_null"" CHECK (payfast_token IS NOT NULL),
+  CONSTRAINT client_payment_tokens_client_id_trainer_id_payfast_token_key UNIQUE (client_id, trainer_id, payfast_token),
+  CONSTRAINT client_payment_tokens_payfast_token_key UNIQUE (payfast_token),
+  CONSTRAINT client_payment_tokens_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX client_payment_tokens_pkey ON public.client_payment_tokens USING btree (id)
+  CREATE UNIQUE INDEX client_payment_tokens_payfast_token_key ON public.client_payment_tokens USING btree (payfast_token)
+  CREATE UNIQUE INDEX client_payment_tokens_client_id_trainer_id_payfast_token_key ON public.client_payment_tokens USING btree (client_id, trainer_id, payfast_token)
+  CREATE INDEX idx_client_payment_tokens_client ON public.client_payment_tokens USING btree (client_id)
+  CREATE INDEX idx_client_payment_tokens_trainer ON public.client_payment_tokens USING btree (trainer_id)
+  CREATE INDEX idx_client_payment_tokens_status ON public.client_payment_tokens USING btree (payfast_token_status)"
+clients,"CREATE TABLE public.clients (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid NOT NULL,
+  name character varying(200) NOT NULL,
+  whatsapp character varying(20) NOT NULL,
+  email character varying(255),
+  status character varying(20) DEFAULT 'active'::character varying,
+  package_type character varying(50) DEFAULT 'single'::character varying,
+  sessions_remaining integer(32,0) DEFAULT 1,
+  custom_price_per_session numeric(10,2),
+  last_session_date timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86566_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86566_2_not_null"" CHECK (trainer_id IS NOT NULL),
+  CONSTRAINT ""2200_86566_3_not_null"" CHECK (name IS NOT NULL),
+  CONSTRAINT ""2200_86566_4_not_null"" CHECK (whatsapp IS NOT NULL),
+  CONSTRAINT clients_package_type_check CHECK (((package_type)::text = ANY ((ARRAY['single'::character varying, 'package_5'::character varying, 'package_10'::character varying, 'package_20'::character varying])::text[]))),
+  CONSTRAINT clients_pkey PRIMARY KEY (id),
+  CONSTRAINT clients_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying])::text[]))),
+  CONSTRAINT clients_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES public.trainers(id),
+  CONSTRAINT unique_client_per_trainer UNIQUE (trainer_id, whatsapp)
+);
+  CREATE UNIQUE INDEX clients_pkey ON public.clients USING btree (id)
+  CREATE UNIQUE INDEX unique_client_per_trainer ON public.clients USING btree (trainer_id, whatsapp)
+  CREATE INDEX idx_clients_trainer ON public.clients USING btree (trainer_id)
+  CREATE INDEX idx_clients_whatsapp ON public.clients USING btree (whatsapp)
+  CREATE INDEX idx_clients_status ON public.clients USING btree (status)
+  CREATE INDEX idx_clients_last_session ON public.clients USING btree (last_session_date)"
+conversation_states,"CREATE TABLE public.conversation_states (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number character varying(20) NOT NULL,
+  current_state character varying(50) DEFAULT 'idle'::character varying,
+  state_data jsonb DEFAULT '{}'::jsonb,
+  last_activity timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86937_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86937_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT conversation_states_phone_number_key UNIQUE (phone_number),
+  CONSTRAINT conversation_states_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX conversation_states_pkey ON public.conversation_states USING btree (id)
+  CREATE UNIQUE INDEX conversation_states_phone_number_key ON public.conversation_states USING btree (phone_number)
+  CREATE INDEX idx_conversation_states_phone ON public.conversation_states USING btree (phone_number)
+  CREATE INDEX idx_conversation_states_state ON public.conversation_states USING btree (current_state)
+  CREATE INDEX idx_conversation_states_activity ON public.conversation_states USING btree (last_activity)"
+dashboard_analytics,"CREATE TABLE public.dashboard_analytics (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  session_id character varying(50),
+  event_type character varying(50),
+  event_name character varying(100),
+  event_data jsonb,
+  page_section character varying(50),
+  time_on_page integer(32,0),
+  device_type character varying(20),
+  browser character varying(50),
+  os character varying(50),
+  screen_size character varying(20),
+  is_pwa boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  load_time_ms integer(32,0),
+  api_response_time_ms integer(32,0),
+  CONSTRAINT ""2200_48481_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT dashboard_analytics_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX dashboard_analytics_pkey ON public.dashboard_analytics USING btree (id)
+  CREATE INDEX idx_analytics_trainer_date ON public.dashboard_analytics USING btree (trainer_id, created_at DESC)
+  CREATE INDEX idx_analytics_event ON public.dashboard_analytics USING btree (event_type, event_name)"
+dashboard_links,"CREATE TABLE public.dashboard_links (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  short_code character varying(10) NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  last_accessed timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone,
+  access_count integer(32,0) DEFAULT 0,
+  is_active boolean DEFAULT true,
+  cached_data jsonb,
+  cache_updated_at timestamp with time zone,
+  CONSTRAINT ""2200_45124_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_45124_3_not_null"" CHECK (short_code IS NOT NULL),
+  CONSTRAINT dashboard_links_pkey PRIMARY KEY (id),
+  CONSTRAINT dashboard_links_short_code_key UNIQUE (short_code),
+  CONSTRAINT dashboard_links_trainer_id_key UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX dashboard_links_pkey ON public.dashboard_links USING btree (id)
+  CREATE UNIQUE INDEX dashboard_links_trainer_id_key ON public.dashboard_links USING btree (trainer_id)
+  CREATE UNIQUE INDEX dashboard_links_short_code_key ON public.dashboard_links USING btree (short_code)
+  CREATE INDEX idx_links_short_code ON public.dashboard_links USING btree (short_code)
+  CREATE INDEX idx_links_trainer ON public.dashboard_links USING btree (trainer_id)"
+data_deletion_requests,"CREATE TABLE public.data_deletion_requests (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_type character varying(20),
+  full_name character varying(255),
+  email character varying(255),
+  phone character varying(20),
+  reason text,
+  status character varying(20) DEFAULT 'pending'::character varying,
+  requested_at timestamp without time zone DEFAULT now(),
+  process_by timestamp without time zone,
+  completed_at timestamp without time zone,
+  ip_address character varying(45),
+  error text,
+  CONSTRAINT ""2200_38923_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT data_deletion_requests_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX data_deletion_requests_pkey ON public.data_deletion_requests USING btree (id)
+  CREATE INDEX idx_deletion_status ON public.data_deletion_requests USING btree (status, process_by)"
+engagement_metrics,"CREATE TABLE public.engagement_metrics (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  total_sessions integer(32,0) DEFAULT 0,
+  total_page_views integer(32,0) DEFAULT 0,
+  avg_session_duration integer(32,0),
+  bounce_rate numeric(5,2),
+  first_visit date,
+  last_visit date,
+  days_active integer(32,0) DEFAULT 0,
+  consecutive_days integer(32,0) DEFAULT 0,
+  preferred_device character varying(20),
+  preferred_time character varying(20),
+  most_viewed_section character varying(50),
+  exports_count integer(32,0) DEFAULT 0,
+  installed_pwa boolean DEFAULT false,
+  pwa_install_date date,
+  opens_from_pwa integer(32,0) DEFAULT 0,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_48514_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT engagement_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT engagement_metrics_trainer_id_key UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX engagement_metrics_pkey ON public.engagement_metrics USING btree (id)
+  CREATE UNIQUE INDEX engagement_metrics_trainer_id_key ON public.engagement_metrics USING btree (trainer_id)
+  CREATE INDEX idx_engagement_trainer ON public.engagement_metrics USING btree (trainer_id)"
+exercises,"CREATE TABLE public.exercises (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name character varying(255) NOT NULL,
+  muscle_group character varying(50) NOT NULL,
+  gif_url_male text,
+  gif_url_female text,
+  instructions text,
+  equipment character varying(100),
+  difficulty character varying(20) DEFAULT 'intermediate'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  category character varying(100),
+  muscle_groups ARRAY,
+  gif_url_neutral character varying(500),
+  form_tips ARRAY,
+  common_mistakes ARRAY,
+  updated_at timestamp with time zone DEFAULT now(),
+  is_active boolean DEFAULT true,
+  alternate_names ARRAY,
+  CONSTRAINT ""2200_25274_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_25274_2_not_null"" CHECK (name IS NOT NULL),
+  CONSTRAINT ""2200_25274_3_not_null"" CHECK (muscle_group IS NOT NULL),
+  CONSTRAINT exercises_name_key UNIQUE (name),
+  CONSTRAINT exercises_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX exercises_pkey ON public.exercises USING btree (id)
+  CREATE UNIQUE INDEX exercises_name_key ON public.exercises USING btree (name)
+  CREATE INDEX idx_exercises_muscle_group ON public.exercises USING btree (muscle_group)
+  CREATE INDEX idx_exercise_name ON public.exercises USING btree (name)
+  CREATE INDEX idx_exercise_category ON public.exercises USING btree (category)
+  CREATE INDEX idx_exercise_active ON public.exercises USING btree (is_active)"
+feature_usage,"CREATE TABLE public.feature_usage (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  feature_name character varying(50),
+  usage_count integer(32,0) DEFAULT 1,
+  last_used timestamp with time zone DEFAULT now(),
+  total_time_seconds integer(32,0) DEFAULT 0,
+  peak_hour integer(32,0),
+  most_used_day character varying(10),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_48496_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT feature_usage_pkey PRIMARY KEY (id),
+  CONSTRAINT feature_usage_trainer_id_feature_name_key UNIQUE (trainer_id, feature_name)
+);
+  CREATE UNIQUE INDEX feature_usage_pkey ON public.feature_usage USING btree (id)
+  CREATE UNIQUE INDEX feature_usage_trainer_id_feature_name_key ON public.feature_usage USING btree (trainer_id, feature_name)
+  CREATE INDEX idx_feature_usage_trainer ON public.feature_usage USING btree (trainer_id, feature_name)"
+fitness_assessments,"CREATE TABLE public.fitness_assessments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  trainer_id uuid,
+  template_id uuid,
+  assessment_date timestamp with time zone DEFAULT now(),
+  assessment_type character varying(50) DEFAULT 'initial'::character varying,
+  status character varying(20) DEFAULT 'pending'::character varying,
+  completed_by character varying(20),
+  access_token character varying(255),
+  token_expires_at timestamp with time zone,
+  form_opened_at timestamp with time zone,
+  form_completed_at timestamp with time zone,
+  current_medications ARRAY,
+  supplements ARRAY,
+  past_injuries jsonb,
+  surgeries jsonb,
+  chronic_conditions ARRAY,
+  pain_areas ARRAY,
+  family_health_history text,
+  doctor_clearance boolean,
+  doctor_clearance_notes text,
+  occupation character varying(100),
+  work_activity_level character varying(20),
+  sleep_hours_per_night numeric(3,1),
+  sleep_quality character varying(20),
+  stress_level integer(32,0),
+  stress_management text,
+  smoking_status character varying(20),
+  alcohol_frequency character varying(50),
+  nutrition_notes text,
+  dietary_restrictions ARRAY,
+  water_intake_liters numeric(3,1),
+  current_exercise_routine text,
+  trainer_notes text,
+  client_notes text,
+  red_flags ARRAY,
+  requires_medical_clearance boolean DEFAULT false,
+  next_assessment_date timestamp with time zone,
+  reminder_sent boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_28958_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT fitness_assessments_access_token_key UNIQUE (access_token),
+  CONSTRAINT fitness_assessments_pkey PRIMARY KEY (id),
+  CONSTRAINT fitness_assessments_stress_level_check CHECK (((stress_level IS NULL) OR ((stress_level >= 1) AND (stress_level <= 10)))),
+  CONSTRAINT fitness_assessments_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.assessment_templates(id)
+);
+  CREATE UNIQUE INDEX fitness_assessments_pkey ON public.fitness_assessments USING btree (id)
+  CREATE UNIQUE INDEX fitness_assessments_access_token_key ON public.fitness_assessments USING btree (access_token)
+  CREATE INDEX idx_assessments_client ON public.fitness_assessments USING btree (client_id)
+  CREATE INDEX idx_assessments_trainer ON public.fitness_assessments USING btree (trainer_id)
+  CREATE INDEX idx_assessments_token ON public.fitness_assessments USING btree (access_token)
+  CREATE INDEX idx_assessments_status ON public.fitness_assessments USING btree (status)"
+fitness_goals,"CREATE TABLE public.fitness_goals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  assessment_id uuid,
+  client_id uuid,
+  primary_goal character varying(50),
+  goal_description text,
+  specific_targets jsonb,
+  timeline_weeks integer(32,0),
+  previous_experience text,
+  preferred_training_style ARRAY,
+  exercise_likes ARRAY,
+  exercise_dislikes ARRAY,
+  motivation_level integer(32,0),
+  success_factors text,
+  failure_factors text,
+  support_system text,
+  confidence_level integer(32,0),
+  concerns text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_29031_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT fitness_goals_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.fitness_assessments(id),
+  CONSTRAINT fitness_goals_confidence_level_check CHECK (((confidence_level IS NULL) OR ((confidence_level >= 1) AND (confidence_level <= 10)))),
+  CONSTRAINT fitness_goals_motivation_level_check CHECK (((motivation_level IS NULL) OR ((motivation_level >= 1) AND (motivation_level <= 10)))),
+  CONSTRAINT fitness_goals_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX fitness_goals_pkey ON public.fitness_goals USING btree (id)"
+fitness_test_results,"CREATE TABLE public.fitness_test_results (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  assessment_id uuid,
+  client_id uuid,
+  test_date timestamp with time zone DEFAULT now(),
+  cardio_test_type character varying(50),
+  cardio_test_result text,
+  estimated_vo2_max numeric(5,2),
+  sit_and_reach_cm numeric(5,2),
+  shoulder_flexibility_left character varying(20),
+  shoulder_flexibility_right character varying(20),
+  push_ups_count integer(32,0),
+  push_ups_type character varying(20),
+  plank_hold_seconds integer(32,0),
+  squat_assessment character varying(20),
+  squat_reps integer(32,0),
+  squat_notes text,
+  single_leg_stand_left_seconds integer(32,0),
+  single_leg_stand_right_seconds integer(32,0),
+  balance_notes text,
+  posture_assessment jsonb,
+  movement_imbalances ARRAY,
+  movement_notes text,
+  other_tests jsonb,
+  trainer_observations text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_29052_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT fitness_test_results_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.fitness_assessments(id),
+  CONSTRAINT fitness_test_results_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX fitness_test_results_pkey ON public.fitness_test_results USING btree (id)"
+flow_responses,"CREATE TABLE public.flow_responses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  flow_token character varying(255) NOT NULL,
+  phone_number character varying(20) NOT NULL,
+  flow_type character varying(50) NOT NULL,
+  response_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  screen_id character varying(100),
+  completed boolean DEFAULT false,
+  processed boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_87014_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_87014_2_not_null"" CHECK (flow_token IS NOT NULL),
+  CONSTRAINT ""2200_87014_3_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT ""2200_87014_4_not_null"" CHECK (flow_type IS NOT NULL),
+  CONSTRAINT ""2200_87014_5_not_null"" CHECK (response_data IS NOT NULL),
+  CONSTRAINT flow_responses_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX flow_responses_pkey ON public.flow_responses USING btree (id)
+  CREATE INDEX idx_flow_responses_token ON public.flow_responses USING btree (flow_token)
+  CREATE INDEX idx_flow_responses_phone ON public.flow_responses USING btree (phone_number)"
+flow_tokens,"CREATE TABLE public.flow_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number character varying(20) NOT NULL,
+  flow_token character varying(255) NOT NULL,
+  flow_type character varying(50) NOT NULL,
+  flow_data jsonb DEFAULT '{}'::jsonb,
+  status character varying(20) DEFAULT 'active'::character varying,
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86998_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86998_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT ""2200_86998_3_not_null"" CHECK (flow_token IS NOT NULL),
+  CONSTRAINT ""2200_86998_4_not_null"" CHECK (flow_type IS NOT NULL),
+  CONSTRAINT flow_tokens_flow_token_key UNIQUE (flow_token),
+  CONSTRAINT flow_tokens_flow_type_check CHECK (((flow_type)::text = ANY ((ARRAY['trainer_onboarding'::character varying, 'client_onboarding'::character varying, 'assessment_flow'::character varying, 'booking_flow'::character varying])::text[]))),
+  CONSTRAINT flow_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT flow_tokens_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'completed'::character varying, 'expired'::character varying, 'cancelled'::character varying])::text[])))
+);
+  CREATE UNIQUE INDEX flow_tokens_pkey ON public.flow_tokens USING btree (id)
+  CREATE UNIQUE INDEX flow_tokens_flow_token_key ON public.flow_tokens USING btree (flow_token)
+  CREATE INDEX idx_flow_tokens_phone ON public.flow_tokens USING btree (phone_number)
+  CREATE INDEX idx_flow_tokens_token ON public.flow_tokens USING btree (flow_token)
+  CREATE INDEX idx_flow_tokens_type ON public.flow_tokens USING btree (flow_type)"
+gamification_profiles,"CREATE TABLE public.gamification_profiles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  client_id uuid,
+  nickname character varying(100),
+  points_total integer(32,0) DEFAULT 0,
+  is_public boolean DEFAULT false,
+  opted_in_global boolean DEFAULT false,
+  opted_in_trainer boolean DEFAULT true,
+  notification_preferences jsonb DEFAULT '{""points"": true, ""challenges"": true, ""leaderboard"": true, ""achievements"": true}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86806_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT check_user_type CHECK ((((trainer_id IS NOT NULL) AND (client_id IS NULL)) OR ((trainer_id IS NULL) AND (client_id IS NOT NULL)))),
+  CONSTRAINT gamification_profiles_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT gamification_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT gamification_profiles_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES public.trainers(id),
+  CONSTRAINT unique_client_profile UNIQUE (client_id),
+  CONSTRAINT unique_trainer_profile UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX gamification_profiles_pkey ON public.gamification_profiles USING btree (id)
+  CREATE UNIQUE INDEX unique_trainer_profile ON public.gamification_profiles USING btree (trainer_id)
+  CREATE UNIQUE INDEX unique_client_profile ON public.gamification_profiles USING btree (client_id)
+  CREATE INDEX idx_gamification_profiles_trainer ON public.gamification_profiles USING btree (trainer_id)
+  CREATE INDEX idx_gamification_profiles_client ON public.gamification_profiles USING btree (client_id)
+  CREATE INDEX idx_gamification_profiles_points ON public.gamification_profiles USING btree (points_total)"
+habit_streaks,"CREATE TABLE public.habit_streaks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  client_habit_id uuid,
+  current_streak integer(32,0) DEFAULT 0,
+  longest_streak integer(32,0) DEFAULT 0,
+  last_completed_date date,
+  streak_broken_date date,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_42826_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT habit_streaks_client_habit_id_fkey FOREIGN KEY (client_habit_id) REFERENCES public.client_habits(id),
+  CONSTRAINT habit_streaks_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX habit_streaks_pkey ON public.habit_streaks USING btree (id)"
+habit_templates,"CREATE TABLE public.habit_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  name character varying(100) NOT NULL,
+  category character varying(50),
+  description text,
+  emoji character varying(10),
+  measurement_type character varying(20),
+  target_value integer(32,0),
+  unit character varying(20),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_42696_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_42696_3_not_null"" CHECK (name IS NOT NULL),
+  CONSTRAINT habit_templates_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX habit_templates_pkey ON public.habit_templates USING btree (id)"
+habit_tracking,"CREATE TABLE public.habit_tracking (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL,
+  habit_type character varying(50) NOT NULL,
+  value text NOT NULL,
+  date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86633_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86633_2_not_null"" CHECK (client_id IS NOT NULL),
+  CONSTRAINT ""2200_86633_3_not_null"" CHECK (habit_type IS NOT NULL),
+  CONSTRAINT ""2200_86633_4_not_null"" CHECK (value IS NOT NULL),
+  CONSTRAINT ""2200_86633_5_not_null"" CHECK (date IS NOT NULL),
+  CONSTRAINT habit_tracking_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT habit_tracking_habit_type_check CHECK (((habit_type)::text = ANY ((ARRAY['water_intake'::character varying, 'sleep_hours'::character varying, 'steps'::character varying, 'calories'::character varying, 'workout_completed'::character varying, 'meals_logged'::character varying, 'weight'::character varying, 'mood'::character varying])::text[]))),
+  CONSTRAINT habit_tracking_pkey PRIMARY KEY (id),
+  CONSTRAINT unique_habit_per_day UNIQUE (client_id, habit_type, date)
+);
+  CREATE UNIQUE INDEX habit_tracking_pkey ON public.habit_tracking USING btree (id)
+  CREATE UNIQUE INDEX unique_habit_per_day ON public.habit_tracking USING btree (client_id, habit_type, date)
+  CREATE INDEX idx_habit_tracking_client ON public.habit_tracking USING btree (client_id)
+  CREATE INDEX idx_habit_tracking_date ON public.habit_tracking USING btree (date)
+  CREATE INDEX idx_habit_tracking_type ON public.habit_tracking USING btree (habit_type)
+  CREATE INDEX idx_habit_tracking_client_date ON public.habit_tracking USING btree (client_id, date)"
+habits,"CREATE TABLE public.habits (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid NOT NULL,
+  client_id uuid,
+  habit_type character varying(50) NOT NULL,
+  value text NOT NULL,
+  date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86611_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86611_2_not_null"" CHECK (trainer_id IS NOT NULL),
+  CONSTRAINT ""2200_86611_4_not_null"" CHECK (habit_type IS NOT NULL),
+  CONSTRAINT ""2200_86611_5_not_null"" CHECK (value IS NOT NULL),
+  CONSTRAINT ""2200_86611_6_not_null"" CHECK (date IS NOT NULL),
+  CONSTRAINT habits_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT habits_habit_type_check CHECK (((habit_type)::text = ANY ((ARRAY['water_intake'::character varying, 'sleep_hours'::character varying, 'steps'::character varying, 'calories'::character varying, 'workout_completed'::character varying, 'meals_logged'::character varying, 'weight'::character varying, 'mood'::character varying])::text[]))),
+  CONSTRAINT habits_pkey PRIMARY KEY (id),
+  CONSTRAINT habits_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES public.trainers(id)
+);
+  CREATE UNIQUE INDEX habits_pkey ON public.habits USING btree (id)
+  CREATE INDEX idx_habits_trainer ON public.habits USING btree (trainer_id)
+  CREATE INDEX idx_habits_client ON public.habits USING btree (client_id)
+  CREATE INDEX idx_habits_date ON public.habits USING btree (date)
+  CREATE INDEX idx_habits_type ON public.habits USING btree (habit_type)"
+interaction_history,"CREATE TABLE public.interaction_history (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  phone_number character varying(20) NOT NULL,
+  first_interaction_at timestamp with time zone DEFAULT now(),
+  last_interaction_at timestamp with time zone DEFAULT now(),
+  interaction_count integer(32,0) DEFAULT 1,
+  user_type character varying(20),
+  CONSTRAINT ""2200_18543_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_18543_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT interaction_history_phone_number_key UNIQUE (phone_number),
+  CONSTRAINT interaction_history_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX interaction_history_pkey ON public.interaction_history USING btree (id)
+  CREATE UNIQUE INDEX interaction_history_phone_number_key ON public.interaction_history USING btree (phone_number)
+  CREATE INDEX idx_interaction_history_phone ON public.interaction_history USING btree (phone_number)"
+message_history,"CREATE TABLE public.message_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number character varying(20) NOT NULL,
+  message_text text NOT NULL,
+  direction character varying(10) NOT NULL,
+  message_type character varying(20) DEFAULT 'text'::character varying,
+  processed boolean DEFAULT false,
+  ai_intent jsonb DEFAULT '{}'::jsonb,
+  response_data jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86952_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86952_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT ""2200_86952_3_not_null"" CHECK (message_text IS NOT NULL),
+  CONSTRAINT ""2200_86952_4_not_null"" CHECK (direction IS NOT NULL),
+  CONSTRAINT message_history_direction_check CHECK (((direction)::text = ANY ((ARRAY['inbound'::character varying, 'outbound'::character varying])::text[]))),
+  CONSTRAINT message_history_message_type_check CHECK (((message_type)::text = ANY ((ARRAY['text'::character varying, 'image'::character varying, 'audio'::character varying, 'document'::character varying])::text[]))),
+  CONSTRAINT message_history_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX message_history_pkey ON public.message_history USING btree (id)
+  CREATE INDEX idx_message_history_phone ON public.message_history USING btree (phone_number)
+  CREATE INDEX idx_message_history_direction ON public.message_history USING btree (direction)
+  CREATE INDEX idx_message_history_created ON public.message_history USING btree (created_at)
+  CREATE INDEX idx_message_history_processed ON public.message_history USING btree (processed)"
+messages,"CREATE TABLE public.messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  client_id uuid,
+  phone_number character varying(20) NOT NULL,
+  message_text text NOT NULL,
+  message_type character varying(20) DEFAULT 'text'::character varying,
+  direction character varying(10) NOT NULL,
+  processed boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86652_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86652_4_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT ""2200_86652_5_not_null"" CHECK (message_text IS NOT NULL),
+  CONSTRAINT ""2200_86652_7_not_null"" CHECK (direction IS NOT NULL),
+  CONSTRAINT messages_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT messages_direction_check CHECK (((direction)::text = ANY ((ARRAY['inbound'::character varying, 'outbound'::character varying])::text[]))),
+  CONSTRAINT messages_message_type_check CHECK (((message_type)::text = ANY ((ARRAY['text'::character varying, 'image'::character varying, 'audio'::character varying, 'video'::character varying])::text[]))),
+  CONSTRAINT messages_pkey PRIMARY KEY (id),
+  CONSTRAINT messages_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES public.trainers(id)
+);
+  CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id)
+  CREATE INDEX idx_messages_phone ON public.messages USING btree (phone_number)
+  CREATE INDEX idx_messages_trainer ON public.messages USING btree (trainer_id)
+  CREATE INDEX idx_messages_client ON public.messages USING btree (client_id)
+  CREATE INDEX idx_messages_created ON public.messages USING btree (created_at)"
+payfast_webhooks,"CREATE TABLE public.payfast_webhooks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  webhook_type character varying(50),
+  event_type character varying(50),
+  payfast_payment_id character varying(255),
+  payfast_pf_payment_id character varying(255),
+  payfast_token character varying(255),
+  trainer_id uuid,
+  client_id uuid,
+  payment_id uuid,
+  subscription_id uuid,
+  headers jsonb,
+  payload jsonb,
+  signature character varying(255),
+  signature_valid boolean,
+  processed boolean DEFAULT false,
+  processed_at timestamp with time zone,
+  error_message text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37096_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT payfast_webhooks_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id),
+  CONSTRAINT payfast_webhooks_pkey PRIMARY KEY (id),
+  CONSTRAINT payfast_webhooks_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.trainer_subscriptions(id)
+);
+  CREATE UNIQUE INDEX payfast_webhooks_pkey ON public.payfast_webhooks USING btree (id)
+  CREATE INDEX idx_payfast_webhooks_payment_id ON public.payfast_webhooks USING btree (payfast_payment_id)
+  CREATE INDEX idx_payfast_webhooks_token ON public.payfast_webhooks USING btree (payfast_token)"
+payment_audit_log,"CREATE TABLE public.payment_audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  client_id uuid,
+  payment_id uuid,
+  payment_request_id uuid,
+  payout_id uuid,
+  action character varying(100) NOT NULL,
+  action_by character varying(50),
+  amount numeric(10,2),
+  description text,
+  whatsapp_number character varying(20),
+  whatsapp_message text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37126_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_37126_7_not_null"" CHECK (action IS NOT NULL),
+  CONSTRAINT payment_audit_log_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id),
+  CONSTRAINT payment_audit_log_payment_request_id_fkey FOREIGN KEY (payment_request_id) REFERENCES public.payment_requests(id),
+  CONSTRAINT payment_audit_log_payout_id_fkey FOREIGN KEY (payout_id) REFERENCES public.trainer_payouts(id),
+  CONSTRAINT payment_audit_log_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX payment_audit_log_pkey ON public.payment_audit_log USING btree (id)
+  CREATE INDEX idx_payment_audit_log_created ON public.payment_audit_log USING btree (created_at)"
+payment_reminders,"CREATE TABLE public.payment_reminders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  reminder_day integer(32,0) NOT NULL,
+  reminder_enabled boolean DEFAULT true,
+  last_sent_date date,
+  next_scheduled_date date,
+  total_clients integer(32,0) DEFAULT 0,
+  clients_to_bill integer(32,0) DEFAULT 0,
+  reminder_sent_at timestamp with time zone,
+  trainer_response text,
+  payment_requests_created integer(32,0) DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37038_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_37038_3_not_null"" CHECK (reminder_day IS NOT NULL),
+  CONSTRAINT payment_reminders_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_reminders_reminder_day_check CHECK (((reminder_day >= 1) AND (reminder_day <= 28))),
+  CONSTRAINT payment_reminders_trainer_id_key UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX payment_reminders_pkey ON public.payment_reminders USING btree (id)
+  CREATE UNIQUE INDEX payment_reminders_trainer_id_key ON public.payment_reminders USING btree (trainer_id)"
+payment_requests,"CREATE TABLE public.payment_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  client_id uuid,
+  amount numeric(8,2) NOT NULL,
+  description text NOT NULL,
+  payment_type character varying(50) DEFAULT 'monthly'::character varying,
+  sessions_covered integer(32,0),
+  period_start date,
+  period_end date,
+  status character varying(50) DEFAULT 'pending_trainer'::character varying,
+  trainer_approved boolean DEFAULT false,
+  trainer_approved_at timestamp with time zone,
+  trainer_whatsapp_response text,
+  client_approved boolean DEFAULT false,
+  client_approved_at timestamp with time zone,
+  client_whatsapp_response text,
+  payfast_payment_url text,
+  payfast_payment_id character varying(255),
+  expires_at timestamp with time zone DEFAULT (now() + '48:00:00'::interval),
+  payment_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_36999_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_36999_4_not_null"" CHECK (amount IS NOT NULL),
+  CONSTRAINT ""2200_36999_5_not_null"" CHECK (description IS NOT NULL),
+  CONSTRAINT payment_requests_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id),
+  CONSTRAINT payment_requests_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX payment_requests_pkey ON public.payment_requests USING btree (id)
+  CREATE INDEX idx_payment_requests_status ON public.payment_requests USING btree (status)
+  CREATE INDEX idx_payment_requests_expires ON public.payment_requests USING btree (expires_at)"
+payments,"CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  client_id uuid,
+  booking_id uuid,
+  amount numeric(8,2) NOT NULL,
+  payment_method character varying(50),
+  status character varying(20) DEFAULT 'pending'::character varying,
+  due_date date,
+  paid_date date,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  payment_request_id uuid,
+  payment_reference character varying(255),
+  payment_processor character varying(50) DEFAULT 'manual'::character varying,
+  processor_fee numeric(8,2) DEFAULT 0,
+  platform_fee numeric(8,2) DEFAULT 5.00,
+  net_amount numeric(8,2),
+  payfast_payment_id character varying(255),
+  payfast_pf_payment_id character varying(255),
+  payfast_payment_status character varying(50),
+  payfast_signature character varying(255),
+  webhook_data jsonb,
+  payment_token_id uuid,
+  auto_payment boolean DEFAULT false,
+  CONSTRAINT ""2200_17348_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_17348_5_not_null"" CHECK (amount IS NOT NULL),
+  CONSTRAINT payments_payment_reference_key UNIQUE (payment_reference),
+  CONSTRAINT payments_payment_request_id_fkey FOREIGN KEY (payment_request_id) REFERENCES public.payment_requests(id),
+  CONSTRAINT payments_payment_token_id_fkey FOREIGN KEY (payment_token_id) REFERENCES public.client_payment_tokens(id),
+  CONSTRAINT payments_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)
+  CREATE UNIQUE INDEX payments_payment_reference_key ON public.payments USING btree (payment_reference)
+  CREATE INDEX idx_payments_request_id ON public.payments USING btree (payment_request_id)"
+pending_bookings,"CREATE TABLE public.pending_bookings (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  client_id uuid,
+  proposed_datetime timestamp with time zone NOT NULL,
+  proposed_duration integer(32,0) DEFAULT 60,
+  expires_at timestamp with time zone NOT NULL,
+  status character varying(20) DEFAULT 'pending'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  confirmed_at timestamp with time zone,
+  booking_id uuid,
+  CONSTRAINT ""2200_18517_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_18517_4_not_null"" CHECK (proposed_datetime IS NOT NULL),
+  CONSTRAINT ""2200_18517_6_not_null"" CHECK (expires_at IS NOT NULL),
+  CONSTRAINT pending_bookings_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX pending_bookings_pkey ON public.pending_bookings USING btree (id)
+  CREATE INDEX idx_pending_bookings_client ON public.pending_bookings USING btree (client_id, status)
+  CREATE INDEX idx_pending_bookings_expires ON public.pending_bookings USING btree (expires_at) WHERE ((status)::text = 'pending'::text)"
+pending_workouts,"CREATE TABLE public.pending_workouts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid NOT NULL,
+  client_id uuid NOT NULL,
+  client_name character varying(255),
+  client_whatsapp character varying(50),
+  workout_message text,
+  exercises json,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_27655_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_27655_2_not_null"" CHECK (trainer_id IS NOT NULL),
+  CONSTRAINT ""2200_27655_3_not_null"" CHECK (client_id IS NOT NULL),
+  CONSTRAINT pending_workouts_pkey PRIMARY KEY (id),
+  CONSTRAINT unique_trainer_pending UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX pending_workouts_pkey ON public.pending_workouts USING btree (id)
+  CREATE UNIQUE INDEX unique_trainer_pending ON public.pending_workouts USING btree (trainer_id)
+  CREATE INDEX idx_pending_trainer ON public.pending_workouts USING btree (trainer_id)"
+performance_metrics,"CREATE TABLE public.performance_metrics (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  metric_type character varying(50),
+  metric_name character varying(100),
+  value_ms integer(32,0),
+  ""timestamp"" timestamp with time zone DEFAULT now(),
+  device_type character varying(20),
+  network_type character varying(20),
+  cache_hit boolean DEFAULT false,
+  CONSTRAINT ""2200_48535_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT performance_metrics_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX performance_metrics_pkey ON public.performance_metrics USING btree (id)
+  CREATE INDEX idx_performance_timestamp ON public.performance_metrics USING btree (""timestamp"" DESC)"
+physical_measurements,"CREATE TABLE public.physical_measurements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  assessment_id uuid,
+  client_id uuid,
+  measurement_date timestamp with time zone DEFAULT now(),
+  height_cm numeric(5,2),
+  weight_kg numeric(5,2),
+  bmi numeric(4,2),
+  body_fat_percentage numeric(4,2),
+  muscle_mass_kg numeric(5,2),
+  neck numeric(5,2),
+  chest numeric(5,2),
+  waist numeric(5,2),
+  hips numeric(5,2),
+  upper_arm_left numeric(5,2),
+  upper_arm_right numeric(5,2),
+  forearm_left numeric(5,2),
+  forearm_right numeric(5,2),
+  thigh_left numeric(5,2),
+  thigh_right numeric(5,2),
+  calf_left numeric(5,2),
+  calf_right numeric(5,2),
+  resting_heart_rate integer(32,0),
+  blood_pressure_systolic integer(32,0),
+  blood_pressure_diastolic integer(32,0),
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_29011_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT physical_measurements_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.fitness_assessments(id),
+  CONSTRAINT physical_measurements_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX physical_measurements_pkey ON public.physical_measurements USING btree (id)"
+processed_messages,"CREATE TABLE public.processed_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  whatsapp_message_id character varying(255) NOT NULL,
+  phone_number character varying(20) NOT NULL,
+  message_text text,
+  ""timestamp"" character varying(20),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_70906_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_70906_2_not_null"" CHECK (whatsapp_message_id IS NOT NULL),
+  CONSTRAINT ""2200_70906_3_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT processed_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT processed_messages_whatsapp_message_id_key UNIQUE (whatsapp_message_id)
+);
+  CREATE UNIQUE INDEX processed_messages_pkey ON public.processed_messages USING btree (id)
+  CREATE UNIQUE INDEX processed_messages_whatsapp_message_id_key ON public.processed_messages USING btree (whatsapp_message_id)
+  CREATE INDEX idx_processed_messages_whatsapp_id ON public.processed_messages USING btree (whatsapp_message_id)
+  CREATE INDEX idx_processed_messages_phone ON public.processed_messages USING btree (phone_number)
+  CREATE INDEX idx_processed_messages_created ON public.processed_messages USING btree (created_at)"
+question_library,"CREATE TABLE public.question_library (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  category character varying(50) NOT NULL,
+  subcategory character varying(50),
+  question_text text NOT NULL,
+  question_type character varying(20),
+  field_name character varying(100),
+  options jsonb,
+  validation_rules jsonb,
+  help_text text,
+  is_core boolean DEFAULT false,
+  display_order integer(32,0),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_29095_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_29095_2_not_null"" CHECK (category IS NOT NULL),
+  CONSTRAINT ""2200_29095_4_not_null"" CHECK (question_text IS NOT NULL),
+  CONSTRAINT question_library_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX question_library_pkey ON public.question_library USING btree (id)"
+rate_limit_blocks,"CREATE TABLE public.rate_limit_blocks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number character varying(20) NOT NULL,
+  blocked_at timestamp with time zone NOT NULL,
+  unblock_at timestamp with time zone NOT NULL,
+  reason character varying(50),
+  message_count integer(32,0),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_40059_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_40059_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT ""2200_40059_3_not_null"" CHECK (blocked_at IS NOT NULL),
+  CONSTRAINT ""2200_40059_4_not_null"" CHECK (unblock_at IS NOT NULL),
+  CONSTRAINT rate_limit_blocks_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX rate_limit_blocks_pkey ON public.rate_limit_blocks USING btree (id)
+  CREATE INDEX idx_rate_limit_blocks_phone ON public.rate_limit_blocks USING btree (phone_number)
+  CREATE INDEX idx_rate_limit_blocks_unblock ON public.rate_limit_blocks USING btree (unblock_at)"
+rate_limit_violations,"CREATE TABLE public.rate_limit_violations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number character varying(20) NOT NULL,
+  violation_type character varying(50),
+  violation_time timestamp with time zone DEFAULT now(),
+  ip_address character varying(45),
+  message_type character varying(20),
+  daily_count integer(32,0),
+  tokens_remaining numeric(5,2),
+  CONSTRAINT ""2200_40068_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_40068_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT rate_limit_violations_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX rate_limit_violations_pkey ON public.rate_limit_violations USING btree (id)
+  CREATE INDEX idx_violations_phone ON public.rate_limit_violations USING btree (phone_number)
+  CREATE INDEX idx_violations_time ON public.rate_limit_violations USING btree (violation_time)"
+registration_state,"CREATE TABLE public.registration_state (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone character varying(20) NOT NULL,
+  user_type character varying(20),
+  step character varying(50) NOT NULL,
+  data jsonb DEFAULT '{}'::jsonb,
+  expires_at timestamp with time zone DEFAULT (now() + '01:00:00'::interval),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_66402_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_66402_2_not_null"" CHECK (phone IS NOT NULL),
+  CONSTRAINT ""2200_66402_4_not_null"" CHECK (step IS NOT NULL),
+  CONSTRAINT registration_state_phone_key UNIQUE (phone),
+  CONSTRAINT registration_state_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX registration_state_pkey ON public.registration_state USING btree (id)
+  CREATE UNIQUE INDEX registration_state_phone_key ON public.registration_state USING btree (phone)
+  CREATE INDEX idx_registration_state_phone ON public.registration_state USING btree (phone)
+  CREATE INDEX idx_registration_state_expires ON public.registration_state USING btree (expires_at)"
+registration_states,"CREATE TABLE public.registration_states (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number character varying(20) NOT NULL,
+  user_type character varying(20) NOT NULL,
+  current_step integer(32,0) DEFAULT 0,
+  data jsonb DEFAULT '{}'::jsonb,
+  completed boolean DEFAULT false,
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_71008_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_71008_2_not_null"" CHECK (phone_number IS NOT NULL),
+  CONSTRAINT ""2200_71008_3_not_null"" CHECK (user_type IS NOT NULL),
+  CONSTRAINT registration_states_pkey PRIMARY KEY (id),
+  CONSTRAINT registration_states_user_type_check CHECK (((user_type)::text = ANY ((ARRAY['trainer'::character varying, 'client'::character varying])::text[])))
+);
+  CREATE UNIQUE INDEX registration_states_pkey ON public.registration_states USING btree (id)
+  CREATE INDEX idx_registration_states_phone ON public.registration_states USING btree (phone_number)
+  CREATE INDEX idx_registration_states_completed ON public.registration_states USING btree (completed)"
+security_audit_log,"CREATE TABLE public.security_audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_type character varying(50),
+  phone_number character varying(20),
+  ip_address character varying(45),
+  details jsonb,
+  severity character varying(20) DEFAULT 'medium'::character varying,
+  resolved boolean DEFAULT false,
+  resolved_by uuid,
+  resolved_at timestamp with time zone,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_42400_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT security_audit_log_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX security_audit_log_pkey ON public.security_audit_log USING btree (id)
+  CREATE INDEX idx_audit_phone ON public.security_audit_log USING btree (phone_number)
+  CREATE INDEX idx_audit_event ON public.security_audit_log USING btree (event_type)
+  CREATE INDEX idx_audit_created ON public.security_audit_log USING btree (created_at DESC)
+  CREATE INDEX idx_audit_severity ON public.security_audit_log USING btree (severity)"
+subscription_payment_history,"CREATE TABLE public.subscription_payment_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  subscription_id uuid,
+  amount numeric(8,2) NOT NULL,
+  fee_amount numeric(8,2) DEFAULT 0,
+  net_amount numeric(8,2),
+  payment_date timestamp with time zone DEFAULT now(),
+  payment_status character varying(50) DEFAULT 'pending'::character varying,
+  payfast_payment_id character varying(255),
+  payfast_pf_payment_id character varying(255),
+  payfast_payment_status character varying(50),
+  payfast_item_name character varying(255),
+  payfast_signature character varying(255),
+  webhook_data jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_36948_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_36948_4_not_null"" CHECK (amount IS NOT NULL),
+  CONSTRAINT subscription_payment_history_payfast_payment_id_key UNIQUE (payfast_payment_id),
+  CONSTRAINT subscription_payment_history_pkey PRIMARY KEY (id),
+  CONSTRAINT subscription_payment_history_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.trainer_subscriptions(id)
+);
+  CREATE UNIQUE INDEX subscription_payment_history_pkey ON public.subscription_payment_history USING btree (id)
+  CREATE UNIQUE INDEX subscription_payment_history_payfast_payment_id_key ON public.subscription_payment_history USING btree (payfast_payment_id)
+  CREATE INDEX idx_subscription_payment_history_trainer ON public.subscription_payment_history USING btree (trainer_id)"
+subscription_plans,"CREATE TABLE public.subscription_plans (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  plan_name character varying(100) NOT NULL,
+  plan_code character varying(50) NOT NULL,
+  price_monthly numeric(8,2) NOT NULL,
+  price_annual numeric(8,2),
+  max_clients integer(32,0) NOT NULL,
+  payfast_product_id character varying(100),
+  is_active boolean DEFAULT true,
+  display_order integer(32,0) DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_36912_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_36912_2_not_null"" CHECK (plan_name IS NOT NULL),
+  CONSTRAINT ""2200_36912_3_not_null"" CHECK (plan_code IS NOT NULL),
+  CONSTRAINT ""2200_36912_4_not_null"" CHECK (price_monthly IS NOT NULL),
+  CONSTRAINT ""2200_36912_6_not_null"" CHECK (max_clients IS NOT NULL),
+  CONSTRAINT subscription_plans_pkey PRIMARY KEY (id),
+  CONSTRAINT subscription_plans_plan_code_key UNIQUE (plan_code)
+);
+  CREATE UNIQUE INDEX subscription_plans_pkey ON public.subscription_plans USING btree (id)
+  CREATE UNIQUE INDEX subscription_plans_plan_code_key ON public.subscription_plans USING btree (plan_code)"
+token_setup_requests,"CREATE TABLE public.token_setup_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id uuid,
+  trainer_id uuid,
+  status character varying(50) DEFAULT 'pending'::character varying,
+  setup_url text,
+  setup_code character varying(20),
+  sent_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval),
+  reminder_sent boolean DEFAULT false,
+  token_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37685_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT token_setup_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT token_setup_requests_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.client_payment_tokens(id)
+);
+  CREATE UNIQUE INDEX token_setup_requests_pkey ON public.token_setup_requests USING btree (id)
+  CREATE INDEX idx_token_setup_requests_status ON public.token_setup_requests USING btree (status)"
+trainer_bank_accounts,"CREATE TABLE public.trainer_bank_accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  bank_name character varying(100) NOT NULL,
+  account_holder_name character varying(255) NOT NULL,
+  account_number character varying(50) NOT NULL,
+  account_number_masked character varying(50),
+  account_type character varying(50) DEFAULT 'current'::character varying,
+  branch_code character varying(10) NOT NULL,
+  is_verified boolean DEFAULT false,
+  verification_amount numeric(5,2),
+  verification_reference character varying(50),
+  verified_at timestamp with time zone,
+  verification_attempts integer(32,0) DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37076_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_37076_3_not_null"" CHECK (bank_name IS NOT NULL),
+  CONSTRAINT ""2200_37076_4_not_null"" CHECK (account_holder_name IS NOT NULL),
+  CONSTRAINT ""2200_37076_5_not_null"" CHECK (account_number IS NOT NULL),
+  CONSTRAINT ""2200_37076_8_not_null"" CHECK (branch_code IS NOT NULL),
+  CONSTRAINT trainer_bank_accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT trainer_bank_accounts_trainer_id_key UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX trainer_bank_accounts_pkey ON public.trainer_bank_accounts USING btree (id)
+  CREATE UNIQUE INDEX trainer_bank_accounts_trainer_id_key ON public.trainer_bank_accounts USING btree (trainer_id)"
+trainer_payouts,"CREATE TABLE public.trainer_payouts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  payout_amount numeric(10,2) NOT NULL,
+  status character varying(50) DEFAULT 'pending'::character varying,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  total_collected numeric(10,2),
+  total_payfast_fees numeric(10,2),
+  total_platform_fees numeric(10,2),
+  transaction_count integer(32,0),
+  bank_name character varying(100) NOT NULL,
+  account_holder character varying(255) NOT NULL,
+  account_number_masked character varying(50),
+  branch_code character varying(10),
+  payment_method character varying(50) DEFAULT 'manual_eft'::character varying,
+  payment_reference character varying(100),
+  paid_at timestamp with time zone,
+  payment_proof_url text,
+  payment_ids ARRAY,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_37060_11_not_null"" CHECK (bank_name IS NOT NULL),
+  CONSTRAINT ""2200_37060_12_not_null"" CHECK (account_holder IS NOT NULL),
+  CONSTRAINT ""2200_37060_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_37060_3_not_null"" CHECK (payout_amount IS NOT NULL),
+  CONSTRAINT ""2200_37060_5_not_null"" CHECK (period_start IS NOT NULL),
+  CONSTRAINT ""2200_37060_6_not_null"" CHECK (period_end IS NOT NULL),
+  CONSTRAINT trainer_payouts_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX trainer_payouts_pkey ON public.trainer_payouts USING btree (id)
+  CREATE INDEX idx_trainer_payouts_status ON public.trainer_payouts USING btree (status)
+  CREATE INDEX idx_trainer_payouts_period ON public.trainer_payouts USING btree (period_start, period_end)"
+trainer_subscriptions,"CREATE TABLE public.trainer_subscriptions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid,
+  plan_id uuid,
+  status character varying(50) DEFAULT 'active'::character varying,
+  billing_cycle character varying(20) DEFAULT 'monthly'::character varying,
+  current_period_start timestamp with time zone,
+  current_period_end timestamp with time zone,
+  payfast_token character varying(255),
+  payfast_subscription_id character varying(255),
+  payfast_profile_id character varying(255),
+  cancelled_at timestamp with time zone,
+  cancellation_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_36924_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT trainer_subscriptions_pkey PRIMARY KEY (id),
+  CONSTRAINT trainer_subscriptions_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.subscription_plans(id),
+  CONSTRAINT trainer_subscriptions_trainer_id_key UNIQUE (trainer_id)
+);
+  CREATE UNIQUE INDEX trainer_subscriptions_pkey ON public.trainer_subscriptions USING btree (id)
+  CREATE UNIQUE INDEX trainer_subscriptions_trainer_id_key ON public.trainer_subscriptions USING btree (trainer_id)
+  CREATE INDEX idx_trainer_subscriptions_trainer ON public.trainer_subscriptions USING btree (trainer_id)
+  CREATE INDEX idx_trainer_subscriptions_status ON public.trainer_subscriptions USING btree (status)"
+trainers,"CREATE TABLE public.trainers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying(200) NOT NULL,
+  whatsapp character varying(20) NOT NULL,
+  email character varying(255) NOT NULL,
+  status character varying(20) DEFAULT 'active'::character varying,
+  pricing_per_session numeric(10,2) DEFAULT 500.00,
+  subscription_status character varying(50) DEFAULT 'free'::character varying,
+  subscription_expires_at timestamp with time zone,
+  subscription_end timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  flow_token character varying(255),
+  onboarding_method character varying(20) DEFAULT 'chat'::character varying,
+  city character varying(100),
+  specialization character varying(100),
+  experience_years character varying(20),
+  available_days jsonb DEFAULT '[]'::jsonb,
+  preferred_time_slots character varying(50),
+  notification_preferences jsonb DEFAULT '[]'::jsonb,
+  terms_accepted boolean DEFAULT false,
+  marketing_consent boolean DEFAULT false,
+  CONSTRAINT ""2200_86547_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86547_2_not_null"" CHECK (name IS NOT NULL),
+  CONSTRAINT ""2200_86547_3_not_null"" CHECK (whatsapp IS NOT NULL),
+  CONSTRAINT ""2200_86547_4_not_null"" CHECK (email IS NOT NULL),
+  CONSTRAINT trainers_email_key UNIQUE (email),
+  CONSTRAINT trainers_onboarding_method_check CHECK (((onboarding_method)::text = ANY ((ARRAY['chat'::character varying, 'flow'::character varying])::text[]))),
+  CONSTRAINT trainers_pkey PRIMARY KEY (id),
+  CONSTRAINT trainers_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying])::text[]))),
+  CONSTRAINT trainers_subscription_status_check CHECK (((subscription_status)::text = ANY ((ARRAY['free'::character varying, 'premium'::character varying, 'pro'::character varying])::text[]))),
+  CONSTRAINT trainers_whatsapp_key UNIQUE (whatsapp)
+);
+  CREATE UNIQUE INDEX trainers_pkey ON public.trainers USING btree (id)
+  CREATE UNIQUE INDEX trainers_whatsapp_key ON public.trainers USING btree (whatsapp)
+  CREATE UNIQUE INDEX trainers_email_key ON public.trainers USING btree (email)
+  CREATE INDEX idx_trainers_whatsapp ON public.trainers USING btree (whatsapp)
+  CREATE INDEX idx_trainers_email ON public.trainers USING btree (lower((email)::text))
+  CREATE INDEX idx_trainers_status ON public.trainers USING btree (status)
+  CREATE INDEX idx_trainers_flow_token ON public.trainers USING btree (flow_token)"
+workout_history,"CREATE TABLE public.workout_history (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  client_id uuid,
+  trainer_id uuid,
+  workout_name character varying(255),
+  exercises jsonb NOT NULL,
+  sent_at timestamp with time zone DEFAULT now(),
+  completed boolean DEFAULT false,
+  feedback text,
+  CONSTRAINT ""2200_25302_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_25302_5_not_null"" CHECK (exercises IS NOT NULL),
+  CONSTRAINT workout_history_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX workout_history_pkey ON public.workout_history USING btree (id)
+  CREATE INDEX idx_workout_history_client ON public.workout_history USING btree (client_id)"
+workout_templates,"CREATE TABLE public.workout_templates (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  trainer_id uuid,
+  template_name character varying(255) NOT NULL,
+  description text,
+  workout_type character varying(50),
+  exercises jsonb NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_25286_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_25286_3_not_null"" CHECK (template_name IS NOT NULL),
+  CONSTRAINT ""2200_25286_6_not_null"" CHECK (exercises IS NOT NULL),
+  CONSTRAINT workout_templates_pkey PRIMARY KEY (id)
+);
+  CREATE UNIQUE INDEX workout_templates_pkey ON public.workout_templates USING btree (id)
+  CREATE INDEX idx_workout_templates_trainer ON public.workout_templates USING btree (trainer_id)"
+workouts,"CREATE TABLE public.workouts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  trainer_id uuid NOT NULL,
+  client_id uuid,
+  name character varying(200) NOT NULL,
+  description text,
+  workout_type character varying(50) DEFAULT 'general'::character varying,
+  duration_minutes integer(32,0) DEFAULT 60,
+  difficulty_level character varying(20) DEFAULT 'medium'::character varying,
+  exercises jsonb DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ""2200_86753_1_not_null"" CHECK (id IS NOT NULL),
+  CONSTRAINT ""2200_86753_2_not_null"" CHECK (trainer_id IS NOT NULL),
+  CONSTRAINT ""2200_86753_4_not_null"" CHECK (name IS NOT NULL),
+  CONSTRAINT workouts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id),
+  CONSTRAINT workouts_difficulty_level_check CHECK (((difficulty_level)::text = ANY ((ARRAY['beginner'::character varying, 'intermediate'::character varying, 'advanced'::character varying])::text[]))),
+  CONSTRAINT workouts_pkey PRIMARY KEY (id),
+  CONSTRAINT workouts_trainer_id_fkey FOREIGN KEY (trainer_id) REFERENCES public.trainers(id),
+  CONSTRAINT workouts_workout_type_check CHECK (((workout_type)::text = ANY ((ARRAY['strength'::character varying, 'cardio'::character varying, 'flexibility'::character varying, 'general'::character varying])::text[])))
+);
+  CREATE UNIQUE INDEX workouts_pkey ON public.workouts USING btree (id)
+  CREATE INDEX idx_workouts_trainer ON public.workouts USING btree (trainer_id)
+  CREATE INDEX idx_workouts_client ON public.workouts USING btree (client_id)
+  CREATE INDEX idx_workouts_type ON public.workouts USING btree (workout_type)
+  CREATE INDEX idx_workouts_difficulty ON public.workouts USING btree (difficulty_level)"
