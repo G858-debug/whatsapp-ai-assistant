@@ -1,0 +1,616 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-7.4.2, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.11.13/x64/bin/python
+cachedir: .pytest_cache
+metadata: {'Python': '3.11.13', 'Platform': 'Linux-6.11.0-1018-azure-x86_64-with-glibc2.39', 'Packages': {'pytest': '7.4.2', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.11.0', 'html': '4.1.1', 'json-report': '1.5.0', 'cov': '4.1.0', 'metadata': '3.1.1'}, 'CI': 'true', 'JAVA_HOME': '/usr/lib/jvm/temurin-17-jdk-amd64'}
+rootdir: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
+plugins: anyio-4.11.0, html-4.1.1, json-report-1.5.0, cov-4.1.0, metadata-3.1.1
+collecting ... collected 91 items
+
+tests/test_conversation_flows.py::TestBasicFunctionality::test_imports_work PASSED
+tests/test_conversation_flows.py::TestBasicFunctionality::test_mock_message PASSED
+tests/test_conversation_flows.py::TestBasicFunctionality::test_trainer_registration_mock PASSED
+tests/test_conversation_flows.py::TestPhase1_Registration::test_basic_setup PASSED
+tests/test_conversation_flows.py::TestPhase1_Registration::test_mock_registration_flow PASSED
+tests/test_debug.py::test_python_version Python version: 3.11.13 (main, Jun  4 2025, 04:12:12) [GCC 13.3.0]
+PASSED
+tests/test_debug.py::test_can_import_basic_modules ✅ pytest imported successfully
+✅ json imported successfully
+PASSED
+tests/test_debug.py::test_project_structure Current directory: /home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant
+Directory contents: ['nixpacks.toml', 'test_results_20250928_133157.txt', 'apply-fixes.log', 'WHATSAPP_FLOWS_IMPLEMENTATION.md', 'models', 'requirements.txt', 'summary.txt', '.git', 'fix_test_issues.py', 'utils', 'payfast_webhook.py', 'test_results_20250928_131707.txt', 'test-output.log', 'test_results_20250928_150517.txt', 'WHATSAPP_FLOWS_SETUP_GUIDE.md', '.vscode', 'services', 'scripts', '.github', 'test_results_20250928_130003.txt', 'test_results_20250928_131901.txt', 'claude_response.md', 'claude.md', 'static', 'app_routes.py', 'test_railway_api.py', 'app.py.backup', 'whatsapp_flows', 'debug_ai_responses.py', 'voice_helpers.py', '__pycache__', 'fix-generator.log', 'backups', 'SETUP_COMPLETE.md', '.gitignore', '.test_failure_history.json', 'README.md', 'payment_manager.py', '.claude-config.json', 'deployment_check.py', 'test_runner.py', 'routes', 'test_flow_system.py', 'test_results_20250928_140657.txt', 'test-results.json', 'test-report.html', 'MANUAL_MIGRATION_GUIDE.md', 'test_results_20250928_131503.txt', 'test_results_20250928_132548.txt', 'Procfile', 'tests', 'apply_migration.py', 'payment_integration.py', 'debug_time.py', 'config.py', 'app.py', 'app_core.py', 'templates', 'comment.txt', 'runtime.txt', 'supabase', 'test_flow_integration.py', 'FLOW_INTEGRATION_SUMMARY.md']
+✅ services/ directory exists
+   Contents: ['payment_commands.py', 'text_variation_handler.py', 'helpers', 'calendar_service.py', 'refiloe_handlers.py']...
+✅ utils/ directory exists
+   Contents: ['phone_utils.py', 'logger.py', 'rate_limiter.py', 'railway_api.py', '__pycache__']...
+PASSED
+tests/test_debug.py::test_can_import_refiloe_modules ✅ services.refiloe imported successfully
+✅ services.ai_intent_handler imported successfully
+✅ services.registration.trainer_registration imported successfully
+✅ utils.logger imported successfully
+✅ config imported successfully
+PASSED
+tests/test_debug.py::test_check_requirements ✅ flask is installed
+✅ supabase is installed
+✅ anthropic is installed
+✅ pytz is installed
+✅ requests is installed
+PASSED
+tests/test_e2e_complete.py::TestPhase1_Registration::test_complete_trainer_onboarding ERROR
+tests/test_e2e_complete.py::TestPhase1_Registration::test_trainer_recognition_after_registration ERROR
+tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_add_client_variations ERROR
+tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_view_clients ERROR
+tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_custom_pricing ERROR
+tests/test_e2e_complete.py::TestPhase3_Scheduling::test_view_schedule ERROR
+tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions ERROR
+tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule ERROR
+tests/test_integration_real.py::TestRealIntegration::test_trainer_registration_database Checking if tables exist...
+✅ trainers table exists
+✅ Trainer created with ID: a96787d4-c0e3-455b-aa2b-21889a49a173
+PASSED
+tests/test_integration_real.py::TestRealIntegration::test_client_management_real ✅ Client created for trainer f1d616c2-4ca9-412d-9be5-662f6d225bc5
+PASSED
+tests/test_integration_real.py::TestRealIntegration::test_booking_system_real FAILED
+tests/test_integration_real.py::TestRealIntegration::test_ai_integration_simple ✅ AI responded: 4
+PASSED
+tests/test_integration_real.py::TestRealIntegration::test_database_connection ✅ Database connection successful
+PASSED✅ Test data cleaned up
+
+tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_complete_trainer_registration_flow PASSED
+tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_currency_parsing_variations PASSED
+tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_registration_with_missing_fields PASSED
+tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration FAILED
+tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration FAILED
+tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_duplicate_registration_attempt PASSED
+tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_invalid_email_format PASSED
+tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_extremely_long_input PASSED
+tests/test_phase1_registration.py::TestRegistrationEdgeCases::test_special_characters_in_name PASSED
+tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_command_variations PASSED
+tests/test_phase2_client_management.py::TestAddClientReal::test_phone_number_normalization PASSED
+tests/test_phase2_client_management.py::TestAddClientReal::test_add_client_with_special_names PASSED
+tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands FAILED
+tests/test_phase2_client_management.py::TestCustomPricingReal::test_set_custom_pricing_variations PASSED
+tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing FAILED
+tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone FAILED
+tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_invalid_phone_numbers PASSED
+tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_set_negative_pricing PASSED
+tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found FAILED
+tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands FAILED
+tests/test_phase3_scheduling.py::TestBookSessionsReal::test_book_session_natural_language PASSED
+tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_time_formats PASSED
+tests/test_phase3_scheduling.py::TestBookSessionsReal::test_booking_date_parsing PASSED
+tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_cancel_booking_variations PASSED
+tests/test_phase3_scheduling.py::TestCancelRescheduleReal::test_reschedule_booking PASSED
+tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_double_booking_prevention PASSED
+tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_past_date_booking_prevention PASSED
+tests/test_phase3_scheduling.py::TestBookingConflictsAndValidation::test_invalid_time_slots PASSED
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_check_habit_compliance FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_send_habit_reminders FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_send_workouts FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_start_assessment FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_view_assessment_results FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_request_payment FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_check_revenue ✅ Revenue check works: Show my revenue...
+✅ Revenue check works: This month's earnings...
+✅ Revenue check works: Payment history...
+✅ Revenue check works: Who owes me money?...
+PASSED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_payment_confirmation FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_view_dashboard FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_client_analytics FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_booking FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_habit_logging FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_progress FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_view_challenges FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_join_leave_challenges FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase9_Challenges::test_leaderboard FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_bulk_operations FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_natural_language ✅ Natural response to: I'm doing good thanks...
+✅ Natural response to: The weather is nice today...
+✅ Natural response to: How are you?...
+PASSED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_error_handling FAILED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_check_scheduled_reminders ⚠️ No reminder system found - may need implementation
+PASSED✅ Test data cleaned up
+
+tests/test_phases_4_11.py::TestPhase11_AutomatedFeatures::test_subscription_monitoring ✅ Subscription monitoring exists
+PASSED✅ Test data cleaned up
+
+tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_new_trainer_onboarding PASSED
+tests/test_refiloe_complete.py::TestPhase1_UserRegistration::test_trainer_recognition PASSED
+tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_add_client_variations PASSED
+tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_view_clients PASSED
+tests/test_refiloe_complete.py::TestPhase2_ClientManagement::test_set_custom_pricing PASSED
+tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_view_schedule PASSED
+tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_book_sessions PASSED
+tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule FAILED
+tests/test_refiloe_complete.py::TestPhase4_HabitTracking::test_setup_habits PASSED
+tests/test_refiloe_complete.py::TestPhase5_WorkoutsAssessments::test_send_workouts PASSED
+tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment FAILED
+tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_check_revenue PASSED
+tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_booking PASSED
+tests/test_refiloe_complete.py::TestPhase8_ClientFeatures::test_client_habit_logging PASSED
+tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_natural_language_understanding PASSED
+tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling FAILED
+tests/test_refiloe_complete.py::TestCriticalBugs::test_trainer_registration_step_7_currency_parsing PASSED
+tests/test_refiloe_complete.py::TestCriticalBugs::test_ai_responds_naturally_not_rigid_commands PASSED
+
+==================================== ERRORS ====================================
+__ ERROR at setup of TestPhase1_Registration.test_complete_trainer_onboarding __
+tests/test_e2e_complete.py:91: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_ ERROR at setup of TestPhase1_Registration.test_trainer_recognition_after_registration _
+tests/test_e2e_complete.py:91: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+___ ERROR at setup of TestPhase2_ClientManagement.test_add_client_variations ___
+tests/test_e2e_complete.py:166: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+_______ ERROR at setup of TestPhase2_ClientManagement.test_view_clients ________
+tests/test_e2e_complete.py:166: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+______ ERROR at setup of TestPhase2_ClientManagement.test_custom_pricing _______
+tests/test_e2e_complete.py:166: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+__________ ERROR at setup of TestPhase3_Scheduling.test_view_schedule __________
+tests/test_e2e_complete.py:247: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+__________ ERROR at setup of TestPhase3_Scheduling.test_book_sessions __________
+tests/test_e2e_complete.py:247: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+________ ERROR at setup of TestPhase3_Scheduling.test_cancel_reschedule ________
+tests/test_e2e_complete.py:247: in setup_method
+    self.tester = RefiloeE2ETester()
+tests/test_e2e_complete.py:32: in __init__
+    self.process_message = RefiloeService().handle_message
+E   TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+=================================== FAILURES ===================================
+_________________ TestRealIntegration.test_booking_system_real _________________
+tests/test_integration_real.py:186: in test_booking_system_real
+    }).execute()
+/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/postgrest/_sync/request_builder.py:70: in execute
+    raise APIError(r.json())
+E   postgrest.exceptions.APIError: {'code': '23502', 'details': 'Failing row contains (e433687a-f85f-4f60-9803-ebc0a0df9aba, 01f1bcb6-aa9d-4ec3-9926-b813016d02db, null, 2025-10-15 18:35:32.123426+00, 60, 500.00, scheduled, null, 2025-10-14 18:35:32.221589+00, 2025-10-14 18:35:32.221589+00).', 'hint': None, 'message': 'null value in column "client_id" of relation "bookings" violates not-null constraint'}
+___ TestTrainerRegistrationReal.test_trainer_recognition_after_registration ____
+tests/test_phase1_registration.py:253: in test_trainer_recognition_after_registration
+    assert 'john' in response.get('response', '').lower() or \
+E   AssertionError: assert ('john' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'> or 'welcome' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'>)
+E    +  where <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'>()
+E    +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>.lower
+E    +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'> = <built-in method get of dict object at 0x7fabc6d61880>('response', '')
+E    +        where <built-in method get of dict object at 0x7fabc6d61880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+E    +  and   <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'>()
+E    +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>.lower
+E    +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'> = <built-in method get of dict object at 0x7fabc6d61880>('response', '')
+E    +        where <built-in method get of dict object at 0x7fabc6d61880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+------------------------------ Captured log call -------------------------------
+INFO     refiloe:logger.py:21 Background scheduler started
+INFO     refiloe:logger.py:21 Routes setup complete
+INFO     refiloe:logger.py:21 Flow webhook routes registered successfully
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+__ TestClientRegistrationReal.test_client_receives_welcome_after_registration __
+tests/test_phase1_registration.py:297: in test_client_receives_welcome_after_registration
+    assert response.get('success') == True
+E   assert False == True
+E    +  where False = <built-in method get of dict object at 0x7fabc5975a80>('success')
+E    +    where <built-in method get of dict object at 0x7fabc5975a80> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: 'list' object has no attribute 'get'
+ERROR    refiloe:logger.py:25 Error handling message: 'list' object has no attribute 'get'
+________________ TestViewClientsReal.test_view_clients_commands ________________
+tests/test_phase2_client_management.py:160: in test_view_clients_commands
+    assert 'sarah' in message or 'john' in message or 'mike' in message or \
+E   AssertionError: Failed to list clients with command: Show my clients
+E   assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
+ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+_______________ TestCustomPricingReal.test_check_client_pricing ________________
+tests/test_phase2_client_management.py:239: in test_check_client_pricing
+    assert 'r' in message or 'rand' in message or \
+E   AssertionError: Failed to show pricing with: What is Sarah's rate?
+E   assert ('r' in '' or 'rand' in '' or False)
+E    +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7fabc6a7fd80>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
+ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+______ TestClientManagementEdgeCases.test_add_client_with_duplicate_phone ______
+tests/test_phase2_client_management.py:268: in test_add_client_with_duplicate_phone
+    assert 'already' in response.get('message', '').lower() or \
+E   AssertionError: assert ('already' in '' or 'exists' in '')
+E    +  where '' = <built-in method lower of str object at 0x7fabd973fba0>()
+E    +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7fabc5846880>('message', '')
+E    +        where <built-in method get of dict object at 0x7fabc5846880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7fabd973fba0>()
+E    +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7fabc5846880>('message', '')
+E    +        where <built-in method get of dict object at 0x7fabc5846880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: object of type 'Mock' has no len()
+ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+_____________ TestClientManagementEdgeCases.test_client_not_found ______________
+tests/test_phase2_client_management.py:311: in test_client_not_found
+    assert 'not found' in response.get('message', '').lower() or \
+E   assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
+E    +  where '' = <built-in method lower of str object at 0x7fabd973fba0>()
+E    +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7fabc5678b40>('message', '')
+E    +        where <built-in method get of dict object at 0x7fabc5678b40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7fabd973fba0>()
+E    +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7fabc5678b40>('message', '')
+E    +        where <built-in method get of dict object at 0x7fabc5678b40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+E    +  and   '' = <built-in method lower of str object at 0x7fabd973fba0>()
+E    +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+E    +      where '' = <built-in method get of dict object at 0x7fabc5678b40>('message', '')
+E    +        where <built-in method get of dict object at 0x7fabc5678b40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
+ERROR    refiloe:logger.py:25 Error creating conversation state: 'Mock' object is not subscriptable
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+_______________ TestViewScheduleReal.test_view_schedule_commands _______________
+tests/test_phase3_scheduling.py:74: in test_view_schedule_commands
+    assert 'schedule' in message or 'booking' in message or \
+E   AssertionError: Failed to show schedule with: Show my schedule
+E   assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointment' in '' or 'no bookings' in '' or 'free' in '')
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: Mock.keys() returned a non-iterable (type Mock)
+ERROR    refiloe:logger.py:25 Error getting conversation history: 'Mock' object is not reversible
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+____________ TestPhase4_HabitTracking.test_setup_habits_for_clients ____________
+tests/test_phases_4_11.py:159: in test_setup_habits_for_clients
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase4_HabitTracking.test_setup_habits_for_clients.<locals>.<genexpr> at 0x7fabc6ab1e40>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_____________ TestPhase4_HabitTracking.test_check_habit_compliance _____________
+tests/test_phases_4_11.py:180: in test_check_habit_compliance
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase4_HabitTracking.test_check_habit_compliance.<locals>.<genexpr> at 0x7fabc6ab1a80>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+______________ TestPhase4_HabitTracking.test_send_habit_reminders ______________
+tests/test_phases_4_11.py:196: in test_send_habit_reminders
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase4_HabitTracking.test_send_habit_reminders.<locals>.<genexpr> at 0x7fabc6ab1d50>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+______________ TestPhase5_WorkoutsAssessments.test_send_workouts _______________
+tests/test_phases_4_11.py:224: in test_send_workouts
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_send_workouts.<locals>.<genexpr> at 0x7fabc6ab27a0>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_____________ TestPhase5_WorkoutsAssessments.test_start_assessment _____________
+tests/test_phases_4_11.py:240: in test_start_assessment
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_start_assessment.<locals>.<genexpr> at 0x7fabc6ab3010>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_________ TestPhase5_WorkoutsAssessments.test_view_assessment_results __________
+tests/test_phases_4_11.py:255: in test_view_assessment_results
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_view_assessment_results.<locals>.<genexpr> at 0x7fabc6ab2200>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_______________ TestPhase6_PaymentsRevenue.test_request_payment ________________
+tests/test_phases_4_11.py:283: in test_request_payment
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase6_PaymentsRevenue.test_request_payment.<locals>.<genexpr> at 0x7fabc6ab1b70>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_____________ TestPhase6_PaymentsRevenue.test_payment_confirmation _____________
+tests/test_phases_4_11.py:315: in test_payment_confirmation
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase6_PaymentsRevenue.test_payment_confirmation.<locals>.<genexpr> at 0x7fabc6ab27a0>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_______________ TestPhase7_AnalyticsReports.test_view_dashboard ________________
+tests/test_phases_4_11.py:343: in test_view_dashboard
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase7_AnalyticsReports.test_view_dashboard.<locals>.<genexpr> at 0x7fabc6ab2d40>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+______________ TestPhase7_AnalyticsReports.test_client_analytics _______________
+tests/test_phases_4_11.py:358: in test_client_analytics
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase7_AnalyticsReports.test_client_analytics.<locals>.<genexpr> at 0x7fabc6ab1e40>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+________________ TestPhase8_ClientFeatures.test_client_booking _________________
+tests/test_phases_4_11.py:388: in test_client_booking
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_booking.<locals>.<genexpr> at 0x7fabc6ab31f0>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_____________ TestPhase8_ClientFeatures.test_client_habit_logging ______________
+tests/test_phases_4_11.py:405: in test_client_habit_logging
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_habit_logging.<locals>.<genexpr> at 0x7fabc6ab3970>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+________________ TestPhase8_ClientFeatures.test_client_progress ________________
+tests/test_phases_4_11.py:421: in test_client_progress
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_progress.<locals>.<genexpr> at 0x7fabc6ab2d40>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error getting user context: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+__________________ TestPhase9_Challenges.test_view_challenges __________________
+tests/test_phases_4_11.py:449: in test_view_challenges
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase9_Challenges.test_view_challenges.<locals>.<genexpr> at 0x7fabc6ab3970>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_______________ TestPhase9_Challenges.test_join_leave_challenges _______________
+tests/test_phases_4_11.py:465: in test_join_leave_challenges
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase9_Challenges.test_join_leave_challenges.<locals>.<genexpr> at 0x7fabc6ab3f10>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+____________________ TestPhase9_Challenges.test_leaderboard ____________________
+tests/test_phases_4_11.py:481: in test_leaderboard
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase9_Challenges.test_leaderboard.<locals>.<genexpr> at 0x7fabc5a604f0>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+______________ TestPhase10_AdvancedFeatures.test_bulk_operations _______________
+tests/test_phases_4_11.py:508: in test_bulk_operations
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_bulk_operations.<locals>.<genexpr> at 0x7fabc6ab3f10>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_______________ TestPhase10_AdvancedFeatures.test_error_handling _______________
+tests/test_phases_4_11.py:540: in test_error_handling
+    assert any(word in str(response).lower() for word in
+E   assert False
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fabc5a609a0>)
+------------------------------ Captured log call -------------------------------
+ERROR    refiloe:logger.py:25 Error saving message: {'code': 'PGRST204', 'details': None, 'hint': None, 'message': "Could not find the 'intent' column of 'message_history' in the schema cache"}
+ERROR    refiloe:logger.py:25 Error getting conversation state: {'code': 'PGRST116', 'details': 'The result contains 0 rows', 'hint': None, 'message': 'JSON object requested, multiple (or no) rows returned'}
+ERROR    refiloe:logger.py:25 Error sending WhatsApp message: Object of type MagicMock is not JSON serializable
+ERROR    refiloe:logger.py:25 Error saving message: Object of type MagicMock is not JSON serializable
+_____________ TestPhase3_SchedulingBookings.test_cancel_reschedule _____________
+tests/test_refiloe_complete.py:329: in test_cancel_reschedule
+    assert "reschedul" in response['message'].lower() or "moved" in response['message'].lower()
+E   assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
+E    +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fabd5ccf1a0>()
+E    +    where <built-in method lower of str object at 0x7fabd5ccf1a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+E    +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fabd5ccf1a0>()
+E    +    where <built-in method lower of str object at 0x7fabd5ccf1a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+_______________ TestPhase6_PaymentsRevenue.test_request_payment ________________
+tests/test_refiloe_complete.py:368: in test_request_payment
+    assert "payment" in response['message'].lower() or "invoice" in response['message'].lower()
+E   assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
+E    +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fabd5d6c490>()
+E    +    where <built-in method lower of str object at 0x7fabd5d6c490> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+E    +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fabd5d6c490>()
+E    +    where <built-in method lower of str object at 0x7fabd5d6c490> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+_______________ TestPhase10_AdvancedFeatures.test_error_handling _______________
+tests/test_refiloe_complete.py:424: in test_error_handling
+    assert any(word in response['message'].lower() for word in ["past", "future", "cannot"])
+E   assert False
+E    +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fabc59e4d60>)
+=============================== warnings summary ===============================
+../../../../../opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: 19 warnings
+  /opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/gotrue/types.py:679: PydanticDeprecatedSince20: The `update_forward_refs` method is deprecated; use `model_rebuild` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    model.update_forward_refs()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+--------------------------------- JSON report ----------------------------------
+report saved to: test-results.json
+- Generated html report: file:///home/runner/work/whatsapp-ai-assistant/whatsapp-ai-assistant/test-report.html -
+=========================== short test summary info ============================
+FAILED tests/test_integration_real.py::TestRealIntegration::test_booking_system_real - postgrest.exceptions.APIError: {'code': '23502', 'details': 'Failing row contains (e433687a-f85f-4f60-9803-ebc0a0df9aba, 01f1bcb6-aa9d-4ec3-9926-b813016d02db, null, 2025-10-15 18:35:32.123426+00, 60, 500.00, scheduled, null, 2025-10-14 18:35:32.221589+00, 2025-10-14 18:35:32.221589+00).', 'hint': None, 'message': 'null value in column "client_id" of relation "bookings" violates not-null constraint'}
+FAILED tests/test_phase1_registration.py::TestTrainerRegistrationReal::test_trainer_recognition_after_registration - AssertionError: assert ('john' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'> or 'welcome' in <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'>)
+ +  where <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'>()
+ +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>.lower
+ +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'> = <built-in method get of dict object at 0x7fabc6d61880>('response', '')
+ +        where <built-in method get of dict object at 0x7fabc6d61880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+ +  and   <MagicMock name='AIIntentHandler().generate_smart_response().lower()' id='140375749950416'> = <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'>()
+ +    where <MagicMock name='AIIntentHandler().generate_smart_response().lower' id='140375749894288'> = <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>.lower
+ +      where <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'> = <built-in method get of dict object at 0x7fabc6d61880>('response', '')
+ +        where <built-in method get of dict object at 0x7fabc6d61880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+FAILED tests/test_phase1_registration.py::TestClientRegistrationReal::test_client_receives_welcome_after_registration - assert False == True
+ +  where False = <built-in method get of dict object at 0x7fabc5975a80>('success')
+ +    where <built-in method get of dict object at 0x7fabc5975a80> = {'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊", 'success': False}.get
+FAILED tests/test_phase2_client_management.py::TestViewClientsReal::test_view_clients_commands - AssertionError: Failed to list clients with command: Show my clients
+assert ('sarah' in '' or 'john' in '' or 'mike' in '' or 'client' in '')
+FAILED tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing - AssertionError: Failed to show pricing with: What is Sarah's rate?
+assert ('r' in '' or 'rand' in '' or False)
+ +  where False = any(<generator object TestCustomPricingReal.test_check_client_pricing.<locals>.<genexpr> at 0x7fabc6a7fd80>)
+FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone - AssertionError: assert ('already' in '' or 'exists' in '')
+ +  where '' = <built-in method lower of str object at 0x7fabd973fba0>()
+ +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7fabc5846880>('message', '')
+ +        where <built-in method get of dict object at 0x7fabc5846880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7fabd973fba0>()
+ +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7fabc5846880>('message', '')
+ +        where <built-in method get of dict object at 0x7fabc5846880> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+FAILED tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_client_not_found - assert ('not found' in '' or "doesn't exist" in '' or 'no client' in '')
+ +  where '' = <built-in method lower of str object at 0x7fabd973fba0>()
+ +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7fabc5678b40>('message', '')
+ +        where <built-in method get of dict object at 0x7fabc5678b40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7fabd973fba0>()
+ +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7fabc5678b40>('message', '')
+ +        where <built-in method get of dict object at 0x7fabc5678b40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+ +  and   '' = <built-in method lower of str object at 0x7fabd973fba0>()
+ +    where <built-in method lower of str object at 0x7fabd973fba0> = ''.lower
+ +      where '' = <built-in method get of dict object at 0x7fabc5678b40>('message', '')
+ +        where <built-in method get of dict object at 0x7fabc5678b40> = {'response': <MagicMock name='AIIntentHandler().generate_smart_response()' id='140375752038032'>, 'success': True}.get
+FAILED tests/test_phase3_scheduling.py::TestViewScheduleReal::test_view_schedule_commands - AssertionError: Failed to show schedule with: Show my schedule
+assert ('schedule' in '' or 'booking' in '' or 'session' in '' or 'appointment' in '' or 'no bookings' in '' or 'free' in '')
+FAILED tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_setup_habits_for_clients - assert False
+ +  where False = any(<generator object TestPhase4_HabitTracking.test_setup_habits_for_clients.<locals>.<genexpr> at 0x7fabc6ab1e40>)
+FAILED tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_check_habit_compliance - assert False
+ +  where False = any(<generator object TestPhase4_HabitTracking.test_check_habit_compliance.<locals>.<genexpr> at 0x7fabc6ab1a80>)
+FAILED tests/test_phases_4_11.py::TestPhase4_HabitTracking::test_send_habit_reminders - assert False
+ +  where False = any(<generator object TestPhase4_HabitTracking.test_send_habit_reminders.<locals>.<genexpr> at 0x7fabc6ab1d50>)
+FAILED tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_send_workouts - assert False
+ +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_send_workouts.<locals>.<genexpr> at 0x7fabc6ab27a0>)
+FAILED tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_start_assessment - assert False
+ +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_start_assessment.<locals>.<genexpr> at 0x7fabc6ab3010>)
+FAILED tests/test_phases_4_11.py::TestPhase5_WorkoutsAssessments::test_view_assessment_results - assert False
+ +  where False = any(<generator object TestPhase5_WorkoutsAssessments.test_view_assessment_results.<locals>.<genexpr> at 0x7fabc6ab2200>)
+FAILED tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_request_payment - assert False
+ +  where False = any(<generator object TestPhase6_PaymentsRevenue.test_request_payment.<locals>.<genexpr> at 0x7fabc6ab1b70>)
+FAILED tests/test_phases_4_11.py::TestPhase6_PaymentsRevenue::test_payment_confirmation - assert False
+ +  where False = any(<generator object TestPhase6_PaymentsRevenue.test_payment_confirmation.<locals>.<genexpr> at 0x7fabc6ab27a0>)
+FAILED tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_view_dashboard - assert False
+ +  where False = any(<generator object TestPhase7_AnalyticsReports.test_view_dashboard.<locals>.<genexpr> at 0x7fabc6ab2d40>)
+FAILED tests/test_phases_4_11.py::TestPhase7_AnalyticsReports::test_client_analytics - assert False
+ +  where False = any(<generator object TestPhase7_AnalyticsReports.test_client_analytics.<locals>.<genexpr> at 0x7fabc6ab1e40>)
+FAILED tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_booking - assert False
+ +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_booking.<locals>.<genexpr> at 0x7fabc6ab31f0>)
+FAILED tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_habit_logging - assert False
+ +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_habit_logging.<locals>.<genexpr> at 0x7fabc6ab3970>)
+FAILED tests/test_phases_4_11.py::TestPhase8_ClientFeatures::test_client_progress - assert False
+ +  where False = any(<generator object TestPhase8_ClientFeatures.test_client_progress.<locals>.<genexpr> at 0x7fabc6ab2d40>)
+FAILED tests/test_phases_4_11.py::TestPhase9_Challenges::test_view_challenges - assert False
+ +  where False = any(<generator object TestPhase9_Challenges.test_view_challenges.<locals>.<genexpr> at 0x7fabc6ab3970>)
+FAILED tests/test_phases_4_11.py::TestPhase9_Challenges::test_join_leave_challenges - assert False
+ +  where False = any(<generator object TestPhase9_Challenges.test_join_leave_challenges.<locals>.<genexpr> at 0x7fabc6ab3f10>)
+FAILED tests/test_phases_4_11.py::TestPhase9_Challenges::test_leaderboard - assert False
+ +  where False = any(<generator object TestPhase9_Challenges.test_leaderboard.<locals>.<genexpr> at 0x7fabc5a604f0>)
+FAILED tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_bulk_operations - assert False
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_bulk_operations.<locals>.<genexpr> at 0x7fabc6ab3f10>)
+FAILED tests/test_phases_4_11.py::TestPhase10_AdvancedFeatures::test_error_handling - assert False
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fabc5a609a0>)
+FAILED tests/test_refiloe_complete.py::TestPhase3_SchedulingBookings::test_cancel_reschedule - assert ('reschedul' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" or 'moved' in "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe")
+ +  where "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fabd5ccf1a0>()
+ +    where <built-in method lower of str object at 0x7fabd5ccf1a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+ +  and   "today's schedule:\n9:00 am - sarah johnson\n2:00 pm - john doe" = <built-in method lower of str object at 0x7fabd5ccf1a0>()
+ +    where <built-in method lower of str object at 0x7fabd5ccf1a0> = "Today's schedule:\n9:00 AM - Sarah Johnson\n2:00 PM - John Doe".lower
+FAILED tests/test_refiloe_complete.py::TestPhase6_PaymentsRevenue::test_request_payment - assert ('payment' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" or 'invoice' in "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?")
+ +  where "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fabd5d6c490>()
+ +    where <built-in method lower of str object at 0x7fabd5d6c490> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+ +  and   "welcome to refiloe! i'm here to help you manage your personal training business. are you a trainer or a client?" = <built-in method lower of str object at 0x7fabd5d6c490>()
+ +    where <built-in method lower of str object at 0x7fabd5d6c490> = "Welcome to Refiloe! I'm here to help you manage your personal training business. Are you a trainer or a client?".lower
+FAILED tests/test_refiloe_complete.py::TestPhase10_AdvancedFeatures::test_error_handling - assert False
+ +  where False = any(<generator object TestPhase10_AdvancedFeatures.test_error_handling.<locals>.<genexpr> at 0x7fabc59e4d60>)
+ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_complete_trainer_onboarding - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase1_Registration::test_trainer_recognition_after_registration - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_add_client_variations - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_view_clients - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase2_ClientManagement::test_custom_pricing - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_view_schedule - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_book_sessions - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+ERROR tests/test_e2e_complete.py::TestPhase3_Scheduling::test_cancel_reschedule - TypeError: RefiloeService.__init__() missing 1 required positional argument: 'supabase_client'
+======= 29 failed, 54 passed, 19 warnings, 8 errors in 155.33s (0:02:35) =======
