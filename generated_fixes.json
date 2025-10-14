@@ -4,11 +4,5 @@
     "file": "services/registration/trainer_registration.py",
     "test": "tests/test_phase2_client_management.py::TestCustomPricingReal::test_check_client_pricing",
     "diagnosis": "Currency parsing needed"
-  },
-  {
-    "type": "phone_format",
-    "file": "utils/validators.py",
-    "test": "tests/test_phase2_client_management.py::TestClientManagementEdgeCases::test_add_client_with_duplicate_phone",
-    "diagnosis": "Phone format issue"
   }
 ]
