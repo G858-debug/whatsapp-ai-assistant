@@ -183,12 +183,19 @@ class WhatsAppService:
         # Remove all non-digits
         digits = ''.join(filter(str.isdigit, phone))
         
-        # Handle South African numbers
-        if digits.startswith('0'):
-            digits = '27' + digits[1:]
-        elif not digits.startswith('27'):
-            digits = '27' + digits
+        # If it already looks like an international number (11+ digits), use as-is
+        if len(digits) >= 11:
+            return digits
         
+        # Handle South African numbers only (10 digits starting with 0, or 9 digits)
+        if digits.startswith('0') and len(digits) == 10:
+            # South African number starting with 0 (e.g., 0731234567)
+            return '27' + digits[1:]
+        elif len(digits) == 9 and digits.startswith(('7', '8', '6')):
+            # South African mobile number without leading 0 (e.g., 731234567)
+            return '27' + digits
+        
+        # For any other format, return as-is (assume it's already international)
         return digits
     
     def send_bulk_messages(self, recipients: List[Dict], message: str) -> Dict:
