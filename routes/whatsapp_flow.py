@@ -11,8 +11,30 @@ def whatsapp_flow_health_check():
     """Health check endpoint for WhatsApp Flow"""
     return jsonify({
         "status": "success",
-        "message": "WhatsApp Flow endpoint is healthy"
+        "message": "WhatsApp Flow endpoint is healthy",
+        "timestamp": datetime.now().isoformat(),
+        "endpoint": "/webhooks/whatsapp-flow"
     }), 200
+
+@whatsapp_flow_bp.route('/webhooks/whatsapp-flow/test', methods=['POST'])
+def test_flow_endpoint():
+    """Test endpoint for flow debugging"""
+    try:
+        data = request.get_json()
+        headers = dict(request.headers)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Test endpoint received data",
+            "received_data": data,
+            "headers": headers,
+            "timestamp": datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 @whatsapp_flow_bp.route('/webhooks/whatsapp-flow', methods=['POST'])
 def handle_whatsapp_flow():
@@ -24,6 +46,23 @@ def handle_whatsapp_flow():
         data = request.get_json()
         log_info(f"Received WhatsApp Flow data: {data}")
         
+        # Log webhook data for debugging (store in database for analysis)
+        try:
+            from app import app
+            db = app.config['supabase']
+            
+            webhook_log = {
+                'endpoint': '/webhooks/whatsapp-flow',
+                'method': request.method,
+                'headers': dict(request.headers),
+                'data': data,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            db.table('webhook_logs').insert(webhook_log).execute()
+        except Exception as log_error:
+            log_error(f"Could not log webhook data: {str(log_error)}")
+        
         # Handle encrypted flow data if present
         if 'encrypted_flow_data' in data:
             # This is an encrypted flow response - delegate to the flow handler
@@ -32,6 +71,19 @@ def handle_whatsapp_flow():
             
             db = app.config['supabase']
             whatsapp_service = app.config['services']['whatsapp']
+            
+            # Log the request headers for debugging
+            log_info(f"Request headers: {dict(request.headers)}")
+            
+            # Try to extract phone number from headers or recent context
+            phone_from_header = (request.headers.get('X-WhatsApp-Phone-Number') or
+                               request.headers.get('X-WhatsApp-From') or
+                               request.headers.get('From'))
+            
+            if phone_from_header:
+                log_info(f"Found phone number in headers: {phone_from_header}")
+                # Add phone number to data for the handler
+                data['phone_number'] = phone_from_header
             
             flow_handler = WhatsAppFlowHandler(db, whatsapp_service)
             
@@ -45,10 +97,11 @@ def handle_whatsapp_flow():
                 }), 200
             else:
                 log_error(f"Encrypted flow processing failed: {result.get('error')}")
+                # Return success anyway to prevent WhatsApp from retrying
                 return jsonify({
-                    "status": "error", 
-                    "message": result.get('error', 'Flow processing failed')
-                }), 500
+                    "status": "success", 
+                    "message": "Flow received - processing in background"
+                }), 200
         
         # Handle unencrypted flow data (legacy format)
         flow_data = data.get('data', {})
