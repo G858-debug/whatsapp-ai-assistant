@@ -9,12 +9,29 @@ whatsapp_flow_bp = Blueprint('whatsapp_flow', __name__)
 @whatsapp_flow_bp.route('/webhooks/whatsapp-flow', methods=['GET'])
 def whatsapp_flow_health_check():
     """Health check endpoint for WhatsApp Flow"""
-    return jsonify({
-        "status": "success",
-        "message": "WhatsApp Flow endpoint is healthy",
-        "timestamp": datetime.now().isoformat(),
-        "endpoint": "/webhooks/whatsapp-flow"
-    }), 200
+    try:
+        # Check if this is a webhook verification request
+        hub_challenge = request.args.get('hub.challenge')
+        hub_verify_token = request.args.get('hub.verify_token')
+        hub_mode = request.args.get('hub.mode')
+        
+        log_info(f"Health check request - mode: {hub_mode}, challenge: {hub_challenge}, token: {hub_verify_token}")
+        
+        # If it's a verification request, return the challenge
+        if hub_mode == 'subscribe' and hub_challenge:
+            log_info(f"Returning challenge: {hub_challenge}")
+            return hub_challenge, 200, {'Content-Type': 'text/plain'}
+        
+        # For WhatsApp Flow health checks, return a proper JSON response
+        response = {
+            "status": "success"
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        log_error(f"Health check error: {str(e)}")
+        return "OK", 200
 
 @whatsapp_flow_bp.route('/webhooks/whatsapp-flow/test', methods=['POST'])
 def test_flow_endpoint():
