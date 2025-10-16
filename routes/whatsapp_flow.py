@@ -44,6 +44,7 @@ def handle_whatsapp_flow():
                     "message": result.get('message', 'Flow processed successfully')
                 }), 200
             else:
+                log_error(f"Encrypted flow processing failed: {result.get('error')}")
                 return jsonify({
                     "status": "error", 
                     "message": result.get('error', 'Flow processing failed')
@@ -61,8 +62,15 @@ def handle_whatsapp_flow():
         phone = data.get('phone_number', '')
         
         # Import services
-        from app import app
-        db = app.config['supabase']
+        try:
+            from app import app
+            db = app.config['supabase']
+        except Exception as import_error:
+            log_error(f"Error importing app services: {str(import_error)}")
+            return jsonify({
+                "status": "error",
+                "message": "Service configuration error"
+            }), 500
         
         # Create trainer profile
         trainer_data = {

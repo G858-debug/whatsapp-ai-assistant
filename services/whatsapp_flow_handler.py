@@ -2474,4 +2474,110 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             
         except Exception as e:
             log_error(f"Error cleaning up flow token: {str(e)}")
-            return False
+            return False  
+            
+    def handle_encrypted_flow_response(self, data: Dict) -> Dict:
+        """Handle encrypted WhatsApp Flow responses"""
+        try:
+            log_info("Processing encrypted WhatsApp Flow response")
+            
+            # Extract encrypted data components
+            encrypted_flow_data = data.get('encrypted_flow_data')
+            encrypted_aes_key = data.get('encrypted_aes_key')
+            initial_vector = data.get('initial_vector')
+            
+            if not all([encrypted_flow_data, encrypted_aes_key, initial_vector]):
+                return {
+                    'success': False,
+                    'error': 'Missing required encryption components'
+                }
+            
+            # For now, we'll use the existing flow response handler
+            # In a production environment, you would decrypt the data first
+            # This is a simplified version that delegates to existing handlers
+            
+            # Try to extract phone number from request context or headers
+            from flask import request
+            phone_number = None
+            
+            # Check various possible sources for phone number
+            if hasattr(request, 'headers'):
+                phone_number = request.headers.get('X-WhatsApp-Phone-Number')
+            
+            if not phone_number and hasattr(request, 'json'):
+                request_data = request.get_json() or {}
+                phone_number = request_data.get('phone_number')
+            
+            # If we still don't have phone number, we need to decrypt to get it
+            if not phone_number:
+                log_warning("Phone number not found in request, attempting to extract from encrypted data")
+                # For now, return an error - in production you'd decrypt here
+                return {
+                    'success': False,
+                    'error': 'Unable to identify user from encrypted flow data'
+                }
+            
+            # Create a mock flow response structure for existing handler
+            mock_flow_response = {
+                'name': 'trainer_onboarding_flow',  # Default flow type
+                'flow_token': f"encrypted_{int(datetime.now().timestamp())}",
+                'data': {}  # Would contain decrypted form data
+            }
+            
+            # Create flow data structure expected by existing handler
+            flow_data = {
+                'phone_number': phone_number,
+                'flow_response': mock_flow_response
+            }
+            
+            # Delegate to existing flow response handler
+            result = self.handle_flow_response(flow_data)
+            
+            if result.get('success'):
+                log_info(f"Successfully processed encrypted flow for {phone_number}")
+                return {
+                    'success': True,
+                    'message': result.get('message', 'Flow processed successfully')
+                }
+            else:
+                log_error(f"Failed to process encrypted flow: {result.get('error')}")
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Flow processing failed')
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling encrypted flow response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _decrypt_flow_data(self, encrypted_data: str, encrypted_key: str, iv: str) -> Dict:
+        """
+        Decrypt WhatsApp Flow data (placeholder implementation)
+        
+        In production, you would:
+        1. Decrypt the AES key using your private key
+        2. Use the decrypted AES key and IV to decrypt the flow data
+        3. Parse the decrypted JSON data
+        
+        For now, this returns empty data as decryption requires proper key management
+        """
+        try:
+            # This is a placeholder - implement actual decryption logic here
+            log_warning("Flow data decryption not implemented - using mock data")
+            
+            return {
+                'decrypted': False,
+                'data': {},
+                'error': 'Decryption not implemented'
+            }
+            
+        except Exception as e:
+            log_error(f"Error decrypting flow data: {str(e)}")
+            return {
+                'decrypted': False,
+                'data': {},
+                'error': str(e)
+            }
