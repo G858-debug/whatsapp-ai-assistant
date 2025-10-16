@@ -452,10 +452,16 @@ class TrainerRegistrationHandler:
                     "• Ask me about fitness, training, or business\n"
                     "• Get help with client management\n"
                     "• Just chat naturally - I'm here to help!\n\n"
+                    "📊 *Help Your Clients Build Habits:*\n"
+                    "• Use `/setup_habits` to configure client habits\n"
+                    "• Monitor progress with `/habits` dashboard\n"
+                    "• Create challenges with `/create_challenge`\n"
+                    "• Send reminders with `/send_reminders`\n\n"
                     "🚀 *Next Steps:*\n"
                     "• Start adding clients with `/add_client`\n"
                     "• Explore your profile with `/profile`\n"
                     "• Ask me anything about growing your business!\n\n"
+                    "💡 *Tip:* Habit tracking increases client engagement and results!\n\n"
                     "Ready to transform lives? Let's go! 💪"
                 )
                 

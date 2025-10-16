@@ -190,6 +190,8 @@ class WhatsAppFlowHandler:
                 return self._handle_trainer_add_client_response(flow_response, phone_number, flow_token)
             elif flow_name == 'client_onboarding_flow':
                 return self._handle_client_onboarding_response(flow_response, phone_number, flow_token)
+            elif flow_name in ['trainer_habit_setup_flow', 'client_habit_logging_flow', 'habit_progress_flow']:
+                return self.handle_habit_flow_response(flow_data)
             else:
                 return {
                     'success': False,
@@ -1770,3 +1772,706 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'success': False,
                 'error': str(e)
             }
+    
+    # ==================== HABIT TRACKING FLOWS ====================
+    
+    def send_trainer_habit_setup_flow(self, phone_number: str, trainer_data: dict) -> Dict:
+        """Send trainer habit setup flow"""
+        try:
+            # Get trainer's clients for the flow with additional info
+            clients_result = self.supabase.table('clients').select('id, name, whatsapp, created_at').eq(
+                'trainer_id', trainer_data['id']
+            ).eq('status', 'active').order('name').execute()
+            
+            if not clients_result.data:
+                return {
+                    'success': False,
+                    'error': 'No active clients found',
+                    'message': 'You need to add clients first before setting up habits. Use `/add_client` to get started!'
+                }
+            
+            # Check which clients already have habits setup
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.supabase)
+            
+            # Prepare client data for flow with habit status
+            clients_for_flow = []
+            for client in clients_result.data:
+                # Check if client has any habits
+                client_habits = habits_service.get_client_habits(client['id'], days=30)
+                has_habits = client_habits['success'] and client_habits.get('days_tracked', 0) > 0
+                
+                # Format client display with status
+                status_emoji = "✅" if has_habits else "🆕"
+                status_text = "Has habits" if has_habits else "New setup"
+                
+                clients_for_flow.append({
+                    "id": client['id'], 
+                    "title": f"{status_emoji} {client['name']} ({status_text})",
+                    "description": f"Phone: {client.get('whatsapp', 'N/A')}"
+                })
+            
+            # Limit to 10 clients for better UX
+            if len(clients_for_flow) > 10:
+                clients_for_flow = clients_for_flow[:10]
+            
+            # Create flow message with client data
+            flow_token = f"habit_setup_{phone_number}_{int(datetime.now().timestamp())}"
+            
+            message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": phone_number,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": "🎯 Setup Client Habits"
+                    },
+                    "body": {
+                        "text": "Help your clients build lasting healthy habits! Choose which habits to track and set personalized goals."
+                    },
+                    "footer": {
+                        "text": "Habit tracking setup"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_name": "trainer_habit_setup_flow",
+                            "flow_cta": "Setup Habits",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "welcome",
+                                "data": {
+                                    "clients": clients_for_flow
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            # Store flow token
+            self._store_flow_token(flow_token, {
+                'type': 'trainer_habit_setup',
+                'trainer_id': trainer_data['id'],
+                'phone': phone_number,
+                'clients': clients_result.data
+            })
+            
+            # Send the flow
+            result = self.whatsapp_service.send_flow_message(phone_number, message)
+            
+            if result.get('success'):
+                log_info(f"Trainer habit setup flow sent to {phone_number}")
+                return {
+                    'success': True,
+                    'method': 'whatsapp_flow',
+                    'flow_token': flow_token
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to send flow',
+                    'details': result
+                }
+                
+        except Exception as e:
+            log_error(f"Error sending trainer habit setup flow: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def send_client_habit_logging_flow(self, phone_number: str, client_data: dict) -> Dict:
+        """Send client habit logging flow"""
+        try:
+            # Get client's active habits
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.supabase)
+            
+            # Check what habits they've been tracking (last 30 days for better detection)
+            habits_data = habits_service.get_client_habits(client_data['id'], days=30)
+            
+            # Determine active habits (habits they've logged in the past 30 days)
+            active_habits = []
+            if habits_data['success'] and habits_data['data']:
+                tracked_habits = set()
+                for date_data in habits_data['data'].values():
+                    tracked_habits.update(date_data.keys())
+                
+                # Only include valid habit types
+                valid_habits = habits_service.habit_types
+                tracked_habits = tracked_habits.intersection(set(valid_habits))
+                
+                habit_display_names = {
+                    'water_intake': '💧 Water Intake',
+                    'sleep_hours': '😴 Sleep Hours',
+                    'steps': '🚶 Daily Steps',
+                    'workout_completed': '💪 Workout',
+                    'weight': '⚖️ Weight',
+                    'meals_logged': '🍽️ Meals',
+                    'calories': '🔥 Calories',
+                    'mood': '😊 Mood'
+                }
+                
+                # Get current streaks for each habit to show in title
+                for habit in tracked_habits:
+                    streak = habits_service.calculate_streak(client_data['id'], habit)
+                    streak_text = f" (🔥{streak})" if streak > 0 else ""
+                    
+                    active_habits.append({
+                        "id": habit, 
+                        "title": f"{habit_display_names.get(habit, habit.replace('_', ' ').title())}{streak_text}",
+                        "description": f"Current streak: {streak} days" if streak > 0 else "No current streak"
+                    })
+            
+            # If no active habits found, they need to set up habits first
+            if not active_habits:
+                return {
+                    'success': False,
+                    'error': 'No habits setup',
+                    'message': (
+                        "🎯 *No habits setup yet!*\n\n"
+                        "You need to setup habit tracking first. Ask your trainer to use `/setup_habits` "
+                        "to configure your habits, or if you don't have a trainer, you can start with basic habits.\n\n"
+                        "Would you like me to help you get started with habit tracking?"
+                    )
+                }
+            
+            # Create flow message
+            flow_token = f"habit_log_{phone_number}_{int(datetime.now().timestamp())}"
+            
+            message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": phone_number,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": "📝 Daily Check-in"
+                    },
+                    "body": {
+                        "text": "Time for your daily habit check-in! Let's track your progress and keep those streaks going! 🔥"
+                    },
+                    "footer": {
+                        "text": "Habit logging"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_name": "client_habit_logging_flow",
+                            "flow_cta": "Log Habits",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "welcome",
+                                "data": {
+                                    "active_habits": active_habits
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            # Store flow token
+            self._store_flow_token(flow_token, {
+                'type': 'client_habit_logging',
+                'client_id': client_data['id'],
+                'phone': phone_number,
+                'active_habits': active_habits
+            })
+            
+            # Send the flow
+            result = self.whatsapp_service.send_flow_message(phone_number, message)
+            
+            if result.get('success'):
+                log_info(f"Client habit logging flow sent to {phone_number}")
+                return {
+                    'success': True,
+                    'method': 'whatsapp_flow',
+                    'flow_token': flow_token
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to send flow',
+                    'details': result
+                }
+                
+        except Exception as e:
+            log_error(f"Error sending client habit logging flow: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def send_habit_progress_flow(self, phone_number: str, client_data: dict) -> Dict:
+        """Send habit progress flow"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.supabase)
+            
+            # Get current streaks
+            streaks = {}
+            for habit_type in ['water_intake', 'sleep_hours', 'steps', 'workout_completed']:
+                streak = habits_service.calculate_streak(client_data['id'], habit_type)
+                streaks[habit_type.replace('_', '')] = streak
+            
+            # Create flow message with current data
+            flow_token = f"habit_progress_{phone_number}_{int(datetime.now().timestamp())}"
+            
+            message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": phone_number,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": "📊 Your Progress"
+                    },
+                    "body": {
+                        "text": "Check out your habit progress and get personalized insights!"
+                    },
+                    "footer": {
+                        "text": "Progress tracking"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_name": "habit_progress_flow",
+                            "flow_cta": "View Progress",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "overview",
+                                "data": {
+                                    "streaks": streaks
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            # Store flow token
+            self._store_flow_token(flow_token, {
+                'type': 'habit_progress',
+                'client_id': client_data['id'],
+                'phone': phone_number
+            })
+            
+            # Send the flow
+            result = self.whatsapp_service.send_flow_message(phone_number, message)
+            
+            if result.get('success'):
+                log_info(f"Habit progress flow sent to {phone_number}")
+                return {
+                    'success': True,
+                    'method': 'whatsapp_flow',
+                    'flow_token': flow_token
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to send flow',
+                    'details': result
+                }
+                
+        except Exception as e:
+            log_error(f"Error sending habit progress flow: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def handle_habit_flow_response(self, flow_data: Dict) -> Dict:
+        """Handle responses from habit tracking flows"""
+        try:
+            flow_token = flow_data.get('flow_token')
+            if not flow_token:
+                return {'success': False, 'error': 'No flow token provided'}
+            
+            # Get flow context
+            token_data = self._get_flow_token_data(flow_token)
+            if not token_data:
+                return {'success': False, 'error': 'Invalid or expired flow token'}
+            
+            flow_type = token_data.get('type')
+            
+            if flow_type == 'trainer_habit_setup':
+                return self._handle_trainer_habit_setup_response(flow_data, token_data)
+            elif flow_type == 'client_habit_logging':
+                return self._handle_client_habit_logging_response(flow_data, token_data)
+            elif flow_type == 'habit_progress':
+                return self._handle_habit_progress_response(flow_data, token_data)
+            else:
+                return {'success': False, 'error': f'Unknown habit flow type: {flow_type}'}
+                
+        except Exception as e:
+            log_error(f"Error handling habit flow response: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_trainer_habit_setup_response(self, flow_data: Dict, token_data: Dict) -> Dict:
+        """Handle trainer habit setup flow completion"""
+        try:
+            response_data = flow_data.get('response', {})
+            trainer_id = token_data.get('trainer_id')
+            
+            # Extract form data
+            selected_client = response_data.get('selected_client')
+            selected_habits = response_data.get('selected_habits', [])
+            goals = response_data.get('goals', {})
+            reminder_time = response_data.get('reminder_time')
+            
+            if not selected_client or not selected_habits:
+                return {
+                    'success': False,
+                    'error': 'Missing required data',
+                    'message': '❌ Please select a client and at least one habit to track.'
+                }
+            
+            # SECURITY: Validate that the selected client belongs to this trainer
+            client_validation = self.supabase.table('clients').select('id, name, trainer_id').eq(
+                'id', selected_client
+            ).eq('trainer_id', trainer_id).eq('status', 'active').execute()
+            
+            if not client_validation.data:
+                log_error(f"Trainer {trainer_id} attempted to setup habits for unauthorized client {selected_client}")
+                return {
+                    'success': False,
+                    'error': 'Unauthorized client access',
+                    'message': '❌ You can only setup habits for your own clients. Please select a valid client.'
+                }
+            
+            client_data = client_validation.data[0]
+            
+            # Validate selected habits against allowed habit types
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.supabase)
+            
+            valid_habits = []
+            invalid_habits = []
+            
+            for habit in selected_habits:
+                if habit in habits_service.habit_types:
+                    valid_habits.append(habit)
+                else:
+                    invalid_habits.append(habit)
+            
+            if invalid_habits:
+                log_warning(f"Invalid habits selected: {invalid_habits}")
+                return {
+                    'success': False,
+                    'error': 'Invalid habits selected',
+                    'message': f'❌ Invalid habits detected: {", ".join(invalid_habits)}. Please select only valid habit types.'
+                }
+            
+            if not valid_habits:
+                return {
+                    'success': False,
+                    'error': 'No valid habits selected',
+                    'message': '❌ No valid habits selected. Please choose at least one habit to track.'
+                }
+            
+            # Setup habits for the client using validated habits
+            success_count = 0
+            for habit in valid_habits:
+                # Initialize habit tracking for this client
+                result = habits_service.log_habit(
+                    client_data['id'], 
+                    habit, 
+                    'initialized',
+                    datetime.now().date().isoformat()
+                )
+                if result.get('success'):
+                    success_count += 1
+                
+                # Set goals if provided
+                goal_value = goals.get(habit.replace('_', ''))
+                if goal_value:
+                    habits_service.set_habit_goal(
+                        client_data['id'],
+                        habit,
+                        goal_value,
+                        'daily'
+                    )
+            
+            # Clean up flow token
+            self._cleanup_flow_token(flow_data.get('flow_token'))
+            
+            # Send success message with detailed info
+            habit_names = [habit.replace('_', ' ').title() for habit in valid_habits]
+            
+            message = (
+                f"🎉 *Habit Tracking Setup Complete!*\n\n"
+                f"✅ Client: {client_data['name']}\n"
+                f"📊 Habits activated: {len(valid_habits)}\n"
+                f"🎯 Habits: {', '.join(habit_names)}\n\n"
+                f"Your client can now:\n"
+                f"• Use `/log_habit` to log daily habits\n"
+                f"• Use `/habit_streak` to check streaks\n"
+                f"• Simply tell me what they did (e.g., 'drank 2L water')\n\n"
+                f"Track their progress anytime with `/habits`!"
+            )
+            
+            return {
+                'success': True,
+                'message': message,
+                'client_id': client_data['id'],
+                'habits_setup': success_count
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling trainer habit setup response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': '❌ Error setting up habits. Please try again.'
+            }
+    
+    def _handle_client_habit_logging_response(self, flow_data: Dict, token_data: Dict) -> Dict:
+        """Handle client habit logging flow completion"""
+        try:
+            response_data = flow_data.get('response', {})
+            client_id = token_data.get('client_id')
+            
+            if not client_id:
+                return {
+                    'success': False,
+                    'error': 'No client ID in token data',
+                    'message': '❌ Session expired. Please try logging habits again.'
+                }
+            
+            # Get client's active habits to validate against
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.supabase)
+            
+            # Get client's previously tracked habits (last 30 days)
+            client_habits_data = habits_service.get_client_habits(client_id, days=30)
+            
+            # Determine which habits this client is allowed to log
+            allowed_habits = set()
+            if client_habits_data['success'] and client_habits_data['data']:
+                for date_data in client_habits_data['data'].values():
+                    allowed_habits.update(date_data.keys())
+            
+            # If no habits found, they haven't been setup yet
+            if not allowed_habits:
+                return {
+                    'success': False,
+                    'error': 'No habits setup',
+                    'message': (
+                        '❌ *No habits setup yet!*\n\n'
+                        'You need to setup habit tracking first. Ask your trainer to use `/setup_habits` '
+                        'to configure your habits.\n\n'
+                        'If you don\'t have a trainer, contact support to get started with habit tracking.'
+                    )
+                }
+            
+            # Extract logged habits
+            completed_habits = response_data.get('completed_habits', [])
+            water_amount = response_data.get('water_amount')
+            sleep_hours = response_data.get('sleep_hours')
+            steps_count = response_data.get('steps_count')
+            weight_kg = response_data.get('weight_kg')
+            
+            # Validate completed habits against allowed habits
+            valid_completed_habits = []
+            invalid_habits = []
+            
+            for habit in completed_habits:
+                if habit in allowed_habits:
+                    valid_completed_habits.append(habit)
+                else:
+                    invalid_habits.append(habit)
+            
+            if invalid_habits:
+                log_warning(f"Client {client_id} attempted to log unauthorized habits: {invalid_habits}")
+                return {
+                    'success': False,
+                    'error': 'Unauthorized habits',
+                    'message': f'❌ You can only log habits that have been setup for you. Invalid habits: {", ".join(invalid_habits)}'
+                }
+            
+            logged_count = 0
+            streaks = {}
+            
+            # Log boolean habits (completed/not completed)
+            for habit in valid_completed_habits:
+                result = habits_service.log_habit(client_id, habit, 'completed')
+                if result.get('success'):
+                    logged_count += 1
+                    streaks[habit] = result.get('streak', 0)
+            
+            # Log measurable habits with specific values (only if allowed)
+            measurable_habits = {
+                'water_intake': water_amount,
+                'sleep_hours': sleep_hours,
+                'steps': steps_count,
+                'weight': weight_kg
+            }
+            
+            for habit_type, value in measurable_habits.items():
+                if value and habit_type in allowed_habits:
+                    result = habits_service.log_habit(client_id, habit_type, str(value))
+                    if result.get('success'):
+                        logged_count += 1
+                        streaks[habit_type] = result.get('streak', 0)
+                elif value and habit_type not in allowed_habits:
+                    log_warning(f"Client {client_id} attempted to log unauthorized measurable habit: {habit_type}")
+            
+            # If no habits were logged, inform the user
+            if logged_count == 0:
+                return {
+                    'success': False,
+                    'error': 'No habits logged',
+                    'message': (
+                        '❌ *No habits were logged.*\n\n'
+                        'This could be because:\n'
+                        '• No habits were selected\n'
+                        '• The selected habits are not setup for you\n\n'
+                        'Please make sure you have habits setup and try again.'
+                    )
+                }
+            
+            # Clean up flow token
+            self._cleanup_flow_token(flow_data.get('flow_token'))
+            
+            # Generate success message with streaks
+            message = f"🎉 *Habits Logged Successfully!*\n\n"
+            message += f"✅ {logged_count} habits recorded for today\n\n"
+            
+            if streaks:
+                message += "*🔥 Current Streaks:*\n"
+                for habit, streak in sorted(streaks.items(), key=lambda x: x[1], reverse=True):
+                    habit_name = habit.replace('_', ' ').title()
+                    fire_emoji = '🔥' * min(streak // 3, 5)
+                    message += f"• {habit_name}: {streak} days {fire_emoji}\n"
+                message += "\n"
+            
+            message += "💪 *Keep up the amazing work! Consistency is key to success!*"
+            
+            return {
+                'success': True,
+                'message': message,
+                'habits_logged': logged_count,
+                'streaks': streaks
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling client habit logging response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': '❌ Error logging habits. Please try again.'
+            }
+    
+    def _handle_habit_progress_response(self, flow_data: Dict, token_data: Dict) -> Dict:
+        """Handle habit progress flow completion"""
+        try:
+            response_data = flow_data.get('response', {})
+            selected_action = response_data.get('selected_action')
+            
+            # Clean up flow token
+            self._cleanup_flow_token(flow_data.get('flow_token'))
+            
+            # Handle the selected action
+            if selected_action == 'log_today':
+                message = (
+                    "📝 *Ready to log today's habits!*\n\n"
+                    "Use `/log_habit` to start logging, or just tell me what you did:\n\n"
+                    "Examples:\n"
+                    "• 'drank 2 liters water'\n"
+                    "• 'slept 8 hours'\n"
+                    "• 'workout completed'\n"
+                    "• 'walked 10000 steps'"
+                )
+            elif selected_action == 'set_goals':
+                message = (
+                    "🎯 *Goal Setting*\n\n"
+                    "Goal management is coming soon! For now, focus on building consistency.\n\n"
+                    "Remember: Small daily actions lead to big results! 💪"
+                )
+            elif selected_action == 'view_streaks':
+                message = (
+                    "🔥 *Check Your Streaks*\n\n"
+                    "Use `/habit_streak` to see all your current streaks and get motivated!"
+                )
+            elif selected_action == 'get_tips':
+                message = (
+                    "💡 *Habit Building Tips*\n\n"
+                    "🎯 Start small - even 1% better each day adds up\n"
+                    "🔗 Stack habits - link new habits to existing ones\n"
+                    "📅 Be consistent - same time, same place\n"
+                    "🎉 Celebrate wins - acknowledge your progress\n"
+                    "💪 Focus on identity - 'I am someone who...'\n\n"
+                    "You've got this! Keep building those healthy habits! 🌟"
+                )
+            else:
+                message = "Thanks for checking your progress! Keep up the great work! 💪"
+            
+            return {
+                'success': True,
+                'message': message,
+                'action': selected_action
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling habit progress response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': '❌ Error processing your request. Please try again.'
+            }
+    
+    def _store_flow_token(self, token: str, data: Dict) -> bool:
+        """Store flow token data for later retrieval"""
+        try:
+            result = self.supabase.table('flow_tokens').insert({
+                'token': token,
+                'data': data,
+                'created_at': datetime.now().isoformat(),
+                'expires_at': (datetime.now() + timedelta(hours=1)).isoformat()
+            }).execute()
+            
+            return bool(result.data)
+            
+        except Exception as e:
+            log_error(f"Error storing flow token: {str(e)}")
+            return False
+    
+    def _get_flow_token_data(self, token: str) -> Optional[Dict]:
+        """Retrieve flow token data"""
+        try:
+            result = self.supabase.table('flow_tokens').select('*').eq(
+                'token', token
+            ).gte('expires_at', datetime.now().isoformat()).execute()
+            
+            if result.data:
+                return result.data[0]['data']
+            return None
+            
+        except Exception as e:
+            log_error(f"Error retrieving flow token data: {str(e)}")
+            return None
+    
+    def _cleanup_flow_token(self, token: str) -> bool:
+        """Clean up used flow token"""
+        try:
+            result = self.supabase.table('flow_tokens').delete().eq('token', token).execute()
+            return bool(result.data)
+            
+        except Exception as e:
+            log_error(f"Error cleaning up flow token: {str(e)}")
+            return False

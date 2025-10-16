@@ -330,10 +330,15 @@ class ClientRegistrationHandler:
                             f"👨‍💼 **Your Trainer:** {trainer_name}\n"
                             f"🏢 **Business:** {business_name}\n"
                             f"📧 **Contact:** {trainer_email}\n\n"
+                            f"🎯 *Build Healthy Habits:*\n"
+                            f"• Type `/habits` to start tracking your progress\n"
+                            f"• Use `/log_habit` to log daily habits\n"
+                            f"• Check your streaks with `/habit_streak`\n\n"
                             f"🚀 **Next Steps:**\n"
                             f"• Your trainer will contact you within 24 hours\n"
                             f"• Schedule your first assessment session\n"
                             f"• Start your personalized fitness journey!\n\n"
+                            f"💡 *Tip:* Consistent habit tracking is key to reaching your fitness goals!\n\n"
                             f"💬 Questions? Just message me anytime!"
                         )
                         
@@ -372,10 +377,15 @@ class ClientRegistrationHandler:
                         "🎉🎊 *YOU DID IT!* 🎊🎉\n\n"
                         f"Welcome to your fitness transformation, {data['name']}! "
                         "This is the beginning of something amazing! 🌟\n\n"
+                        "🎯 *Start Building Healthy Habits:*\n"
+                        "• Type `/habits` to start tracking your progress\n"
+                        "• Use `/log_habit` to log daily habits\n"
+                        "• Check your streaks with `/habit_streak`\n\n"
                         "🔍 **Ready to find your perfect trainer?**\n"
                         "• Say 'find a trainer' to search for trainers\n"
                         "• Ask friends for trainer recommendations\n"
                         "• If you know a trainer's email, say 'trainer [email]'\n\n"
+                        "💡 *Tip:* Start tracking habits now, even before finding a trainer!\n\n"
                         "Your fitness journey starts now! 💪"
                     )
                 

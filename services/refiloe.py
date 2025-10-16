@@ -394,6 +394,28 @@ class RefiloeService:
                 return self._handle_request_trainer_command(phone, command, user_data)
             elif command.startswith('/add_trainer') and user_type == 'client':
                 return self._handle_add_trainer_command(phone, command, user_data)
+            elif command == '/habits':
+                return self._handle_habits_command(phone, user_type, user_data)
+            elif command == '/log_habit':
+                return self._handle_log_habit_command(phone, user_type, user_data)
+            elif command == '/habit_streak':
+                return self._handle_habit_streak_command(phone, user_type, user_data)
+            elif command == '/habit_goals':
+                return self._handle_habit_goals_command(phone, user_type, user_data)
+            elif command == '/habit_progress' and user_type == 'client':
+                return self._handle_habit_progress_command(phone, user_data)
+            elif command == '/setup_habits' and user_type == 'trainer':
+                return self._handle_setup_habits_command(phone, user_data)
+            elif command == '/habit_challenges':
+                return self._handle_habit_challenges_command(phone, user_type, user_data)
+            elif command == '/habit_analytics' and user_type == 'trainer':
+                return self._handle_habit_analytics_command(phone, user_type, user_data)
+            elif command == '/send_reminders' and user_type == 'trainer':
+                return self._handle_send_reminders_command(phone, user_type, user_data)
+            elif command == '/create_challenge' and user_type == 'trainer':
+                return self._handle_create_challenge_command(phone, user_data)
+            elif command == '/test_flows':
+                return self._test_habit_flows(phone, user_type, user_data)
             elif command == '/reset_me':
                 return self._handle_reset_command(phone)
             else:
@@ -422,7 +444,13 @@ class RefiloeService:
                 "• `/add_client` - Add a new client\n"
                 "• `/pending_requests` - View client requests\n"
                 "• `/approve_client [name]` - Approve client\n"
-                "• `/decline_client [name]` - Decline client"
+                "• `/decline_client [name]` - Decline client\n"
+                "• `/habits` - Client habit management\n"
+                "• `/setup_habits` - Setup client habits\n"
+                "• `/habit_challenges` - Manage habit challenges\n"
+                "• `/create_challenge` - Create new challenge\n"
+                "• `/habit_analytics` - View habit analytics\n"
+                "• `/send_reminders` - Send habit reminders"
             )
         elif user_type == 'client':
             return (
@@ -435,7 +463,13 @@ class RefiloeService:
                 "• `/decline_invitation [token]` - Decline invitation\n"
                 "• `/find_trainer` - Search for trainers\n"
                 "• `/request_trainer [email/phone]` - Request specific trainer\n"
-                "• `/add_trainer [email/phone]` - Add trainer directly"
+                "• `/add_trainer [email/phone]` - Add trainer directly\n"
+                "• `/habits` - View your habit progress\n"
+                "• `/log_habit` - Log today's habits\n"
+                "• `/habit_progress` - Detailed progress view\n"
+                "• `/habit_streak` - Check your streaks\n"
+                "• `/habit_goals` - Manage habit goals\n"
+                "• `/habit_challenges` - View available challenges"
             )
         else:
             return (
@@ -656,6 +690,99 @@ class RefiloeService:
                     except Exception as e:
                         log_error(f"Error processing client registration: {str(e)}")
                         self.update_conversation_state(phone, 'IDLE')
+            
+            # CHECK FOR HABIT LOGGING FLOW
+            if conv_state.get('state') == 'HABIT_LOGGING':
+                log_info(f"User {phone} is in habit logging flow")
+                
+                try:
+                    result = self._handle_habit_logging_step(phone, text, conv_state.get('context', {}))
+                    
+                    if result.get('success'):
+                        if result.get('completed'):
+                            # Habit logging completed
+                            whatsapp_service.send_message(phone, result['message'])
+                            self.update_conversation_state(phone, 'IDLE')
+                        else:
+                            # Continue habit logging
+                            whatsapp_service.send_message(phone, result['message'])
+                            if result.get('context'):
+                                self.update_conversation_state(phone, 'HABIT_LOGGING', result['context'])
+                        
+                        return {'success': True, 'response': result['message']}
+                    else:
+                        # Error in processing
+                        whatsapp_service.send_message(phone, result['message'])
+                        return {'success': False, 'response': result['message']}
+                        
+                except Exception as e:
+                    log_error(f"Error processing habit logging: {str(e)}")
+                    error_msg = "❌ Sorry, there was an error logging your habits. Please try again with `/log_habit`."
+                    whatsapp_service.send_message(phone, error_msg)
+                    self.update_conversation_state(phone, 'IDLE')
+                    return {'success': False, 'response': error_msg}
+            
+            # CHECK FOR HABIT SETUP FLOW
+            if conv_state.get('state') == 'HABIT_SETUP':
+                log_info(f"User {phone} is in habit setup flow")
+                
+                try:
+                    result = self._handle_habit_setup_step(phone, text, conv_state.get('context', {}))
+                    
+                    if result.get('success'):
+                        if result.get('completed'):
+                            # Habit setup completed
+                            whatsapp_service.send_message(phone, result['message'])
+                            self.update_conversation_state(phone, 'IDLE')
+                        else:
+                            # Continue habit setup
+                            whatsapp_service.send_message(phone, result['message'])
+                            if result.get('context'):
+                                self.update_conversation_state(phone, 'HABIT_SETUP', result['context'])
+                        
+                        return {'success': True, 'response': result['message']}
+                    else:
+                        # Error in processing
+                        whatsapp_service.send_message(phone, result['message'])
+                        return {'success': False, 'response': result['message']}
+                        
+                except Exception as e:
+                    log_error(f"Error processing habit setup: {str(e)}")
+                    error_msg = "❌ Sorry, there was an error setting up habits. Please try again with `/setup_habits`."
+                    whatsapp_service.send_message(phone, error_msg)
+                    self.update_conversation_state(phone, 'IDLE')
+                    return {'success': False, 'response': error_msg}
+            
+            # CHECK FOR CHALLENGE CREATION FLOW
+            if conv_state.get('state') == 'CHALLENGE_CREATION':
+                log_info(f"User {phone} is in challenge creation flow")
+                
+                try:
+                    result = self._handle_challenge_creation_step(phone, text, conv_state.get('context', {}))
+                    
+                    if result.get('success'):
+                        if result.get('completed'):
+                            # Challenge creation completed
+                            whatsapp_service.send_message(phone, result['message'])
+                            self.update_conversation_state(phone, 'IDLE')
+                        else:
+                            # Continue challenge creation
+                            whatsapp_service.send_message(phone, result['message'])
+                            if result.get('context'):
+                                self.update_conversation_state(phone, 'CHALLENGE_CREATION', result['context'])
+                        
+                        return {'success': True, 'response': result['message']}
+                    else:
+                        # Error in processing
+                        whatsapp_service.send_message(phone, result['message'])
+                        return {'success': False, 'response': result['message']}
+                        
+                except Exception as e:
+                    log_error(f"Error processing challenge creation: {str(e)}")
+                    error_msg = "❌ Sorry, there was an error creating the challenge. Please try again with `/create_challenge`."
+                    whatsapp_service.send_message(phone, error_msg)
+                    self.update_conversation_state(phone, 'IDLE')
+                    return {'success': False, 'response': error_msg}
             
             # CHECK FOR CLIENT INVITATION RESPONSES
             if sender_type == 'unknown':
@@ -1146,8 +1273,11 @@ class RefiloeService:
                     f"• Type `/trainer` to view trainer details"
                 )
             
-            whatsapp_service.send_message(phone, response)
-            return {'success': True, 'response': response}
+            # Enhance profile with habit information
+            enhanced_response = self._enhance_profile_with_habits(phone, user_type, user_data, response)
+            
+            whatsapp_service.send_message(phone, enhanced_response)
+            return {'success': True, 'response': enhanced_response}
             
         except Exception as e:
             log_error(f"Error handling profile command: {str(e)}")
@@ -2983,4 +3113,1888 @@ class RefiloeService:
             
         except Exception as e:
             log_error(f"Error handling add trainer command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    # ==================== HABIT TRACKING COMMAND HANDLERS ====================
+    
+    def _handle_habits_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /habits command - show habit overview and options"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type == 'trainer':
+                return self._show_trainer_habit_dashboard(phone, user_data, whatsapp_service)
+            elif user_type == 'client':
+                return self._show_client_habit_dashboard(phone, user_data, whatsapp_service)
+            else:
+                return self._show_habit_registration_prompt(phone, whatsapp_service)
+                
+        except Exception as e:
+            log_error(f"Error handling habits command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _show_trainer_habit_dashboard(self, phone: str, user_data: dict, whatsapp_service) -> Dict:
+        """Show trainer's client habit management dashboard"""
+        try:
+            # Get trainer's clients
+            clients_result = self.db.table('clients').select('id, name, whatsapp').eq(
+                'trainer_id', user_data['id']
+            ).eq('status', 'active').execute()
+            
+            if not clients_result.data:
+                response = (
+                    "📊 *Client Habit Management*\n\n"
+                    "You don't have any active clients yet.\n\n"
+                    "Add clients first using `/add_client` to start tracking their habits!"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Get habit tracking stats for clients
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            response = "📊 *Client Habit Management*\n\n"
+            
+            for client in clients_result.data[:5]:  # Limit to 5 clients for readability
+                client_habits = habits_service.get_client_habits(client['id'], days=7)
+                
+                if client_habits['success'] and client_habits['days_tracked'] > 0:
+                    # Calculate streaks for this client
+                    streaks = []
+                    for habit_type in habits_service.habit_types:
+                        streak = habits_service.calculate_streak(client['id'], habit_type)
+                        if streak > 0:
+                            streaks.append(f"{habit_type.replace('_', ' ').title()}: {streak}d")
+                    
+                    streak_text = ", ".join(streaks[:3]) if streaks else "No active streaks"
+                    response += f"👤 *{client['name']}*\n🔥 {streak_text}\n\n"
+                else:
+                    response += f"👤 *{client['name']}*\n📝 No habits logged yet\n\n"
+            
+            response += (
+                "*Quick Actions:*\n"
+                "• `/setup_habits` - Setup habits for a client\n"
+                "• Type client name to view detailed progress\n"
+                "• `/habit_goals` - Manage client goals"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error showing trainer habit dashboard: {str(e)}")
+            response = "❌ Error loading habit dashboard. Please try again."
+            whatsapp_service.send_message(phone, response)
+            return {'success': False, 'error': str(e)}
+    
+    def _show_client_habit_dashboard(self, phone: str, user_data: dict, whatsapp_service) -> Dict:
+        """Show client's personal habit tracking dashboard"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Get client's habit data for the last 7 days
+            habits_data = habits_service.get_client_habits(user_data['id'], days=7)
+            
+            if not habits_data['success'] or habits_data['days_tracked'] == 0:
+                # Start habit onboarding for new users
+                return self._start_habit_onboarding(phone, user_type, user_data)
+            
+            # Generate progress report
+            response = self._format_habit_progress_report(user_data['id'], habits_service)
+            
+            response += (
+                "\n*Quick Actions:*\n"
+                "• `/log_habit` - Log today's habits\n"
+                "• `/habit_streak` - Check all your streaks\n"
+                "• `/habit_goals` - Manage your goals"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error showing client habit dashboard: {str(e)}")
+            response = "❌ Error loading your habit progress. Please try again."
+            whatsapp_service.send_message(phone, response)
+            return {'success': False, 'error': str(e)}
+    
+    def _show_habit_registration_prompt(self, phone: str, whatsapp_service) -> Dict:
+        """Show habit tracking registration prompt for unknown users"""
+        response = (
+            "🎯 *Habit Tracking Available!*\n\n"
+            "Track your daily habits and build lasting healthy routines!\n\n"
+            "To access habit tracking, please register first:\n\n"
+            "• Type `/registration` to get started\n"
+            "• Choose 'Client' to track your personal habits\n"
+            "• Choose 'Trainer' to help clients with their habits\n\n"
+            "Ready to build better habits? Let's get you registered! 🚀"
+        )
+        whatsapp_service.send_message(phone, response)
+        return {'success': True, 'response': response}
+    
+    def _handle_log_habit_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /log_habit command - quick habit logging"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type != 'client':
+                response = (
+                    "📝 *Habit Logging*\n\n"
+                    "Habit logging is available for clients only.\n\n"
+                    "If you're a trainer, use `/habits` to manage client habits.\n"
+                    "If you want to track personal habits, register as a client too!"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Try WhatsApp Flow first, fallback to conversation state
+            try:
+                from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                
+                # Send WhatsApp Flow
+                flow_result = flow_handler.send_client_habit_logging_flow(phone, user_data)
+                
+                if flow_result.get('success'):
+                    log_info(f"Sent client habit logging flow to {phone}")
+                    return {
+                        'success': True,
+                        'method': 'whatsapp_flow',
+                        'response': 'Habit logging flow sent! Please complete the interactive form.'
+                    }
+                else:
+                    log_warning(f"WhatsApp Flow failed for habit logging: {flow_result.get('error')}")
+                    # Continue to fallback below
+                    
+            except Exception as flow_error:
+                log_warning(f"WhatsApp Flow handler error: {str(flow_error)}")
+                # Continue to fallback below
+            
+            # FALLBACK: Use conversation state method
+            log_info(f"Using conversation state fallback for habit logging: {phone}")
+            return self._start_habit_logging_flow(phone, user_data, whatsapp_service)
+            
+        except Exception as e:
+            log_error(f"Error handling log habit command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _start_habit_logging_flow(self, phone: str, user_data: dict, whatsapp_service) -> Dict:
+        """Start habit logging flow for client"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Check what habits they've logged today
+            today = datetime.now().date().isoformat()
+            today_habits = habits_service.get_client_habits(user_data['id'], days=1)
+            
+            logged_today = []
+            if today_habits['success'] and today in today_habits['data']:
+                logged_today = list(today_habits['data'][today].keys())
+            
+            # Show quick logging options
+            response = "📝 *Log Today's Habits*\n\n"
+            
+            if logged_today:
+                response += "*Already logged today:*\n"
+                for habit in logged_today:
+                    habit_name = habit.replace('_', ' ').title()
+                    value = today_habits['data'][today][habit]
+                    response += f"✅ {habit_name}: {value}\n"
+                response += "\n"
+            
+            response += (
+                "*Quick logging examples:*\n"
+                "• 'drank 2 liters water'\n"
+                "• 'slept 8 hours'\n"
+                "• 'walked 10000 steps'\n"
+                "• 'workout completed'\n"
+                "• 'weight 75kg'\n\n"
+                "Just tell me what you did today! 💪"
+            )
+            
+            # Set conversation state for habit logging
+            self.update_conversation_state(phone, 'HABIT_LOGGING', {
+                'client_id': user_data['id'],
+                'date': today
+            })
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error starting habit logging flow: {str(e)}")
+            response = "❌ Error starting habit logging. Please try again."
+            whatsapp_service.send_message(phone, response)
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_habit_streak_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /habit_streak command - show current streaks"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type != 'client':
+                response = (
+                    "🔥 *Habit Streaks*\n\n"
+                    "Streak tracking is available for clients only.\n\n"
+                    "If you're a trainer, use `/habits` to view client streaks.\n"
+                    "If you want personal streaks, register as a client too!"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            return self._show_habit_streaks(phone, user_data, whatsapp_service)
+            
+        except Exception as e:
+            log_error(f"Error handling habit streak command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _show_habit_streaks(self, phone: str, user_data: dict, whatsapp_service) -> Dict:
+        """Display current habit streaks with motivational messages"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Calculate streaks for all habit types
+            streaks = {}
+            for habit_type in habits_service.habit_types:
+                streak = habits_service.calculate_streak(user_data['id'], habit_type)
+                if streak > 0:
+                    streaks[habit_type] = streak
+            
+            if not streaks:
+                response = (
+                    "🔥 *Your Habit Streaks*\n\n"
+                    "No active streaks yet, but that's okay! Every expert was once a beginner.\n\n"
+                    "Start building your first streak:\n"
+                    "• `/log_habit` - Log today's habits\n"
+                    "• Even 1 day is a great start! 💪\n\n"
+                    "Remember: Consistency beats perfection! 🎯"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            response = "🔥 *Your Current Streaks*\n\n"
+            
+            # Sort streaks by length (longest first)
+            sorted_streaks = sorted(streaks.items(), key=lambda x: x[1], reverse=True)
+            
+            for habit_type, streak in sorted_streaks:
+                habit_name = habit_type.replace('_', ' ').title()
+                fire_emoji = '🔥' * min(streak // 3, 5)  # More fire for longer streaks
+                
+                if streak >= 21:
+                    status = "🌟 AMAZING!"
+                elif streak >= 14:
+                    status = "💪 STRONG!"
+                elif streak >= 7:
+                    status = "🚀 BUILDING!"
+                else:
+                    status = "✨ STARTING!"
+                
+                response += f"• {habit_name}: {streak} days {fire_emoji} {status}\n"
+            
+            # Add motivational message based on total streaks
+            total_streak_days = sum(streaks.values())
+            
+            response += "\n"
+            if total_streak_days > 50:
+                response += "🌟 *Incredible consistency! You're building amazing habits!*"
+            elif total_streak_days > 20:
+                response += "💪 *Great progress! Keep up the momentum!*"
+            elif total_streak_days > 10:
+                response += "🚀 *Good start! Consistency is key to success!*"
+            else:
+                response += "✨ *Every day counts! You're on the right track!*"
+            
+            response += (
+                "\n\n*Keep it going:*\n"
+                "• `/log_habit` - Log today's habits\n"
+                "• Don't break the chain! 🔗"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error showing habit streaks: {str(e)}")
+            response = "❌ Error loading your streaks. Please try again."
+            whatsapp_service.send_message(phone, response)
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_habit_goals_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /habit_goals command - manage habit goals"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type == 'trainer':
+                response = (
+                    "🎯 *Client Habit Goals*\n\n"
+                    "Goal management for clients is coming soon!\n\n"
+                    "For now, use `/habits` to view client progress.\n"
+                    "You can help clients set goals through conversation."
+                )
+            elif user_type == 'client':
+                response = (
+                    "🎯 *Your Habit Goals*\n\n"
+                    "Goal setting is coming soon!\n\n"
+                    "For now, focus on building consistency:\n"
+                    "• `/log_habit` - Log daily habits\n"
+                    "• `/habit_streak` - Track your progress\n\n"
+                    "Remember: Small daily actions lead to big results! 💪"
+                )
+            else:
+                response = (
+                    "🎯 *Habit Goals*\n\n"
+                    "Goal setting is available for registered users.\n\n"
+                    "Type `/registration` to get started!"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling habit goals command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_setup_habits_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /setup_habits command - trainer sets up client habits"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Try WhatsApp Flow first, fallback to conversation state
+            try:
+                from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                
+                # Send WhatsApp Flow
+                flow_result = flow_handler.send_trainer_habit_setup_flow(phone, user_data)
+                
+                if flow_result.get('success'):
+                    log_info(f"Sent trainer habit setup flow to {phone}")
+                    return {
+                        'success': True,
+                        'method': 'whatsapp_flow',
+                        'response': 'Habit setup flow sent! Please complete the interactive form.'
+                    }
+                else:
+                    log_warning(f"WhatsApp Flow failed for habit setup: {flow_result.get('error')}")
+                    # Continue to fallback below
+                    
+            except Exception as flow_error:
+                log_warning(f"WhatsApp Flow handler error: {str(flow_error)}")
+                # Continue to fallback below
+            
+            # FALLBACK: Use conversation state method
+            log_info(f"Using conversation state fallback for habit setup: {phone}")
+            
+            # Get trainer's clients
+            clients_result = self.db.table('clients').select('id, name, whatsapp').eq(
+                'trainer_id', user_data['id']
+            ).eq('status', 'active').execute()
+            
+            if not clients_result.data:
+                response = (
+                    "👥 *Setup Client Habits*\n\n"
+                    "You don't have any active clients yet.\n\n"
+                    "Add clients first using `/add_client` to start setting up their habits!"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            response = (
+                "👥 *Setup Client Habits*\n\n"
+                "Choose a client to setup habits for:\n\n"
+            )
+            
+            for i, client in enumerate(clients_result.data[:10], 1):  # Limit to 10 clients
+                response += f"{i}. {client['name']}\n"
+            
+            response += (
+                "\nReply with the client's name or number to continue.\n\n"
+                "Example: 'Sarah' or '1'"
+            )
+            
+            # Set conversation state for habit setup
+            self.update_conversation_state(phone, 'HABIT_SETUP', {
+                'trainer_id': user_data['id'],
+                'clients': clients_result.data,
+                'step': 'select_client'
+            })
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'method': 'conversation_state', 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling setup habits command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _format_habit_progress_report(self, client_id: str, habits_service) -> str:
+        """Create rich text progress report with visual elements"""
+        try:
+            # Get habit data for the last 7 days
+            habits_data = habits_service.get_client_habits(client_id, days=7)
+            
+            if not habits_data['success']:
+                return "📊 No habit data available yet. Start logging to see your progress!"
+            
+            report = "📊 *Your Habit Progress*\n\n"
+            
+            # Calculate current streaks
+            streaks = {}
+            for habit_type in habits_service.habit_types:
+                streak = habits_service.calculate_streak(client_id, habit_type)
+                if streak > 0:
+                    streaks[habit_type] = streak
+            
+            if streaks:
+                report += "*🔥 Current Streaks:*\n"
+                for habit, streak in sorted(streaks.items(), key=lambda x: x[1], reverse=True):
+                    habit_name = habit.replace('_', ' ').title()
+                    fire_emoji = '🔥' * min(streak // 3, 5)  # More fire for longer streaks
+                    report += f"• {habit_name}: {streak} days {fire_emoji}\n"
+                report += "\n"
+            
+            # Weekly completion chart
+            report += "*📅 This Week:*\n"
+            
+            # Create simple text-based chart for key habits
+            key_habits = [
+                ('water_intake', '💧 Water'),
+                ('workout_completed', '💪 Workout'),
+                ('sleep_hours', '😴 Sleep'),
+                ('steps', '🚶 Steps')
+            ]
+            
+            for habit_type, habit_display in key_habits:
+                if habit_type in [h for h in habits_service.habit_types]:
+                    completion_line = f"{habit_display}: "
+                    
+                    # Check each day of the week (last 7 days)
+                    for i in range(7):
+                        date = (datetime.now() - timedelta(days=6-i)).date().isoformat()
+                        
+                        # Check if habit was logged for this date
+                        completed = False
+                        if date in habits_data['data'] and habit_type in habits_data['data'][date]:
+                            completed = True
+                        
+                        completion_line += "✅" if completed else "⭕"
+                    
+                    report += completion_line + "\n"
+            
+            # Add motivational message
+            total_streaks = sum(streaks.values())
+            if total_streaks > 20:
+                report += "\n🌟 *Amazing consistency! You're building incredible habits!*"
+            elif total_streaks > 10:
+                report += "\n💪 *Great progress! Keep up the momentum!*"
+            elif total_streaks > 0:
+                report += "\n🚀 *Good start! Consistency is key to success!*"
+            else:
+                report += "\n🎯 *Ready to start building healthy habits? You've got this!*"
+            
+            return report
+            
+        except Exception as e:
+            log_error(f"Error formatting habit progress report: {str(e)}")
+            return "📊 Error loading progress report. Please try again."    
+   
+ # ==================== HABIT CONVERSATION FLOW HANDLERS ====================
+    
+    def _handle_habit_logging_step(self, phone: str, text: str, context: dict) -> Dict:
+        """Handle habit logging conversation step"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            client_id = context.get('client_id')
+            if not client_id:
+                return {
+                    'success': False,
+                    'message': '❌ Session expired. Please use `/log_habit` to start again.',
+                    'completed': True
+                }
+            
+            # Check if user wants to finish
+            if text.lower().strip() in ['done', 'finish', 'complete', 'exit', 'stop']:
+                return {
+                    'success': True,
+                    'message': '✅ *Habit logging completed!* Great job staying consistent with your habits! 💪',
+                    'completed': True
+                }
+            
+            # Get client's allowed habits first
+            client_habits_data = habits_service.get_client_habits(client_id, days=30)
+            allowed_habits = set()
+            
+            if client_habits_data['success'] and client_habits_data['data']:
+                for date_data in client_habits_data['data'].values():
+                    allowed_habits.update(date_data.keys())
+            
+            if not allowed_habits:
+                return {
+                    'success': False,
+                    'message': (
+                        '❌ *No habits setup yet!*\n\n'
+                        'You need to setup habit tracking first. Ask your trainer to use `/setup_habits` '
+                        'to configure your habits.'
+                    ),
+                    'completed': True
+                }
+            
+            # Parse habit data from natural language
+            parsed_habits = habits_service.parse_habit_from_text(text)
+            
+            if not parsed_habits:
+                # Show available habits to help user
+                habit_examples = []
+                for habit in list(allowed_habits)[:4]:  # Show up to 4 examples
+                    if habit == 'water_intake':
+                        habit_examples.append("'drank 2 liters water'")
+                    elif habit == 'sleep_hours':
+                        habit_examples.append("'slept 8 hours'")
+                    elif habit == 'steps':
+                        habit_examples.append("'walked 10000 steps'")
+                    elif habit == 'workout_completed':
+                        habit_examples.append("'workout completed'")
+                    elif habit == 'weight':
+                        habit_examples.append("'weight 75kg'")
+                
+                return {
+                    'success': True,
+                    'message': (
+                        f"I didn't detect any habits in your message. Try these examples:\n\n"
+                        f"{chr(10).join(['• ' + ex for ex in habit_examples])}\n\n"
+                        f"Or type 'done' when finished logging."
+                    ),
+                    'completed': False,
+                    'context': context
+                }
+            
+            # Validate and log the detected habits
+            logged_habits = []
+            invalid_habits = []
+            streaks = {}
+            
+            for habit_data in parsed_habits:
+                habit_type = habit_data.get('type')
+                value = habit_data.get('value')
+                
+                if habit_type and value:
+                    # Check if this habit is allowed for this client
+                    if habit_type in allowed_habits:
+                        result = habits_service.log_habit(client_id, habit_type, value)
+                        if result.get('success'):
+                            logged_habits.append(habit_type)
+                            streaks[habit_type] = result.get('streak', 0)
+                    else:
+                        invalid_habits.append(habit_type)
+            
+            # Handle results
+            if invalid_habits and not logged_habits:
+                return {
+                    'success': True,
+                    'message': (
+                        f"❌ The habits you mentioned ({', '.join(invalid_habits)}) are not setup for you.\n\n"
+                        f"You can only log these habits: {', '.join([h.replace('_', ' ').title() for h in allowed_habits])}\n\n"
+                        f"Ask your trainer to setup additional habits if needed."
+                    ),
+                    'completed': False,
+                    'context': context
+                }
+            elif not logged_habits:
+                return {
+                    'success': True,
+                    'message': (
+                        "❌ Couldn't log any habits from your message. Please try again with specific values for your setup habits:\n\n"
+                        f"Available habits: {', '.join([h.replace('_', ' ').title() for h in allowed_habits])}"
+                    ),
+                    'completed': False,
+                    'context': context
+                }
+            
+            # Generate success message
+            message = f"✅ *Logged {len(logged_habits)} habit(s)!*\n\n"
+            
+            for habit_type in logged_habits:
+                habit_name = habit_type.replace('_', ' ').title()
+                streak = streaks.get(habit_type, 0)
+                fire_emoji = '🔥' * min(streak // 3, 5)
+                
+                if streak > 0:
+                    message += f"• {habit_name}: {streak} day streak {fire_emoji}\n"
+                else:
+                    message += f"• {habit_name}: Logged ✅\n"
+            
+            message += (
+                "\n💪 *Great job!* Keep logging more habits or type 'done' when finished.\n\n"
+                "Examples: 'workout completed', 'mood: great', 'calories 2000'"
+            )
+            
+            return {
+                'success': True,
+                'message': message,
+                'completed': False,
+                'context': context
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling habit logging step: {str(e)}")
+            return {
+                'success': False,
+                'message': '❌ Error logging habits. Please try again.',
+                'completed': True
+            }
+    
+    def _handle_habit_setup_step(self, phone: str, text: str, context: dict) -> Dict:
+        """Handle habit setup conversation step"""
+        try:
+            step = context.get('step', 'select_client')
+            trainer_id = context.get('trainer_id')
+            clients = context.get('clients', [])
+            
+            if step == 'select_client':
+                # User is selecting a client
+                text_lower = text.strip().lower()
+                
+                # Try to match by name or number
+                selected_client = None
+                
+                # Try matching by number first
+                if text_lower.isdigit():
+                    client_index = int(text_lower) - 1
+                    if 0 <= client_index < len(clients):
+                        selected_client = clients[client_index]
+                
+                # Try matching by name
+                if not selected_client:
+                    for client in clients:
+                        if text_lower in client['name'].lower():
+                            selected_client = client
+                            break
+                
+                if not selected_client:
+                    # No match found
+                    response = (
+                        "❌ Client not found. Please choose from your client list:\n\n"
+                    )
+                    
+                    for i, client in enumerate(clients[:10], 1):
+                        response += f"{i}. {client['name']}\n"
+                    
+                    response += "\nReply with the client's name or number."
+                    
+                    return {
+                        'success': True,
+                        'message': response,
+                        'completed': False,
+                        'context': context
+                    }
+                
+                # Client selected, move to habit selection
+                response = (
+                    f"👤 *Setting up habits for {selected_client['name']}*\n\n"
+                    f"Choose habits to track (reply with numbers, e.g., '1,3,5'):\n\n"
+                    f"1. 💧 Water Intake - Daily water consumption\n"
+                    f"2. 😴 Sleep Hours - Hours of sleep per night\n"
+                    f"3. 🚶 Daily Steps - Step count per day\n"
+                    f"4. 💪 Workout Completion - Daily workout completion\n"
+                    f"5. ⚖️ Weight Tracking - Body weight monitoring\n"
+                    f"6. 🍽️ Meal Logging - Number of meals logged\n"
+                    f"7. 🔥 Calorie Tracking - Daily calorie intake\n"
+                    f"8. 😊 Mood Tracking - Daily mood and energy\n\n"
+                    f"Example: '1,2,4' for water, sleep, and workouts"
+                )
+                
+                new_context = context.copy()
+                new_context['step'] = 'select_habits'
+                new_context['selected_client'] = selected_client
+                
+                return {
+                    'success': True,
+                    'message': response,
+                    'completed': False,
+                    'context': new_context
+                }
+            
+            elif step == 'select_habits':
+                # User is selecting habits
+                selected_client = context.get('selected_client')
+                
+                # Parse habit selection
+                habit_types = [
+                    'water_intake', 'sleep_hours', 'steps', 'workout_completed',
+                    'weight', 'meals_logged', 'calories', 'mood'
+                ]
+                
+                habit_names = [
+                    '💧 Water Intake', '😴 Sleep Hours', '🚶 Daily Steps', '💪 Workout Completion',
+                    '⚖️ Weight Tracking', '🍽️ Meal Logging', '🔥 Calorie Tracking', '😊 Mood Tracking'
+                ]
+                
+                # Parse numbers from input
+                import re
+                numbers = re.findall(r'\d+', text)
+                
+                if not numbers:
+                    return {
+                        'success': True,
+                        'message': (
+                            "❌ Please select habits by number (e.g., '1,3,5'):\n\n"
+                            "1. 💧 Water  2. 😴 Sleep  3. 🚶 Steps  4. 💪 Workout\n"
+                            "5. ⚖️ Weight  6. 🍽️ Meals  7. 🔥 Calories  8. 😊 Mood"
+                        ),
+                        'completed': False,
+                        'context': context
+                    }
+                
+                selected_habits = []
+                selected_names = []
+                
+                for num_str in numbers:
+                    num = int(num_str)
+                    if 1 <= num <= 8:
+                        selected_habits.append(habit_types[num - 1])
+                        selected_names.append(habit_names[num - 1])
+                
+                if not selected_habits:
+                    return {
+                        'success': True,
+                        'message': "❌ Please select valid habit numbers (1-8).",
+                        'completed': False,
+                        'context': context
+                    }
+                
+                # Initialize habits for the client
+                from services.habits import HabitTrackingService
+                habits_service = HabitTrackingService(self.db)
+                
+                success_count = 0
+                for habit_type in selected_habits:
+                    # Create initial habit entry
+                    result = habits_service.log_habit(
+                        selected_client['id'],
+                        habit_type,
+                        'initialized',
+                        datetime.now().date().isoformat()
+                    )
+                    if result.get('success'):
+                        success_count += 1
+                
+                # Send completion message
+                message = (
+                    f"🎉 *Habit Tracking Setup Complete!*\n\n"
+                    f"✅ Client: {selected_client['name']}\n"
+                    f"📊 Habits activated: {len(selected_habits)}\n\n"
+                    f"*Selected habits:*\n"
+                )
+                
+                for name in selected_names:
+                    message += f"• {name}\n"
+                
+                message += (
+                    f"\n💡 Your client can now:\n"
+                    f"• Use `/log_habit` to log daily habits\n"
+                    f"• Use `/habit_streak` to check streaks\n"
+                    f"• Simply tell me what they did (e.g., 'drank 2L water')\n\n"
+                    f"You can track their progress with `/habits`!"
+                )
+                
+                return {
+                    'success': True,
+                    'message': message,
+                    'completed': True
+                }
+            
+            else:
+                return {
+                    'success': False,
+                    'message': '❌ Invalid setup step. Please start over with `/setup_habits`.',
+                    'completed': True
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling habit setup step: {str(e)}")
+            return {
+                'success': False,
+                'message': '❌ Error setting up habits. Please try again.',
+                'completed': True
+            }
+    
+    def _start_habit_onboarding(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Start guided habit tracking onboarding for new users"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type == 'client':
+                # Generate personalized recommendations
+                recommendations = self._generate_habit_recommendations(user_data, user_type)
+                
+                # Create personalized message based on fitness goals
+                goals = user_data.get('fitness_goals', '').lower()
+                
+                if 'weight loss' in goals or 'lose weight' in goals:
+                    goal_message = "Since you're focused on weight loss, I recommend starting with habits that boost metabolism and track nutrition:"
+                elif 'muscle' in goals or 'strength' in goals:
+                    goal_message = "Since you're building muscle and strength, I recommend habits that support recovery and performance:"
+                elif 'endurance' in goals or 'cardio' in goals:
+                    goal_message = "Since you're focused on endurance and cardio, I recommend habits that support performance and recovery:"
+                else:
+                    goal_message = "Based on your profile, I recommend starting with these foundational healthy habits:"
+                
+                # Client onboarding - personal habit setup with recommendations
+                message = (
+                    f"🎯 *Welcome to Habit Tracking!*\n\n"
+                    f"Building healthy habits is key to reaching your fitness goals! "
+                    f"{goal_message}\n\n"
+                )
+                
+                # Add recommended habits
+                habit_display_names = {
+                    'water_intake': '💧 Water intake - Stay hydrated and boost metabolism',
+                    'sleep_hours': '😴 Sleep hours - Essential for recovery and performance',
+                    'steps': '🚶 Daily steps - Increase daily activity and burn calories',
+                    'workout_completed': '💪 Workout completion - Build strength and consistency',
+                    'weight': '⚖️ Weight tracking - Monitor your progress',
+                    'meals_logged': '🍽️ Meal logging - Track nutrition and eating patterns'
+                }
+                
+                for habit in recommendations:
+                    if habit in habit_display_names:
+                        message += f"{habit_display_names[habit]}\n"
+                
+                message += "\nWould you like to start tracking these recommended habits?"
+                
+                # Set up for habit onboarding flow
+                self.update_conversation_state(phone, 'HABIT_ONBOARDING', {
+                    'user_type': 'client',
+                    'user_id': user_data['id'],
+                    'step': 'confirm_start'
+                })
+                
+            elif user_type == 'trainer':
+                # Trainer onboarding - client habit management
+                message = (
+                    "📊 *Client Habit Tracking*\n\n"
+                    "Help your clients build lasting healthy habits! "
+                    "You can track their progress with:\n\n"
+                    "💧 Hydration goals - Keep them hydrated\n"
+                    "😴 Sleep quality - Ensure proper recovery\n"
+                    "🏃 Activity levels - Monitor daily movement\n"
+                    "💪 Workout consistency - Track training\n"
+                    "📈 Progress metrics - Measure success\n\n"
+                    "Ready to setup habit tracking for your clients?"
+                )
+                
+                # Set up for trainer habit onboarding
+                self.update_conversation_state(phone, 'HABIT_ONBOARDING', {
+                    'user_type': 'trainer',
+                    'user_id': user_data['id'],
+                    'step': 'confirm_start'
+                })
+            
+            else:
+                message = (
+                    "🎯 *Habit Tracking Available!*\n\n"
+                    "Track your daily habits and build lasting healthy routines!\n\n"
+                    "To access habit tracking, please register first:\n"
+                    "• Type `/registration` to get started\n"
+                    "• Choose your role (Client or Trainer)\n\n"
+                    "Ready to build better habits? Let's get you registered! 🚀"
+                )
+            
+            whatsapp_service.send_message(phone, message)
+            return {'success': True, 'response': message}
+            
+        except Exception as e:
+            log_error(f"Error starting habit onboarding: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _generate_habit_recommendations(self, user_data: dict, user_type: str) -> List[str]:
+        """Generate personalized habit recommendations based on user goals"""
+        try:
+            recommendations = []
+            
+            if user_type == 'client':
+                # Based on fitness goals
+                goals = user_data.get('fitness_goals', '').lower()
+                
+                if any(goal in goals for goal in ['weight loss', 'lose weight', 'fat loss']):
+                    recommendations.extend([
+                        'water_intake',    # Hydration helps metabolism
+                        'steps',           # Daily activity for calorie burn
+                        'sleep_hours',     # Recovery for weight loss
+                        'meals_logged'     # Nutrition tracking
+                    ])
+                elif any(goal in goals for goal in ['muscle', 'strength', 'build', 'gain']):
+                    recommendations.extend([
+                        'workout_completed',  # Consistency is key
+                        'sleep_hours',        # Recovery for muscle growth
+                        'water_intake',       # Hydration for performance
+                        'weight'              # Track muscle gain
+                    ])
+                elif any(goal in goals for goal in ['endurance', 'cardio', 'running', 'fitness']):
+                    recommendations.extend([
+                        'steps',              # Daily activity
+                        'water_intake',       # Hydration for performance
+                        'sleep_hours',        # Recovery
+                        'workout_completed'   # Training consistency
+                    ])
+                else:
+                    # General fitness recommendations
+                    recommendations.extend([
+                        'water_intake',       # Universal health benefit
+                        'sleep_hours',        # Essential for recovery
+                        'workout_completed',  # Basic fitness
+                        'steps'               # Daily movement
+                    ])
+            
+            elif user_type == 'trainer':
+                # Trainer recommendations for client management
+                recommendations.extend([
+                    'water_intake',       # Easy to track and important
+                    'workout_completed',  # Core to training
+                    'sleep_hours',        # Recovery tracking
+                    'weight'              # Progress monitoring
+                ])
+            
+            return recommendations[:4]  # Limit to 4 habits for better compliance
+            
+        except Exception as e:
+            log_error(f"Error generating habit recommendations: {str(e)}")
+            return ['water_intake', 'sleep_hours', 'workout_completed', 'steps']
+    
+    def _get_client_available_habits(self, client_id: str) -> Dict:
+        """Get list of habits available for a specific client"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Get client's habit history
+            client_habits_data = habits_service.get_client_habits(client_id, days=30)
+            
+            available_habits = set()
+            if client_habits_data['success'] and client_habits_data['data']:
+                for date_data in client_habits_data['data'].values():
+                    available_habits.update(date_data.keys())
+            
+            # Format for display
+            habit_display_names = {
+                'water_intake': '💧 Water Intake (liters)',
+                'sleep_hours': '😴 Sleep Hours',
+                'steps': '🚶 Daily Steps',
+                'workout_completed': '💪 Workout Completion',
+                'weight': '⚖️ Weight (kg)',
+                'meals_logged': '🍽️ Meals Logged',
+                'calories': '🔥 Calories',
+                'mood': '😊 Mood Rating'
+            }
+            
+            formatted_habits = []
+            for habit in available_habits:
+                display_name = habit_display_names.get(habit, habit.replace('_', ' ').title())
+                formatted_habits.append(display_name)
+            
+            return {
+                'success': True,
+                'habits': list(available_habits),
+                'formatted_habits': formatted_habits,
+                'count': len(available_habits)
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting client available habits: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'habits': [],
+                'formatted_habits': [],
+                'count': 0
+            }    
+
+    # ==================== PHASE 4: ADVANCED FEATURES ====================
+    
+    def _handle_habit_challenges_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /habit_challenges command - show and manage habit challenges"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type == 'trainer':
+                return self._show_trainer_challenges_dashboard(phone, user_data, whatsapp_service)
+            elif user_type == 'client':
+                return self._show_client_challenges_dashboard(phone, user_data, whatsapp_service)
+            else:
+                response = (
+                    "🏆 *Habit Challenges Available!*\n\n"
+                    "Join exciting habit challenges to stay motivated!\n\n"
+                    "Register first to access challenges:\n"
+                    "• Type `/registration` to get started"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+                
+        except Exception as e:
+            log_error(f"Error handling habit challenges command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _show_trainer_challenges_dashboard(self, phone: str, user_data: dict, whatsapp_service) -> Dict:
+        """Show trainer's challenge management dashboard"""
+        try:
+            # Get active challenges created by this trainer
+            challenges_result = self.db.table('habit_challenges').select(
+                'id, name, challenge_type, start_date, end_date, participant_count'
+            ).eq('trainer_id', user_data['id']).eq('is_active', True).execute()
+            
+            response = "🏆 *Habit Challenges Dashboard*\n\n"
+            
+            if challenges_result.data:
+                response += "*Your Active Challenges:*\n"
+                for challenge in challenges_result.data[:5]:
+                    participants = challenge.get('participant_count', 0)
+                    response += f"🎯 {challenge['name']}\n"
+                    response += f"   👥 {participants} participants\n"
+                    response += f"   📅 {challenge['start_date']} - {challenge['end_date']}\n\n"
+            else:
+                response += "No active challenges yet.\n\n"
+            
+            response += (
+                "*Quick Actions:*\n"
+                "• `/create_challenge` - Create new challenge\n"
+                "• `/challenge_templates` - Use pre-made templates\n"
+                "• Type challenge name to view details"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error showing trainer challenges dashboard: {str(e)}")
+            response = "❌ Error loading challenges dashboard. Please try again."
+            whatsapp_service.send_message(phone, response)
+            return {'success': False, 'error': str(e)}
+    
+    def _show_client_challenges_dashboard(self, phone: str, user_data: dict, whatsapp_service) -> Dict:
+        """Show client's available and active challenges"""
+        try:
+            # Get client's active challenges
+            active_challenges = self.db.table('challenge_participants').select(
+                'challenge_id, joined_at, current_score'
+            ).eq('client_id', user_data['id']).eq('is_active', True).execute()
+            
+            # Get available challenges (from their trainer)
+            trainer_id = user_data.get('trainer_id')
+            available_challenges = []
+            
+            if trainer_id:
+                available_result = self.db.table('habit_challenges').select(
+                    'id, name, description, challenge_type, reward'
+                ).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+                available_challenges = available_result.data or []
+            
+            response = "🏆 *Your Habit Challenges*\n\n"
+            
+            if active_challenges.data:
+                response += "*🔥 Active Challenges:*\n"
+                for participation in active_challenges.data:
+                    # Get challenge details
+                    challenge_details = self.db.table('habit_challenges').select(
+                        'name, challenge_type'
+                    ).eq('id', participation['challenge_id']).execute()
+                    
+                    if challenge_details.data:
+                        challenge = challenge_details.data[0]
+                        score = participation.get('current_score', 0)
+                        response += f"🎯 {challenge['name']}\n"
+                        response += f"   📊 Current Score: {score} points\n\n"
+            
+            if available_challenges:
+                response += "*🆕 Available Challenges:*\n"
+                for challenge in available_challenges[:3]:
+                    response += f"🎯 {challenge['name']}\n"
+                    response += f"   {challenge.get('description', 'No description')}\n"
+                    response += f"   🏆 Reward: {challenge.get('reward', 'Achievement badge')}\n\n"
+            
+            if not active_challenges.data and not available_challenges:
+                response += (
+                    "No challenges available yet.\n\n"
+                    "Ask your trainer to create challenges for you!"
+                )
+            else:
+                response += (
+                    "*Quick Actions:*\n"
+                    "• `/join_challenge` - Join a new challenge\n"
+                    "• `/challenge_leaderboard` - View rankings\n"
+                    "• `/my_progress` - Check your progress"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error showing client challenges dashboard: {str(e)}")
+            response = "❌ Error loading your challenges. Please try again."
+            whatsapp_service.send_message(phone, response)
+            return {'success': False, 'error': str(e)}
+    
+    def _create_habit_challenge(self, trainer_id: str, challenge_data: dict) -> Dict:
+        """Create habit-based challenges for clients"""
+        try:
+            # Validate challenge data
+            required_fields = ['name', 'challenge_type', 'duration_days', 'target_habit']
+            for field in required_fields:
+                if field not in challenge_data:
+                    return {
+                        'success': False,
+                        'error': f'Missing required field: {field}'
+                    }
+            
+            # Calculate end date
+            from datetime import datetime, timedelta
+            start_date = datetime.now().date()
+            end_date = start_date + timedelta(days=challenge_data['duration_days'])
+            
+            # Create challenge record
+            challenge_record = {
+                'trainer_id': trainer_id,
+                'name': challenge_data['name'],
+                'description': challenge_data.get('description', ''),
+                'challenge_type': challenge_data['challenge_type'],
+                'target_habit': challenge_data['target_habit'],
+                'target_value': challenge_data.get('target_value'),
+                'duration_days': challenge_data['duration_days'],
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'reward': challenge_data.get('reward', 'Achievement badge'),
+                'is_active': True,
+                'participant_count': 0,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            result = self.db.table('habit_challenges').insert(challenge_record).execute()
+            
+            if result.data:
+                challenge_id = result.data[0]['id']
+                log_info(f"Created habit challenge: {challenge_data['name']} (ID: {challenge_id})")
+                
+                return {
+                    'success': True,
+                    'challenge_id': challenge_id,
+                    'message': f"🎉 Challenge '{challenge_data['name']}' created successfully!"
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to create challenge record'
+                }
+                
+        except Exception as e:
+            log_error(f"Error creating habit challenge: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _get_challenge_templates(self) -> List[Dict]:
+        """Get pre-defined challenge templates"""
+        return [
+            {
+                'name': '7-Day Water Challenge',
+                'description': 'Drink at least 2 liters of water daily for 7 days',
+                'challenge_type': 'consistency',
+                'target_habit': 'water_intake',
+                'target_value': '2',
+                'duration_days': 7,
+                'reward': 'Hydration Hero Badge'
+            },
+            {
+                'name': '30-Day Workout Streak',
+                'description': 'Complete a workout every day for 30 days',
+                'challenge_type': 'streak',
+                'target_habit': 'workout_completed',
+                'duration_days': 30,
+                'reward': 'Consistency Champion Badge'
+            },
+            {
+                'name': '14-Day Sleep Quality Challenge',
+                'description': 'Get 7+ hours of sleep for 14 consecutive days',
+                'challenge_type': 'consistency',
+                'target_habit': 'sleep_hours',
+                'target_value': '7',
+                'duration_days': 14,
+                'reward': 'Sleep Master Badge'
+            },
+            {
+                'name': '21-Day Step Challenge',
+                'description': 'Walk 10,000+ steps daily for 21 days',
+                'challenge_type': 'consistency',
+                'target_habit': 'steps',
+                'target_value': '10000',
+                'duration_days': 21,
+                'reward': 'Step Champion Badge'
+            },
+            {
+                'name': 'Team Water Competition',
+                'description': 'Compete with other clients on daily water intake',
+                'challenge_type': 'competition',
+                'target_habit': 'water_intake',
+                'duration_days': 14,
+                'reward': 'Hydration Team Winner'
+            }
+        ]
+    
+    def _send_habit_reminders(self) -> Dict:
+        """Send personalized habit reminders based on user preferences"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Get all active clients
+            clients_result = self.db.table('clients').select(
+                'id, name, whatsapp, trainer_id'
+            ).eq('status', 'active').execute()
+            
+            if not clients_result.data:
+                return {'success': True, 'message': 'No active clients found'}
+            
+            reminders_sent = 0
+            today = datetime.now().date().isoformat()
+            
+            for client in clients_result.data:
+                try:
+                    # Check if client has logged habits today
+                    today_habits = habits_service.get_client_habits(client['id'], days=1)
+                    
+                    has_logged_today = False
+                    if today_habits['success'] and today in today_habits.get('data', {}):
+                        has_logged_today = True
+                    
+                    # Only send reminder if they haven't logged today
+                    if not has_logged_today:
+                        # Get their active habits
+                        client_habits = habits_service.get_client_habits(client['id'], days=7)
+                        
+                        if client_habits['success'] and client_habits.get('days_tracked', 0) > 0:
+                            # Get current streaks for motivation
+                            streaks = []
+                            for habit_type in habits_service.habit_types:
+                                streak = habits_service.calculate_streak(client['id'], habit_type)
+                                if streak > 0:
+                                    streaks.append(f"{habit_type.replace('_', ' ').title()}: {streak}d")
+                            
+                            # Create personalized reminder
+                            reminder_message = f"🌟 *Daily Habit Reminder*\n\n"
+                            reminder_message += f"Hi {client['name']}! Time for your daily habit check-in.\n\n"
+                            
+                            if streaks:
+                                reminder_message += f"🔥 *Keep these streaks going:*\n"
+                                for streak in streaks[:3]:
+                                    reminder_message += f"• {streak}\n"
+                                reminder_message += "\n"
+                            
+                            reminder_message += (
+                                "💪 *Quick log:* Just tell me what you did today!\n"
+                                "Examples: 'drank 2L water', 'slept 8 hours', 'workout done'\n\n"
+                                "Or use `/log_habit` for the interactive form."
+                            )
+                            
+                            # Send reminder
+                            whatsapp_service.send_message(client['whatsapp'], reminder_message)
+                            reminders_sent += 1
+                            
+                            log_info(f"Sent habit reminder to {client['name']} ({client['whatsapp']})")
+                
+                except Exception as client_error:
+                    log_error(f"Error sending reminder to client {client['id']}: {str(client_error)}")
+                    continue
+            
+            return {
+                'success': True,
+                'message': f'Sent {reminders_sent} habit reminders',
+                'reminders_sent': reminders_sent
+            }
+            
+        except Exception as e:
+            log_error(f"Error sending habit reminders: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _generate_habit_analytics(self, trainer_id: str) -> Dict:
+        """Generate habit analytics for trainers to monitor client progress"""
+        try:
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Get trainer's clients
+            clients_result = self.db.table('clients').select('id, name').eq(
+                'trainer_id', trainer_id
+            ).eq('status', 'active').execute()
+            
+            if not clients_result.data:
+                return {
+                    'success': False,
+                    'error': 'No active clients found'
+                }
+            
+            analytics = {
+                'total_clients': len(clients_result.data),
+                'clients_with_habits': 0,
+                'average_compliance': 0,
+                'habit_popularity': {},
+                'top_performers': [],
+                'needs_attention': [],
+                'total_streaks': 0,
+                'longest_streak': 0
+            }
+            
+            client_scores = []
+            habit_counts = {}
+            
+            for client in clients_result.data:
+                client_id = client['id']
+                client_name = client['name']
+                
+                # Get client's habit data for last 30 days
+                habits_data = habits_service.get_client_habits(client_id, days=30)
+                
+                if habits_data['success'] and habits_data.get('days_tracked', 0) > 0:
+                    analytics['clients_with_habits'] += 1
+                    
+                    # Calculate compliance rate (days logged / 30)
+                    compliance_rate = (habits_data['days_tracked'] / 30) * 100
+                    
+                    # Count habit types
+                    client_habits = set()
+                    total_entries = 0
+                    
+                    for date_data in habits_data['data'].values():
+                        for habit_type in date_data.keys():
+                            client_habits.add(habit_type)
+                            total_entries += 1
+                    
+                    # Update habit popularity
+                    for habit in client_habits:
+                        habit_counts[habit] = habit_counts.get(habit, 0) + 1
+                    
+                    # Calculate streaks
+                    client_streaks = []
+                    for habit_type in client_habits:
+                        streak = habits_service.calculate_streak(client_id, habit_type)
+                        if streak > 0:
+                            client_streaks.append(streak)
+                            analytics['total_streaks'] += 1
+                            if streak > analytics['longest_streak']:
+                                analytics['longest_streak'] = streak
+                    
+                    # Client performance score
+                    avg_streak = sum(client_streaks) / len(client_streaks) if client_streaks else 0
+                    performance_score = (compliance_rate + avg_streak) / 2
+                    
+                    client_scores.append({
+                        'name': client_name,
+                        'compliance_rate': compliance_rate,
+                        'avg_streak': avg_streak,
+                        'performance_score': performance_score,
+                        'total_habits': len(client_habits)
+                    })
+            
+            # Calculate overall metrics
+            if client_scores:
+                analytics['average_compliance'] = sum(c['compliance_rate'] for c in client_scores) / len(client_scores)
+                
+                # Sort by performance
+                client_scores.sort(key=lambda x: x['performance_score'], reverse=True)
+                
+                # Top performers (top 3 or top 25%)
+                top_count = max(1, min(3, len(client_scores) // 4))
+                analytics['top_performers'] = client_scores[:top_count]
+                
+                # Needs attention (bottom 25% with < 50% compliance)
+                needs_attention = [c for c in client_scores if c['compliance_rate'] < 50]
+                analytics['needs_attention'] = needs_attention[-3:]  # Bottom 3
+            
+            # Most popular habits
+            if habit_counts:
+                sorted_habits = sorted(habit_counts.items(), key=lambda x: x[1], reverse=True)
+                analytics['habit_popularity'] = dict(sorted_habits)
+            
+            return {
+                'success': True,
+                'analytics': analytics
+            }
+            
+        except Exception as e:
+            log_error(f"Error generating habit analytics: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }  
+  
+    # ==================== PHASE 5: INTEGRATION WITH EXISTING FEATURES ====================
+    
+    def _enhance_profile_with_habits(self, phone: str, user_type: str, user_data: dict, base_profile: str) -> str:
+        """Enhance profile information with habit tracking data"""
+        try:
+            if user_type == 'client':
+                from services.habits import HabitTrackingService
+                habits_service = HabitTrackingService(self.db)
+                
+                # Get current streaks
+                streaks = []
+                total_streak_days = 0
+                
+                for habit_type in habits_service.habit_types:
+                    streak = habits_service.calculate_streak(user_data['id'], habit_type)
+                    if streak > 0:
+                        habit_name = habit_type.replace('_', ' ').title()
+                        streaks.append(f"{habit_name}: {streak}d")
+                        total_streak_days += streak
+                
+                if streaks:
+                    habit_section = "\n\n🔥 *Current Habit Streaks:*\n"
+                    for streak in streaks[:4]:  # Show top 4 streaks
+                        habit_section += f"• {streak}\n"
+                    
+                    if total_streak_days > 50:
+                        habit_section += "\n🌟 Amazing consistency! You're building incredible habits!"
+                    elif total_streak_days > 20:
+                        habit_section += "\n💪 Great progress! Keep up the momentum!"
+                    else:
+                        habit_section += "\n🚀 Good start! Consistency is key to success!"
+                    
+                    return base_profile + habit_section
+                else:
+                    # No habits tracked yet
+                    habit_section = (
+                        "\n\n🎯 *Habit Tracking:*\n"
+                        "No habits tracked yet. Start building healthy habits!\n"
+                        "• Use `/habits` to get started\n"
+                        "• Use `/log_habit` to track daily progress"
+                    )
+                    return base_profile + habit_section
+            
+            elif user_type == 'trainer':
+                # Get trainer's client habit statistics
+                clients_result = self.db.table('clients').select('id').eq(
+                    'trainer_id', user_data['id']
+                ).eq('status', 'active').execute()
+                
+                if clients_result.data:
+                    from services.habits import HabitTrackingService
+                    habits_service = HabitTrackingService(self.db)
+                    
+                    clients_with_habits = 0
+                    total_active_streaks = 0
+                    
+                    for client in clients_result.data:
+                        client_habits = habits_service.get_client_habits(client['id'], days=7)
+                        if client_habits['success'] and client_habits.get('days_tracked', 0) > 0:
+                            clients_with_habits += 1
+                            
+                            # Count active streaks
+                            for habit_type in habits_service.habit_types:
+                                streak = habits_service.calculate_streak(client['id'], habit_type)
+                                if streak > 0:
+                                    total_active_streaks += 1
+                    
+                    habit_section = (
+                        f"\n\n📊 *Client Habit Tracking:*\n"
+                        f"• Clients with habits: {clients_with_habits}/{len(clients_result.data)}\n"
+                        f"• Active streaks: {total_active_streaks}\n"
+                        f"• Use `/habits` to manage client habits"
+                    )
+                    return base_profile + habit_section
+            
+            return base_profile
+            
+        except Exception as e:
+            log_error(f"Error enhancing profile with habits: {str(e)}")
+            return base_profile
+    
+    def _add_habit_setup_to_registration_completion(self, phone: str, user_type: str, user_data: dict, base_message: str) -> str:
+        """Add habit tracking setup information to registration completion message"""
+        try:
+            if user_type == 'client':
+                habit_section = (
+                    "\n\n🎯 *Next Steps - Build Healthy Habits:*\n"
+                    "• Type `/habits` to start tracking your progress\n"
+                    "• Use `/log_habit` to log daily habits\n"
+                    "• Check your streaks with `/habit_streak`\n\n"
+                    "💡 *Tip:* Consistent habit tracking is key to reaching your fitness goals!"
+                )
+            elif user_type == 'trainer':
+                habit_section = (
+                    "\n\n📊 *Help Your Clients Build Habits:*\n"
+                    "• Use `/setup_habits` to configure client habits\n"
+                    "• Monitor progress with `/habits` dashboard\n"
+                    "• Create challenges with `/create_challenge`\n\n"
+                    "💡 *Tip:* Habit tracking increases client engagement and results!"
+                )
+            else:
+                return base_message
+            
+            return base_message + habit_section
+            
+        except Exception as e:
+            log_error(f"Error adding habit setup to registration: {str(e)}")
+            return base_message
+    
+    def _handle_habit_analytics_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /habit_analytics command - show detailed habit analytics"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type != 'trainer':
+                response = (
+                    "📊 *Habit Analytics*\n\n"
+                    "Analytics are available for trainers only.\n\n"
+                    "If you're a trainer, make sure you're registered as one.\n"
+                    "If you're a client, ask your trainer for progress reports!"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Generate analytics
+            analytics_result = self._generate_habit_analytics(user_data['id'])
+            
+            if not analytics_result['success']:
+                response = f"❌ Error generating analytics: {analytics_result['error']}"
+                whatsapp_service.send_message(phone, response)
+                return {'success': False, 'response': response}
+            
+            analytics = analytics_result['analytics']
+            
+            # Format analytics report
+            response = "📊 *Habit Analytics Dashboard*\n\n"
+            
+            # Overview stats
+            response += "*📈 Overview:*\n"
+            response += f"• Total Clients: {analytics['total_clients']}\n"
+            response += f"• Clients with Habits: {analytics['clients_with_habits']}\n"
+            response += f"• Average Compliance: {analytics['average_compliance']:.1f}%\n"
+            response += f"• Total Active Streaks: {analytics['total_streaks']}\n"
+            response += f"• Longest Streak: {analytics['longest_streak']} days\n\n"
+            
+            # Top performers
+            if analytics['top_performers']:
+                response += "*🏆 Top Performers:*\n"
+                for performer in analytics['top_performers']:
+                    response += f"• {performer['name']}: {performer['compliance_rate']:.1f}% compliance\n"
+                response += "\n"
+            
+            # Needs attention
+            if analytics['needs_attention']:
+                response += "*⚠️ Needs Attention:*\n"
+                for client in analytics['needs_attention']:
+                    response += f"• {client['name']}: {client['compliance_rate']:.1f}% compliance\n"
+                response += "\n"
+            
+            # Popular habits
+            if analytics['habit_popularity']:
+                response += "*📊 Most Popular Habits:*\n"
+                for habit, count in list(analytics['habit_popularity'].items())[:5]:
+                    habit_name = habit.replace('_', ' ').title()
+                    response += f"• {habit_name}: {count} clients\n"
+                response += "\n"
+            
+            response += (
+                "*Quick Actions:*\n"
+                "• `/send_reminders` - Send habit reminders\n"
+                "• `/create_challenge` - Create new challenge\n"
+                "• `/habits` - View client progress"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling habit analytics command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_send_reminders_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /send_reminders command - manually send habit reminders"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type != 'trainer':
+                response = (
+                    "📱 *Habit Reminders*\n\n"
+                    "Only trainers can send habit reminders to clients.\n\n"
+                    "If you're a client, you'll receive automatic reminders!"
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Send reminders
+            reminder_result = self._send_habit_reminders()
+            
+            if reminder_result['success']:
+                response = (
+                    f"📱 *Reminders Sent Successfully!*\n\n"
+                    f"✅ Sent {reminder_result['reminders_sent']} habit reminders to clients\n\n"
+                    f"Reminders were sent to clients who haven't logged habits today."
+                )
+            else:
+                response = f"❌ Error sending reminders: {reminder_result['error']}"
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling send reminders command: {str(e)}")
+            return {'success': False, 'error': str(e)}    
+
+    def _handle_create_challenge_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /create_challenge command - start challenge creation flow"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Get challenge templates
+            templates = self._get_challenge_templates()
+            
+            response = (
+                "🏆 *Create Habit Challenge*\n\n"
+                "Choose from these popular challenge templates:\n\n"
+            )
+            
+            for i, template in enumerate(templates, 1):
+                response += f"{i}. **{template['name']}**\n"
+                response += f"   {template['description']}\n"
+                response += f"   Duration: {template['duration_days']} days\n\n"
+            
+            response += (
+                "Reply with the number of the template you want to use, "
+                "or type 'custom' to create a custom challenge.\n\n"
+                "Example: '1' for 7-Day Water Challenge"
+            )
+            
+            # Set conversation state for challenge creation
+            self.update_conversation_state(phone, 'CHALLENGE_CREATION', {
+                'trainer_id': user_data['id'],
+                'step': 'select_template',
+                'templates': templates
+            })
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling create challenge command: {str(e)}")
+            return {'success': False, 'error': str(e)}    
+
+    def _handle_challenge_creation_step(self, phone: str, text: str, context: dict) -> Dict:
+        """Handle challenge creation conversation step"""
+        try:
+            step = context.get('step', 'select_template')
+            trainer_id = context.get('trainer_id')
+            templates = context.get('templates', [])
+            
+            if step == 'select_template':
+                # User is selecting a template
+                text_lower = text.strip().lower()
+                
+                if text_lower == 'custom':
+                    return {
+                        'success': True,
+                        'message': (
+                            "🎨 *Custom Challenge Creation*\n\n"
+                            "Custom challenge creation is coming soon!\n\n"
+                            "For now, please choose from the available templates by typing the number (1-5)."
+                        ),
+                        'completed': False,
+                        'context': context
+                    }
+                
+                # Try to parse template selection
+                try:
+                    template_index = int(text_lower) - 1
+                    if 0 <= template_index < len(templates):
+                        selected_template = templates[template_index]
+                        
+                        # Create the challenge
+                        challenge_result = self._create_habit_challenge(trainer_id, selected_template)
+                        
+                        if challenge_result['success']:
+                            message = (
+                                f"🎉 *Challenge Created Successfully!*\n\n"
+                                f"✅ **{selected_template['name']}**\n"
+                                f"📝 {selected_template['description']}\n"
+                                f"⏱️ Duration: {selected_template['duration_days']} days\n"
+                                f"🏆 Reward: {selected_template['reward']}\n\n"
+                                f"Your clients can now join this challenge!\n"
+                                f"Use `/habit_challenges` to manage all your challenges."
+                            )
+                            
+                            return {
+                                'success': True,
+                                'message': message,
+                                'completed': True
+                            }
+                        else:
+                            return {
+                                'success': False,
+                                'message': f"❌ Error creating challenge: {challenge_result['error']}",
+                                'completed': True
+                            }
+                    else:
+                        return {
+                            'success': True,
+                            'message': (
+                                f"❌ Invalid selection. Please choose a number between 1 and {len(templates)}, "
+                                f"or type 'custom' for a custom challenge."
+                            ),
+                            'completed': False,
+                            'context': context
+                        }
+                        
+                except ValueError:
+                    return {
+                        'success': True,
+                        'message': (
+                            f"❌ Please enter a valid number (1-{len(templates)}) or 'custom'.\n\n"
+                            f"Example: Type '1' to select the 7-Day Water Challenge."
+                        ),
+                        'completed': False,
+                        'context': context
+                    }
+            
+            else:
+                return {
+                    'success': False,
+                    'message': '❌ Invalid challenge creation step. Please start over with `/create_challenge`.',
+                    'completed': True
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling challenge creation step: {str(e)}")
+            return {
+                'success': False,
+                'message': '❌ Error creating challenge. Please try again.',
+                'completed': True
+            }    
+
+    def _handle_habit_progress_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /habit_progress command - show detailed progress using WhatsApp flow"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Try WhatsApp Flow first, fallback to text report
+            try:
+                from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                
+                # Send WhatsApp Flow
+                flow_result = flow_handler.send_habit_progress_flow(phone, user_data)
+                
+                if flow_result.get('success'):
+                    log_info(f"Sent habit progress flow to {phone}")
+                    return {
+                        'success': True,
+                        'method': 'whatsapp_flow',
+                        'response': 'Progress flow sent! View your detailed habit progress.'
+                    }
+                else:
+                    log_warning(f"WhatsApp Flow failed for habit progress: {flow_result.get('error')}")
+                    # Continue to fallback below
+                    
+            except Exception as flow_error:
+                log_warning(f"WhatsApp Flow handler error: {str(flow_error)}")
+                # Continue to fallback below
+            
+            # FALLBACK: Use text-based progress report
+            log_info(f"Using text fallback for habit progress: {phone}")
+            
+            from services.habits import HabitTrackingService
+            habits_service = HabitTrackingService(self.db)
+            
+            # Generate progress report
+            response = self._format_habit_progress_report(user_data['id'], habits_service)
+            
+            response += (
+                "\n*Quick Actions:*\n"
+                "• `/log_habit` - Log today's habits\n"
+                "• `/habit_streak` - Check all your streaks\n"
+                "• `/habits` - View habit dashboard"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'method': 'text_fallback', 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling habit progress command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _test_habit_flows(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Test method to verify habit flows are working - can be called via /test_flows"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type == 'trainer':
+                # Test trainer habit setup flow
+                try:
+                    from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                    flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                    
+                    result = flow_handler.send_trainer_habit_setup_flow(phone, user_data)
+                    
+                    response = f"🧪 *Flow Test Results:*\n\n"
+                    response += f"**Trainer Habit Setup Flow:**\n"
+                    response += f"Success: {result.get('success')}\n"
+                    response += f"Method: {result.get('method', 'N/A')}\n"
+                    response += f"Error: {result.get('error', 'None')}\n"
+                    
+                    whatsapp_service.send_message(phone, response)
+                    return {'success': True, 'response': response}
+                    
+                except Exception as e:
+                    error_response = f"❌ Flow test failed: {str(e)}"
+                    whatsapp_service.send_message(phone, error_response)
+                    return {'success': False, 'error': str(e)}
+            
+            elif user_type == 'client':
+                # Test client habit logging flow
+                try:
+                    from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                    flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                    
+                    result = flow_handler.send_client_habit_logging_flow(phone, user_data)
+                    
+                    response = f"🧪 *Flow Test Results:*\n\n"
+                    response += f"**Client Habit Logging Flow:**\n"
+                    response += f"Success: {result.get('success')}\n"
+                    response += f"Method: {result.get('method', 'N/A')}\n"
+                    response += f"Error: {result.get('error', 'None')}\n"
+                    
+                    whatsapp_service.send_message(phone, response)
+                    return {'success': True, 'response': response}
+                    
+                except Exception as e:
+                    error_response = f"❌ Flow test failed: {str(e)}"
+                    whatsapp_service.send_message(phone, error_response)
+                    return {'success': False, 'error': str(e)}
+            
+            else:
+                response = "🧪 Flow testing is only available for registered trainers and clients."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+                
+        except Exception as e:
+            log_error(f"Error testing habit flows: {str(e)}")
             return {'success': False, 'error': str(e)}
