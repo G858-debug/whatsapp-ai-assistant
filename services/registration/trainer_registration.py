@@ -444,8 +444,19 @@ class TrainerRegistrationHandler:
                     "🎊 *CONGRATULATIONS!* 🎊\n\n"
                     f"Welcome aboard, {first_name}! You're all set up and ready to grow "
                     "your training business with Refiloe! 🚀\n\n"
-                    "Here's what you can do now:\n\n"
-                    "💡 *Quick Actions:*"
+                    "🎯 *Your Trainer Dashboard:*\n"
+                    "• Type `/profile` - View your complete profile\n"
+                    "• Type `/clients` - Manage your clients\n"
+                    "• Type `/help` - See all available commands\n\n"
+                    "💬 *AI Assistant Ready:*\n"
+                    "• Ask me about fitness, training, or business\n"
+                    "• Get help with client management\n"
+                    "• Just chat naturally - I'm here to help!\n\n"
+                    "🚀 *Next Steps:*\n"
+                    "• Start adding clients with `/add_client`\n"
+                    "• Explore your profile with `/profile`\n"
+                    "• Ask me anything about growing your business!\n\n"
+                    "Ready to transform lives? Let's go! 💪"
                 )
                 
                 return {

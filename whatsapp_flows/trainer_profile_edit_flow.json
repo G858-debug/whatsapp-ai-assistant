@@ -1,0 +1,532 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "welcome": ["basic_info"],
+    "basic_info": ["business_details"],
+    "business_details": ["availability"],
+    "availability": ["preferences"],
+    "preferences": ["services"],
+    "services": ["pricing"],
+    "pricing": ["confirmation"],
+    "confirmation": []
+  },
+  "screens": [
+    {
+      "id": "welcome",
+      "title": "Edit Your Profile ✏️",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Let's update your trainer profile! 📝\n\nNote: Current values are not pre-filled. Only update the fields you want to change. Leave fields blank to keep current values."
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "basic_info"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "basic_info",
+      "title": "Basic Information",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Update your basic information (leave blank to keep current values) 📝"
+          },
+          {
+            "type": "Form",
+            "name": "basic_info_form",
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "first_name",
+                "label": "First Name (optional)",
+                "required": false
+              },
+              {
+                "type": "TextInput",
+                "name": "surname",
+                "label": "Surname (optional)",
+                "required": false
+              },
+              {
+                "type": "TextInput",
+                "name": "email",
+                "label": "Email Address (optional)",
+                "required": false
+              },
+              {
+                "type": "TextInput",
+                "name": "city",
+                "label": "City / Location (optional)",
+                "required": false
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "business_details"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "business_details",
+      "title": "Business Details",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Update your business information (optional updates) 💼"
+          },
+          {
+            "type": "Form",
+            "name": "business_form",
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "business_name",
+                "label": "Business Name (optional)",
+                "required": false
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "specializations",
+                "label": "Training Specializations (select to update)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "personal_training",
+                    "title": "Personal Training"
+                  },
+                  {
+                    "id": "group_fitness",
+                    "title": "Group Fitness"
+                  },
+                  {
+                    "id": "strength_training",
+                    "title": "Strength Training"
+                  },
+                  {
+                    "id": "cardio_fitness",
+                    "title": "Cardio Fitness"
+                  },
+                  {
+                    "id": "yoga_pilates",
+                    "title": "Yoga & Pilates"
+                  },
+                  {
+                    "id": "sports_coaching",
+                    "title": "Sports Coaching"
+                  },
+                  {
+                    "id": "nutrition_coaching",
+                    "title": "Nutrition Coaching"
+                  },
+                  {
+                    "id": "rehabilitation",
+                    "title": "Rehabilitation & Recovery"
+                  },
+                  {
+                    "id": "general_fitness",
+                    "title": "General Fitness"
+                  }
+                ]
+              },
+              {
+                "type": "Dropdown",
+                "name": "experience_years",
+                "label": "Years of Experience (optional)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "",
+                    "title": "Keep current value"
+                  },
+                  {
+                    "id": "0-1",
+                    "title": "0-1 years"
+                  },
+                  {
+                    "id": "2-3",
+                    "title": "2-3 years"
+                  },
+                  {
+                    "id": "4-5",
+                    "title": "4-5 years"
+                  },
+                  {
+                    "id": "6-10",
+                    "title": "6-10 years"
+                  },
+                  {
+                    "id": "10+",
+                    "title": "10+ years"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "pricing_per_session",
+                "label": "Price per session (optional)",
+                "required": false
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability",
+      "title": "Availability",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Update your availability (optional) 📅"
+          },
+          {
+            "type": "Form",
+            "name": "availability_form",
+            "children": [
+              {
+                "type": "CheckboxGroup",
+                "name": "available_days",
+                "label": "Available Days (select to update)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "monday",
+                    "title": "Monday"
+                  },
+                  {
+                    "id": "tuesday",
+                    "title": "Tuesday"
+                  },
+                  {
+                    "id": "wednesday",
+                    "title": "Wednesday"
+                  },
+                  {
+                    "id": "thursday",
+                    "title": "Thursday"
+                  },
+                  {
+                    "id": "friday",
+                    "title": "Friday"
+                  },
+                  {
+                    "id": "saturday",
+                    "title": "Saturday"
+                  },
+                  {
+                    "id": "sunday",
+                    "title": "Sunday"
+                  }
+                ]
+              },
+              {
+                "type": "Dropdown",
+                "name": "preferred_time_slots",
+                "label": "Preferred Time Slots (optional)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "",
+                    "title": "Keep current value"
+                  },
+                  {
+                    "id": "early_morning",
+                    "title": "Early Morning (5:00-8:00)"
+                  },
+                  {
+                    "id": "morning",
+                    "title": "Morning (8:00-12:00)"
+                  },
+                  {
+                    "id": "afternoon",
+                    "title": "Afternoon (12:00-17:00)"
+                  },
+                  {
+                    "id": "evening",
+                    "title": "Evening (17:00-20:00)"
+                  },
+                  {
+                    "id": "flexible",
+                    "title": "Flexible - Any Time"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "preferences"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "preferences",
+      "title": "Preferences",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Update your preferences (optional) 🎯"
+          },
+          {
+            "type": "Form",
+            "name": "preferences_form",
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "subscription_plan",
+                "label": "Subscription Plan (optional)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "",
+                    "title": "Keep current plan"
+                  },
+                  {
+                    "id": "free",
+                    "title": "Free Plan - Up to 5 clients"
+                  },
+                  {
+                    "id": "premium",
+                    "title": "Premium Plan - Up to 25 clients"
+                  },
+                  {
+                    "id": "pro",
+                    "title": "Pro Plan - Unlimited clients"
+                  }
+                ]
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "notification_preferences",
+                "label": "Notification Preferences (select to update)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "whatsapp",
+                    "title": "WhatsApp Messages"
+                  },
+                  {
+                    "id": "email",
+                    "title": "Email Notifications"
+                  },
+                  {
+                    "id": "sms",
+                    "title": "SMS Messages"
+                  }
+                ]
+              },
+              {
+                "type": "OptIn",
+                "name": "marketing_consent",
+                "label": "Update marketing consent: I agree to receive marketing communications",
+                "required": false
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "services"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "services",
+      "title": "Services Offered",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Update services you offer (optional) 🏢"
+          },
+          {
+            "type": "Form",
+            "name": "services_form",
+            "children": [
+              {
+                "type": "CheckboxGroup",
+                "name": "services_offered",
+                "label": "Services You Offer (select to update)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "in_person_training",
+                    "title": "In-Person Training"
+                  },
+                  {
+                    "id": "online_training",
+                    "title": "Online Training"
+                  },
+                  {
+                    "id": "nutrition_planning",
+                    "title": "Nutrition Planning"
+                  },
+                  {
+                    "id": "fitness_assessments",
+                    "title": "Fitness Assessments"
+                  },
+                  {
+                    "id": "group_classes",
+                    "title": "Group Classes"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "pricing"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "pricing",
+      "title": "Pricing Options",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Update your pricing options (optional) 💰"
+          },
+          {
+            "type": "Form",
+            "name": "pricing_form",
+            "children": [
+              {
+                "type": "CheckboxGroup",
+                "name": "pricing_flexibility",
+                "label": "Pricing Options (select to update)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "package_discounts",
+                    "title": "Package Discounts"
+                  },
+                  {
+                    "id": "student_discounts",
+                    "title": "Student Discounts"
+                  },
+                  {
+                    "id": "group_rates",
+                    "title": "Group Session Rates"
+                  }
+                ]
+              },
+              {
+                "type": "TextArea",
+                "name": "additional_notes",
+                "label": "Additional Notes (optional)",
+                "required": false
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "confirmation"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "confirmation",
+      "title": "Profile Updated! ✅",
+      "terminal": true,
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Your trainer profile has been successfully updated! 🎉\n\nOnly the fields you changed have been updated. Your existing information remains unchanged."
+          },
+          {
+            "type": "Image",
+            "src": "https://refiloeradebe.co.za/wp-content/uploads/2025/09/gemini-2.5-flash-image-preview_A_cinematic_portrait_photograph_of_Give_me_more_variations_of_her_face_and_smile._I_want_her_to_loo-3-683x1024.png"
+          },
+          {
+            "type": "Footer",
+            "label": "Close",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "success": true
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

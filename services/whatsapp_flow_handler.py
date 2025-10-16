@@ -179,13 +179,29 @@ class WhatsAppFlowHandler:
             
             log_info(f"Flow name: {flow_name}, Flow token: {flow_token}")
             
-            # Validate flow type
-            if flow_name != 'trainer_onboarding_flow':
+            # Route to appropriate handler based on flow type
+            if flow_name == 'trainer_onboarding_flow':
+                return self._handle_trainer_onboarding_response(flow_response, phone_number, flow_token)
+            elif flow_name == 'trainer_profile_edit_flow':
+                return self._handle_trainer_profile_edit_response(flow_response, phone_number, flow_token)
+            elif flow_name == 'client_profile_edit_flow':
+                return self._handle_client_profile_edit_response(flow_response, phone_number, flow_token)
+            else:
                 return {
                     'success': False,
-                    'error': f'Invalid flow type: {flow_name}'
+                    'error': f'Unknown flow type: {flow_name}'
                 }
-            
+                
+        except Exception as e:
+            log_error(f"Error handling flow response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _handle_trainer_onboarding_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
+        """Handle trainer onboarding flow response"""
+        try:
             # Extract form data from flow response
             trainer_data = self._extract_trainer_data_from_flow_response(flow_response, phone_number)
             
@@ -267,11 +283,235 @@ class WhatsAppFlowHandler:
                     }
                 
         except Exception as e:
-            log_error(f"Error handling flow response: {str(e)}")
+            log_error(f"Error handling trainer onboarding response: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
             }
+    
+    def _handle_trainer_profile_edit_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
+        """Handle trainer profile edit flow response"""
+        try:
+            # Extract form data from flow response
+            update_data = self._extract_profile_edit_data_from_flow_response(flow_response, phone_number, 'trainer')
+            
+            if not update_data:
+                return {
+                    'success': False,
+                    'error': 'No update data provided'
+                }
+            
+            # Update trainer profile with only the changed fields
+            result = self._update_trainer_profile(phone_number, update_data)
+            
+            if result.get('success'):
+                # Send confirmation message
+                from app import app
+                whatsapp_service = app.config['services']['whatsapp']
+                
+                updated_fields = list(update_data.keys())
+                fields_text = ', '.join(updated_fields)
+                
+                response = (
+                    f"✅ *Profile Updated Successfully!*\n\n"
+                    f"Updated fields: {fields_text}\n\n"
+                    f"📱 *Next Steps:*\n"
+                    f"• Type `/profile` to view your updated profile\n"
+                    f"• Continue using Refiloe as normal\n\n"
+                    f"Thanks for keeping your profile up to date! 🎉"
+                )
+                
+                whatsapp_service.send_message(phone_number, response)
+                
+                return {
+                    'success': True,
+                    'message': 'Trainer profile updated successfully',
+                    'updated_fields': updated_fields
+                }
+            else:
+                return result
+                
+        except Exception as e:
+            log_error(f"Error handling trainer profile edit response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _handle_client_profile_edit_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
+        """Handle client profile edit flow response"""
+        try:
+            # Extract form data from flow response
+            update_data = self._extract_profile_edit_data_from_flow_response(flow_response, phone_number, 'client')
+            
+            if not update_data:
+                return {
+                    'success': False,
+                    'error': 'No update data provided'
+                }
+            
+            # Update client profile with only the changed fields
+            result = self._update_client_profile(phone_number, update_data)
+            
+            if result.get('success'):
+                # Send confirmation message
+                from app import app
+                whatsapp_service = app.config['services']['whatsapp']
+                
+                updated_fields = list(update_data.keys())
+                fields_text = ', '.join(updated_fields)
+                
+                response = (
+                    f"✅ *Profile Updated Successfully!*\n\n"
+                    f"Updated fields: {fields_text}\n\n"
+                    f"📱 *Next Steps:*\n"
+                    f"• Type `/profile` to view your updated profile\n"
+                    f"• Continue your fitness journey with Refiloe\n\n"
+                    f"Thanks for keeping your profile up to date! 🎉"
+                )
+                
+                whatsapp_service.send_message(phone_number, response)
+                
+                return {
+                    'success': True,
+                    'message': 'Client profile updated successfully',
+                    'updated_fields': updated_fields
+                }
+            else:
+                return result
+                
+        except Exception as e:
+            log_error(f"Error handling client profile edit response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _extract_profile_edit_data_from_flow_response(self, flow_response: Dict, phone_number: str, user_type: str) -> Dict:
+        """Extract profile edit data from WhatsApp flow response"""
+        try:
+            # Get form data from flow response
+            form_data = {}
+            
+            # Try different possible data structures
+            if 'data' in flow_response:
+                form_data = flow_response['data']
+            elif 'flow_action_payload' in flow_response:
+                form_data = flow_response['flow_action_payload'].get('data', {})
+            elif 'response' in flow_response:
+                form_data = flow_response['response']
+            
+            log_info(f"Extracted profile edit form data keys: {list(form_data.keys())}")
+            
+            # Only include fields that have values (user wants to update)
+            update_data = {}
+            
+            if user_type == 'trainer':
+                # Process trainer-specific fields
+                if form_data.get('first_name'):
+                    update_data['first_name'] = form_data['first_name']
+                if form_data.get('surname'):
+                    update_data['last_name'] = form_data['surname']
+                if form_data.get('email'):
+                    update_data['email'] = form_data['email'].lower()
+                if form_data.get('city'):
+                    update_data['city'] = form_data['city']
+                if form_data.get('business_name'):
+                    update_data['business_name'] = form_data['business_name']
+                if form_data.get('specializations'):
+                    update_data['specialization'] = self._process_specializations('', form_data['specializations'])
+                if form_data.get('experience_years') and form_data['experience_years'] != '':
+                    update_data['experience_years'] = form_data['experience_years']
+                    # Also update numeric field
+                    exp_map = {'0-1': 1, '2-3': 2, '4-5': 4, '6-10': 7, '10+': 10}
+                    update_data['years_experience'] = exp_map.get(form_data['experience_years'], 0)
+                if form_data.get('pricing_per_session'):
+                    try:
+                        update_data['pricing_per_session'] = float(form_data['pricing_per_session'])
+                    except (ValueError, TypeError):
+                        pass
+                if form_data.get('available_days'):
+                    update_data['available_days'] = form_data['available_days']
+                if form_data.get('preferred_time_slots') and form_data['preferred_time_slots'] != '':
+                    update_data['preferred_time_slots'] = form_data['preferred_time_slots']
+                if form_data.get('subscription_plan') and form_data['subscription_plan'] != '':
+                    update_data['subscription_plan'] = form_data['subscription_plan']
+                if form_data.get('notification_preferences'):
+                    update_data['notification_preferences'] = form_data['notification_preferences']
+                if form_data.get('marketing_consent') is not None:
+                    update_data['marketing_consent'] = bool(form_data['marketing_consent'])
+                if form_data.get('services_offered'):
+                    update_data['services_offered'] = self._process_services_offered(form_data['services_offered'])
+                if form_data.get('pricing_flexibility'):
+                    update_data['pricing_flexibility'] = self._process_pricing_flexibility(form_data['pricing_flexibility'])
+                if form_data.get('additional_notes'):
+                    update_data['additional_notes'] = form_data['additional_notes']
+                    
+            elif user_type == 'client':
+                # Process client-specific fields
+                if form_data.get('name'):
+                    update_data['name'] = form_data['name']
+                if form_data.get('email'):
+                    update_data['email'] = form_data['email'].lower()
+                if form_data.get('fitness_goals'):
+                    update_data['fitness_goals'] = form_data['fitness_goals']
+                if form_data.get('availability'):
+                    update_data['availability'] = form_data['availability']
+                if form_data.get('notification_preferences'):
+                    update_data['notification_preferences'] = form_data['notification_preferences']
+                if form_data.get('marketing_consent') is not None:
+                    update_data['marketing_consent'] = bool(form_data['marketing_consent'])
+            
+            # Update timestamp
+            if update_data:
+                from datetime import datetime
+                update_data['updated_at'] = datetime.now().isoformat()
+            
+            log_info(f"Profile edit data for {phone_number} ({user_type}): {list(update_data.keys())}")
+            
+            return update_data
+            
+        except Exception as e:
+            log_error(f"Error extracting profile edit data: {str(e)}")
+            return {}
+    
+    def _update_trainer_profile(self, phone_number: str, update_data: Dict) -> Dict:
+        """Update trainer profile with provided data"""
+        try:
+            if not update_data:
+                return {'success': False, 'error': 'No data to update'}
+            
+            # Update trainer record
+            result = self.supabase.table('trainers').update(update_data).eq('whatsapp', phone_number).execute()
+            
+            if result.data:
+                log_info(f"Updated trainer profile for {phone_number}: {list(update_data.keys())}")
+                return {'success': True, 'updated_fields': list(update_data.keys())}
+            else:
+                return {'success': False, 'error': 'No trainer record found to update'}
+                
+        except Exception as e:
+            log_error(f"Error updating trainer profile: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _update_client_profile(self, phone_number: str, update_data: Dict) -> Dict:
+        """Update client profile with provided data"""
+        try:
+            if not update_data:
+                return {'success': False, 'error': 'No data to update'}
+            
+            # Update client record
+            result = self.supabase.table('clients').update(update_data).eq('whatsapp', phone_number).execute()
+            
+            if result.data:
+                log_info(f"Updated client profile for {phone_number}: {list(update_data.keys())}")
+                return {'success': True, 'updated_fields': list(update_data.keys())}
+            else:
+                return {'success': False, 'error': 'No client record found to update'}
+                
+        except Exception as e:
+            log_error(f"Error updating client profile: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
     def _extract_trainer_data_from_flow_response(self, flow_response: Dict, phone_number: str) -> Dict:
         """Extract trainer data from WhatsApp flow response"""

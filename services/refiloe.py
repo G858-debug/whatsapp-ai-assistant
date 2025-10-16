@@ -343,6 +343,78 @@ class RefiloeService:
         except Exception as e:
             log_error(f"Error handling role switch: {str(e)}")
             return {'success': False, 'error': str(e)}
+    
+    def _handle_slash_command(self, phone: str, command: str) -> Dict:
+        """Handle slash commands for trainers and clients"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Get user context to determine available commands
+            context = self.get_user_context(phone)
+            user_type = context.get('user_type', 'unknown')
+            user_data = context.get('user_data')
+            
+            # Handle dual role selection needed
+            if user_type == 'dual_role_selection_needed':
+                response = "Please select your role first using the buttons above, then you can use commands."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Route to specific command handlers
+            if command == '/help':
+                return self._handle_help_command(phone, user_type, user_data)
+            elif command == '/profile':
+                return self._handle_profile_command(phone, user_type, user_data)
+            elif command == '/edit_profile':
+                return self._handle_edit_profile_command(phone, user_type, user_data)
+            elif command == '/registration':
+                return self._handle_registration_command(phone, user_type)
+            elif command == '/clients' and user_type == 'trainer':
+                return self._handle_clients_command(phone, user_data)
+            elif command == '/add_client' and user_type == 'trainer':
+                return self._handle_add_client_command(phone, user_data)
+            elif command == '/trainer' and user_type == 'client':
+                return self._handle_trainer_info_command(phone, user_data)
+            elif command == '/reset_me':
+                return self._handle_reset_command(phone)
+            else:
+                # Unknown command
+                available_commands = self._get_available_commands(user_type)
+                response = (
+                    f"❓ Unknown command: `{command}`\n\n"
+                    f"Available commands:\n{available_commands}\n\n"
+                    f"Type `/help` for detailed information."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+                
+        except Exception as e:
+            log_error(f"Error handling slash command {command}: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _get_available_commands(self, user_type: str) -> str:
+        """Get list of available commands for user type"""
+        if user_type == 'trainer':
+            return (
+                "• `/help` - Show all commands\n"
+                "• `/profile` - View your profile\n"
+                "• `/edit_profile` - Edit your profile\n"
+                "• `/clients` - Manage your clients\n"
+                "• `/add_client` - Add a new client"
+            )
+        elif user_type == 'client':
+            return (
+                "• `/help` - Show all commands\n"
+                "• `/profile` - View your profile\n"
+                "• `/edit_profile` - Edit your profile\n"
+                "• `/trainer` - View trainer info"
+            )
+        else:
+            return (
+                "• `/help` - Show all commands\n"
+                "• `/registration` - Start registration"
+            )
 
     def handle_message(self, phone: str, text: str) -> Dict:
         """Handle incoming WhatsApp message - main entry point"""
@@ -359,6 +431,10 @@ class RefiloeService:
             # Check for role switch command
             if text.strip().lower() == 'switch_role':
                 return self._handle_role_switch(phone)
+            
+            # Check for slash commands
+            if text.strip().startswith('/'):
+                return self._handle_slash_command(phone, text.strip().lower())
             
             # Check for test commands (optional - for easier testing)
             if text.strip().lower().startswith('/test_'):
@@ -759,6 +835,438 @@ class RefiloeService:
                 'success': False,
                 'response': "Sorry, I'm having a bit of trouble right now. Please try again in a moment! 😊"
             }
+    
+    def _handle_help_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /help command - show available commands and features"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            name = user_data.get('name', 'there') if user_data else 'there'
+            
+            if user_type == 'trainer':
+                response = (
+                    f"👋 Hi {name}! Here's what you can do:\n\n"
+                    "🔧 *Profile Commands:*\n"
+                    "• `/profile` - View your trainer profile\n"
+                    "• `/edit_profile` - Update your profile info\n\n"
+                    "👥 *Client Management:*\n"
+                    "• `/clients` - View and manage your clients\n"
+                    "• `/add_client` - Add a new client\n\n"
+                    "💬 *General:*\n"
+                    "• Just chat with me for AI assistance\n"
+                    "• Ask about fitness, training, or business help\n\n"
+                    "🔄 *Role Switching:*\n"
+                    "• Use 'Switch Role' button if you're also a client\n\n"
+                    "Need help with anything specific? Just ask! 😊"
+                )
+            elif user_type == 'client':
+                trainer_name = user_data.get('trainer_name', 'your trainer') if user_data else 'your trainer'
+                response = (
+                    f"👋 Hi {name}! Here's what you can do:\n\n"
+                    "🔧 *Profile Commands:*\n"
+                    "• `/profile` - View your client profile\n"
+                    "• `/edit_profile` - Update your profile info\n"
+                    "• `/trainer` - View {trainer_name}'s info\n\n"
+                    "💬 *General:*\n"
+                    "• Just chat with me for fitness guidance\n"
+                    "• Ask about workouts, nutrition, or goals\n\n"
+                    "🔄 *Role Switching:*\n"
+                    "• Use 'Switch Role' button if you're also a trainer\n\n"
+                    "Need help with your fitness journey? Just ask! 💪"
+                )
+            else:
+                response = (
+                    "👋 Welcome to Refiloe! Here's how to get started:\n\n"
+                    "🚀 *Getting Started:*\n"
+                    "• `/registration` - Register as a trainer or client\n"
+                    "• Just say 'Hi' to start the registration process\n\n"
+                    "💬 *General:*\n"
+                    "• Chat with me for fitness and training advice\n"
+                    "• Ask questions about health and wellness\n\n"
+                    "Ready to transform your fitness journey? Let's go! 🏃‍♀️"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling help command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_profile_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /profile command - show user profile information"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if not user_data:
+                response = "❌ No profile found. Please register first by saying 'Hi' or using `/registration`."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            if user_type == 'trainer':
+                # Format trainer profile
+                name = user_data.get('name', 'Unknown')
+                email = user_data.get('email', 'Not provided')
+                business_name = user_data.get('business_name', 'Not provided')
+                specialization = user_data.get('specialization', 'Not provided')
+                experience = user_data.get('experience_years', user_data.get('years_experience', 'Not provided'))
+                city = user_data.get('city', user_data.get('location', 'Not provided'))
+                pricing = user_data.get('pricing_per_session', 'Not provided')
+                
+                response = (
+                    f"👤 *Your Trainer Profile*\n\n"
+                    f"📝 *Basic Info:*\n"
+                    f"• Name: {name}\n"
+                    f"• Email: {email}\n"
+                    f"• City: {city}\n"
+                    f"• Business: {business_name}\n\n"
+                    f"💼 *Professional Info:*\n"
+                    f"• Specialization: {specialization}\n"
+                    f"• Experience: {experience} years\n"
+                    f"• Rate: R{pricing}/session\n\n"
+                    f"📱 *Actions:*\n"
+                    f"• Type `/edit_profile` to update your info\n"
+                    f"• Type `/clients` to manage clients"
+                )
+            
+            elif user_type == 'client':
+                # Format client profile
+                name = user_data.get('name', 'Unknown')
+                email = user_data.get('email', 'Not provided')
+                goals = user_data.get('fitness_goals', 'Not provided')
+                trainer_name = user_data.get('trainer_name', 'Not assigned')
+                
+                response = (
+                    f"👤 *Your Client Profile*\n\n"
+                    f"📝 *Basic Info:*\n"
+                    f"• Name: {name}\n"
+                    f"• Email: {email}\n"
+                    f"• Fitness Goals: {goals}\n"
+                    f"• Trainer: {trainer_name}\n\n"
+                    f"📱 *Actions:*\n"
+                    f"• Type `/edit_profile` to update your info\n"
+                    f"• Type `/trainer` to view trainer details"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling profile command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_edit_profile_command(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Handle /edit_profile command - start profile editing process using WhatsApp Flow"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if not user_data:
+                response = "❌ No profile found. Please register first by saying 'Hi' or using `/registration`."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Try to send WhatsApp Flow for profile editing
+            try:
+                flow_result = self._send_profile_edit_flow(phone, user_type, user_data)
+                
+                if flow_result.get('success'):
+                    return flow_result
+                else:
+                    # Fallback to instructions if flow fails
+                    log_warning(f"Profile edit flow failed for {phone}: {flow_result.get('error')}")
+                    
+            except Exception as flow_error:
+                log_error(f"Error sending profile edit flow: {str(flow_error)}")
+            
+            # Fallback: Provide instructions for manual editing
+            name = user_data.get('name', 'there')
+            
+            if user_type == 'trainer':
+                response = (
+                    f"✏️ *Edit Your Trainer Profile*\n\n"
+                    f"Hi {name}! I'd love to help you update your profile, but the editing flow isn't available right now.\n\n"
+                    f"📧 *To update your profile:*\n"
+                    f"• Email us at: support@refiloe.ai\n"
+                    f"• Include your WhatsApp number: {phone}\n"
+                    f"• Specify what you'd like to change\n\n"
+                    f"🔄 *Alternative:*\n"
+                    f"• Tell me what you'd like to update and I'll help you contact support\n\n"
+                    f"💡 *Tip:* Type `/profile` to see your current info"
+                )
+            else:
+                response = (
+                    f"✏️ *Edit Your Client Profile*\n\n"
+                    f"Hi {name}! I'd love to help you update your profile, but the editing flow isn't available right now.\n\n"
+                    f"📧 *To update your profile:*\n"
+                    f"• Email us at: support@refiloe.ai\n"
+                    f"• Include your WhatsApp number: {phone}\n"
+                    f"• Specify what you'd like to change\n\n"
+                    f"🔄 *Alternative:*\n"
+                    f"• Tell me what you'd like to update and I'll help you contact support\n\n"
+                    f"💡 *Tip:* Type `/profile` to see your current info"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling edit profile command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_registration_command(self, phone: str, user_type: str) -> Dict:
+        """Handle /registration command - start or restart registration"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if user_type in ['trainer', 'client']:
+                response = (
+                    f"✅ You're already registered as a {user_type}!\n\n"
+                    f"• Type `/profile` to view your info\n"
+                    f"• Type `/help` to see available commands\n\n"
+                    f"Need to register in a different role? Contact support."
+                )
+            else:
+                response = (
+                    "🚀 *Start Your Registration*\n\n"
+                    "Choose how you'd like to register:\n\n"
+                    "👨‍💼 *As a Trainer:*\n"
+                    "• Say 'I want to be a trainer'\n"
+                    "• Or just say 'trainer'\n\n"
+                    "🏃‍♀️ *As a Client:*\n"
+                    "• Say 'I want to find a trainer'\n"
+                    "• Or just say 'client'\n\n"
+                    "💬 *Quick Start:*\n"
+                    "Just say 'Hi' and I'll guide you through the process!"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling registration command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_clients_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /clients command - show trainer's clients"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            trainer_id = user_data.get('id')
+            if not trainer_id:
+                response = "❌ Unable to find your trainer profile. Please contact support."
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Get trainer's clients
+            clients = self.db.table('clients').select('*').eq('trainer_id', trainer_id).eq('status', 'active').execute()
+            
+            if not clients.data:
+                response = (
+                    "👥 *Your Clients*\n\n"
+                    "You don't have any active clients yet.\n\n"
+                    "🚀 *Get Started:*\n"
+                    "• Type `/add_client` to add your first client\n"
+                    "• Share your WhatsApp number with potential clients\n"
+                    "• They can message you to get started!\n\n"
+                    "💡 *Tip:* Clients can find you by saying 'I need a trainer'"
+                )
+            else:
+                client_list = []
+                for i, client in enumerate(clients.data, 1):
+                    name = client.get('name', 'Unknown')
+                    sessions = client.get('sessions_remaining', 0)
+                    client_list.append(f"{i}. {name} ({sessions} sessions left)")
+                
+                clients_text = '\n'.join(client_list)
+                response = (
+                    f"👥 *Your Clients ({len(clients.data)})*\n\n"
+                    f"{clients_text}\n\n"
+                    f"📱 *Actions:*\n"
+                    f"• Type `/add_client` to add a new client\n"
+                    f"• Message me about specific client needs"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling clients command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_add_client_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /add_client command - start client addition process"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            response = (
+                "➕ *Add New Client*\n\n"
+                "To add a client, they need to message you directly!\n\n"
+                "📱 *How it works:*\n"
+                "1. Share your WhatsApp number with your client\n"
+                "2. Ask them to send you a message saying 'Hi'\n"
+                "3. I'll help them register as your client\n\n"
+                "🔄 *Alternative:*\n"
+                "• Give them this message to send: 'I want trainer [your name]'\n"
+                "• They can also say 'I need a trainer'\n\n"
+                "💡 *Coming Soon:* Direct client invitation links!"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling add client command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_trainer_info_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /trainer command - show client's trainer info"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Get trainer info from client data
+            trainer_info = user_data.get('trainers') if user_data else None
+            
+            if not trainer_info:
+                response = (
+                    "❌ No trainer assigned yet.\n\n"
+                    "🔍 *Find a Trainer:*\n"
+                    "• Say 'I need a trainer'\n"
+                    "• Browse available trainers in your area\n\n"
+                    "💬 *Have a specific trainer?*\n"
+                    "Ask them for their WhatsApp number and message them directly!"
+                )
+            else:
+                trainer_name = trainer_info.get('name', 'Unknown')
+                business_name = trainer_info.get('business_name', 'Not provided')
+                specialization = trainer_info.get('specialization', 'General Fitness')
+                
+                response = (
+                    f"👨‍💼 *Your Trainer: {trainer_name}*\n\n"
+                    f"🏢 Business: {business_name}\n"
+                    f"🎯 Specialization: {specialization}\n\n"
+                    f"📱 *Contact:*\n"
+                    f"• Message them directly for sessions\n"
+                    f"• Ask about scheduling and availability\n\n"
+                    f"💪 *Need Help?*\n"
+                    f"Just ask me about workouts, nutrition, or fitness goals!"
+                )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling trainer info command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _send_profile_edit_flow(self, phone: str, user_type: str, user_data: dict) -> Dict:
+        """Send WhatsApp Flow for profile editing"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Determine which flow to use based on user type
+            if user_type == 'trainer':
+                flow_name = 'trainer_profile_edit_flow'
+                flow_title = '✏️ Edit Trainer Profile'
+                flow_description = 'Update your trainer profile information'
+            elif user_type == 'client':
+                flow_name = 'client_profile_edit_flow'
+                flow_title = '✏️ Edit Client Profile'
+                flow_description = 'Update your client profile information'
+            else:
+                return {'success': False, 'error': 'Invalid user type for profile editing'}
+            
+            # Generate flow token
+            from datetime import datetime
+            flow_token = f"profile_edit_{user_type}_{phone}_{int(datetime.now().timestamp())}"
+            
+            # Create flow message
+            flow_message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": flow_title
+                    },
+                    "body": {
+                        "text": f"{flow_description}. Only update the fields you want to change - leave others blank to keep current values."
+                    },
+                    "footer": {
+                        "text": "Quick and easy profile updates"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_name": flow_name,
+                            "flow_cta": "Edit Profile",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "welcome",
+                                "data": {}
+                            }
+                        }
+                    }
+                }
+            }
+            
+            # Send the flow message
+            result = whatsapp_service.send_flow_message(flow_message)
+            
+            if result.get('success'):
+                # Store flow token for tracking
+                self._store_profile_edit_token(phone, flow_token, user_type)
+                
+                log_info(f"Profile edit flow sent to {phone} ({user_type})")
+                return {
+                    'success': True,
+                    'message': f'{flow_title} sent successfully',
+                    'flow_token': flow_token
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to send flow: {result.get("error")}',
+                    'fallback_required': True
+                }
+                
+        except Exception as e:
+            log_error(f"Error sending profile edit flow: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'fallback_required': True
+            }
+    
+    def _store_profile_edit_token(self, phone: str, flow_token: str, user_type: str):
+        """Store profile edit flow token for tracking"""
+        try:
+            from datetime import datetime
+            
+            token_data = {
+                'phone_number': phone,
+                'flow_token': flow_token,
+                'flow_type': f'{user_type}_profile_edit',
+                'created_at': datetime.now().isoformat()
+            }
+            
+            self.db.table('flow_tokens').insert(token_data).execute()
+            log_info(f"Stored profile edit flow token for {phone}")
+            
+        except Exception as e:
+            log_error(f"Error storing profile edit flow token: {str(e)}")
     
     def _handle_reset_command(self, phone: str) -> Dict:
         """Handle /reset_me command to completely reset user data from all 7 core tables"""
