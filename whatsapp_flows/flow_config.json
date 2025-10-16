@@ -1,0 +1,76 @@
+{
+  "flows": {
+    "trainer_onboarding_flow": {
+      "id": "trainer_onboarding_flow",
+      "name": "Trainer Onboarding",
+      "description": "Complete trainer registration and profile setup",
+      "file": "trainer_onboarding_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["SIGN_UP"],
+      "status": "DRAFT"
+    },
+    "client_onboarding_flow": {
+      "id": "client_onboarding_flow",
+      "name": "Client Onboarding",
+      "description": "Client registration and fitness goal setup",
+      "file": "client_onboarding_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["SIGN_UP"],
+      "status": "DRAFT"
+    },
+    "trainer_profile_edit_flow": {
+      "id": "trainer_profile_edit_flow",
+      "name": "Edit Trainer Profile",
+      "description": "Update trainer profile information",
+      "file": "trainer_profile_edit_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["OTHER"],
+      "status": "DRAFT"
+    },
+    "client_profile_edit_flow": {
+      "id": "client_profile_edit_flow",
+      "name": "Edit Client Profile",
+      "description": "Update client profile and fitness goals",
+      "file": "client_profile_edit_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["OTHER"],
+      "status": "DRAFT"
+    },
+    "trainer_add_client_flow": {
+      "id": "trainer_add_client_flow",
+      "name": "Add New Client",
+      "description": "Trainer adds a new client to their roster",
+      "file": "trainer_add_client_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["OTHER"],
+      "status": "DRAFT"
+    },
+    "trainer_habit_setup_flow": {
+      "id": "trainer_habit_setup_flow",
+      "name": "Setup Client Habits",
+      "description": "Configure habit tracking for clients",
+      "file": "trainer_habit_setup_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["OTHER"],
+      "status": "DRAFT"
+    },
+    "client_habit_logging_flow": {
+      "id": "client_habit_logging_flow",
+      "name": "Log Daily Habits",
+      "description": "Client logs their daily habit completion",
+      "file": "client_habit_logging_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["OTHER"],
+      "status": "DRAFT"
+    },
+    "habit_progress_flow": {
+      "id": "habit_progress_flow",
+      "name": "View Habit Progress",
+      "description": "View habit tracking progress and statistics",
+      "file": "habit_progress_flow.json",
+      "endpoint": "https://web-production-26de5.up.railway.app/webhooks/whatsapp-flow",
+      "categories": ["OTHER"],
+      "status": "DRAFT"
+    }
+  }
+}

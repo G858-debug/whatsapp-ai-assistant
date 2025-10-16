@@ -6,6 +6,14 @@ import hmac
 
 whatsapp_flow_bp = Blueprint('whatsapp_flow', __name__)
 
+@whatsapp_flow_bp.route('/webhooks/whatsapp-flow', methods=['GET'])
+def whatsapp_flow_health_check():
+    """Health check endpoint for WhatsApp Flow"""
+    return jsonify({
+        "status": "success",
+        "message": "WhatsApp Flow endpoint is healthy"
+    }), 200
+
 @whatsapp_flow_bp.route('/webhooks/whatsapp-flow', methods=['POST'])
 def handle_whatsapp_flow():
     """
@@ -16,7 +24,32 @@ def handle_whatsapp_flow():
         data = request.get_json()
         log_info(f"Received WhatsApp Flow data: {data}")
         
-        # Extract form data from the flow
+        # Handle encrypted flow data if present
+        if 'encrypted_flow_data' in data:
+            # This is an encrypted flow response - delegate to the flow handler
+            from services.whatsapp_flow_handler import WhatsAppFlowHandler
+            from app import app
+            
+            db = app.config['supabase']
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            flow_handler = WhatsAppFlowHandler(db, whatsapp_service)
+            
+            # Decrypt and process the flow data
+            result = flow_handler.handle_encrypted_flow_response(data)
+            
+            if result.get('success'):
+                return jsonify({
+                    "status": "success",
+                    "message": result.get('message', 'Flow processed successfully')
+                }), 200
+            else:
+                return jsonify({
+                    "status": "error", 
+                    "message": result.get('error', 'Flow processing failed')
+                }), 500
+        
+        # Handle unencrypted flow data (legacy format)
         flow_data = data.get('data', {})
         
         # Get form responses
@@ -40,10 +73,10 @@ def handle_whatsapp_flow():
             'business_name': business_info.get('business_name', ''),
             'specializations': business_info.get('specializations', []),
             'experience_years': business_info.get('experience_years', ''),
-            'average_price': business_info.get('pricing_per_session', ''),
+            'pricing_per_session': business_info.get('pricing_per_session', 500),  # Fixed field name
             'terms_accepted': terms.get('terms_accepted', False),
             'additional_notes': terms.get('additional_notes', ''),
-            'status': 'pending_review',
+            'status': 'active',  # Changed from pending_review to active
             'created_at': datetime.now().isoformat()
         }
         
