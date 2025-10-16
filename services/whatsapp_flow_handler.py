@@ -2509,35 +2509,8 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                               request_data.get('from') or
                               request_data.get('sender'))
             
-            # Method 3: Try to get from recent webhook data
-            if not phone_number:
-                try:
-                    # Check recent webhook entries for phone numbers
-                    recent_entries = self.supabase.table('webhook_logs').select('*').order(
-                        'created_at', desc=True
-                    ).limit(10).execute()
-                    
-                    if recent_entries.data:
-                        for entry in recent_entries.data:
-                            webhook_data = entry.get('data', {})
-                            if isinstance(webhook_data, dict):
-                                # Look for phone numbers in webhook data
-                                if 'entry' in webhook_data:
-                                    for webhook_entry in webhook_data['entry']:
-                                        if 'changes' in webhook_entry:
-                                            for change in webhook_entry['changes']:
-                                                if 'value' in change and 'messages' in change['value']:
-                                                    for message in change['value']['messages']:
-                                                        if 'from' in message:
-                                                            phone_number = message['from']
-                                                            log_info(f"Found phone number from recent webhook: {phone_number}")
-                                                            break
-                                if phone_number:
-                                    break
-                            if phone_number:
-                                break
-                except Exception as e:
-                    log_warning(f"Could not check recent webhooks: {str(e)}")
+            # Method 3: Try to get from recent webhook data (skip for now to avoid database dependency)
+            # This would require the webhook_logs table to exist
             
             # Method 4: For testing, use a default test number if in development
             if not phone_number:

@@ -46,22 +46,10 @@ def handle_whatsapp_flow():
         data = request.get_json()
         log_info(f"Received WhatsApp Flow data: {data}")
         
-        # Log webhook data for debugging (store in database for analysis)
-        try:
-            from app import app
-            db = app.config['supabase']
-            
-            webhook_log = {
-                'endpoint': '/webhooks/whatsapp-flow',
-                'method': request.method,
-                'headers': dict(request.headers),
-                'data': data,
-                'created_at': datetime.now().isoformat()
-            }
-            
-            db.table('webhook_logs').insert(webhook_log).execute()
-        except Exception as log_error:
-            log_error(f"Could not log webhook data: {str(log_error)}")
+        # Log webhook data for debugging (just to application logs for now)
+        log_info(f"Webhook headers: {dict(request.headers)}")
+        log_info(f"Webhook method: {request.method}")
+        log_info(f"Webhook endpoint: /webhooks/whatsapp-flow")
         
         # Handle encrypted flow data if present
         if 'encrypted_flow_data' in data:
