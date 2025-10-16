@@ -118,7 +118,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "specializations",
-                "label": "Training Specializations (select all that apply)",
+                "label": "Specializations",
                 "required": true,
                 "data-source": [
                   {
@@ -190,7 +190,7 @@
               {
                 "type": "TextInput",
                 "name": "pricing_per_session",
-                "label": "Average price per session",
+                "label": "Price per session",
                 "required": true
               },
               {
@@ -226,7 +226,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "available_days",
-                "label": "Available Days (select all that apply)",
+                "label": "Available Days",
                 "required": true,
                 "data-source": [
                   {
@@ -370,7 +370,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "services_offered",
-                "label": "Services You Offer (select all that apply)",
+                "label": "Services Offered",
                 "required": false,
                 "data-source": [
                   {
@@ -428,7 +428,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "pricing_flexibility",
-                "label": "Pricing Options (select all that apply)",
+                "label": "Pricing Options",
                 "required": false,
                 "data-source": [
                   {
@@ -482,7 +482,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "notification_preferences",
-                "label": "How would you like to receive notifications?",
+                "label": "Notifications",
                 "required": false,
                 "data-source": [
                   {
@@ -502,19 +502,19 @@
               {
                 "type": "OptIn",
                 "name": "marketing_consent",
-                "label": "I agree to receive marketing communications and updates about new features",
+                "label": "Marketing emails",
                 "required": false
               },
               {
                 "type": "OptIn",
                 "name": "terms_accepted",
-                "label": "I have read and agree to the Terms of Service and Privacy Policy",
+                "label": "Accept Terms",
                 "required": true
               },
               {
                 "type": "TextArea",
                 "name": "additional_notes",
-                "label": "Additional Notes (Optional)",
+                "label": "Additional Notes",
                 "required": false
               },
               {

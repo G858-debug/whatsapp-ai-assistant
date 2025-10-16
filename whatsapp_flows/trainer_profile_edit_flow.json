@@ -53,7 +53,7 @@
               {
                 "type": "TextInput",
                 "name": "first_name",
-                "label": "First Name (optional)",
+                "label": "First Name",
                 "required": false
               },
               {
@@ -65,13 +65,13 @@
               {
                 "type": "TextInput",
                 "name": "email",
-                "label": "Email Address (optional)",
+                "label": "Email Address",
                 "required": false
               },
               {
                 "type": "TextInput",
                 "name": "city",
-                "label": "City / Location (optional)",
+                "label": "City / Location",
                 "required": false
               },
               {
@@ -107,13 +107,13 @@
               {
                 "type": "TextInput",
                 "name": "business_name",
-                "label": "Business Name (optional)",
+                "label": "Business Name",
                 "required": false
               },
               {
                 "type": "CheckboxGroup",
                 "name": "specializations",
-                "label": "Training Specializations (select to update)",
+                "label": "Specializations",
                 "required": false,
                 "data-source": [
                   {
@@ -157,7 +157,7 @@
               {
                 "type": "Dropdown",
                 "name": "experience_years",
-                "label": "Years of Experience (optional)",
+                "label": "Years Experience",
                 "required": false,
                 "data-source": [
                   {
@@ -189,7 +189,7 @@
               {
                 "type": "TextInput",
                 "name": "pricing_per_session",
-                "label": "Price per session (optional)",
+                "label": "Price per session",
                 "required": false
               },
               {
@@ -225,7 +225,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "available_days",
-                "label": "Available Days (select to update)",
+                "label": "Available Days",
                 "required": false,
                 "data-source": [
                   {
@@ -261,7 +261,7 @@
               {
                 "type": "Dropdown",
                 "name": "preferred_time_slots",
-                "label": "Preferred Time Slots (optional)",
+                "label": "Time Slots",
                 "required": false,
                 "data-source": [
                   {
@@ -323,7 +323,7 @@
               {
                 "type": "Dropdown",
                 "name": "subscription_plan",
-                "label": "Subscription Plan (optional)",
+                "label": "Subscription Plan",
                 "required": false,
                 "data-source": [
                   {
@@ -347,7 +347,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "notification_preferences",
-                "label": "Notification Preferences (select to update)",
+                "label": "Notifications",
                 "required": false,
                 "data-source": [
                   {
@@ -367,7 +367,7 @@
               {
                 "type": "OptIn",
                 "name": "marketing_consent",
-                "label": "Update marketing consent: I agree to receive marketing communications",
+                "label": "Marketing emails",
                 "required": false
               },
               {
@@ -403,7 +403,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "services_offered",
-                "label": "Services You Offer (select to update)",
+                "label": "Services Offered",
                 "required": false,
                 "data-source": [
                   {
@@ -461,7 +461,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "pricing_flexibility",
-                "label": "Pricing Options (select to update)",
+                "label": "Pricing Options",
                 "required": false,
                 "data-source": [
                   {
@@ -481,7 +481,7 @@
               {
                 "type": "TextArea",
                 "name": "additional_notes",
-                "label": "Additional Notes (optional)",
+                "label": "Additional Notes",
                 "required": false
               },
               {

@@ -211,7 +211,7 @@
           {
             "type": "TextArea",
             "name": "health_conditions",
-            "label": "Health Conditions or Injuries",
+            "label": "Health Conditions",
             "required": false,
             "helper-text": "List any health conditions, injuries, or concerns. Type 'none' if you're all good."
           },

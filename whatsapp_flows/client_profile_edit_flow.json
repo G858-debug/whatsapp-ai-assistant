@@ -55,19 +55,19 @@
               {
                 "type": "TextInput",
                 "name": "email",
-                "label": "Email Address (optional)",
+                "label": "Email Address",
                 "required": false
               },
               {
                 "type": "TextArea",
                 "name": "fitness_goals",
-                "label": "Fitness Goals (optional)",
+                "label": "Fitness Goals",
                 "required": false
               },
               {
                 "type": "TextArea",
                 "name": "availability",
-                "label": "Availability (optional)",
+                "label": "Availability",
                 "required": false
               },
               {
@@ -103,7 +103,7 @@
               {
                 "type": "CheckboxGroup",
                 "name": "notification_preferences",
-                "label": "Notification Preferences (select to update)",
+                "label": "Notifications",
                 "required": false,
                 "data-source": [
                   {
@@ -123,7 +123,7 @@
               {
                 "type": "OptIn",
                 "name": "marketing_consent",
-                "label": "Update marketing consent: I agree to receive marketing communications",
+                "label": "Marketing emails",
                 "required": false
               },
               {
