@@ -2,6 +2,10 @@
 """
 Enhanced WhatsApp Flow API Manager
 Provides comprehensive WhatsApp Flow management with advanced error handling and monitoring
+
+⚠️  DEPRECATED: This file contains flow creation methods that should no longer be used.
+    Flows should be manually created in Facebook Console instead of dynamically in code.
+    This file is kept for reference and legacy script compatibility only.
 """
 
 import json
