@@ -294,31 +294,40 @@ class WhatsAppFlowHandler:
             # Based on our trainer_onboarding_flow.json structure
             
             # Basic info (from basic_info screen)
-            full_name = form_data.get('full_name', '')
+            first_name = form_data.get('first_name', '')
+            surname = form_data.get('surname', '')
+            full_name = f"{first_name} {surname}".strip() if first_name or surname else ''
             email = form_data.get('email', '')
             city = form_data.get('city', '')
             
             # Business details (from business_details screen)
-            specialization = form_data.get('specialization', '')
+            business_name = form_data.get('business_name', '')
+            specializations = form_data.get('specializations', [])  # Multiple specializations from CheckboxGroup
             experience_years = form_data.get('experience_years', '0-1')
             pricing_per_session = form_data.get('pricing_per_session', 500)
             
             # Availability (from availability screen)
-            available_days = form_data.get('available_days', [])
-            preferred_time_slots = form_data.get('preferred_time_slots', '')
+            available_days = form_data.get('available_days', [])  # CheckboxGroup
+            preferred_time_slots = form_data.get('preferred_time_slots', '')  # Dropdown
             
             # Preferences (from preferences screen)
             subscription_plan = form_data.get('subscription_plan', 'free')
-            notification_preferences = form_data.get('notification_preferences', [])
             
-            # Terms (from verification screen)
-            terms_accepted = form_data.get('terms_accepted', False)
-            marketing_consent = form_data.get('marketing_consent', False)
+            # Business setup (from business_setup screen)
+            services_offered = form_data.get('services_offered', [])  # CheckboxGroup
             
-            # Parse name into first and last name
-            name_parts = full_name.strip().split(' ', 1) if full_name else ['', '']
-            first_name = name_parts[0] if name_parts else ''
-            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            # Pricing (from pricing_smart screen)
+            pricing_flexibility = form_data.get('pricing_flexibility', [])  # CheckboxGroup
+            
+            # Terms (from terms_agreement screen)
+            notification_preferences = form_data.get('notification_preferences', [])  # CheckboxGroup
+            marketing_consent = form_data.get('marketing_consent', False)  # OptIn
+            terms_accepted = form_data.get('terms_accepted', False)  # OptIn
+            additional_notes = form_data.get('additional_notes', '')  # TextArea
+            
+            # Use the actual first_name and surname from flow
+            # first_name and surname are already extracted above
+            last_name = surname  # Flow uses 'surname' field
             
             # Ensure pricing is numeric
             try:
@@ -340,6 +349,15 @@ class WhatsAppFlowHandler:
                 elif experience_years == '10+':
                     experience_numeric = 10
             
+            # Handle specializations - convert from IDs to readable text if needed
+            final_specialization = self._process_specializations('', specializations)
+            
+            # Process services offered - convert from IDs to readable text
+            processed_services = self._process_services_offered(services_offered)
+            
+            # Process pricing flexibility - convert from IDs to readable text
+            processed_pricing_flexibility = self._process_pricing_flexibility(pricing_flexibility)
+            
             # Create trainer data structure compatible with existing registration system
             trainer_data = {
                 'name': full_name,
@@ -347,29 +365,130 @@ class WhatsAppFlowHandler:
                 'last_name': last_name,
                 'email': email.lower() if email else '',
                 'city': city,
-                'specialization': specialization,
+                'location': city,  # For backward compatibility
+                'business_name': business_name,
+                'specialization': final_specialization,
                 'experience': experience_numeric,  # Numeric for existing system
+                'years_experience': experience_numeric,  # For backward compatibility
                 'experience_years': experience_years,  # Original for new fields
                 'pricing': pricing,  # For existing system
                 'pricing_per_session': pricing,  # For new fields
                 'available_days': available_days,
                 'preferred_time_slots': preferred_time_slots,
+                'services_offered': processed_services,
+                'pricing_flexibility': processed_pricing_flexibility,
                 'subscription_plan': subscription_plan,
                 'notification_preferences': notification_preferences,
-                'terms_accepted': bool(terms_accepted),
                 'marketing_consent': bool(marketing_consent),
+                'terms_accepted': bool(terms_accepted),
+                'additional_notes': additional_notes,
                 'phone': phone_number,
                 'whatsapp': phone_number,
-                'registration_method': 'whatsapp_flow'
+                'registration_method': 'whatsapp_flow',
+                'onboarding_method': 'flow'
             }
             
-            log_info(f"Mapped trainer data for {full_name}: specialization={specialization}, pricing={pricing}")
+            log_info(f"Mapped trainer data for {full_name}: specialization={final_specialization}, pricing={pricing}")
             
             return trainer_data
             
         except Exception as e:
             log_error(f"Error extracting trainer data from flow response: {str(e)}")
             return {}
+    
+    def _process_specializations(self, single_spec: str, multi_specs: list) -> str:
+        """Convert specialization IDs to readable text and handle multiple specializations"""
+        try:
+            # Mapping from actual flow IDs to readable text (from trainer_onboarding_flow.json)
+            spec_mapping = {
+                'personal_training': 'Personal Training',
+                'group_fitness': 'Group Fitness',
+                'strength_training': 'Strength Training',
+                'cardio_fitness': 'Cardio Fitness',
+                'yoga_pilates': 'Yoga & Pilates',
+                'sports_coaching': 'Sports Coaching',
+                'nutrition_coaching': 'Nutrition Coaching',
+                'rehabilitation': 'Rehabilitation & Recovery',
+                'general_fitness': 'General Fitness'
+            }
+            
+            specializations = []
+            
+            # Handle single specialization
+            if single_spec:
+                if single_spec in spec_mapping:
+                    specializations.append(spec_mapping[single_spec])
+                else:
+                    specializations.append(single_spec)  # Use as-is if not in mapping
+            
+            # Handle multiple specializations
+            if multi_specs and isinstance(multi_specs, list):
+                for spec in multi_specs:
+                    if spec in spec_mapping:
+                        specializations.append(spec_mapping[spec])
+                    else:
+                        specializations.append(spec)
+            
+            # Return comma-separated readable values
+            return ', '.join(specializations) if specializations else 'General Fitness'
+            
+        except Exception as e:
+            log_error(f"Error processing specializations: {str(e)}")
+            return single_spec or 'General Fitness'
+    
+    def _process_services_offered(self, services: list) -> list:
+        """Convert service IDs to readable text"""
+        try:
+            # Mapping from actual flow IDs (from business_setup screen)
+            service_mapping = {
+                'in_person_training': 'In-Person Training',
+                'online_training': 'Online Training',
+                'nutrition_planning': 'Nutrition Planning',
+                'fitness_assessments': 'Fitness Assessments',
+                'group_classes': 'Group Classes'
+            }
+            
+            if not services or not isinstance(services, list):
+                return []
+            
+            processed = []
+            for service in services:
+                if service in service_mapping:
+                    processed.append(service_mapping[service])
+                else:
+                    processed.append(service)  # Use as-is if not in mapping
+            
+            return processed
+            
+        except Exception as e:
+            log_error(f"Error processing services offered: {str(e)}")
+            return services or []
+    
+    def _process_pricing_flexibility(self, pricing_options: list) -> list:
+        """Convert pricing flexibility IDs to readable text"""
+        try:
+            # Mapping from actual flow IDs (from pricing_smart screen)
+            pricing_mapping = {
+                'package_discounts': 'Package Discounts',
+                'student_discounts': 'Student Discounts',
+                'group_rates': 'Group Session Rates'
+            }
+            
+            if not pricing_options or not isinstance(pricing_options, list):
+                return []
+            
+            processed = []
+            for option in pricing_options:
+                if option in pricing_mapping:
+                    processed.append(pricing_mapping[option])
+                else:
+                    processed.append(option)  # Use as-is if not in mapping
+            
+            return processed
+            
+        except Exception as e:
+            log_error(f"Error processing pricing flexibility: {str(e)}")
+            return pricing_options or []
     
     def _extract_trainer_data_from_flow(self, action_payload: Dict) -> Dict:
         """Extract trainer data from new flow structure"""

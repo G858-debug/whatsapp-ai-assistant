@@ -480,6 +480,32 @@
                 "text": "View our Terms of Service:\nhttps://refiloe.ai/terms\n\nView our Privacy Policy:\nhttps://refiloe.ai/privacy"
               },
               {
+                "type": "CheckboxGroup",
+                "name": "notification_preferences",
+                "label": "How would you like to receive notifications?",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "whatsapp",
+                    "title": "WhatsApp Messages"
+                  },
+                  {
+                    "id": "email",
+                    "title": "Email Notifications"
+                  },
+                  {
+                    "id": "sms",
+                    "title": "SMS Messages"
+                  }
+                ]
+              },
+              {
+                "type": "OptIn",
+                "name": "marketing_consent",
+                "label": "I agree to receive marketing communications and updates about new features",
+                "required": false
+              },
+              {
                 "type": "OptIn",
                 "name": "terms_accepted",
                 "label": "I have read and agree to the Terms of Service and Privacy Policy",
@@ -488,7 +514,7 @@
               {
                 "type": "TextArea",
                 "name": "additional_notes",
-                "label": "Additional Notes",
+                "label": "Additional Notes (Optional)",
                 "required": false
               },
               {

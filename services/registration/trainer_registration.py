@@ -1,6 +1,7 @@
 """Trainer registration handler with friendly UX"""
 from typing import Dict, Optional
 from datetime import datetime
+import json
 import pytz
 from utils.logger import log_info, log_error
 from services.helpers.validation_helpers import ValidationHelpers
@@ -387,11 +388,35 @@ class TrainerRegistrationHandler:
                 'business_name': data.get('business_name'),
                 'specialization': data.get('specialization'),
                 'years_experience': data.get('experience', 0),
+                'experience_years': data.get('experience_years'),  # Flow compatibility
                 'location': data.get('location'),
+                'city': data.get('city', data.get('location')),  # Flow compatibility
                 'pricing_per_session': pricing,  # Always numeric
                 'status': 'active',
+                'registration_method': data.get('registration_method', 'text'),
+                'onboarding_method': data.get('onboarding_method', 'chat'),
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
+            
+            # Add flow-specific fields if available
+            if data.get('available_days'):
+                trainer_data['available_days'] = data['available_days'] if isinstance(data['available_days'], list) else json.loads(data['available_days'])
+            if data.get('preferred_time_slots'):
+                trainer_data['preferred_time_slots'] = data['preferred_time_slots']
+            if data.get('services_offered'):
+                trainer_data['services_offered'] = data['services_offered'] if isinstance(data['services_offered'], list) else json.loads(data['services_offered'])
+            if data.get('pricing_flexibility'):
+                trainer_data['pricing_flexibility'] = data['pricing_flexibility'] if isinstance(data['pricing_flexibility'], list) else json.loads(data['pricing_flexibility'])
+            if data.get('notification_preferences'):
+                trainer_data['notification_preferences'] = data['notification_preferences'] if isinstance(data['notification_preferences'], list) else json.loads(data['notification_preferences'])
+            if data.get('marketing_consent') is not None:
+                trainer_data['marketing_consent'] = bool(data['marketing_consent'])
+            if data.get('terms_accepted') is not None:
+                trainer_data['terms_accepted'] = bool(data['terms_accepted'])
+            if data.get('additional_notes'):
+                trainer_data['additional_notes'] = data['additional_notes']
+            if data.get('flow_token'):
+                trainer_data['flow_token'] = data['flow_token']
             
             result = self.db.table('trainers').insert(trainer_data).execute()
             
