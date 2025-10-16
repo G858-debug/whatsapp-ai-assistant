@@ -140,33 +140,77 @@ class RefiloeService:
             log_error(f"Error clearing conversation state: {str(e)}")
             return False
     
-    def get_user_context(self, phone: str) -> Dict:
-        """Get complete user context including trainer/client info"""
+    def get_user_context(self, phone: str, selected_role: str = None) -> Dict:
+        """Get complete user context including trainer/client info with dual role support"""
         try:
             context = {}
             
-            # Check if trainer
+            # Check both trainer and client tables
             trainer = self.db.table('trainers').select('*').eq(
                 'whatsapp', phone
             ).execute()
             
-            if trainer.data and len(trainer.data) > 0:
+            client = self.db.table('clients').select(
+                '*, trainers(name, business_name, first_name, last_name)'
+            ).eq('whatsapp', phone).execute()
+            
+            has_trainer = trainer.data and len(trainer.data) > 0
+            has_client = client.data and len(client.data) > 0
+            
+            # Determine if user has dual roles
+            context['has_dual_roles'] = has_trainer and has_client
+            context['available_roles'] = []
+            
+            if has_trainer:
+                context['available_roles'].append('trainer')
+                context['trainer_data'] = trainer.data[0]
+            
+            if has_client:
+                context['available_roles'].append('client')
+                context['client_data'] = client.data[0]
+            
+            # Handle role selection for dual role users
+            if context['has_dual_roles'] and not selected_role:
+                # Check if user has a stored role preference
+                role_pref = self.db.table('conversation_states').select('role_preference').eq(
+                    'phone', phone
+                ).execute()
+                
+                if role_pref.data and role_pref.data[0].get('role_preference'):
+                    selected_role = role_pref.data[0]['role_preference']
+                else:
+                    # No role selected - need role selection
+                    context['user_type'] = 'dual_role_selection_needed'
+                    context['user_data'] = None
+                    return context
+            
+            # Set active role (either selected or single available role)
+            if selected_role:
+                context['active_role'] = selected_role
+            elif has_trainer and not has_client:
+                context['active_role'] = 'trainer'
+            elif has_client and not has_trainer:
+                context['active_role'] = 'client'
+            else:
+                context['user_type'] = 'unknown'
+                context['user_data'] = None
+                return context
+            
+            # Build context based on active role
+            if context['active_role'] == 'trainer' and has_trainer:
                 trainer_data = trainer.data[0]
                 context['user_type'] = 'trainer'
                 
                 # Extract first name for friendly conversation
-                # Try first_name field first, fall back to splitting name field
                 first_name = trainer_data.get('first_name')
                 if not first_name:
-                    # If first_name column doesn't exist yet, split the name field
                     full_name = trainer_data.get('name', 'Trainer')
                     first_name = full_name.split()[0] if full_name else 'Trainer'
                 
-                # Build user_data with first name for greetings
                 context['user_data'] = {
-                    **trainer_data,  # Include all original data
-                    'name': first_name,  # Override name with first name for friendly messages
-                    'full_name': trainer_data.get('name'),  # Keep full name available
+                    **trainer_data,
+                    'name': first_name,
+                    'full_name': trainer_data.get('name'),
                     'first_name': first_name,
                     'last_name': trainer_data.get('last_name', '')
                 }
@@ -177,45 +221,34 @@ class RefiloeService:
                 ).eq('status', 'active').execute()
                 
                 context['active_clients'] = len(clients.data) if clients.data else 0
-            else:
-                # Check if client
-                client = self.db.table('clients').select(
-                    '*, trainers(name, business_name, first_name, last_name)'
-                ).eq('whatsapp', phone).execute()
                 
-                if client.data and len(client.data) > 0:
-                    client_data = client.data[0]
-                    context['user_type'] = 'client'
-                    
-                    # Extract first name for client too
-                    first_name = client_data.get('first_name')
-                    if not first_name:
-                        # If first_name column doesn't exist yet, split the name field
-                        full_name = client_data.get('name', 'there')
-                        first_name = full_name.split()[0] if full_name else 'there'
-                    
-                    # Build user_data with first name for greetings
-                    context['user_data'] = {
-                        **client_data,  # Include all original data
-                        'name': first_name,  # Override name with first name for friendly messages
-                        'full_name': client_data.get('name'),  # Keep full name available
-                        'first_name': first_name,
-                        'last_name': client_data.get('last_name', '')
-                    }
-                    
-                    if client_data.get('trainers'):
-                        # Use trainer's first name if available, otherwise business name
-                        trainer_first_name = client_data['trainers'].get('first_name')
-                        if trainer_first_name:
-                            context['trainer_name'] = trainer_first_name
-                        else:
-                            context['trainer_name'] = (
-                                client_data['trainers'].get('business_name') or 
-                                client_data['trainers'].get('name', '').split()[0] if client_data['trainers'].get('name') else 'your trainer'
-                            )
-                else:
-                    context['user_type'] = 'unknown'
-                    context['user_data'] = None
+            elif context['active_role'] == 'client' and has_client:
+                client_data = client.data[0]
+                context['user_type'] = 'client'
+                
+                # Extract first name for client
+                first_name = client_data.get('first_name')
+                if not first_name:
+                    full_name = client_data.get('name', 'there')
+                    first_name = full_name.split()[0] if full_name else 'there'
+                
+                context['user_data'] = {
+                    **client_data,
+                    'name': first_name,
+                    'full_name': client_data.get('name'),
+                    'first_name': first_name,
+                    'last_name': client_data.get('last_name', '')
+                }
+                
+                if client_data.get('trainers'):
+                    trainer_first_name = client_data['trainers'].get('first_name')
+                    if trainer_first_name:
+                        context['trainer_name'] = trainer_first_name
+                    else:
+                        context['trainer_name'] = (
+                            client_data['trainers'].get('business_name') or 
+                            client_data['trainers'].get('name', '').split()[0] if client_data['trainers'].get('name') else 'your trainer'
+                        )
             
             return context
             
@@ -223,12 +256,109 @@ class RefiloeService:
             log_error(f"Error getting user context: {str(e)}")
             return {'user_type': 'unknown', 'user_data': None}
 
+    def handle_role_selection(self, phone: str, selected_role: str) -> Dict:
+        """Handle role selection for dual role users"""
+        try:
+            # Store role preference
+            self.db.table('conversation_states').upsert({
+                'phone': phone,
+                'role_preference': selected_role,
+                'updated_at': datetime.now().isoformat()
+            }, on_conflict='phone').execute()
+            
+            # Get context with selected role
+            context = self.get_user_context(phone, selected_role)
+            
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            if selected_role == 'trainer':
+                message = f"Great! You're now using Refiloe as a trainer. 💪\n\nWhat can I help you with today?"
+            else:
+                message = f"Perfect! You're now using Refiloe as a client. 🏃‍♀️\n\nWhat can I help you with today?"
+            
+            # Add role switch button for easy switching
+            buttons = [{
+                'id': 'switch_role',
+                'title': f'Switch to {("Client" if selected_role == "trainer" else "Trainer")}'
+            }]
+            
+            whatsapp_service.send_button_message(phone, message, buttons)
+            
+            return {'success': True, 'role_selected': selected_role}
+            
+        except Exception as e:
+            log_error(f"Error handling role selection: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def send_role_selection_message(self, phone: str, context: Dict) -> Dict:
+        """Send role selection buttons for dual role users"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Get user's name from either role
+            name = "there"
+            if context.get('trainer_data'):
+                trainer_name = context['trainer_data'].get('first_name') or context['trainer_data'].get('name', '').split()[0]
+                if trainer_name:
+                    name = trainer_name
+            elif context.get('client_data'):
+                client_name = context['client_data'].get('first_name') or context['client_data'].get('name', '').split()[0]
+                if client_name:
+                    name = client_name
+            
+            message = f"Hi {name}! 👋\n\nI see you're both a trainer and a client. Which role would you like to use today?"
+            
+            buttons = [
+                {'id': 'role_trainer', 'title': '💪 Trainer'},
+                {'id': 'role_client', 'title': '🏃‍♀️ Client'}
+            ]
+            
+            return whatsapp_service.send_button_message(phone, message, buttons)
+            
+        except Exception as e:
+            log_error(f"Error sending role selection message: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_role_switch(self, phone: str) -> Dict:
+        """Handle role switching for dual role users"""
+        try:
+            # Get current context to check available roles
+            context = self.get_user_context(phone)
+            
+            if not context.get('has_dual_roles'):
+                from app import app
+                whatsapp_service = app.config['services']['whatsapp']
+                whatsapp_service.send_message(phone, "You only have one role available. No switching needed! 😊")
+                return {'success': True, 'message': 'Single role user'}
+            
+            # Get current role preference
+            current_role = context.get('active_role', 'trainer')
+            new_role = 'client' if current_role == 'trainer' else 'trainer'
+            
+            # Switch the role
+            return self.handle_role_selection(phone, new_role)
+            
+        except Exception as e:
+            log_error(f"Error handling role switch: {str(e)}")
+            return {'success': False, 'error': str(e)}
+
     def handle_message(self, phone: str, text: str) -> Dict:
         """Handle incoming WhatsApp message - main entry point"""
         try:
             # Check for reset command FIRST
             if text.strip().lower() == '/reset_me':
                 return self._handle_reset_command(phone)
+            
+            # Check for role selection commands
+            if text.strip().lower() in ['role_trainer', 'role_client']:
+                selected_role = 'trainer' if text.strip().lower() == 'role_trainer' else 'client'
+                return self.handle_role_selection(phone, selected_role)
+            
+            # Check for role switch command
+            if text.strip().lower() == 'switch_role':
+                return self._handle_role_switch(phone)
             
             # Check for test commands (optional - for easier testing)
             if text.strip().lower().startswith('/test_'):
@@ -241,6 +371,10 @@ class RefiloeService:
             
             # Get user context using existing method
             context = self.get_user_context(phone)
+            
+            # Handle dual role selection needed
+            if context['user_type'] == 'dual_role_selection_needed':
+                return self.send_role_selection_message(phone, context)
             
             # Determine sender type and data from context
             if context['user_type'] == 'trainer':
