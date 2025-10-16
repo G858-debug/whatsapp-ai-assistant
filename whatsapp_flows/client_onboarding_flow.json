@@ -1,0 +1,298 @@
+{
+  "version": "5.0",
+  "screens": [
+    {
+      "id": "WELCOME",
+      "title": "Welcome to Refiloe",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Welcome to Your Fitness Journey! 🏃‍♀️"
+          },
+          {
+            "type": "TextBody",
+            "text": "I'm Refiloe, your AI fitness assistant! Let's get you set up to find the perfect trainer and start your transformation."
+          },
+          {
+            "type": "Footer",
+            "label": "Get Started",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "PERSONAL_INFO"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PERSONAL_INFO",
+      "title": "Personal Information",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Tell Me About Yourself 👤"
+          },
+          {
+            "type": "TextBody",
+            "text": "Let's start with some basic information:"
+          },
+          {
+            "type": "TextInput",
+            "name": "full_name",
+            "label": "Full Name *",
+            "input-type": "text",
+            "required": true,
+            "helper-text": "Enter your full name"
+          },
+          {
+            "type": "TextInput",
+            "name": "email",
+            "label": "Email Address",
+            "input-type": "email",
+            "required": false,
+            "helper-text": "Optional - for better communication"
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "FITNESS_GOALS"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "FITNESS_GOALS",
+      "title": "Fitness Goals",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "What Are Your Goals? 🎯"
+          },
+          {
+            "type": "TextBody",
+            "text": "Select your main fitness objectives:"
+          },
+          {
+            "type": "CheckboxGroup",
+            "name": "fitness_goals",
+            "required": true,
+            "data-source": [
+              {
+                "id": "lose_weight",
+                "title": "Lose Weight",
+                "description": "Reduce body weight and improve body composition"
+              },
+              {
+                "id": "build_muscle",
+                "title": "Build Muscle",
+                "description": "Increase muscle mass and strength"
+              },
+              {
+                "id": "get_stronger",
+                "title": "Get Stronger",
+                "description": "Improve overall strength and power"
+              },
+              {
+                "id": "improve_fitness",
+                "title": "Improve Fitness",
+                "description": "Enhance cardiovascular health and endurance"
+              },
+              {
+                "id": "train_for_event",
+                "title": "Train for Event",
+                "description": "Prepare for specific sports or competitions"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "EXPERIENCE_LEVEL"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "EXPERIENCE_LEVEL",
+      "title": "Experience Level",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Your Fitness Experience 📊"
+          },
+          {
+            "type": "TextBody",
+            "text": "What's your current fitness level?"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "experience_level",
+            "required": true,
+            "data-source": [
+              {
+                "id": "beginner",
+                "title": "Beginner",
+                "description": "New to exercise or getting back into it"
+              },
+              {
+                "id": "intermediate",
+                "title": "Intermediate",
+                "description": "Exercise sometimes, have some experience"
+              },
+              {
+                "id": "advanced",
+                "title": "Advanced",
+                "description": "Exercise regularly, good fitness base"
+              },
+              {
+                "id": "athlete",
+                "title": "Athlete",
+                "description": "Competitive sports or very experienced"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "HEALTH_INFO"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "HEALTH_INFO",
+      "title": "Health Information",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Health & Safety 🏥"
+          },
+          {
+            "type": "TextBody",
+            "text": "Help us keep you safe during training:"
+          },
+          {
+            "type": "TextArea",
+            "name": "health_conditions",
+            "label": "Health Conditions or Injuries",
+            "required": false,
+            "helper-text": "List any health conditions, injuries, or concerns. Type 'none' if you're all good."
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "AVAILABILITY"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AVAILABILITY",
+      "title": "Training Availability",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "When Can You Train? ⏰"
+          },
+          {
+            "type": "TextBody",
+            "text": "Select your preferred training times:"
+          },
+          {
+            "type": "CheckboxGroup",
+            "name": "availability",
+            "required": true,
+            "data-source": [
+              {
+                "id": "early_morning",
+                "title": "Early Morning",
+                "description": "5:00 AM - 8:00 AM"
+              },
+              {
+                "id": "morning",
+                "title": "Morning",
+                "description": "8:00 AM - 12:00 PM"
+              },
+              {
+                "id": "afternoon",
+                "title": "Afternoon",
+                "description": "12:00 PM - 5:00 PM"
+              },
+              {
+                "id": "evening",
+                "title": "Evening",
+                "description": "5:00 PM - 8:00 PM"
+              },
+              {
+                "id": "flexible",
+                "title": "Flexible",
+                "description": "I can adapt to trainer's schedule"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Complete Registration",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "full_name": "${form.full_name}",
+                "email": "${form.email}",
+                "fitness_goals": "${form.fitness_goals}",
+                "experience_level": "${form.experience_level}",
+                "health_conditions": "${form.health_conditions}",
+                "availability": "${form.availability}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

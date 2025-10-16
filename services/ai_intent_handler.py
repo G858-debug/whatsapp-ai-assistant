@@ -170,14 +170,14 @@ class AIIntentHandler:
         "secondary_intents": ["list of other detected intents"],
         "confidence": 0.0-1.0,
         "extracted_data": {
-            "client_name": "if mentioned",
+            "client_name": "full name if mentioned for client operations",
+            "phone_number": "South African phone number if mentioned (0821234567 or +27821234567 format)",
+            "email": "email address if mentioned",
             "date_time": "if mentioned",
             "exercises": ["if workout mentioned"],
             "duration": "if mentioned",
             "price": "if mentioned",
             "custom_price": "if setting client price",
-            "phone_number": "if mentioned",
-            "email": "if mentioned",
             "habit_type": "if setting up habit (water/steps/sleep/veggies/etc)",
             "habit_responses": ["array of habit check responses if logging"],
             "habit_values": ["numeric values for habits if provided"],
@@ -203,8 +203,12 @@ class AIIntentHandler:
     - small_talk: Weather, how are you, etc.
     - set_client_price: Setting custom price for a client (e.g., "Set Sarah's rate to R450")
     - view_client_price: Checking a client's custom price (e.g., "What is John's rate?")
-    - add_client: Adding new client
+    - add_client: Adding new client (e.g., "Add Sarah Johnson, phone 0821234567", "Register John as my client", "I have a new client named Mike with number 0829876543")
+    - invite_client: Send invitation to potential client (e.g., "Invite Sarah to my program", "Send invitation to Mike", "I want to invite Lisa to train with me")
     - view_clients: Viewing client list
+    - client_progress: View specific client's progress (e.g., "How is Sarah doing?", "Show me John's progress", "What's Mike's status?")
+    - manage_client: General client management (e.g., "Help me with my client Sarah", "I need to manage John's account")
+    - approve_client_request: Approve pending client requests (e.g., "Approve John's request", "Accept the client from 0821234567")
     - book_session: Booking a training session
     - view_schedule: Checking schedule
     - send_workout: Sending workout to client
@@ -236,6 +240,11 @@ class AIIntentHandler:
     - check_payments: Payment status
     - join_challenge: Join fitness challenge
     - view_leaderboard: Check rankings
+    - request_trainer: Request specific trainer by email or phone (e.g., "I want trainer john@email.com", "Find trainer sarah@fitlife.com", "Add trainer 0821234567")
+    - add_trainer_direct: Directly add trainer to profile (e.g., "Add me to trainer john@email.com", "Join trainer 0821234567")
+    - view_invitations: View trainer invitations (e.g., "Show my invitations", "What invitations do I have?")
+    - accept_invitation: Accept trainer invitation (e.g., "Accept John's invitation", "I want to accept the invitation from FitLife")
+    - decline_invitation: Decline trainer invitation (e.g., "Decline the invitation", "I don't want to train with them")
     - general_question: General questions (NOT greetings!)
     - technical_question: Coding or technical help
     - knowledge_question: General knowledge queries"""
@@ -798,6 +807,26 @@ class AIIntentHandler:
                 return self._handle_view_schedule(phone, intent_data, sender_type, sender_data)
             elif intent == 'view_clients':
                 return self._handle_view_clients(phone, intent_data, sender_type, sender_data)
+            elif intent == 'add_client':
+                return self._handle_add_client(phone, intent_data, sender_type, sender_data)
+            elif intent == 'invite_client':
+                return self._handle_invite_client(phone, intent_data, sender_type, sender_data)
+            elif intent == 'client_progress':
+                return self._handle_client_progress_inquiry(phone, intent_data, sender_type, sender_data)
+            elif intent == 'manage_client':
+                return self._handle_manage_client(phone, intent_data, sender_type, sender_data)
+            elif intent == 'request_trainer':
+                return self._handle_request_trainer(phone, intent_data, sender_type, sender_data)
+            elif intent == 'add_trainer_direct':
+                return self._handle_add_trainer_direct(phone, intent_data, sender_type, sender_data)
+            elif intent == 'approve_client_request':
+                return self._handle_approve_client_request(phone, intent_data, sender_type, sender_data)
+            elif intent == 'view_invitations':
+                return self._handle_view_invitations(phone, intent_data, sender_type, sender_data)
+            elif intent == 'accept_invitation':
+                return self._handle_accept_invitation_ai(phone, intent_data, sender_type, sender_data)
+            elif intent == 'decline_invitation':
+                return self._handle_decline_invitation_ai(phone, intent_data, sender_type, sender_data)
             elif intent in ['view_client_attendance', 'client_analytics']:
                 return self._handle_view_client_attendance(phone, intent_data, sender_type, sender_data)
             elif intent in ['session_booking_request', 'session_booking']:
@@ -1363,6 +1392,92 @@ class AIIntentHandler:
             log_error(f"Error viewing clients: {str(e)}")
             return "I encountered an error retrieving your client list. Please try again."
     
+    def _handle_add_client(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle add client requests with AI-driven natural language processing"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'trainer':
+                return "Only trainers can add clients. If you're looking for a trainer, say 'find a trainer'!"
+            
+            # Check subscription limits
+            subscription_manager = self._get_service('subscription_manager')
+            if subscription_manager:
+                can_add = subscription_manager.can_add_client(user_info['id'])
+                if not can_add:
+                    limits = subscription_manager.get_client_limits(user_info['id'])
+                    return f"You've reached your client limit of {limits.get('max_clients', 'unknown')} clients. Please upgrade your subscription to add more clients."
+            
+            # Extract client information from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            client_name = extracted_data.get('client_name')
+            client_phone = extracted_data.get('phone_number')
+            client_email = extracted_data.get('email')
+            
+            # If we have enough information, proceed with confirmation
+            if client_name and client_phone:
+                # Validate phone number format
+                from utils.validators import Validators
+                validator = Validators()
+                
+                is_valid, formatted_phone, error = validator.validate_phone_number(client_phone)
+                if not is_valid:
+                    return f"The phone number '{client_phone}' doesn't look like a valid South African number. {error} Please provide a valid number (e.g., 0821234567 or +27821234567)."
+                
+                # Use the formatted phone number
+                client_phone = formatted_phone
+                
+                # Check if client already exists for this trainer
+                existing_client = self.db.table('clients').select('*').eq('trainer_id', user_info['id']).eq('whatsapp', client_phone).execute()
+                
+                if existing_client.data:
+                    return f"You already have a client with phone number {client_phone} ({existing_client.data[0]['name']}). Each client can only be registered once per trainer."
+                
+                # Create confirmation message
+                confirmation_msg = f"I can add {client_name} (📱 {client_phone}"
+                if client_email:
+                    confirmation_msg += f", 📧 {client_email}"
+                confirmation_msg += ") as your client.\n\n"
+                confirmation_msg += "They'll receive a welcome message and can start booking sessions with you right away!\n\n"
+                confirmation_msg += "Reply 'yes' to confirm or 'no' to cancel."
+                
+                # Store pending client data for confirmation
+                self._store_pending_client_data(phone, {
+                    'trainer_id': user_info['id'],
+                    'name': client_name,
+                    'whatsapp': client_phone,
+                    'email': client_email,
+                    'status': 'pending_confirmation'
+                })
+                
+                return confirmation_msg
+            
+            # If we don't have enough information, ask for it
+            missing_info = []
+            if not client_name:
+                missing_info.append("client's name")
+            if not client_phone:
+                missing_info.append("client's phone number")
+            
+            if missing_info:
+                return f"To add a client, I need their {' and '.join(missing_info)}. Please provide this information.\n\nExample: 'Add Sarah Johnson, phone 0821234567'"
+            
+            # Fallback - provide instructions
+            return (
+                "I can help you add a new client! 👥\n\n"
+                "Please provide:\n"
+                "• Client's full name\n"
+                "• Client's phone number\n"
+                "• Client's email (optional)\n\n"
+                "Example: 'Add John Smith, phone 0821234567, email john@email.com'\n\n"
+                "Or just say: 'Add Sarah with number 0829876543'"
+            )
+            
+        except Exception as e:
+            log_error(f"Error handling add client: {str(e)}")
+            return "I encountered an error adding the client. Please try again or contact support."
+    
     def _handle_view_client_attendance(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
         """Handle client attendance viewing requests with actual database operations"""
         try:
@@ -1575,3 +1690,956 @@ class AIIntentHandler:
         except Exception as e:
             log_error(f"Error starting chat-based onboarding: {str(e)}")
             return "I'd love to help you become a trainer! Let me set up your profile. What's your full name?"
+    
+    def _store_pending_client_data(self, trainer_phone: str, client_data: Dict) -> bool:
+        """Store pending client data for confirmation"""
+        try:
+            # Store in conversation state for confirmation
+            from services.refiloe import RefiloeService
+            refiloe_service = RefiloeService(self.db)
+            
+            # Update conversation state with pending client data
+            refiloe_service.update_conversation_state(trainer_phone, 'PENDING_CLIENT_CONFIRMATION', {
+                'pending_client': client_data,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            log_info(f"Stored pending client data for trainer {trainer_phone}: {client_data['name']}")
+            return True
+            
+        except Exception as e:
+            log_error(f"Error storing pending client data: {str(e)}")
+            return False
+    
+    def _handle_invite_client(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client invitation requests with AI-driven natural language processing"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'trainer':
+                return "Only trainers can send client invitations. If you're looking for a trainer, say 'find a trainer'!"
+            
+            # Check subscription limits
+            subscription_manager = self._get_service('subscription_manager')
+            if subscription_manager:
+                can_add = subscription_manager.can_add_client(user_info['id'])
+                if not can_add:
+                    limits = subscription_manager.get_client_limits(user_info['id'])
+                    return f"You've reached your client limit of {limits.get('max_clients', 'unknown')} clients. Please upgrade your subscription to invite more clients."
+            
+            # Extract client information from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            client_name = extracted_data.get('client_name')
+            client_phone = extracted_data.get('phone_number')
+            client_email = extracted_data.get('email')
+            
+            # If we have enough information, proceed with invitation
+            if client_name and client_phone:
+                # Validate phone number format
+                from utils.validators import Validators
+                validator = Validators()
+                
+                is_valid, formatted_phone, error = validator.validate_phone_number(client_phone)
+                if not is_valid:
+                    return f"The phone number '{client_phone}' doesn't look like a valid South African number. {error} Please provide a valid number (e.g., 0821234567 or +27821234567)."
+                
+                # Use the formatted phone number
+                client_phone = formatted_phone
+                
+                # Check if client already exists for this trainer
+                existing_client = self.db.table('clients').select('*').eq('trainer_id', user_info['id']).eq('whatsapp', client_phone).execute()
+                
+                if existing_client.data:
+                    return f"You already have a client with phone number {client_phone} ({existing_client.data[0]['name']}). Each client can only be registered once per trainer."
+                
+                # Check for existing pending invitation
+                existing_invitation = self.db.table('client_invitations').select('*').eq('trainer_id', user_info['id']).eq('client_phone', client_phone).eq('status', 'pending').execute()
+                
+                if existing_invitation.data:
+                    return f"You already have a pending invitation for {client_name} ({client_phone}). Please wait for them to respond or contact them directly."
+                
+                # Create and send invitation
+                from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                from app import app
+                whatsapp_service = app.config['services']['whatsapp']
+                
+                flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                
+                client_data = {
+                    'name': client_name,
+                    'phone': client_phone,
+                    'email': client_email,
+                    'custom_message': extracted_data.get('custom_message')
+                }
+                
+                result = flow_handler._create_and_send_invitation(user_info['id'], client_data)
+                
+                if result.get('success'):
+                    return result['message']
+                else:
+                    return f"❌ Failed to send invitation: {result.get('error', 'Unknown error')}"
+            
+            # If we don't have enough information, ask for it
+            missing_info = []
+            if not client_name:
+                missing_info.append("client name")
+            if not client_phone:
+                missing_info.append("client phone number")
+            
+            if missing_info:
+                return f"To send an invitation, I need the {' and '.join(missing_info)}. Please provide this information.\n\nExample: \"Invite Sarah Johnson, phone 0821234567\""
+            
+            # Fallback - provide instructions
+            return (
+                "I can help you send a professional invitation to a potential client! 📧\n\n"
+                "Please provide:\n"
+                "• Client's full name\n"
+                "• Client's phone number\n"
+                "• Client's email (optional)\n\n"
+                "Example: 'Invite John Smith, phone 0821234567, email john@email.com'"
+            )
+            
+        except Exception as e:
+            log_error(f"Error handling invite client: {str(e)}")
+            return "I encountered an error sending the invitation. Please try again or contact support."
+    
+    def _handle_client_progress_inquiry(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client progress inquiries with AI-driven client identification"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'trainer':
+                return "Only trainers can view client progress. If you're a client asking about your own progress, say 'my progress'."
+            
+            # Extract client name from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            client_name = extracted_data.get('client_name')
+            
+            if not client_name:
+                # Try to extract from original message
+                original_message = extracted_data.get('original_message', '')
+                # Simple name extraction - look for common patterns
+                import re
+                name_patterns = [
+                    r"how is (\w+(?:\s+\w+)?)",
+                    r"(\w+(?:\s+\w+)?)'s progress",
+                    r"show me (\w+(?:\s+\w+)?)",
+                    r"(\w+(?:\s+\w+)?) doing"
+                ]
+                
+                for pattern in name_patterns:
+                    match = re.search(pattern, original_message.lower())
+                    if match:
+                        client_name = match.group(1).title()
+                        break
+            
+            if not client_name:
+                # Get list of clients to help trainer choose
+                clients = self.db.table('clients').select('name').eq('trainer_id', user_info['id']).eq('status', 'active').execute()
+                
+                if not clients.data:
+                    return "You don't have any active clients yet. Add your first client with '/add_client'!"
+                
+                client_names = [client['name'] for client in clients.data]
+                
+                return f"Which client's progress would you like to see?\n\nYour clients: {', '.join(client_names)}\n\nJust say their name, like 'How is Sarah doing?'"
+            
+            # Find the client
+            clients = self.db.table('clients').select('*').eq('trainer_id', user_info['id']).eq('status', 'active').execute()
+            
+            if not clients.data:
+                return "You don't have any active clients yet."
+            
+            # Fuzzy match client name
+            matched_client = self._fuzzy_match_client(client_name, clients.data)
+            
+            if not matched_client:
+                client_names = [client['name'] for client in clients.data]
+                return f"I couldn't find a client named '{client_name}'. Your clients are: {', '.join(client_names)}"
+            
+            # Get client progress information
+            client_id = matched_client['id']
+            client_full_name = matched_client['name']
+            
+            # Get recent sessions
+            sessions = self.db.table('bookings').select('*').eq('client_id', client_id).order('created_at', desc=True).limit(5).execute()
+            
+            # Get habit tracking if available
+            habits = self.db.table('habit_tracking').select('*').eq('client_id', client_id).order('date', desc=True).limit(10).execute()
+            
+            # Build progress report
+            progress_report = f"📊 *Progress Report for {client_full_name}*\n\n"
+            
+            # Session information
+            if sessions.data:
+                recent_sessions = len(sessions.data)
+                last_session = sessions.data[0]['created_at'][:10] if sessions.data else 'Never'
+                progress_report += f"🏋️ **Recent Activity:**\n• {recent_sessions} sessions in recent history\n• Last session: {last_session}\n\n"
+            else:
+                progress_report += f"🏋️ **Sessions:** No recent sessions recorded\n\n"
+            
+            # Habit tracking
+            if habits.data:
+                completed_habits = len([h for h in habits.data if h.get('completed', False)])
+                total_habits = len(habits.data)
+                completion_rate = (completed_habits / total_habits * 100) if total_habits > 0 else 0
+                progress_report += f"✅ **Habit Tracking:** {completion_rate:.0f}% completion rate\n\n"
+            
+            # Client details
+            progress_report += f"👤 **Client Info:**\n"
+            progress_report += f"• Fitness Goals: {matched_client.get('fitness_goals', 'Not specified')}\n"
+            progress_report += f"• Experience Level: {matched_client.get('experience_level', 'Not specified')}\n"
+            progress_report += f"• Sessions Remaining: {matched_client.get('sessions_remaining', 0)}\n\n"
+            
+            progress_report += f"💡 **Tip:** Keep encouraging {client_full_name.split()[0]} and track their progress regularly!"
+            
+            return progress_report
+            
+        except Exception as e:
+            log_error(f"Error handling client progress inquiry: {str(e)}")
+            return "I encountered an error retrieving client progress. Please try again."
+    
+    def _handle_manage_client(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle general client management requests"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'trainer':
+                return "Only trainers can manage clients. If you're looking for a trainer, say 'find a trainer'!"
+            
+            # Extract client name if mentioned
+            extracted_data = intent_data.get('extracted_data', {})
+            client_name = extracted_data.get('client_name')
+            
+            if client_name:
+                # Specific client management
+                clients = self.db.table('clients').select('*').eq('trainer_id', user_info['id']).eq('status', 'active').execute()
+                
+                if clients.data:
+                    matched_client = self._fuzzy_match_client(client_name, clients.data)
+                    
+                    if matched_client:
+                        return f"I can help you manage {matched_client['name']}! Here's what you can do:\n\n" \
+                               f"📊 **View Progress:** 'How is {matched_client['name']} doing?'\n" \
+                               f"🏋️ **Book Session:** 'Book session for {matched_client['name']}'\n" \
+                               f"💪 **Send Workout:** 'Send workout to {matched_client['name']}'\n" \
+                               f"💰 **Request Payment:** 'Request payment from {matched_client['name']}'\n\n" \
+                               f"What would you like to do?"
+                    else:
+                        client_names = [client['name'] for client in clients.data]
+                        return f"I couldn't find a client named '{client_name}'. Your clients are: {', '.join(client_names)}"
+                else:
+                    return "You don't have any active clients yet. Add your first client with '/add_client'!"
+            else:
+                # General client management
+                clients = self.db.table('clients').select('*').eq('trainer_id', user_info['id']).eq('status', 'active').execute()
+                
+                if not clients.data:
+                    return "You don't have any active clients yet. Here's how to get started:\n\n" \
+                           "➕ **Add Client:** '/add_client' or 'Add new client'\n" \
+                           "📧 **Send Invitation:** 'Invite [name] to my program'\n" \
+                           "📱 **Share Number:** Give clients your WhatsApp number\n\n" \
+                           "Ready to add your first client?"
+                
+                client_count = len(clients.data)
+                client_names = [client['name'] for client in clients.data]
+                
+                return f"👥 **Your Clients ({client_count}):** {', '.join(client_names)}\n\n" \
+                       f"**What you can do:**\n" \
+                       f"➕ **Add More:** '/add_client' or 'Add new client'\n" \
+                       f"📊 **View Progress:** 'How is [name] doing?'\n" \
+                       f"📧 **Send Invitations:** 'Invite [name] to my program'\n" \
+                       f"📋 **View All:** '/clients' or 'Show my clients'\n\n" \
+                       f"What would you like to do?"
+            
+        except Exception as e:
+            log_error(f"Error handling manage client: {str(e)}")
+            return "I encountered an error with client management. Please try again."
+    
+    def _handle_request_trainer(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client requests for specific trainers by email or phone"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] == 'trainer':
+                return "You're already a trainer! If you're looking to connect with other trainers, please contact them directly."
+            
+            # Extract trainer contact info from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            trainer_email = extracted_data.get('email')
+            trainer_phone = extracted_data.get('phone_number')
+            original_message = extracted_data.get('original_message', '')
+            
+            # Try to extract email if not already found
+            if not trainer_email:
+                import re
+                email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', original_message)
+                if email_match:
+                    trainer_email = email_match.group(1)
+            
+            # Try to extract phone if not already found
+            if not trainer_phone:
+                import re
+                # South African phone patterns
+                phone_patterns = [
+                    r'(?:0|27)?([678]\d{8})',  # 0821234567 or 27821234567
+                    r'(\+27[678]\d{8})',      # +27821234567
+                ]
+                
+                for pattern in phone_patterns:
+                    phone_match = re.search(pattern, original_message)
+                    if phone_match:
+                        raw_phone = phone_match.group(1) if pattern.startswith('(?:0|27)?') else phone_match.group(1)[3:]
+                        # Normalize to 0XXXXXXXXX format
+                        if len(raw_phone) == 9:
+                            trainer_phone = '0' + raw_phone
+                        elif len(raw_phone) == 10 and raw_phone.startswith('0'):
+                            trainer_phone = raw_phone
+                        break
+            
+            # Check what contact info we have
+            if trainer_email:
+                return self._request_trainer_by_email(phone, trainer_email)
+            elif trainer_phone:
+                return self._request_trainer_by_phone(phone, trainer_phone)
+            else:
+                return (
+                    "I can help you find a trainer by their email or phone number! 📧📱\n\n"
+                    "Please provide either:\n"
+                    "• Trainer's email: 'I want trainer john@fitlife.com'\n"
+                    "• Trainer's phone: 'Add trainer 0821234567'\n\n"
+                    "How would you like to find your trainer?"
+                )
+            
+        except Exception as e:
+            log_error(f"Error handling request trainer: {str(e)}")
+            return "I encountered an error processing your trainer request. Please try again."
+    
+    def _request_trainer_by_email(self, client_phone: str, trainer_email: str) -> str:
+        """Request trainer by email address"""
+        try:
+            # Use the existing trainer request handler from refiloe service
+            from services.refiloe import RefiloeService
+            refiloe_service = RefiloeService(self.db)
+            
+            # Simulate the trainer request message
+            request_message = f"trainer {trainer_email}"
+            result = refiloe_service._handle_trainer_request_by_email(client_phone, request_message)
+            
+            if result.get('handled'):
+                return result['message']
+            else:
+                return f"I couldn't process your trainer request for {trainer_email}. Please check the email address and try again."
+                
+        except Exception as e:
+            log_error(f"Error requesting trainer by email: {str(e)}")
+            return "I encountered an error processing your trainer request. Please try again."
+    
+    def _request_trainer_by_phone(self, client_phone: str, trainer_phone: str) -> str:
+        """Request trainer by phone number"""
+        try:
+            # Look up trainer by phone number
+            trainer_result = self.db.table('trainers').select('*').eq('whatsapp', trainer_phone).execute()
+            
+            if not trainer_result.data:
+                return (
+                    f"I couldn't find a trainer with phone number {trainer_phone}. 📱\n\n"
+                    "Please check the number or ask them to register as a trainer first.\n\n"
+                    "💡 You can also try finding them by email address!"
+                )
+            
+            trainer = trainer_result.data[0]
+            trainer_id = trainer['id']
+            trainer_name = trainer['name']
+            business_name = trainer.get('business_name', f"{trainer_name}'s Training")
+            
+            # Check if client already has this trainer
+            existing_client = self.db.table('clients').select('*').eq('whatsapp', client_phone).eq('trainer_id', trainer_id).execute()
+            
+            if existing_client.data:
+                return f"You're already connected with {trainer_name}! 🎉 You can start booking sessions and tracking your progress."
+            
+            # Check for existing pending request
+            existing_request = self.db.table('clients').select('*').eq('whatsapp', client_phone).eq('trainer_id', trainer_id).eq('connection_status', 'pending').execute()
+            
+            if existing_request.data:
+                return f"You already have a pending request with {trainer_name}. Please wait for them to approve your request. ⏳"
+            
+            # Create client request (pending approval)
+            from datetime import datetime
+            client_data = {
+                'name': 'Pending Client',  # Will be updated during registration
+                'whatsapp': client_phone,
+                'trainer_id': trainer_id,
+                'connection_status': 'pending',
+                'requested_by': 'client',
+                'status': 'pending',
+                'created_at': datetime.now().isoformat()
+            }
+            
+            result = self.db.table('clients').insert(client_data).execute()
+            
+            if result.data:
+                # Notify trainer of new client request
+                trainer_notification = (
+                    f"👋 *New Client Request!*\n\n"
+                    f"Someone wants to train with you!\n"
+                    f"📱 Phone: {client_phone}\n\n"
+                    f"💡 *Actions:*\n"
+                    f"• Say 'pending requests' to view all requests\n"
+                    f"• Say 'approve {client_phone}' to approve this client\n"
+                    f"• Say 'decline {client_phone}' to decline this request\n\n"
+                    f"What would you like to do?"
+                )
+                
+                try:
+                    # Get WhatsApp service from app context
+                    if hasattr(self, 'services') and 'whatsapp' in self.services:
+                        whatsapp_service = self.services['whatsapp']
+                        whatsapp_service.send_message(trainer_phone, trainer_notification)
+                    else:
+                        # Fallback - try to get from app
+                        from app import app
+                        whatsapp_service = app.config['services']['whatsapp']
+                        whatsapp_service.send_message(trainer_phone, trainer_notification)
+                except Exception as e:
+                    log_warning(f"Could not notify trainer of client request: {str(e)}")
+                
+                return (
+                    f"✅ *Request Sent!*\n\n"
+                    f"I've sent your training request to {trainer_name} from {business_name}.\n\n"
+                    f"They'll review your request and get back to you soon. You'll receive a notification once they respond! 📲\n\n"
+                    f"💡 *What happens next:*\n"
+                    f"• {trainer_name} will review your request\n"
+                    f"• If approved, you'll start registration\n"
+                    f"• If declined, you can search for other trainers\n\n"
+                    f"Thanks for your patience! 🙏"
+                )
+            else:
+                return "❌ Sorry, there was an error sending your trainer request. Please try again."
+                
+        except Exception as e:
+            log_error(f"Error requesting trainer by phone: {str(e)}")
+            return "I encountered an error processing your trainer request. Please try again."
+    
+    def _handle_add_trainer_direct(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client directly adding themselves to a trainer (auto-approval if enabled)"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] == 'trainer':
+                return "You're already a trainer! If you're looking to connect with other trainers, please contact them directly."
+            
+            # Extract trainer contact info from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            trainer_email = extracted_data.get('email')
+            trainer_phone = extracted_data.get('phone_number')
+            original_message = extracted_data.get('original_message', '')
+            
+            # Try to extract email if not already found
+            if not trainer_email:
+                import re
+                email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', original_message)
+                if email_match:
+                    trainer_email = email_match.group(1)
+            
+            # Try to extract phone if not already found
+            if not trainer_phone:
+                import re
+                # South African phone patterns
+                phone_patterns = [
+                    r'(?:0|27)?([678]\d{8})',  # 0821234567 or 27821234567
+                    r'(\+27[678]\d{8})',      # +27821234567
+                ]
+                
+                for pattern in phone_patterns:
+                    phone_match = re.search(pattern, original_message)
+                    if phone_match:
+                        raw_phone = phone_match.group(1) if pattern.startswith('(?:0|27)?') else phone_match.group(1)[3:]
+                        # Normalize to 0XXXXXXXXX format
+                        if len(raw_phone) == 9:
+                            trainer_phone = '0' + raw_phone
+                        elif len(raw_phone) == 10 and raw_phone.startswith('0'):
+                            trainer_phone = raw_phone
+                        break
+            
+            # Check what contact info we have
+            if trainer_email:
+                return self._add_trainer_direct_by_email(phone, trainer_email)
+            elif trainer_phone:
+                return self._add_trainer_direct_by_phone(phone, trainer_phone)
+            else:
+                return (
+                    "I can help you join a trainer directly! 🚀\n\n"
+                    "Please provide either:\n"
+                    "• Trainer's email: 'Add me to trainer john@fitlife.com'\n"
+                    "• Trainer's phone: 'Join trainer 0821234567'\n\n"
+                    "Note: This will only work if the trainer allows auto-approval."
+                )
+            
+        except Exception as e:
+            log_error(f"Error handling add trainer direct: {str(e)}")
+            return "I encountered an error processing your request. Please try again."
+    
+    def _add_trainer_direct_by_email(self, client_phone: str, trainer_email: str) -> str:
+        """Add client directly to trainer by email (if auto-approval enabled)"""
+        try:
+            # Look up trainer by email
+            trainer_result = self.db.table('trainers').select('*').eq('email', trainer_email).execute()
+            
+            if not trainer_result.data:
+                return (
+                    f"I couldn't find a trainer with email {trainer_email}. 📧\n\n"
+                    "Please check the email address or ask them to register as a trainer first.\n\n"
+                    "💡 You can also try sending them a request instead!"
+                )
+            
+            trainer = trainer_result.data[0]
+            return self._process_direct_trainer_addition(client_phone, trainer)
+                
+        except Exception as e:
+            log_error(f"Error adding trainer by email: {str(e)}")
+            return "I encountered an error processing your request. Please try again."
+    
+    def _add_trainer_direct_by_phone(self, client_phone: str, trainer_phone: str) -> str:
+        """Add client directly to trainer by phone (if auto-approval enabled)"""
+        try:
+            # Look up trainer by phone number
+            trainer_result = self.db.table('trainers').select('*').eq('whatsapp', trainer_phone).execute()
+            
+            if not trainer_result.data:
+                return (
+                    f"I couldn't find a trainer with phone number {trainer_phone}. 📱\n\n"
+                    "Please check the number or ask them to register as a trainer first.\n\n"
+                    "💡 You can also try sending them a request instead!"
+                )
+            
+            trainer = trainer_result.data[0]
+            return self._process_direct_trainer_addition(client_phone, trainer)
+                
+        except Exception as e:
+            log_error(f"Error adding trainer by phone: {str(e)}")
+            return "I encountered an error processing your request. Please try again."
+    
+    def _process_direct_trainer_addition(self, client_phone: str, trainer: Dict) -> str:
+        """Process direct addition of client to trainer"""
+        try:
+            trainer_id = trainer['id']
+            trainer_name = trainer['name']
+            business_name = trainer.get('business_name', f"{trainer_name}'s Training")
+            trainer_phone = trainer['whatsapp']
+            
+            # Check if trainer allows auto-approval (you can add this field to trainers table)
+            auto_approve = trainer.get('auto_approve_clients', False)
+            
+            # Check if client already has this trainer
+            existing_client = self.db.table('clients').select('*').eq('whatsapp', client_phone).eq('trainer_id', trainer_id).execute()
+            
+            if existing_client.data:
+                client = existing_client.data[0]
+                if client.get('connection_status') == 'approved':
+                    return f"You're already connected with {trainer_name}! 🎉 You can start booking sessions and tracking your progress."
+                elif client.get('connection_status') == 'pending':
+                    return f"You already have a pending request with {trainer_name}. Please wait for them to approve your request. ⏳"
+            
+            if auto_approve:
+                # Directly add client with approved status
+                from datetime import datetime
+                client_data = {
+                    'name': 'New Client',  # Will be updated during onboarding
+                    'whatsapp': client_phone,
+                    'trainer_id': trainer_id,
+                    'connection_status': 'approved',
+                    'requested_by': 'client',
+                    'status': 'active',
+                    'created_at': datetime.now().isoformat()
+                }
+                
+                result = self.db.table('clients').insert(client_data).execute()
+                
+                if result.data:
+                    # Notify trainer of new client
+                    trainer_notification = (
+                        f"🎉 *New Client Added!*\n\n"
+                        f"A new client has joined your program!\n"
+                        f"📱 Phone: {client_phone}\n\n"
+                        f"They've been automatically approved and can now:\n"
+                        f"• Book training sessions\n"
+                        f"• Track their progress\n"
+                        f"• Receive workouts\n\n"
+                        f"Welcome them to {business_name}! 👋"
+                    )
+                    
+                    try:
+                        # Get WhatsApp service from app context
+                        if hasattr(self, 'services') and 'whatsapp' in self.services:
+                            whatsapp_service = self.services['whatsapp']
+                            whatsapp_service.send_message(trainer_phone, trainer_notification)
+                        else:
+                            # Fallback - try to get from app
+                            from app import app
+                            whatsapp_service = app.config['services']['whatsapp']
+                            whatsapp_service.send_message(trainer_phone, trainer_notification)
+                    except Exception as e:
+                        log_warning(f"Could not notify trainer of new client: {str(e)}")
+                    
+                    # Start client onboarding flow
+                    try:
+                        if hasattr(self, 'services') and 'whatsapp_flow_handler' in self.services:
+                            flow_handler = self.services['whatsapp_flow_handler']
+                            onboarding_result = flow_handler.handle_client_onboarding_request(client_phone)
+                            
+                            if onboarding_result.get('success'):
+                                return (
+                                    f"🎉 *Welcome to {business_name}!*\n\n"
+                                    f"You've been successfully added to {trainer_name}'s program!\n\n"
+                                    f"Let's complete your profile to get started... 📋"
+                                )
+                            else:
+                                return (
+                                    f"🎉 *Welcome to {business_name}!*\n\n"
+                                    f"You've been successfully added to {trainer_name}'s program!\n\n"
+                                    f"Please complete your registration by providing:\n"
+                                    f"• Your full name\n"
+                                    f"• Fitness goals\n"
+                                    f"• Experience level\n\n"
+                                    f"Let's get started! What's your full name?"
+                                )
+                        else:
+                            return (
+                                f"🎉 *Welcome to {business_name}!*\n\n"
+                                f"You've been successfully added to {trainer_name}'s program!\n\n"
+                                f"You can now:\n"
+                                f"• Book training sessions\n"
+                                f"• Track your progress\n"
+                                f"• Receive personalized workouts\n\n"
+                                f"Say 'help' to see what you can do!"
+                            )
+                    except Exception as e:
+                        log_warning(f"Could not start client onboarding: {str(e)}")
+                        return (
+                            f"🎉 *Welcome to {business_name}!*\n\n"
+                            f"You've been successfully added to {trainer_name}'s program!\n\n"
+                            f"You can now start booking sessions and tracking your progress!"
+                        )
+                else:
+                    return "❌ Sorry, there was an error adding you to the trainer's program. Please try again."
+            else:
+                # Trainer doesn't allow auto-approval, send request instead
+                return self._request_trainer_by_phone(client_phone, trainer_phone)
+                
+        except Exception as e:
+            log_error(f"Error processing direct trainer addition: {str(e)}")
+            return "I encountered an error processing your request. Please try again."
+    
+    def _handle_approve_client_request(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle trainer approval of client requests with AI"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'trainer':
+                return "Only trainers can approve client requests. If you're looking for a trainer, say 'find a trainer'!"
+            
+            # Extract client information from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            client_identifier = extracted_data.get('phone_number') or extracted_data.get('client_name')
+            
+            if not client_identifier:
+                # Try to extract from original message
+                original_message = extracted_data.get('original_message', '')
+                import re
+                
+                # Look for phone numbers
+                phone_match = re.search(r'(\+?27\d{9}|0\d{9})', original_message)
+                if phone_match:
+                    client_identifier = phone_match.group(1)
+                else:
+                    # Look for names
+                    name_patterns = [
+                        r'approve\s+(\w+(?:\s+\w+)?)',
+                        r'accept\s+(\w+(?:\s+\w+)?)',
+                        r'(\w+(?:\s+\w+)?)\s+request'
+                    ]
+                    
+                    for pattern in name_patterns:
+                        match = re.search(pattern, original_message.lower())
+                        if match:
+                            client_identifier = match.group(1).title()
+                            break
+            
+            if not client_identifier:
+                return (
+                    "I can help you approve a client request! 👍\n\n"
+                    "Please specify which client to approve:\n"
+                    "• Use their phone number: 'Approve +27821234567'\n"
+                    "• Use `/pending_requests` to see all requests\n\n"
+                    "Example: 'Approve the client from 0821234567'"
+                )
+            
+            # Use the existing approve client handler
+            from services.refiloe import RefiloeService
+            refiloe_service = RefiloeService(self.db)
+            
+            # Simulate the approve command
+            approve_command = f"/approve_client {client_identifier}"
+            result = refiloe_service._handle_approve_client_command(phone, approve_command, sender_data)
+            
+            if result.get('success'):
+                return result['response']
+            else:
+                return f"I couldn't approve the client request for {client_identifier}. Use `/pending_requests` to see all pending requests."
+            
+        except Exception as e:
+            log_error(f"Error handling approve client request: {str(e)}")
+            return "I encountered an error approving the client request. Please try again."
+    
+    def _handle_view_invitations(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client requests to view trainer invitations"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'client':
+                return "Only clients can view trainer invitations. If you're a trainer looking to manage client requests, use '/pending_requests'."
+            
+            # Use the existing invitations command handler
+            from services.refiloe import RefiloeService
+            refiloe_service = RefiloeService(self.db)
+            
+            result = refiloe_service._handle_client_invitations_command(phone, sender_data)
+            
+            if result.get('success'):
+                return result['response']
+            else:
+                return "I encountered an error retrieving your invitations. Please try '/invitations' command."
+            
+        except Exception as e:
+            log_error(f"Error handling view invitations: {str(e)}")
+            return "I encountered an error retrieving your invitations. Please try again."
+    
+    def _handle_accept_invitation_ai(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client acceptance of trainer invitations with AI"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'client':
+                return "Only clients can accept trainer invitations. If you're a trainer, use '/approve_client' to approve client requests."
+            
+            # Extract trainer or invitation information from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            trainer_name = extracted_data.get('client_name')  # AI might extract trainer name as client_name
+            
+            if not trainer_name:
+                # Try to extract from original message
+                original_message = extracted_data.get('original_message', '')
+                import re
+                
+                # Look for trainer names or business names
+                name_patterns = [
+                    r'accept\s+(\w+(?:\s+\w+)?)',
+                    r'(\w+(?:\s+\w+)?)\s+invitation',
+                    r'from\s+(\w+(?:\s+\w+)?)',
+                    r'trainer\s+(\w+(?:\s+\w+)?)'
+                ]
+                
+                for pattern in name_patterns:
+                    match = re.search(pattern, original_message.lower())
+                    if match:
+                        trainer_name = match.group(1).title()
+                        break
+            
+            # Get pending invitations for this client
+            invitations = self.db.table('client_invitations').select('*').eq('client_phone', phone).eq('status', 'pending').execute()
+            
+            if not invitations.data:
+                return (
+                    "📧 You don't have any pending trainer invitations.\n\n"
+                    "💡 To connect with trainers:\n"
+                    "• Use '/find_trainer' to search for trainers\n"
+                    "• Say 'trainer [email]' if you know a trainer's email\n"
+                    "• Ask trainers to send you an invitation"
+                )
+            
+            # If trainer name provided, try to match
+            if trainer_name:
+                matching_invitation = None
+                
+                for invitation in invitations.data:
+                    trainer_id = invitation['trainer_id']
+                    trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                    
+                    if trainer_result.data:
+                        trainer_info = trainer_result.data[0]
+                        full_name = trainer_info.get('name', '')
+                        business_name = trainer_info.get('business_name', '')
+                        
+                        # Check if trainer name matches
+                        if (trainer_name.lower() in full_name.lower() or 
+                            trainer_name.lower() in business_name.lower() or
+                            full_name.lower().startswith(trainer_name.lower())):
+                            matching_invitation = invitation
+                            break
+                
+                if matching_invitation:
+                    # Use existing invitation acceptance handler
+                    from services.refiloe import RefiloeService
+                    refiloe_service = RefiloeService(self.db)
+                    
+                    result = refiloe_service._process_invitation_acceptance(matching_invitation, phone)
+                    return result['message']
+                else:
+                    trainer_names = []
+                    for invitation in invitations.data:
+                        trainer_id = invitation['trainer_id']
+                        trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                        if trainer_result.data:
+                            trainer_info = trainer_result.data[0]
+                            name = trainer_info.get('business_name') or trainer_info.get('name')
+                            trainer_names.append(name)
+                    
+                    return f"I couldn't find an invitation from '{trainer_name}'. Your pending invitations are from: {', '.join(trainer_names)}.\n\nUse '/invitations' to see all details."
+            
+            # No specific trainer mentioned - show options
+            if len(invitations.data) == 1:
+                # Only one invitation - ask for confirmation
+                invitation = invitations.data[0]
+                trainer_id = invitation['trainer_id']
+                trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                
+                if trainer_result.data:
+                    trainer_info = trainer_result.data[0]
+                    trainer_name = trainer_info.get('business_name') or trainer_info.get('name')
+                    
+                    return f"You have one pending invitation from {trainer_name}. Reply 'yes' to accept or 'no' to decline."
+            else:
+                # Multiple invitations - ask to specify
+                trainer_names = []
+                for invitation in invitations.data:
+                    trainer_id = invitation['trainer_id']
+                    trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                    if trainer_result.data:
+                        trainer_info = trainer_result.data[0]
+                        name = trainer_info.get('business_name') or trainer_info.get('name')
+                        trainer_names.append(name)
+                
+                return f"You have {len(invitations.data)} pending invitations from: {', '.join(trainer_names)}.\n\nPlease specify which one to accept, like 'Accept John's invitation' or use '/invitations' to see all details."
+            
+        except Exception as e:
+            log_error(f"Error handling accept invitation AI: {str(e)}")
+            return "I encountered an error processing your invitation acceptance. Please try again."
+    
+    def _handle_decline_invitation_ai(self, phone: str, intent_data: Dict, sender_type: str, sender_data: Dict) -> str:
+        """Handle client decline of trainer invitations with AI"""
+        try:
+            # Get user info
+            user_info = self._get_user_info(phone)
+            
+            if user_info['type'] != 'client':
+                return "Only clients can decline trainer invitations. If you're a trainer, use '/decline_client' to decline client requests."
+            
+            # Extract trainer information from the message
+            extracted_data = intent_data.get('extracted_data', {})
+            trainer_name = extracted_data.get('client_name')  # AI might extract trainer name as client_name
+            
+            if not trainer_name:
+                # Try to extract from original message
+                original_message = extracted_data.get('original_message', '')
+                import re
+                
+                # Look for trainer names
+                name_patterns = [
+                    r'decline\s+(\w+(?:\s+\w+)?)',
+                    r'(\w+(?:\s+\w+)?)\s+invitation',
+                    r'from\s+(\w+(?:\s+\w+)?)',
+                    r'trainer\s+(\w+(?:\s+\w+)?)'
+                ]
+                
+                for pattern in name_patterns:
+                    match = re.search(pattern, original_message.lower())
+                    if match:
+                        trainer_name = match.group(1).title()
+                        break
+            
+            # Get pending invitations for this client
+            invitations = self.db.table('client_invitations').select('*').eq('client_phone', phone).eq('status', 'pending').execute()
+            
+            if not invitations.data:
+                return (
+                    "📧 You don't have any pending trainer invitations to decline.\n\n"
+                    "💡 If you're looking for trainers, use '/find_trainer' to search for trainers."
+                )
+            
+            # If trainer name provided, try to match and decline
+            if trainer_name:
+                matching_invitation = None
+                
+                for invitation in invitations.data:
+                    trainer_id = invitation['trainer_id']
+                    trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                    
+                    if trainer_result.data:
+                        trainer_info = trainer_result.data[0]
+                        full_name = trainer_info.get('name', '')
+                        business_name = trainer_info.get('business_name', '')
+                        
+                        # Check if trainer name matches
+                        if (trainer_name.lower() in full_name.lower() or 
+                            trainer_name.lower() in business_name.lower() or
+                            full_name.lower().startswith(trainer_name.lower())):
+                            matching_invitation = invitation
+                            break
+                
+                if matching_invitation:
+                    # Use existing invitation decline handler
+                    from services.refiloe import RefiloeService
+                    refiloe_service = RefiloeService(self.db)
+                    
+                    result = refiloe_service._process_invitation_decline(matching_invitation, phone)
+                    return result['message']
+                else:
+                    trainer_names = []
+                    for invitation in invitations.data:
+                        trainer_id = invitation['trainer_id']
+                        trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                        if trainer_result.data:
+                            trainer_info = trainer_result.data[0]
+                            name = trainer_info.get('business_name') or trainer_info.get('name')
+                            trainer_names.append(name)
+                    
+                    return f"I couldn't find an invitation from '{trainer_name}'. Your pending invitations are from: {', '.join(trainer_names)}.\n\nUse '/invitations' to see all details."
+            
+            # No specific trainer mentioned - show options
+            if len(invitations.data) == 1:
+                # Only one invitation - ask for confirmation
+                invitation = invitations.data[0]
+                trainer_id = invitation['trainer_id']
+                trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                
+                if trainer_result.data:
+                    trainer_info = trainer_result.data[0]
+                    trainer_name = trainer_info.get('business_name') or trainer_info.get('name')
+                    
+                    return f"You have one pending invitation from {trainer_name}. Reply 'yes' to decline or use '/invitations' to see details."
+            else:
+                # Multiple invitations - ask to specify
+                trainer_names = []
+                for invitation in invitations.data:
+                    trainer_id = invitation['trainer_id']
+                    trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+                    if trainer_result.data:
+                        trainer_info = trainer_result.data[0]
+                        name = trainer_info.get('business_name') or trainer_info.get('name')
+                        trainer_names.append(name)
+                
+                return f"You have {len(invitations.data)} pending invitations. Please specify which one to decline, like 'Decline John's invitation' or use '/invitations' to see all details."
+            
+        except Exception as e:
+            log_error(f"Error handling decline invitation AI: {str(e)}")
+            return "I encountered an error processing your invitation decline. Please try again."

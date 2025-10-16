@@ -374,8 +374,26 @@ class RefiloeService:
                 return self._handle_clients_command(phone, user_data)
             elif command == '/add_client' and user_type == 'trainer':
                 return self._handle_add_client_command(phone, user_data)
+            elif command == '/pending_requests' and user_type == 'trainer':
+                return self._handle_pending_requests_command(phone, user_data)
+            elif command.startswith('/approve_client') and user_type == 'trainer':
+                return self._handle_approve_client_command(phone, command, user_data)
+            elif command.startswith('/decline_client') and user_type == 'trainer':
+                return self._handle_decline_client_command(phone, command, user_data)
             elif command == '/trainer' and user_type == 'client':
                 return self._handle_trainer_info_command(phone, user_data)
+            elif command == '/invitations' and user_type == 'client':
+                return self._handle_client_invitations_command(phone, user_data)
+            elif command.startswith('/accept_invitation') and user_type == 'client':
+                return self._handle_accept_invitation_command(phone, command, user_data)
+            elif command.startswith('/decline_invitation') and user_type == 'client':
+                return self._handle_decline_invitation_command(phone, command, user_data)
+            elif command == '/find_trainer' and user_type == 'client':
+                return self._handle_find_trainer_command(phone, user_data)
+            elif command.startswith('/request_trainer') and user_type == 'client':
+                return self._handle_request_trainer_command(phone, command, user_data)
+            elif command.startswith('/add_trainer') and user_type == 'client':
+                return self._handle_add_trainer_command(phone, command, user_data)
             elif command == '/reset_me':
                 return self._handle_reset_command(phone)
             else:
@@ -401,14 +419,23 @@ class RefiloeService:
                 "• `/profile` - View your profile\n"
                 "• `/edit_profile` - Edit your profile\n"
                 "• `/clients` - Manage your clients\n"
-                "• `/add_client` - Add a new client"
+                "• `/add_client` - Add a new client\n"
+                "• `/pending_requests` - View client requests\n"
+                "• `/approve_client [name]` - Approve client\n"
+                "• `/decline_client [name]` - Decline client"
             )
         elif user_type == 'client':
             return (
                 "• `/help` - Show all commands\n"
                 "• `/profile` - View your profile\n"
                 "• `/edit_profile` - Edit your profile\n"
-                "• `/trainer` - View trainer info"
+                "• `/trainer` - View trainer info\n"
+                "• `/invitations` - View trainer invitations\n"
+                "• `/accept_invitation [token]` - Accept invitation\n"
+                "• `/decline_invitation [token]` - Decline invitation\n"
+                "• `/find_trainer` - Search for trainers\n"
+                "• `/request_trainer [email/phone]` - Request specific trainer\n"
+                "• `/add_trainer [email/phone]` - Add trainer directly"
             )
         else:
             return (
@@ -630,6 +657,143 @@ class RefiloeService:
                         log_error(f"Error processing client registration: {str(e)}")
                         self.update_conversation_state(phone, 'IDLE')
             
+            # CHECK FOR CLIENT INVITATION RESPONSES
+            if sender_type == 'unknown':
+                # Check if this is a response to a trainer invitation
+                invitation_response = self._handle_invitation_response(phone, text)
+                if invitation_response.get('handled'):
+                    whatsapp_service.send_message(phone, invitation_response['message'])
+                    return {'success': True, 'response': invitation_response['message']}
+                
+                # Check if this is a trainer request by email
+                trainer_request = self._handle_trainer_request_by_email(phone, text)
+                if trainer_request.get('handled'):
+                    whatsapp_service.send_message(phone, trainer_request['message'])
+                    return {'success': True, 'response': trainer_request['message']}
+            
+            # CHECK FOR TEXT CLIENT ADDITION FLOW
+            if conv_state.get('state') == 'TEXT_CLIENT_ADDITION':
+                log_info(f"User {phone} is in text client addition flow")
+                
+                try:
+                    result = self._handle_text_client_addition_step(phone, text, conv_state.get('context', {}))
+                    
+                    if result.get('success'):
+                        if result.get('completed'):
+                            # Client addition completed
+                            whatsapp_service.send_message(phone, result['message'])
+                            self.clear_conversation_state(phone)
+                        else:
+                            # Continue to next step
+                            whatsapp_service.send_message(phone, result['message'])
+                            self.update_conversation_state(phone, 'TEXT_CLIENT_ADDITION', result['context'])
+                        
+                        return {'success': True, 'response': result['message']}
+                    else:
+                        # Error in processing
+                        whatsapp_service.send_message(phone, result['message'])
+                        return {'success': False, 'response': result['message']}
+                        
+                except Exception as e:
+                    log_error(f"Error processing text client addition: {str(e)}")
+                    error_msg = "❌ Sorry, there was an error. Let's try again. What's your client's name?"
+                    whatsapp_service.send_message(phone, error_msg)
+                    return {'success': False, 'response': error_msg}
+            
+            # CHECK FOR PENDING CLIENT CONFIRMATION
+            if conv_state.get('state') == 'PENDING_CLIENT_CONFIRMATION':
+                log_info(f"User {phone} is confirming client addition")
+                
+                response_lower = text.strip().lower()
+                pending_client = conv_state.get('context', {}).get('pending_client', {})
+                
+                if response_lower in ['yes', 'y', 'confirm', 'ok', 'proceed']:
+                    # Confirm and add the client
+                    try:
+                        # Create the client record
+                        client_data = {
+                            'trainer_id': pending_client['trainer_id'],
+                            'name': pending_client['name'],
+                            'whatsapp': pending_client['whatsapp'],
+                            'email': pending_client.get('email'),
+                            'status': 'active',
+                            'package_type': 'single',
+                            'sessions_remaining': 1,
+                            'experience_level': pending_client.get('experience_level', 'Beginner'),  # Default to Beginner
+                            'health_conditions': pending_client.get('health_conditions', 'None specified'),  # Default
+                            'fitness_goals': pending_client.get('fitness_goals', 'General fitness'),  # Default
+                            'availability': pending_client.get('availability', 'Flexible'),  # Default
+                            'created_at': datetime.now().isoformat()
+                        }
+                        
+                        result = self.db.table('clients').insert(client_data).execute()
+                        
+                        if result.data:
+                            client_id = result.data[0]['id']
+                            client_name = pending_client['name']
+                            client_phone = pending_client['whatsapp']
+                            
+                            # Clear conversation state
+                            self.clear_conversation_state(phone)
+                            
+                            # Send success message to trainer
+                            success_msg = (
+                                f"🎉 *Client Added Successfully!*\n\n"
+                                f"✅ {client_name} has been added to your client list!\n"
+                                f"📱 Phone: {client_phone}\n\n"
+                                f"They can now:\n"
+                                f"• Book sessions with you\n"
+                                f"• Track their progress\n"
+                                f"• Receive workouts and guidance\n\n"
+                                f"💡 *Next steps:* Send them a welcome message or start planning their first session!"
+                            )
+                            
+                            whatsapp_service.send_message(phone, success_msg)
+                            
+                            # Send welcome message to the new client
+                            welcome_msg = (
+                                f"🌟 *Welcome to your fitness journey!*\n\n"
+                                f"You've been added as a client! I'm Refiloe, your AI fitness assistant.\n\n"
+                                f"I'm here to help you:\n"
+                                f"• Book training sessions\n"
+                                f"• Track your progress\n"
+                                f"• Stay motivated\n\n"
+                                f"Ready to get started? Just say 'Hi' anytime! 💪"
+                            )
+                            
+                            whatsapp_service.send_message(client_phone, welcome_msg)
+                            
+                            log_info(f"Successfully added client {client_name} ({client_id}) for trainer {phone}")
+                            return {'success': True, 'response': success_msg}
+                        else:
+                            error_msg = "❌ Sorry, there was an error adding the client. Please try again."
+                            whatsapp_service.send_message(phone, error_msg)
+                            self.clear_conversation_state(phone)
+                            return {'success': False, 'response': error_msg}
+                            
+                    except Exception as e:
+                        log_error(f"Error adding client: {str(e)}")
+                        error_msg = "❌ Sorry, there was an error adding the client. Please try again."
+                        whatsapp_service.send_message(phone, error_msg)
+                        self.clear_conversation_state(phone)
+                        return {'success': False, 'response': error_msg}
+                
+                elif response_lower in ['no', 'n', 'cancel', 'abort']:
+                    # Cancel the client addition
+                    cancel_msg = "❌ Client addition cancelled. No changes were made."
+                    whatsapp_service.send_message(phone, cancel_msg)
+                    self.clear_conversation_state(phone)
+                    return {'success': True, 'response': cancel_msg}
+                
+                else:
+                    # Invalid response, ask again
+                    retry_msg = (
+                        f"Please reply 'yes' to add {pending_client.get('name', 'the client')} "
+                        f"or 'no' to cancel."
+                    )
+                    whatsapp_service.send_message(phone, retry_msg)
+                    return {'success': True, 'response': retry_msg}
+            
             # CHECK FOR REGISTRATION BUTTON CLICKS - ONLY FOR UNKNOWN USERS
             if sender_type == 'unknown':
                 text_lower = text.strip().lower()
@@ -705,25 +869,51 @@ class RefiloeService:
                     # Check for client registration
                     elif any(trigger in text_lower for trigger in ["find a trainer", "client", "🏃"]):
                         try:
-                            from services.registration.client_registration import ClientRegistrationHandler
-                            reg = ClientRegistrationHandler(self.db, whatsapp_service)
+                            from services.whatsapp_flow_handler import WhatsAppFlowHandler
                             
-                            welcome_message = reg.start_registration(phone)
-                            whatsapp_service.send_message(phone, welcome_message)
+                            # Initialize flow handler with automatic fallback
+                            flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
                             
-                            import uuid
-                            session_id = str(uuid.uuid4())
+                            # Handle client registration with flow + fallback
+                            reg_result = flow_handler.handle_client_onboarding_request(phone)
                             
-                            self.update_conversation_state(phone, 'REGISTRATION', {
-                                'type': 'client',
-                                'step': 'name',
-                                'session_id': session_id,
-                                'current_step': 0
-                            })
-                            
-                            self.save_message(phone, welcome_message, 'bot', 'registration_start')
-                            log_info(f"Started client registration for {phone}")
-                            return {'success': True, 'response': welcome_message}
+                            if reg_result.get('success'):
+                                if reg_result.get('method') == 'whatsapp_flow':
+                                    # WhatsApp Flow sent successfully
+                                    confirmation_msg = (
+                                        "🎉 I've sent you a registration form! Please complete it to get started.\n\n"
+                                        "If you don't see the form, I'll help you register step by step instead."
+                                    )
+                                    whatsapp_service.send_message(phone, confirmation_msg)
+                                    
+                                    # Don't update conversation state for flows - they handle their own completion
+                                    self.save_message(phone, confirmation_msg, 'bot', 'flow_sent')
+                                    log_info(f"Sent WhatsApp Flow for client registration to {phone}")
+                                    return {'success': True, 'response': confirmation_msg}
+                                
+                                elif reg_result.get('method') == 'text_fallback':
+                                    # Text registration started successfully
+                                    welcome_message = reg_result.get('message')
+                                    whatsapp_service.send_message(phone, welcome_message)
+                                    
+                                    import uuid
+                                    session_id = str(uuid.uuid4())
+                                    
+                                    self.update_conversation_state(phone, 'REGISTRATION', {
+                                        'type': 'client',
+                                        'step': 'name',
+                                        'session_id': session_id,
+                                        'current_step': 0
+                                    })
+                                    
+                                    self.save_message(phone, welcome_message, 'bot', 'registration_start')
+                                    log_info(f"Started text-based client registration for {phone}")
+                                    return {'success': True, 'response': welcome_message}
+                            else:
+                                # Both flow and fallback failed
+                                error_msg = reg_result.get('error', 'Registration failed')
+                                whatsapp_service.send_message(phone, error_msg)
+                                return {'success': False, 'response': error_msg}
                             
                         except Exception as e:
                             log_error(f"Error starting client registration: {str(e)}")
@@ -868,9 +1058,15 @@ class RefiloeService:
                     "• `/profile` - View your client profile\n"
                     "• `/edit_profile` - Update your profile info\n"
                     "• `/trainer` - View {trainer_name}'s info\n\n"
+                    "�  *Find Trainers:*\n"
+                    "• `/find_trainer` - Get help finding trainers\n"
+                    "• `/request_trainer [email/phone]` - Request specific trainer\n"
+                    "• `/add_trainer [email/phone]` - Add trainer directly\n"
+                    "• `/invitations` - View trainer invitations\n\n"
                     "💬 *General:*\n"
                     "• Just chat with me for fitness guidance\n"
-                    "• Ask about workouts, nutrition, or goals\n\n"
+                    "• Ask about workouts, nutrition, or goals\n"
+                    "• Say 'trainer john@email.com' to find trainers\n\n"
                     "🔄 *Role Switching:*\n"
                     "• Use 'Switch Role' button if you're also a trainer\n\n"
                     "Need help with your fitness journey? Just ask! 💪"
@@ -1099,30 +1295,198 @@ class RefiloeService:
             return {'success': False, 'error': str(e)}
     
     def _handle_add_client_command(self, phone: str, user_data: dict) -> Dict:
-        """Handle /add_client command - start client addition process"""
+        """Enhanced /add_client command with WhatsApp Flow integration"""
         try:
             from app import app
             whatsapp_service = app.config['services']['whatsapp']
             
-            response = (
-                "➕ *Add New Client*\n\n"
-                "To add a client, they need to message you directly!\n\n"
-                "📱 *How it works:*\n"
-                "1. Share your WhatsApp number with your client\n"
-                "2. Ask them to send you a message saying 'Hi'\n"
-                "3. I'll help them register as your client\n\n"
-                "🔄 *Alternative:*\n"
-                "• Give them this message to send: 'I want trainer [your name]'\n"
-                "• They can also say 'I need a trainer'\n\n"
-                "💡 *Coming Soon:* Direct client invitation links!"
-            )
+            # Check trainer subscription limits first
+            trainer_id = user_data.get('id')
+            if trainer_id:
+                try:
+                    from services.subscription_manager import SubscriptionManager
+                    subscription_manager = SubscriptionManager(self.db)
+                    
+                    if not subscription_manager.can_add_client(trainer_id):
+                        limits = subscription_manager.get_client_limits(trainer_id)
+                        current_clients = limits.get('current_clients', 0)
+                        max_clients = limits.get('max_clients', 'unknown')
+                        
+                        response = (
+                            f"⚠️ *Client Limit Reached*\n\n"
+                            f"You currently have {current_clients}/{max_clients} clients.\n\n"
+                            f"To add more clients, please upgrade your subscription:\n"
+                            f"• Visit your dashboard\n"
+                            f"• Choose a higher plan\n"
+                            f"• Start adding unlimited clients!\n\n"
+                            f"💡 *Need help?* Contact support for assistance."
+                        )
+                        
+                        whatsapp_service.send_message(phone, response)
+                        return {'success': True, 'response': response, 'limit_reached': True}
+                        
+                except Exception as e:
+                    log_warning(f"Could not check subscription limits: {str(e)}")
             
-            whatsapp_service.send_message(phone, response)
-            return {'success': True, 'response': response}
+            # Try to send WhatsApp Flow for client addition
+            try:
+                from services.whatsapp_flow_handler import WhatsAppFlowHandler
+                flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+                
+                # Send client addition flow
+                flow_result = self._send_client_addition_flow(phone, flow_handler)
+                
+                if flow_result.get('success'):
+                    return flow_result
+                else:
+                    # Flow failed, use text-based fallback
+                    log_info(f"WhatsApp Flow failed for {phone}, using text fallback: {flow_result.get('error')}")
+                    return self._start_text_client_addition(phone, whatsapp_service)
+                    
+            except Exception as e:
+                log_warning(f"WhatsApp Flow not available for {phone}: {str(e)}")
+                return self._start_text_client_addition(phone, whatsapp_service)
             
         except Exception as e:
             log_error(f"Error handling add client command: {str(e)}")
             return {'success': False, 'error': str(e)}
+    
+    def _send_client_addition_flow(self, phone: str, flow_handler) -> Dict:
+        """Send WhatsApp Flow for client addition"""
+        try:
+            # Create flow message for client addition
+            flow_message = self._create_client_addition_flow_message(phone)
+            
+            if not flow_message:
+                return {
+                    'success': False,
+                    'error': 'Failed to create client addition flow message'
+                }
+            
+            # Send via WhatsApp service
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            result = whatsapp_service.send_flow_message(flow_message)
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'method': 'whatsapp_flow',
+                    'message': '📋 I\'ve sent you a client addition form! Please fill it out to add your new client.',
+                    'flow_token': flow_message['interactive']['action']['parameters']['flow_token']
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to send flow: {result.get("error")}'
+                }
+                
+        except Exception as e:
+            log_error(f"Error sending client addition flow: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _create_client_addition_flow_message(self, phone: str) -> Optional[Dict]:
+        """Create WhatsApp flow message for client addition"""
+        try:
+            import json
+            import os
+            from datetime import datetime
+            
+            # Load the client addition flow JSON
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            flow_path = os.path.join(project_root, 'whatsapp_flows', 'trainer_add_client_flow.json')
+            
+            if not os.path.exists(flow_path):
+                log_error(f"Client addition flow file not found: {flow_path}")
+                return None
+            
+            with open(flow_path, 'r', encoding='utf-8') as f:
+                flow_data = json.load(f)
+            
+            # Generate flow token
+            flow_token = f"add_client_{phone}_{int(datetime.now().timestamp())}"
+            
+            # Create flow message
+            message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": "Add New Client"
+                    },
+                    "body": {
+                        "text": "Let's add a new client to your training program! 👥"
+                    },
+                    "footer": {
+                        "text": "Powered by Refiloe AI"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_id": "TRAINER_ADD_CLIENT_FLOW",  # This should match your Facebook Console flow ID
+                            "flow_cta": "Add Client",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "WELCOME"
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return message
+            
+        except Exception as e:
+            log_error(f"Error creating client addition flow message: {str(e)}")
+            return None
+    
+    def _start_text_client_addition(self, phone: str, whatsapp_service) -> Dict:
+        """Text-based client addition fallback"""
+        try:
+            # Set conversation state for text-based client addition
+            self.update_conversation_state(phone, 'TEXT_CLIENT_ADDITION', {
+                'step': 'name',
+                'client_data': {}
+            })
+            
+            response = (
+                "➕ *Add New Client* (Text Mode)\n\n"
+                "I'll help you add a client step by step.\n\n"
+                "📝 *Step 1 of 4*\n\n"
+                "What's your client's full name?"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            
+            return {
+                'success': True,
+                'method': 'text_fallback',
+                'message': response,
+                'conversation_state_update': {
+                    'state': 'TEXT_CLIENT_ADDITION',
+                    'context': {
+                        'step': 'name',
+                        'client_data': {}
+                    }
+                }
+            }
+            
+        except Exception as e:
+            log_error(f"Error starting text client addition: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
     def _handle_trainer_info_command(self, phone: str, user_data: dict) -> Dict:
         """Handle /trainer command - show client's trainer info"""
@@ -1599,3 +1963,1024 @@ class RefiloeService:
                 'success': False,
                 'response': "Sorry, something went wrong. Please try again or just tell me if you're a trainer or looking for one!"
             }
+    
+    def _handle_text_client_addition_step(self, phone: str, message: str, context: Dict) -> Dict:
+        """Handle text-based client addition steps"""
+        try:
+            step = context.get('step', 'name')
+            client_data = context.get('client_data', {})
+            
+            if step == 'name':
+                # Validate name
+                name = message.strip()
+                if len(name) < 2:
+                    return {
+                        'success': False,
+                        'message': "Please enter a valid name (at least 2 characters)."
+                    }
+                
+                client_data['name'] = name
+                
+                return {
+                    'success': True,
+                    'message': f"Great! Now what's {name}'s phone number?\n\n📱 *Step 2 of 4*\n\nEnter their South African number (e.g., 0821234567)",
+                    'context': {
+                        'step': 'phone',
+                        'client_data': client_data
+                    }
+                }
+            
+            elif step == 'phone':
+                # Validate phone number
+                from utils.validators import Validators
+                validator = Validators()
+                
+                is_valid, formatted_phone, error = validator.validate_phone_number(message.strip())
+                
+                if not is_valid:
+                    return {
+                        'success': False,
+                        'message': f"❌ {error}\n\nPlease enter a valid South African number (e.g., 0821234567 or +27821234567)"
+                    }
+                
+                # Check for duplicate
+                user_context = self.get_user_context(phone)
+                trainer_id = user_context.get('user_data', {}).get('id')
+                
+                if trainer_id:
+                    existing_client = self.db.table('clients').select('*').eq('trainer_id', trainer_id).eq('whatsapp', formatted_phone).execute()
+                    if existing_client.data:
+                        return {
+                            'success': False,
+                            'message': f"❌ You already have a client with phone number {formatted_phone}.\n\nPlease enter a different number."
+                        }
+                
+                client_data['phone'] = formatted_phone
+                
+                return {
+                    'success': True,
+                    'message': f"Perfect! What's {client_data['name']}'s email address?\n\n📧 *Step 3 of 4*\n\nEnter their email or type 'skip' if they don't have one.",
+                    'context': {
+                        'step': 'email',
+                        'client_data': client_data
+                    }
+                }
+            
+            elif step == 'email':
+                # Validate email (optional)
+                email_input = message.strip().lower()
+                
+                if email_input == 'skip':
+                    client_data['email'] = None
+                else:
+                    from utils.validators import Validators
+                    validator = Validators()
+                    
+                    is_valid, error = validator.validate_email(email_input)
+                    
+                    if not is_valid:
+                        return {
+                            'success': False,
+                            'message': f"❌ {error}\n\nPlease enter a valid email or type 'skip'"
+                        }
+                    
+                    client_data['email'] = email_input
+                
+                return {
+                    'success': True,
+                    'message': f"Excellent! How would you like to add {client_data['name']}?\n\n🤔 *Step 4 of 4*\n\n1️⃣ Send them an invitation (they accept via WhatsApp)\n2️⃣ Add them directly (they can start messaging you)\n\nReply '1' or '2'",
+                    'context': {
+                        'step': 'method',
+                        'client_data': client_data
+                    }
+                }
+            
+            elif step == 'method':
+                # Process addition method
+                method_input = message.strip()
+                
+                if method_input == '1':
+                    # Send invitation
+                    return self._process_text_client_invitation(phone, client_data)
+                elif method_input == '2':
+                    # Add directly
+                    return self._process_text_client_direct_add(phone, client_data)
+                else:
+                    return {
+                        'success': False,
+                        'message': "Please reply '1' to send an invitation or '2' to add them directly."
+                    }
+            
+            else:
+                return {
+                    'success': False,
+                    'message': "❌ Something went wrong. Let's start over. Type /add_client to begin."
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling text client addition step: {str(e)}")
+            return {
+                'success': False,
+                'message': "❌ Sorry, there was an error. Please try again."
+            }
+    
+    def _process_text_client_invitation(self, trainer_phone: str, client_data: Dict) -> Dict:
+        """Process client invitation from text flow"""
+        try:
+            # Get trainer info
+            user_context = self.get_user_context(trainer_phone)
+            trainer_id = user_context.get('user_data', {}).get('id')
+            
+            if not trainer_id:
+                return {
+                    'success': False,
+                    'message': "❌ Could not find your trainer profile. Please try again."
+                }
+            
+            # Use the WhatsApp flow handler to create and send invitation
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            from services.whatsapp_flow_handler import WhatsAppFlowHandler
+            
+            flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+            result = flow_handler._create_and_send_invitation(trainer_id, client_data)
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'completed': True,
+                    'message': result['message']
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f"❌ Failed to send invitation: {result.get('error', 'Unknown error')}"
+                }
+                
+        except Exception as e:
+            log_error(f"Error processing text client invitation: {str(e)}")
+            return {
+                'success': False,
+                'message': "❌ Sorry, there was an error sending the invitation. Please try again."
+            }
+    
+    def _process_text_client_direct_add(self, trainer_phone: str, client_data: Dict) -> Dict:
+        """Process direct client addition from text flow"""
+        try:
+            # Get trainer info
+            user_context = self.get_user_context(trainer_phone)
+            trainer_id = user_context.get('user_data', {}).get('id')
+            
+            if not trainer_id:
+                return {
+                    'success': False,
+                    'message': "❌ Could not find your trainer profile. Please try again."
+                }
+            
+            # Use the WhatsApp flow handler to add client directly
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            from services.whatsapp_flow_handler import WhatsAppFlowHandler
+            
+            flow_handler = WhatsAppFlowHandler(self.db, whatsapp_service)
+            result = flow_handler._add_client_directly(trainer_id, client_data)
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'completed': True,
+                    'message': result['message']
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f"❌ Failed to add client: {result.get('error', 'Unknown error')}"
+                }
+                
+        except Exception as e:
+            log_error(f"Error processing text client direct add: {str(e)}")
+            return {
+                'success': False,
+                'message': "❌ Sorry, there was an error adding the client. Please try again."
+            }
+    
+    def _handle_invitation_response(self, client_phone: str, message: str) -> Dict:
+        """Handle client's response to trainer invitation"""
+        try:
+            message_lower = message.strip().lower()
+            
+            # Check if this looks like an invitation acceptance
+            acceptance_keywords = ['accept', 'yes', 'join', 'start', 'ok', 'sure', 'let\'s go', 'i accept']
+            decline_keywords = ['decline', 'no', 'not interested', 'cancel', 'reject']
+            
+            is_acceptance = any(keyword in message_lower for keyword in acceptance_keywords)
+            is_decline = any(keyword in message_lower for keyword in decline_keywords)
+            
+            if not (is_acceptance or is_decline):
+                return {'handled': False}
+            
+            # Look for pending invitation for this phone number
+            invitation_result = self.db.table('client_invitations').select('*').eq('client_phone', client_phone).eq('status', 'pending').execute()
+            
+            if not invitation_result.data:
+                # No pending invitation found
+                if is_acceptance:
+                    return {
+                        'handled': True,
+                        'message': "I don't see any pending trainer invitations for your number. If you're looking for a trainer, say 'find a trainer' and I'll help you get started! 🏃"
+                    }
+                else:
+                    return {'handled': False}
+            
+            # Get the most recent invitation
+            invitation = invitation_result.data[0]
+            invitation_id = invitation['id']
+            trainer_id = invitation['trainer_id']
+            
+            # Check if invitation has expired
+            from datetime import datetime
+            import pytz
+            
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+            now = datetime.now(sa_tz)
+            expires_at = datetime.fromisoformat(invitation['expires_at'].replace('Z', '+00:00'))
+            
+            if now > expires_at:
+                # Invitation expired
+                self.db.table('client_invitations').update({'status': 'expired'}).eq('id', invitation_id).execute()
+                
+                return {
+                    'handled': True,
+                    'message': "⏰ Sorry, this invitation has expired. Please contact your trainer for a new invitation, or say 'find a trainer' to search for trainers."
+                }
+            
+            if is_acceptance:
+                # Accept the invitation
+                return self._process_invitation_acceptance(invitation, client_phone)
+            else:
+                # Decline the invitation
+                return self._process_invitation_decline(invitation, client_phone)
+                
+        except Exception as e:
+            log_error(f"Error handling invitation response: {str(e)}")
+            return {'handled': False}
+    
+    def _process_invitation_acceptance(self, invitation: Dict, client_phone: str) -> Dict:
+        """Process client acceptance of trainer invitation"""
+        try:
+            invitation_id = invitation['id']
+            trainer_id = invitation['trainer_id']
+            client_name = invitation['client_name']
+            
+            # Update invitation status
+            self.db.table('client_invitations').update({
+                'status': 'accepted',
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', invitation_id).execute()
+            
+            # Get trainer info
+            trainer_result = self.db.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+            trainer_name = 'Your trainer'
+            business_name = 'the training program'
+            
+            if trainer_result.data:
+                trainer_info = trainer_result.data[0]
+                trainer_name = trainer_info.get('name', 'Your trainer')
+                business_name = trainer_info.get('business_name') or f"{trainer_name}'s training program"
+            
+            # Start client registration process
+            from services.registration.client_registration import ClientRegistrationHandler
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            client_reg_handler = ClientRegistrationHandler(self.db, whatsapp_service)
+            
+            # Set conversation state for registration
+            self.update_conversation_state(client_phone, 'REGISTRATION', {
+                'type': 'client',
+                'current_step': 0,
+                'trainer_id': trainer_id,
+                'invitation_accepted': True
+            })
+            
+            # Start registration with trainer context
+            welcome_message = client_reg_handler.start_registration(client_phone, trainer_id)
+            
+            # Notify trainer of acceptance
+            try:
+                trainer_phone = self.db.table('trainers').select('whatsapp').eq('id', trainer_id).execute()
+                if trainer_phone.data:
+                    trainer_notification = (
+                        f"🎉 *Great News!*\n\n"
+                        f"{client_name} accepted your invitation and is now registering!\n\n"
+                        f"I'm guiding them through the setup process. You'll be notified when they complete registration."
+                    )
+                    
+                    from app import app
+                    whatsapp_service = app.config['services']['whatsapp']
+                    whatsapp_service.send_message(trainer_phone.data[0]['whatsapp'], trainer_notification)
+                    
+            except Exception as e:
+                log_warning(f"Could not notify trainer of invitation acceptance: {str(e)}")
+            
+            return {
+                'handled': True,
+                'message': welcome_message
+            }
+            
+        except Exception as e:
+            log_error(f"Error processing invitation acceptance: {str(e)}")
+            return {
+                'handled': True,
+                'message': "❌ Sorry, there was an error processing your acceptance. Please contact your trainer directly."
+            }
+    
+    def _process_invitation_decline(self, invitation: Dict, client_phone: str) -> Dict:
+        """Process client decline of trainer invitation"""
+        try:
+            invitation_id = invitation['id']
+            trainer_id = invitation['trainer_id']
+            client_name = invitation['client_name']
+            
+            # Update invitation status
+            self.db.table('client_invitations').update({
+                'status': 'declined',
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', invitation_id).execute()
+            
+            # Notify trainer of decline
+            try:
+                trainer_phone = self.db.table('trainers').select('whatsapp').eq('id', trainer_id).execute()
+                if trainer_phone.data:
+                    trainer_notification = (
+                        f"📋 *Invitation Update*\n\n"
+                        f"{client_name} declined your training invitation.\n\n"
+                        f"No worries! You can always send new invitations to other potential clients."
+                    )
+                    
+                    from app import app
+                    whatsapp_service = app.config['services']['whatsapp']
+                    whatsapp_service.send_message(trainer_phone.data[0]['whatsapp'], trainer_notification)
+                    
+            except Exception as e:
+                log_warning(f"Could not notify trainer of invitation decline: {str(e)}")
+            
+            return {
+                'handled': True,
+                'message': (
+                    "✅ I've noted that you're not interested in this training program.\n\n"
+                    "If you change your mind or want to find a different trainer, just say 'find a trainer' anytime! 🏃"
+                )
+            }
+            
+        except Exception as e:
+            log_error(f"Error processing invitation decline: {str(e)}")
+            return {
+                'handled': True,
+                'message': "✅ I've noted your response. If you want to find a trainer later, just say 'find a trainer'!"
+            }
+    
+    def _handle_trainer_request_by_email(self, client_phone: str, message: str) -> Dict:
+        """Handle client request for specific trainer by email"""
+        try:
+            message_lower = message.strip().lower()
+            
+            # Check if this looks like a trainer email request
+            email_patterns = [
+                r'trainer\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+                r'i want trainer\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+                r'find trainer\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+                r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})'
+            ]
+            
+            import re
+            trainer_email = None
+            
+            for pattern in email_patterns:
+                match = re.search(pattern, message_lower)
+                if match:
+                    trainer_email = match.group(1)
+                    break
+            
+            if not trainer_email:
+                return {'handled': False}
+            
+            # Look up trainer by email
+            trainer_result = self.db.table('trainers').select('*').eq('email', trainer_email).execute()
+            
+            if not trainer_result.data:
+                return {
+                    'handled': True,
+                    'message': f"I couldn't find a trainer with email {trainer_email}. Please check the email address or ask them to register as a trainer first."
+                }
+            
+            trainer = trainer_result.data[0]
+            trainer_id = trainer['id']
+            trainer_name = trainer['name']
+            business_name = trainer.get('business_name', f"{trainer_name}'s Training")
+            
+            # Check if client already has this trainer
+            existing_client = self.db.table('clients').select('*').eq('whatsapp', client_phone).eq('trainer_id', trainer_id).execute()
+            
+            if existing_client.data:
+                return {
+                    'handled': True,
+                    'message': f"You're already connected with {trainer_name}! You can start booking sessions and tracking your progress."
+                }
+            
+            # Check for existing pending request
+            existing_request = self.db.table('clients').select('*').eq('whatsapp', client_phone).eq('trainer_id', trainer_id).eq('connection_status', 'pending').execute()
+            
+            if existing_request.data:
+                return {
+                    'handled': True,
+                    'message': f"You already have a pending request with {trainer_name}. Please wait for them to approve your request."
+                }
+            
+            # Create client request (pending approval)
+            client_data = {
+                'name': 'Pending Client',  # Will be updated during registration
+                'whatsapp': client_phone,
+                'trainer_id': trainer_id,
+                'connection_status': 'pending',
+                'requested_by': 'client',
+                'status': 'pending',
+                'created_at': datetime.now().isoformat()
+            }
+            
+            result = self.db.table('clients').insert(client_data).execute()
+            
+            if result.data:
+                # Notify trainer of new client request
+                trainer_phone = trainer['whatsapp']
+                trainer_notification = (
+                    f"👋 *New Client Request!*\n\n"
+                    f"Someone wants to train with you!\n"
+                    f"📱 Phone: {client_phone}\n\n"
+                    f"💡 *Actions:*\n"
+                    f"• `/pending_requests` - View all requests\n"
+                    f"• `/approve_client {client_phone}` - Approve this client\n"
+                    f"• `/decline_client {client_phone}` - Decline this request\n\n"
+                    f"What would you like to do?"
+                )
+                
+                try:
+                    from app import app
+                    whatsapp_service = app.config['services']['whatsapp']
+                    whatsapp_service.send_message(trainer_phone, trainer_notification)
+                except Exception as e:
+                    log_warning(f"Could not notify trainer of client request: {str(e)}")
+                
+                return {
+                    'handled': True,
+                    'message': (
+                        f"✅ *Request Sent!*\n\n"
+                        f"I've sent your training request to {trainer_name} from {business_name}.\n\n"
+                        f"They'll review your request and get back to you soon. You'll receive a notification once they respond!\n\n"
+                        f"💡 *What happens next:*\n"
+                        f"• {trainer_name} will review your request\n"
+                        f"• If approved, you'll start registration\n"
+                        f"• If declined, you can search for other trainers\n\n"
+                        f"Thanks for your patience! 🙏"
+                    )
+                }
+            else:
+                return {
+                    'handled': True,
+                    'message': "❌ Sorry, there was an error sending your trainer request. Please try again."
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling trainer request by email: {str(e)}")
+            return {'handled': False}
+    
+    def _handle_pending_requests_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /pending_requests command - show pending client requests"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            trainer_id = user_data.get('id')
+            
+            # Get pending client requests
+            pending_requests = self.db.table('clients').select('*').eq('trainer_id', trainer_id).eq('connection_status', 'pending').execute()
+            
+            if not pending_requests.data:
+                response = (
+                    "📋 *No Pending Requests*\n\n"
+                    "You don't have any pending client requests at the moment.\n\n"
+                    "💡 *To get more clients:*\n"
+                    "• Use `/add_client` to invite clients directly\n"
+                    "• Share your email with potential clients\n"
+                    "• They can request you by saying 'trainer [your email]'\n\n"
+                    "Keep growing your business! 💪"
+                )
+            else:
+                request_count = len(pending_requests.data)
+                
+                response = f"👋 *Pending Client Requests ({request_count})*\n\n"
+                
+                for i, request in enumerate(pending_requests.data, 1):
+                    client_phone = request['whatsapp']
+                    requested_date = request['created_at'][:10]
+                    
+                    response += f"{i}. 📱 {client_phone}\n"
+                    response += f"   📅 Requested: {requested_date}\n"
+                    response += f"   ✅ `/approve_client {client_phone}`\n"
+                    response += f"   ❌ `/decline_client {client_phone}`\n\n"
+                
+                response += "💡 *Quick Actions:*\n"
+                response += "• Reply with the approve/decline commands above\n"
+                response += "• Or just say 'approve [phone]' or 'decline [phone]'"
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling pending requests command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_approve_client_command(self, phone: str, command: str, user_data: dict) -> Dict:
+        """Handle /approve_client [identifier] command"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            trainer_id = user_data.get('id')
+            
+            # Extract client identifier from command
+            parts = command.split(' ', 1)
+            if len(parts) < 2:
+                response = (
+                    "❓ *Usage:* `/approve_client [phone_number]`\n\n"
+                    "Example: `/approve_client +27821234567`\n\n"
+                    "💡 Use `/pending_requests` to see all pending requests."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            client_identifier = parts[1].strip()
+            
+            # Find pending client request
+            pending_client = self.db.table('clients').select('*').eq('trainer_id', trainer_id).eq('whatsapp', client_identifier).eq('connection_status', 'pending').execute()
+            
+            if not pending_client.data:
+                response = (
+                    f"❌ *No Pending Request Found*\n\n"
+                    f"I couldn't find a pending request from {client_identifier}.\n\n"
+                    f"💡 Use `/pending_requests` to see all current requests."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            client_record = pending_client.data[0]
+            client_phone = client_record['whatsapp']
+            
+            # Approve the client - update status and start registration
+            self.db.table('clients').update({
+                'connection_status': 'approved',
+                'approved_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', client_record['id']).execute()
+            
+            # Start client registration process
+            from services.registration.client_registration import ClientRegistrationHandler
+            
+            client_reg_handler = ClientRegistrationHandler(self.db, whatsapp_service)
+            
+            # Set conversation state for registration
+            self.update_conversation_state(client_phone, 'REGISTRATION', {
+                'type': 'client',
+                'current_step': 0,
+                'trainer_id': trainer_id,
+                'approved_by_trainer': True
+            })
+            
+            # Start registration with trainer context
+            welcome_message = client_reg_handler.start_registration(client_phone, trainer_id)
+            
+            # Send welcome message to client
+            whatsapp_service.send_message(client_phone, welcome_message)
+            
+            # Confirm to trainer
+            trainer_name = user_data.get('name', 'You')
+            response = (
+                f"✅ *Client Approved!*\n\n"
+                f"Great! I've approved the client request from {client_phone}.\n\n"
+                f"🚀 *What happens next:*\n"
+                f"• They're now starting registration\n"
+                f"• I'll guide them through the setup process\n"
+                f"• You'll be notified when they complete registration\n\n"
+                f"Welcome to your growing training business! 💪"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling approve client command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_decline_client_command(self, phone: str, command: str, user_data: dict) -> Dict:
+        """Handle /decline_client [identifier] command"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            trainer_id = user_data.get('id')
+            
+            # Extract client identifier from command
+            parts = command.split(' ', 1)
+            if len(parts) < 2:
+                response = (
+                    "❓ *Usage:* `/decline_client [phone_number]`\n\n"
+                    "Example: `/decline_client +27821234567`\n\n"
+                    "💡 Use `/pending_requests` to see all pending requests."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            client_identifier = parts[1].strip()
+            
+            # Find pending client request
+            pending_client = self.db.table('clients').select('*').eq('trainer_id', trainer_id).eq('whatsapp', client_identifier).eq('connection_status', 'pending').execute()
+            
+            if not pending_client.data:
+                response = (
+                    f"❌ *No Pending Request Found*\n\n"
+                    f"I couldn't find a pending request from {client_identifier}.\n\n"
+                    f"💡 Use `/pending_requests` to see all current requests."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            client_record = pending_client.data[0]
+            client_phone = client_record['whatsapp']
+            
+            # Decline the client - update status
+            self.db.table('clients').update({
+                'connection_status': 'declined',
+                'updated_at': datetime.now().isoformat()
+            }).eq('id', client_record['id']).execute()
+            
+            # Notify client of decline
+            decline_message = (
+                f"📋 *Training Request Update*\n\n"
+                f"Thank you for your interest in training! Unfortunately, your trainer request wasn't approved at this time.\n\n"
+                f"💡 *Don't worry!* There are many great trainers available:\n"
+                f"• Say 'find a trainer' to search for other trainers\n"
+                f"• Ask friends for trainer recommendations\n"
+                f"• Try reaching out to other trainers directly\n\n"
+                f"Keep pursuing your fitness goals! 💪"
+            )
+            
+            whatsapp_service.send_message(client_phone, decline_message)
+            
+            # Confirm to trainer
+            response = (
+                f"✅ *Client Request Declined*\n\n"
+                f"I've declined the request from {client_phone} and notified them politely.\n\n"
+                f"💡 *Remember:* You can always change your mind later if you have capacity for more clients.\n\n"
+                f"Focus on providing great service to your current clients! 🌟"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling decline client command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_client_invitations_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /invitations command - show client's trainer invitations"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Get pending invitations for this client
+            pending_invitations = self.db.table('client_invitations').select('*').eq('client_phone', phone).eq('status', 'pending').execute()
+            
+            if not pending_invitations.data:
+                response = (
+                    "📧 *No Pending Invitations*\n\n"
+                    "You don't have any pending trainer invitations at the moment.\n\n"
+                    "💡 *To connect with trainers:*\n"
+                    "• Use `/find_trainer` to search for trainers\n"
+                    "• Ask friends for trainer recommendations\n"
+                    "• If you know a trainer's email, say 'trainer [email]'\n\n"
+                    "Ready to start your fitness journey? 💪"
+                )
+            else:
+                invitation_count = len(pending_invitations.data)
+                
+                response = f"📧 *Trainer Invitations ({invitation_count})*\n\n"
+                
+                for i, invitation in enumerate(pending_invitations.data, 1):
+                    trainer_id = invitation['trainer_id']
+                    invitation_token = invitation['invitation_token']
+                    invited_date = invitation['created_at'][:10]
+                    expires_date = invitation['expires_at'][:10]
+                    custom_message = invitation.get('message', '')
+                    
+                    # Get trainer info
+                    trainer_result = self.db.table('trainers').select('name, business_name, email').eq('id', trainer_id).execute()
+                    
+                    if trainer_result.data:
+                        trainer_info = trainer_result.data[0]
+                        trainer_name = trainer_info.get('name', 'Unknown Trainer')
+                        business_name = trainer_info.get('business_name', f"{trainer_name}'s Training")
+                        trainer_email = trainer_info.get('email', '')
+                        
+                        response += f"{i}. 🏋️ **{business_name}**\n"
+                        response += f"   👨‍💼 Trainer: {trainer_name}\n"
+                        response += f"   📧 Email: {trainer_email}\n"
+                        response += f"   📅 Invited: {invited_date}\n"
+                        response += f"   ⏰ Expires: {expires_date}\n"
+                        
+                        if custom_message:
+                            response += f"   💬 Message: \"{custom_message}\"\n"
+                        
+                        response += f"   ✅ `/accept_invitation {invitation_token[:8]}`\n"
+                        response += f"   ❌ `/decline_invitation {invitation_token[:8]}`\n\n"
+                
+                response += "💡 *Quick Actions:*\n"
+                response += "• Reply with the accept/decline commands above\n"
+                response += "• Or just say 'accept [trainer name]' or 'decline [trainer name]'"
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling client invitations command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_accept_invitation_command(self, phone: str, command: str, user_data: dict) -> Dict:
+        """Handle /accept_invitation [token] command"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Extract invitation token from command
+            parts = command.split(' ', 1)
+            if len(parts) < 2:
+                response = (
+                    "❓ *Usage:* `/accept_invitation [token]`\n\n"
+                    "Example: `/accept_invitation abc12345`\n\n"
+                    "💡 Use `/invitations` to see all your invitations with tokens."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            token_partial = parts[1].strip()
+            
+            # Find invitation by partial token (first 8 characters)
+            invitations = self.db.table('client_invitations').select('*').eq('client_phone', phone).eq('status', 'pending').execute()
+            
+            matching_invitation = None
+            for invitation in invitations.data:
+                if invitation['invitation_token'].startswith(token_partial):
+                    matching_invitation = invitation
+                    break
+            
+            if not matching_invitation:
+                response = (
+                    f"❌ *Invitation Not Found*\n\n"
+                    f"I couldn't find a pending invitation with token '{token_partial}'.\n\n"
+                    f"💡 Use `/invitations` to see all your current invitations."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Check if invitation has expired
+            from datetime import datetime
+            import pytz
+            
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+            now = datetime.now(sa_tz)
+            expires_at = datetime.fromisoformat(matching_invitation['expires_at'].replace('Z', '+00:00'))
+            
+            if now > expires_at:
+                # Mark as expired
+                self.db.table('client_invitations').update({'status': 'expired'}).eq('id', matching_invitation['id']).execute()
+                
+                response = (
+                    "⏰ *Invitation Expired*\n\n"
+                    "Sorry, this invitation has expired. Please contact the trainer for a new invitation.\n\n"
+                    "💡 Use `/find_trainer` to search for other trainers."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Accept the invitation - use existing invitation response handler
+            invitation_response = self._process_invitation_acceptance(matching_invitation, phone)
+            
+            whatsapp_service.send_message(phone, invitation_response['message'])
+            return {'success': True, 'response': invitation_response['message']}
+            
+        except Exception as e:
+            log_error(f"Error handling accept invitation command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_decline_invitation_command(self, phone: str, command: str, user_data: dict) -> Dict:
+        """Handle /decline_invitation [token] command"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Extract invitation token from command
+            parts = command.split(' ', 1)
+            if len(parts) < 2:
+                response = (
+                    "❓ *Usage:* `/decline_invitation [token]`\n\n"
+                    "Example: `/decline_invitation abc12345`\n\n"
+                    "💡 Use `/invitations` to see all your invitations with tokens."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            token_partial = parts[1].strip()
+            
+            # Find invitation by partial token
+            invitations = self.db.table('client_invitations').select('*').eq('client_phone', phone).eq('status', 'pending').execute()
+            
+            matching_invitation = None
+            for invitation in invitations.data:
+                if invitation['invitation_token'].startswith(token_partial):
+                    matching_invitation = invitation
+                    break
+            
+            if not matching_invitation:
+                response = (
+                    f"❌ *Invitation Not Found*\n\n"
+                    f"I couldn't find a pending invitation with token '{token_partial}'.\n\n"
+                    f"💡 Use `/invitations` to see all your current invitations."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            # Decline the invitation - use existing invitation response handler
+            invitation_response = self._process_invitation_decline(matching_invitation, phone)
+            
+            whatsapp_service.send_message(phone, invitation_response['message'])
+            return {'success': True, 'response': invitation_response['message']}
+            
+        except Exception as e:
+            log_error(f"Error handling decline invitation command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_find_trainer_command(self, phone: str, user_data: dict) -> Dict:
+        """Handle /find_trainer command - help client find trainers"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            response = (
+                "🔍 *Find Your Perfect Trainer*\n\n"
+                "Here are several ways to connect with a trainer:\n\n"
+                "📧 **By Email (Recommended):**\n"
+                "• If you know a trainer's email, say: 'trainer [email]'\n"
+                "• Example: 'trainer john@fitlife.com'\n\n"
+                "👥 **Get Recommendations:**\n"
+                "• Ask friends and family for trainer recommendations\n"
+                "• Check local gyms and fitness centers\n"
+                "• Look for trainers on social media\n\n"
+                "📱 **Direct Contact:**\n"
+                "• Ask trainers to send you an invitation\n"
+                "• They can use '/add_client' to invite you\n\n"
+                "💡 **Tips for Choosing:**\n"
+                "• Look for certified trainers\n"
+                "• Check their specializations\n"
+                "• Read reviews and testimonials\n"
+                "• Consider location and availability\n\n"
+                "Ready to start your fitness journey? Just say 'trainer [email]' when you find someone! 💪"
+            )
+            
+            whatsapp_service.send_message(phone, response)
+            return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling find trainer command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_request_trainer_command(self, phone: str, command: str, user_data: dict) -> Dict:
+        """Handle /request_trainer [email/phone] command - request specific trainer"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Extract trainer contact info from command
+            parts = command.split(' ', 1)
+            if len(parts) < 2:
+                response = (
+                    "📧 **Request Trainer Command**\n\n"
+                    "Usage: `/request_trainer [email or phone]`\n\n"
+                    "Examples:\n"
+                    "• `/request_trainer john@fitlife.com`\n"
+                    "• `/request_trainer 0821234567`\n\n"
+                    "This will send a request to the trainer for approval."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            trainer_contact = parts[1].strip()
+            
+            # Use AI intent handler to process the request
+            ai_handler = app.config['services'].get('ai_intent_handler')
+            if ai_handler:
+                # Create intent data for the request
+                intent_data = {
+                    'primary_intent': 'request_trainer',
+                    'extracted_data': {
+                        'original_message': f"trainer {trainer_contact}"
+                    }
+                }
+                
+                # Check if it's email or phone and add to extracted data
+                import re
+                if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', trainer_contact):
+                    intent_data['extracted_data']['email'] = trainer_contact
+                elif re.match(r'^(?:0|27|\+27)?[678]\d{8}$', trainer_contact):
+                    # Normalize phone number
+                    clean_phone = re.sub(r'^(?:27|\+27)', '0', trainer_contact)
+                    if not clean_phone.startswith('0'):
+                        clean_phone = '0' + clean_phone
+                    intent_data['extracted_data']['phone_number'] = clean_phone
+                
+                result = ai_handler._handle_request_trainer(phone, intent_data, 'client', user_data)
+                whatsapp_service.send_message(phone, result)
+                return {'success': True, 'response': result}
+            else:
+                # Fallback to existing trainer request handler
+                result = self._handle_trainer_request_by_email(phone, f"trainer {trainer_contact}")
+                if result.get('handled'):
+                    whatsapp_service.send_message(phone, result['message'])
+                    return {'success': True, 'response': result['message']}
+                else:
+                    response = f"I couldn't process your trainer request for {trainer_contact}. Please check the contact details and try again."
+                    whatsapp_service.send_message(phone, response)
+                    return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling request trainer command: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def _handle_add_trainer_command(self, phone: str, command: str, user_data: dict) -> Dict:
+        """Handle /add_trainer [email/phone] command - directly add trainer"""
+        try:
+            from app import app
+            whatsapp_service = app.config['services']['whatsapp']
+            
+            # Extract trainer contact info from command
+            parts = command.split(' ', 1)
+            if len(parts) < 2:
+                response = (
+                    "🚀 **Add Trainer Command**\n\n"
+                    "Usage: `/add_trainer [email or phone]`\n\n"
+                    "Examples:\n"
+                    "• `/add_trainer sarah@gym.com`\n"
+                    "• `/add_trainer 0829876543`\n\n"
+                    "This will try to add you directly to the trainer's program.\n"
+                    "Note: Only works if the trainer allows auto-approval."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+            trainer_contact = parts[1].strip()
+            
+            # Use AI intent handler to process the direct addition
+            ai_handler = app.config['services'].get('ai_intent_handler')
+            if ai_handler:
+                # Create intent data for the direct addition
+                intent_data = {
+                    'primary_intent': 'add_trainer_direct',
+                    'extracted_data': {
+                        'original_message': f"add me to trainer {trainer_contact}"
+                    }
+                }
+                
+                # Check if it's email or phone and add to extracted data
+                import re
+                if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', trainer_contact):
+                    intent_data['extracted_data']['email'] = trainer_contact
+                elif re.match(r'^(?:0|27|\+27)?[678]\d{8}$', trainer_contact):
+                    # Normalize phone number
+                    clean_phone = re.sub(r'^(?:27|\+27)', '0', trainer_contact)
+                    if not clean_phone.startswith('0'):
+                        clean_phone = '0' + clean_phone
+                    intent_data['extracted_data']['phone_number'] = clean_phone
+                
+                result = ai_handler._handle_add_trainer_direct(phone, intent_data, 'client', user_data)
+                whatsapp_service.send_message(phone, result)
+                return {'success': True, 'response': result}
+            else:
+                # Fallback - try request instead
+                response = (
+                    f"Direct trainer addition is not available right now.\n\n"
+                    f"Try using `/request_trainer {trainer_contact}` to send a request instead."
+                )
+                whatsapp_service.send_message(phone, response)
+                return {'success': True, 'response': response}
+            
+        except Exception as e:
+            log_error(f"Error handling add trainer command: {str(e)}")
+            return {'success': False, 'error': str(e)}

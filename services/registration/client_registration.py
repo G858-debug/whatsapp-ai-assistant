@@ -288,7 +288,7 @@ class ClientRegistrationHandler:
     def _complete_registration(self, phone: str, data: Dict) -> Dict:
         """Complete registration with celebration"""
         try:
-            # Create client record
+            # Create client record with enhanced fields
             client_data = {
                 'name': data['name'],
                 'whatsapp': phone,
@@ -296,8 +296,11 @@ class ClientRegistrationHandler:
                 'fitness_goals': data.get('fitness_goals'),
                 'experience_level': data.get('experience_level'),
                 'health_conditions': data.get('health_conditions'),
-                'availability': data.get('availability'),
+                'preferred_training_times': data.get('availability'),  # Use new field name
                 'trainer_id': data.get('trainer_id'),  # If assigned
+                'connection_status': 'active' if data.get('trainer_id') else 'no_trainer',
+                'requested_by': data.get('requested_by', 'client'),
+                'approved_at': datetime.now(self.sa_tz).isoformat() if data.get('trainer_id') else None,
                 'status': 'active',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
@@ -308,20 +311,87 @@ class ClientRegistrationHandler:
                 client_id = result.data[0]['id']
                 log_info(f"Client registered: {data['name']} ({client_id})")
                 
-                # Create personalized celebration
-                celebration = (
-                    "🎉🎊 *YOU DID IT!* 🎊🎉\n\n"
-                    f"Welcome to your fitness transformation, {data['name']}! "
-                    "This is the beginning of something amazing! 🌟\n\n"
-                    "Your journey starts NOW! Here's what you can do:"
-                )
+                # Create personalized celebration based on trainer connection
+                trainer_id = data.get('trainer_id')
                 
-                # Create buttons with <20 char titles
-                buttons = [
-                    {'id': 'book_session', 'title': '📅 Book Session'},
-                    {'id': 'view_trainers', 'title': '👥 Find Trainers'},
-                    {'id': 'start_assessment', 'title': '📋 Fitness Check'}
-                ]
+                if trainer_id:
+                    # Client has a trainer - get trainer info
+                    trainer_result = self.db.table('trainers').select('name, business_name, email').eq('id', trainer_id).execute()
+                    
+                    if trainer_result.data:
+                        trainer_info = trainer_result.data[0]
+                        trainer_name = trainer_info.get('name', 'Your trainer')
+                        business_name = trainer_info.get('business_name', f"{trainer_name}'s Training")
+                        trainer_email = trainer_info.get('email', '')
+                        
+                        celebration = (
+                            f"🎉 *Welcome to {business_name}!*\n\n"
+                            f"Your registration is complete! Here's what happens next:\n\n"
+                            f"👨‍💼 **Your Trainer:** {trainer_name}\n"
+                            f"🏢 **Business:** {business_name}\n"
+                            f"📧 **Contact:** {trainer_email}\n\n"
+                            f"🚀 **Next Steps:**\n"
+                            f"• Your trainer will contact you within 24 hours\n"
+                            f"• Schedule your first assessment session\n"
+                            f"• Start your personalized fitness journey!\n\n"
+                            f"💬 Questions? Just message me anytime!"
+                        )
+                        
+                        # Notify trainer of completed registration
+                        try:
+                            trainer_phone = self.db.table('trainers').select('whatsapp').eq('id', trainer_id).execute()
+                            if trainer_phone.data:
+                                trainer_notification = (
+                                    f"🎉 *New Client Registered!*\n\n"
+                                    f"{data['name']} has completed registration and is ready to start training!\n\n"
+                                    f"📋 **Client Details:**\n"
+                                    f"• Name: {data['name']}\n"
+                                    f"• Goals: {data.get('fitness_goals', 'Not specified')}\n"
+                                    f"• Experience: {data.get('experience_level', 'Not specified')}\n"
+                                    f"• Availability: {data.get('availability', 'Not specified')}\n\n"
+                                    f"💡 **Next Steps:**\n"
+                                    f"• Contact them to schedule first session\n"
+                                    f"• Plan their fitness assessment\n"
+                                    f"• Start building their program!\n\n"
+                                    f"Great job growing your business! 💪"
+                                )
+                                
+                                self.whatsapp.send_message(trainer_phone.data[0]['whatsapp'], trainer_notification)
+                        except Exception as e:
+                            log_warning(f"Could not notify trainer of registration completion: {str(e)}")
+                    else:
+                        celebration = (
+                            "🎉🎊 *YOU DID IT!* 🎊🎉\n\n"
+                            f"Welcome to your fitness transformation, {data['name']}! "
+                            "This is the beginning of something amazing! 🌟\n\n"
+                            "Your trainer will be in touch soon!"
+                        )
+                else:
+                    # Client has no trainer yet
+                    celebration = (
+                        "🎉🎊 *YOU DID IT!* 🎊🎉\n\n"
+                        f"Welcome to your fitness transformation, {data['name']}! "
+                        "This is the beginning of something amazing! 🌟\n\n"
+                        "🔍 **Ready to find your perfect trainer?**\n"
+                        "• Say 'find a trainer' to search for trainers\n"
+                        "• Ask friends for trainer recommendations\n"
+                        "• If you know a trainer's email, say 'trainer [email]'\n\n"
+                        "Your fitness journey starts now! 💪"
+                    )
+                
+                # Create appropriate buttons based on trainer status
+                if trainer_id:
+                    buttons = [
+                        {'id': 'book_session', 'title': '📅 Book Session'},
+                        {'id': 'view_progress', 'title': '📊 My Progress'},
+                        {'id': 'contact_trainer', 'title': '💬 Contact Trainer'}
+                    ]
+                else:
+                    buttons = [
+                        {'id': 'find_trainer', 'title': '🔍 Find Trainer'},
+                        {'id': 'view_trainers', 'title': '👥 Browse Trainers'},
+                        {'id': 'start_assessment', 'title': '📋 Fitness Check'}
+                    ]
                 
                 return {
                     'success': True,

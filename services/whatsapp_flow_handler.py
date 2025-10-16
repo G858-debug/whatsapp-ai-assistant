@@ -7,7 +7,7 @@ Handles flow creation, sending, and response processing
 import json
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from utils.logger import log_info, log_error, log_warning
 from config import Config
@@ -186,6 +186,10 @@ class WhatsAppFlowHandler:
                 return self._handle_trainer_profile_edit_response(flow_response, phone_number, flow_token)
             elif flow_name == 'client_profile_edit_flow':
                 return self._handle_client_profile_edit_response(flow_response, phone_number, flow_token)
+            elif flow_name == 'trainer_add_client_flow':
+                return self._handle_trainer_add_client_response(flow_response, phone_number, flow_token)
+            elif flow_name == 'client_onboarding_flow':
+                return self._handle_client_onboarding_response(flow_response, phone_number, flow_token)
             else:
                 return {
                     'success': False,
@@ -1155,5 +1159,614 @@ Welcome to the Refiloe family! 💪"""
             log_error(f"Error getting flow status: {str(e)}")
             return {
                 'has_active_flow': False,
+                'error': str(e)
+            }
+    
+    def _handle_trainer_add_client_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
+        """Handle trainer add client flow response"""
+        try:
+            log_info(f"Processing trainer add client flow response for {phone_number}")
+            
+            # Extract client data from flow response
+            client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
+            
+            if not client_data:
+                return {
+                    'success': False,
+                    'error': 'Failed to extract client data from flow response'
+                }
+            
+            # Validate trainer exists
+            trainer_result = self.supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
+            if not trainer_result.data:
+                return {
+                    'success': False,
+                    'error': 'Trainer not found'
+                }
+            
+            trainer = trainer_result.data[0]
+            trainer_id = trainer['id']
+            
+            # Check subscription limits
+            try:
+                from services.subscription_manager import SubscriptionManager
+                subscription_manager = SubscriptionManager(self.supabase)
+                
+                if not subscription_manager.can_add_client(trainer_id):
+                    limits = subscription_manager.get_client_limits(trainer_id)
+                    return {
+                        'success': False,
+                        'error': f"You've reached your client limit of {limits.get('max_clients', 'unknown')} clients. Please upgrade your subscription."
+                    }
+            except Exception as e:
+                log_warning(f"Could not check subscription limits: {str(e)}")
+            
+            # Validate phone number
+            from utils.validators import Validators
+            validator = Validators()
+            is_valid, formatted_phone, error = validator.validate_phone_number(client_data['phone'])
+            
+            if not is_valid:
+                return {
+                    'success': False,
+                    'error': f"Invalid phone number: {error}"
+                }
+            
+            client_data['phone'] = formatted_phone
+            
+            # Check for duplicate client
+            existing_client = self.supabase.table('clients').select('*').eq('trainer_id', trainer_id).eq('whatsapp', formatted_phone).execute()
+            if existing_client.data:
+                return {
+                    'success': False,
+                    'error': f"You already have a client with phone number {formatted_phone}"
+                }
+            
+            # Process based on invitation method
+            invitation_method = client_data.get('invitation_method', 'manual_add')
+            
+            if invitation_method == 'whatsapp_invite':
+                # Create invitation and send WhatsApp message
+                result = self._create_and_send_invitation(trainer_id, client_data)
+            else:
+                # Add client directly
+                result = self._add_client_directly(trainer_id, client_data)
+            
+            if result.get('success'):
+                # Clear any conversation state
+                try:
+                    from services.refiloe import RefiloeService
+                    refiloe_service = RefiloeService(self.supabase)
+                    refiloe_service.clear_conversation_state(phone_number)
+                except Exception as e:
+                    log_warning(f"Could not clear conversation state: {str(e)}")
+                
+                return result
+            else:
+                return result
+                
+        except Exception as e:
+            log_error(f"Error handling trainer add client flow response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _extract_client_data_from_flow_response(self, flow_response: Dict, trainer_phone: str) -> Optional[Dict]:
+        """Extract client data from flow response"""
+        try:
+            # Get the response data
+            response_data = flow_response.get('response', {})
+            
+            # Extract client information
+            client_name = response_data.get('client_name', '').strip()
+            client_phone = response_data.get('client_phone', '').strip()
+            client_email = response_data.get('client_email', '').strip()
+            invitation_method = response_data.get('invitation_method', 'manual_add')
+            custom_message = response_data.get('custom_message', '').strip()
+            
+            if not client_name or not client_phone:
+                log_error("Missing required client data: name or phone")
+                return None
+            
+            return {
+                'name': client_name,
+                'phone': client_phone,
+                'email': client_email if client_email else None,
+                'invitation_method': invitation_method,
+                'custom_message': custom_message if custom_message else None
+            }
+            
+        except Exception as e:
+            log_error(f"Error extracting client data from flow response: {str(e)}")
+            return None
+    
+    def _create_and_send_invitation(self, trainer_id: str, client_data: Dict) -> Dict:
+        """Create invitation and send WhatsApp message to client"""
+        try:
+            import uuid
+            
+            # Generate invitation token
+            invitation_token = str(uuid.uuid4())
+            
+            # Create invitation record
+            invitation_data = {
+                'trainer_id': trainer_id,
+                'client_phone': client_data['phone'],
+                'client_name': client_data['name'],
+                'client_email': client_data.get('email'),
+                'invitation_token': invitation_token,
+                'invitation_method': 'whatsapp',
+                'status': 'pending',
+                'message': client_data.get('custom_message'),
+                'expires_at': (datetime.now() + timedelta(days=7)).isoformat()
+            }
+            
+            invitation_result = self.supabase.table('client_invitations').insert(invitation_data).execute()
+            
+            if not invitation_result.data:
+                return {
+                    'success': False,
+                    'error': 'Failed to create invitation record'
+                }
+            
+            # Get trainer info for personalized message
+            trainer_result = self.supabase.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
+            trainer_name = 'Your trainer'
+            business_name = 'their training program'
+            
+            if trainer_result.data:
+                trainer_info = trainer_result.data[0]
+                trainer_name = trainer_info.get('name', 'Your trainer')
+                business_name = trainer_info.get('business_name') or f"{trainer_name}'s training program"
+            
+            # Create invitation message
+            invitation_message = f"""🎯 *Personal Training Invitation*
+
+Hi {client_data['name']}!
+
+{trainer_name} from {business_name} has invited you to join their training program.
+
+{client_data.get('custom_message', 'Looking forward to helping you reach your fitness goals!')}
+
+💪 *Ready to start your fitness journey?*
+
+• Reply 'ACCEPT' to join the program
+• Complete a quick 2-minute setup  
+• Begin training with your personal coach!
+
+This invitation expires in 7 days.
+
+Reply 'ACCEPT' to get started! 🚀"""
+            
+            # Send invitation message
+            send_result = self.whatsapp_service.send_message(client_data['phone'], invitation_message)
+            
+            if send_result.get('success', True):
+                return {
+                    'success': True,
+                    'message': f"✅ Invitation sent to {client_data['name']}! I'll notify you when they respond.",
+                    'invitation_token': invitation_token
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"Failed to send invitation message: {send_result.get('error')}"
+                }
+                
+        except Exception as e:
+            log_error(f"Error creating and sending invitation: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _add_client_directly(self, trainer_id: str, client_data: Dict) -> Dict:
+        """Add client directly without invitation"""
+        try:
+            # Create client record
+            new_client_data = {
+                'trainer_id': trainer_id,
+                'name': client_data['name'],
+                'whatsapp': client_data['phone'],
+                'email': client_data.get('email'),
+                'status': 'active',
+                'package_type': 'single',
+                'sessions_remaining': 1,
+                'experience_level': 'Beginner',  # Default
+                'health_conditions': 'None specified',  # Default
+                'fitness_goals': 'General fitness',  # Default
+                'preferred_training_times': 'Flexible',  # Default
+                'connection_status': 'active',
+                'requested_by': 'trainer',
+                'approved_at': datetime.now().isoformat(),
+                'created_at': datetime.now().isoformat()
+            }
+            
+            client_result = self.supabase.table('clients').insert(new_client_data).execute()
+            
+            if not client_result.data:
+                return {
+                    'success': False,
+                    'error': 'Failed to create client record'
+                }
+            
+            client_id = client_result.data[0]['id']
+            
+            # Send welcome message to client
+            welcome_message = f"""🌟 *Welcome to your fitness journey!*
+
+Hi {client_data['name']}!
+
+You've been added as a client! I'm Refiloe, your AI fitness assistant.
+
+I'm here to help you:
+• Book training sessions
+• Track your progress  
+• Stay motivated
+• Connect with your trainer
+
+Ready to get started? Just say 'Hi' anytime! 💪"""
+            
+            # Send welcome message (don't fail if this doesn't work)
+            try:
+                self.whatsapp_service.send_message(client_data['phone'], welcome_message)
+            except Exception as e:
+                log_warning(f"Could not send welcome message to client: {str(e)}")
+            
+            return {
+                'success': True,
+                'message': f"🎉 *Client Added Successfully!*\n\n✅ {client_data['name']} has been added to your client list!\n📱 Phone: {client_data['phone']}\n\nThey can now book sessions and track progress with you!",
+                'client_id': client_id
+            }
+            
+        except Exception as e:
+            log_error(f"Error adding client directly: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _handle_client_onboarding_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
+        """Handle client onboarding flow response"""
+        try:
+            log_info(f"Processing client onboarding flow response for {phone_number}")
+            
+            # Extract client data from flow response
+            client_data = self._extract_client_data_from_onboarding_response(flow_response, phone_number)
+            
+            if not client_data:
+                return {
+                    'success': False,
+                    'error': 'Failed to extract client data from flow response'
+                }
+            
+            # Complete client registration using the existing handler
+            from services.registration.client_registration import ClientRegistrationHandler
+            
+            client_reg_handler = ClientRegistrationHandler(self.supabase, self.whatsapp_service)
+            
+            # Complete registration with flow data
+            result = client_reg_handler._complete_registration(phone_number, client_data)
+            
+            if result.get('success'):
+                # Clear any conversation state
+                try:
+                    from services.refiloe import RefiloeService
+                    refiloe_service = RefiloeService(self.supabase)
+                    refiloe_service.clear_conversation_state(phone_number)
+                except Exception as e:
+                    log_warning(f"Could not clear conversation state: {str(e)}")
+                
+                return {
+                    'success': True,
+                    'message': result['message'],
+                    'client_id': result.get('client_id')
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('message', 'Registration failed')
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling client onboarding flow response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _extract_client_data_from_onboarding_response(self, flow_response: Dict, client_phone: str) -> Optional[Dict]:
+        """Extract client data from onboarding flow response"""
+        try:
+            # Get the response data
+            response_data = flow_response.get('response', {})
+            
+            # Extract client information
+            full_name = response_data.get('full_name', '').strip()
+            email = response_data.get('email', '').strip()
+            fitness_goals = response_data.get('fitness_goals', [])
+            experience_level = response_data.get('experience_level', '')
+            health_conditions = response_data.get('health_conditions', '').strip()
+            availability = response_data.get('availability', [])
+            
+            if not full_name:
+                log_error("Missing required client data: full_name")
+                return None
+            
+            # Process fitness goals (convert from array to readable text)
+            goals_map = {
+                'lose_weight': 'Lose weight',
+                'build_muscle': 'Build muscle',
+                'get_stronger': 'Get stronger',
+                'improve_fitness': 'Improve fitness',
+                'train_for_event': 'Train for event'
+            }
+            
+            if isinstance(fitness_goals, list):
+                processed_goals = [goals_map.get(goal, goal) for goal in fitness_goals]
+                fitness_goals_text = ', '.join(processed_goals)
+            else:
+                fitness_goals_text = str(fitness_goals)
+            
+            # Process experience level
+            experience_map = {
+                'beginner': 'Beginner',
+                'intermediate': 'Intermediate',
+                'advanced': 'Advanced',
+                'athlete': 'Athlete'
+            }
+            experience_level_text = experience_map.get(experience_level, experience_level)
+            
+            # Process availability (convert from array to readable text)
+            availability_map = {
+                'early_morning': 'Early morning (5-8am)',
+                'morning': 'Morning (8-12pm)',
+                'afternoon': 'Afternoon (12-5pm)',
+                'evening': 'Evening (5-8pm)',
+                'flexible': 'Flexible'
+            }
+            
+            if isinstance(availability, list):
+                processed_availability = [availability_map.get(slot, slot) for slot in availability]
+                availability_text = ', '.join(processed_availability)
+            else:
+                availability_text = str(availability)
+            
+            # Process health conditions
+            if not health_conditions or health_conditions.lower() in ['none', 'n/a', 'nothing']:
+                health_conditions = 'None specified'
+            
+            return {
+                'name': full_name,
+                'email': email if email else None,
+                'fitness_goals': fitness_goals_text,
+                'experience_level': experience_level_text,
+                'health_conditions': health_conditions,
+                'availability': availability_text,
+                'trainer_id': None,  # No trainer assigned yet
+                'requested_by': 'client'
+            }
+            
+        except Exception as e:
+            log_error(f"Error extracting client data from onboarding flow response: {str(e)}")
+            return None
+    
+    def handle_client_onboarding_request(self, phone_number: str) -> Dict:
+        """Main entry point for client onboarding - tries flow first, falls back to text"""
+        try:
+            log_info(f"Processing client onboarding request for {phone_number}")
+            
+            # Check if user is already registered as a client
+            existing_client = self.supabase.table('clients').select('*').eq('whatsapp', phone_number).execute()
+            if existing_client.data:
+                client_name = existing_client.data[0].get('name', 'there')
+                return {
+                    'success': True,
+                    'already_registered': True,
+                    'message': f"Welcome back, {client_name}! You're already registered as a client. How can I help you today?"
+                }
+            
+            # Try to send WhatsApp Flow with automatic fallback
+            result = self.send_client_onboarding_flow(phone_number)
+            
+            if result.get('success'):
+                if result.get('method') == 'text_fallback':
+                    # Text registration started successfully
+                    return {
+                        'success': True,
+                        'method': 'text_fallback',
+                        'message': result.get('message')
+                    }
+                else:
+                    # WhatsApp Flow sent successfully
+                    return {
+                        'success': True,
+                        'method': 'whatsapp_flow',
+                        'message': 'WhatsApp Flow sent! Please complete the registration form.',
+                        'flow_token': result.get('flow_token')
+                    }
+            else:
+                # Both flow and fallback failed
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Client onboarding failed')
+                }
+                
+        except Exception as e:
+            log_error(f"Error handling client onboarding request: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def send_client_onboarding_flow(self, phone_number: str) -> Dict:
+        """Send client onboarding flow with automatic fallback to text registration"""
+        try:
+            log_info(f"Attempting to send client onboarding flow to {phone_number}")
+            
+            # Try to send WhatsApp Flow
+            flow_result = self._attempt_client_flow_sending(phone_number)
+            
+            if flow_result.get('success'):
+                return {
+                    'success': True,
+                    'method': 'whatsapp_flow',
+                    'message': 'Client onboarding flow sent successfully',
+                    'flow_token': flow_result.get('flow_token')
+                }
+            else:
+                log_info(f"WhatsApp Flow failed for {phone_number}, using text fallback: {flow_result.get('error')}")
+                # Automatic fallback to text-based registration
+                fallback_result = self._start_text_based_client_registration(phone_number)
+                
+                if fallback_result.get('success'):
+                    return {
+                        'success': True,
+                        'method': 'text_fallback',
+                        'message': fallback_result.get('message'),
+                        'fallback_reason': flow_result.get('error')
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': f"Both flow and fallback failed: {fallback_result.get('error')}"
+                    }
+                    
+        except Exception as e:
+            log_error(f"Error sending client onboarding flow: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def _attempt_client_flow_sending(self, phone_number: str) -> Dict:
+        """Attempt to send client onboarding WhatsApp Flow"""
+        try:
+            # Create flow message for client onboarding
+            flow_message = self._create_client_onboarding_flow_message(phone_number)
+            
+            if not flow_message:
+                return {
+                    'success': False,
+                    'error': 'Failed to create client onboarding flow message',
+                    'fallback_required': True
+                }
+            
+            # Send via WhatsApp service
+            result = self.whatsapp_service.send_flow_message(flow_message)
+            
+            if result.get('success'):
+                # Store flow token for tracking
+                self._store_flow_token(phone_number, flow_message['interactive']['action']['parameters']['flow_token'])
+                
+                return {
+                    'success': True,
+                    'message': 'Client onboarding flow sent successfully',
+                    'flow_token': flow_message['interactive']['action']['parameters']['flow_token']
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Failed to send flow message: {result.get("error")}',
+                    'fallback_required': True
+                }
+                
+        except Exception as e:
+            log_error(f"Error attempting client flow sending: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'fallback_required': True
+            }
+    
+    def _create_client_onboarding_flow_message(self, phone_number: str) -> Optional[Dict]:
+        """Create WhatsApp flow message for client onboarding"""
+        try:
+            import json
+            import os
+            
+            # Load the client onboarding flow JSON
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            flow_path = os.path.join(project_root, 'whatsapp_flows', 'client_onboarding_flow.json')
+            
+            if not os.path.exists(flow_path):
+                log_error(f"Client onboarding flow file not found: {flow_path}")
+                return None
+            
+            with open(flow_path, 'r', encoding='utf-8') as f:
+                flow_data = json.load(f)
+            
+            # Generate flow token
+            flow_token = f"client_onboarding_{phone_number}_{int(datetime.now().timestamp())}"
+            
+            # Create flow message
+            message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": phone_number,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": "Welcome to Refiloe!"
+                    },
+                    "body": {
+                        "text": "Let's get you set up to find the perfect trainer! 🏃‍♀️"
+                    },
+                    "footer": {
+                        "text": "Powered by Refiloe AI"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_id": "CLIENT_ONBOARDING_FLOW",  # This should match your Facebook Console flow ID
+                            "flow_cta": "Get Started",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "WELCOME"
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return message
+            
+        except Exception as e:
+            log_error(f"Error creating client onboarding flow message: {str(e)}")
+            return None
+    
+    def _start_text_based_client_registration(self, phone_number: str) -> Dict:
+        """Start text-based client registration as fallback"""
+        try:
+            from services.registration.client_registration import ClientRegistrationHandler
+            
+            # Initialize client registration handler
+            client_reg = ClientRegistrationHandler(self.supabase, self.whatsapp_service)
+            
+            # Start registration
+            welcome_message = client_reg.start_registration(phone_number)
+            
+            if welcome_message:
+                log_info(f"Started text-based client registration for {phone_number}")
+                return {
+                    'success': True,
+                    'message': welcome_message,
+                    'method': 'text_based'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to start text-based registration'
+                }
+                
+        except Exception as e:
+            log_error(f"Error starting text-based client registration: {str(e)}")
+            return {
+                'success': False,
                 'error': str(e)
             }
