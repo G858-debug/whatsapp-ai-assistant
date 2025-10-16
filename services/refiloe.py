@@ -636,6 +636,9 @@ class RefiloeService:
             ALLOWED_RESET_NUMBERS = [
                 '27731863036',  # Your test number from logs
                 '27837896738',  # Add other test numbers as needed
+                "8801902604456",
+                "8801876078348",
+
             ]
             
             if phone not in ALLOWED_RESET_NUMBERS:
