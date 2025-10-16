@@ -761,7 +761,7 @@ class RefiloeService:
             }
     
     def _handle_reset_command(self, phone: str) -> Dict:
-        """Handle /reset_me command to delete user data"""
+        """Handle /reset_me command to completely reset user data from all 7 core tables"""
         try:
             from app import app
             whatsapp_service = app.config['services']['whatsapp']
@@ -831,27 +831,66 @@ class RefiloeService:
                 result = self.db.table('registration_sessions').delete().eq('phone', phone).execute()
                 if result.data:
                     debug_info.append(f"✓ Deleted registration session")
+                else:
+                    debug_info.append("• No registration session found")
             except Exception as e:
-                # Table might not exist, that's okay
-                pass
+                debug_info.append(f"✗ Registration session error: {str(e)[:50]}")
             
-            # Delete processed messages
+            # Delete registration state
+            try:
+                result = self.db.table('registration_state').delete().eq('phone', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted registration state")
+                else:
+                    debug_info.append("• No registration state found")
+            except Exception as e:
+                debug_info.append(f"✗ Registration state error: {str(e)[:50]}")
+            
+            # Delete registration analytics
+            try:
+                result = self.db.table('registration_analytics').delete().eq('phone', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted {len(result.data)} analytics record(s)")
+                else:
+                    debug_info.append("• No registration analytics found")
+            except Exception as e:
+                debug_info.append(f"✗ Registration analytics error: {str(e)[:50]}")
+            
+            # Delete flow tokens
+            try:
+                result = self.db.table('flow_tokens').delete().eq('phone_number', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted {len(result.data)} flow token(s)")
+                else:
+                    debug_info.append("• No flow tokens found")
+            except Exception as e:
+                debug_info.append(f"✗ Flow tokens error: {str(e)[:50]}")
+            
+            # Delete processed messages (legacy table)
             try:
                 result = self.db.table('processed_messages').delete().eq('phone_number', phone).execute()
                 if result.data:
                     debug_info.append(f"✓ Deleted {len(result.data)} processed messages")
+                else:
+                    debug_info.append("• No processed messages found")
             except Exception as e:
-                # Table might not exist, that's okay
-                pass
+                debug_info.append(f"✗ Processed messages error: {str(e)[:50]}")
             
             log_info(f"Reset for {phone} - Results: {debug_info}")
             
+            # Count successful deletions
+            successful_deletions = len([item for item in debug_info if item.startswith("✓")])
+            
             # Send detailed response
             response = (
-                "🔧 *Reset Results:*\n\n" +
+                "🔧 *Complete Account Reset Results:*\n\n" +
                 "\n".join(debug_info) +
-                f"\n\nTotal records deleted: {deleted_count}\n\n"
-                "You can now say 'Hi' to start fresh!"
+                f"\n\n📊 *Summary:*\n"
+                f"• Tables processed: 7 core tables\n"
+                f"• Successful operations: {successful_deletions}\n"
+                f"• Total records deleted: {deleted_count}\n\n"
+                "✨ Your account has been completely reset!\n"
+                "You can now say 'Hi' to start fresh! 🚀"
             )
             
             whatsapp_service.send_message(phone, response)
