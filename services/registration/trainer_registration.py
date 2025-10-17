@@ -418,6 +418,28 @@ class TrainerRegistrationHandler:
             if data.get('flow_token'):
                 trainer_data['flow_token'] = data['flow_token']
             
+            # Check if trainer already exists
+            existing_trainer = self.db.table('trainers').select('*').eq('whatsapp', phone).execute()
+            
+            if existing_trainer.data:
+                # Trainer already exists, update their information instead
+                trainer_id = existing_trainer.data[0]['id']
+                first_name = existing_trainer.data[0].get('first_name', 'there')
+                
+                log_info(f"Trainer already exists, updating: {full_name} ({trainer_id})")
+                
+                # Update existing trainer with new data
+                update_result = self.db.table('trainers').update(trainer_data).eq('whatsapp', phone).execute()
+                
+                return {
+                    'success': True,
+                    'message': f"Welcome back, {first_name}! Your profile has been updated successfully! 🎉",
+                    'continue': False,
+                    'trainer_id': trainer_id,
+                    'updated': True
+                }
+            
+            # Create new trainer
             result = self.db.table('trainers').insert(trainer_data).execute()
             
             if result.data:
@@ -479,8 +501,34 @@ class TrainerRegistrationHandler:
                 }
                 
         except Exception as e:
-            log_error(f"Error completing registration: {str(e)}")
-            self.track_registration_analytics(phone, 'completion_error', error_message=str(e))
+            error_str = str(e)
+            log_error(f"Error completing registration: {error_str}")
+            
+            # Handle duplicate key constraint specifically
+            if 'duplicate key value violates unique constraint' in error_str and 'whatsapp' in error_str:
+                # Try to get existing trainer info
+                try:
+                    existing = self.db.table('trainers').select('first_name').eq('whatsapp', phone).execute()
+                    if existing.data:
+                        first_name = existing.data[0].get('first_name', 'there')
+                        return {
+                            'success': True,
+                            'message': f"Welcome back, {first_name}! You're already registered as a trainer! 🎉",
+                            'continue': False,
+                            'trainer_id': existing.data[0].get('id'),
+                            'already_exists': True
+                        }
+                except Exception:
+                    pass
+                
+                return {
+                    'success': True,
+                    'message': "Welcome back! You're already registered as a trainer! 🎉",
+                    'continue': False,
+                    'already_exists': True
+                }
+            
+            self.track_registration_analytics(phone, 'completion_error', error_message=error_str)
             return {
                 'success': False,
                 'message': "😅 Almost there! We hit a small snag. Please try again.",
