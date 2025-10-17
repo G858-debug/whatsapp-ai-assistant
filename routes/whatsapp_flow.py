@@ -22,12 +22,22 @@ def whatsapp_flow_health_check():
             log_info(f"Returning challenge: {hub_challenge}")
             return hub_challenge, 200, {'Content-Type': 'text/plain'}
         
-        # For WhatsApp Flow health checks, return a proper JSON response
+        # For WhatsApp Flow health checks, return Base64 encoded response
+        import base64
+        import json
+        
         response = {
-            "status": "success"
+            "status": "success",
+            "message": "Trainer profile created successfully via WhatsApp Flow"
         }
         
-        return jsonify(response), 200
+        # Convert to JSON and encode to Base64
+        json_string = json.dumps(response)
+        encoded_response = base64.b64encode(json_string.encode('utf-8')).decode('utf-8')
+        
+        log_info(f"Returning Base64 encoded response: {encoded_response}")
+        
+        return encoded_response, 200, {'Content-Type': 'text/plain'}
         
     except Exception as e:
         log_error(f"Health check error: {str(e)}")
