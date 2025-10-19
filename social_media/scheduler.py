@@ -186,6 +186,32 @@ class SocialMediaScheduler:
                 replace_existing=True
             )
             
+            # Add new jobs for enhanced content management
+            self.scheduler.add_job(
+                self.job_check_trending_topics,
+                IntervalTrigger(hours=2),
+                id='check_trending_topics',
+                name='Check Trending Topics',
+                replace_existing=True
+            )
+            
+            self.scheduler.add_job(
+                self.job_analyze_performance,
+                IntervalTrigger(hours=6),
+                id='analyze_performance',
+                name='Analyze Content Performance',
+                replace_existing=True
+            )
+            
+            # Emergency content check every hour
+            self.scheduler.add_job(
+                self.job_check_content_queue,
+                IntervalTrigger(hours=1),
+                id='check_content_queue',
+                name='Check Content Queue',
+                replace_existing=True
+            )
+            
             # Start scheduler
             self.scheduler.start()
             log_info("Social media scheduler started successfully")
@@ -210,12 +236,15 @@ class SocialMediaScheduler:
         """
         DAILY JOB (6:00 AM SAST)
         
-        Generate content for the next 7 days:
+        Generate content for the next 7 days with A/B testing and reserve content:
         1. Calculate current week number
         2. Get posting schedule for this week
-        3. Generate content for next 7 days
-        4. Generate images for posts
-        5. Save everything to database with scheduled times
+        3. Generate 2x the needed posts for A/B testing
+        4. Mark half as variants for testing
+        5. Include different hook types for each batch
+        6. Generate 20% reserve content for trending topic responses
+        7. Generate images for posts
+        8. Save everything to database with scheduled times
         """
         try:
             log_info("Starting daily content generation job")
@@ -230,28 +259,51 @@ class SocialMediaScheduler:
             posting_times = week_schedule.get('times', ['09:00'])
             
             # Calculate total posts needed for next 7 days
-            total_posts = posts_per_day * 7
-            log_info(f"Generating {total_posts} posts for week {week_number}")
+            base_posts = posts_per_day * 7
+            # Generate 2x for A/B testing + 20% reserve content
+            total_posts = int(base_posts * 2.2)
+            reserve_posts = int(base_posts * 0.2)
+            ab_test_posts = base_posts * 2
             
-            # Generate content batch
+            log_info(f"Generating {total_posts} posts for week {week_number} (A/B testing + reserve)")
+            
+            # Generate content batch with different hook types
             generated_posts = self.content_generator.generate_batch(
                 total_posts, 
-                week_number
+                week_number,
+                hook_variations=True  # Enable different hook types
             )
             
             if not generated_posts:
                 log_error("No content generated")
                 return
             
-            # Generate scheduled times
+            # Split posts into A/B test groups and reserve
+            main_posts = generated_posts[:base_posts]
+            variant_posts = generated_posts[base_posts:ab_test_posts]
+            reserve_content = generated_posts[ab_test_posts:ab_test_posts + reserve_posts]
+            
+            # Mark variant posts
+            for post in variant_posts:
+                post['is_variant'] = True
+                post['variant_type'] = 'ab_test'
+            
+            # Mark reserve posts
+            for post in reserve_content:
+                post['is_reserve'] = True
+                post['reserve_type'] = 'trending_response'
+            
+            # Generate scheduled times for main posts
             start_date = date.today() + timedelta(days=1)  # Start from tomorrow
             scheduled_times = self.generate_scheduled_times(
                 start_date, 7, week_schedule
             )
             
-            # Generate images for posts that need them
+            # Process all posts (main, variants, and reserve)
+            all_posts = main_posts + variant_posts + reserve_content
             posts_with_images = []
-            for i, post in enumerate(generated_posts):
+            
+            for i, post in enumerate(all_posts):
                 try:
                     # Check if post needs images
                     if post.get('format') in ['single_image_with_caption', 'carousel_style']:
@@ -274,13 +326,31 @@ class SocialMediaScheduler:
                     log_error(f"Error generating image for post {i+1}: {str(e)}")
                     posts_with_images.append(post)  # Add post without image
             
-            # Save posts to database
-            saved_post_ids = self.content_generator.save_generated_posts(
-                posts_with_images, 
+            # Save main posts with scheduled times
+            main_posts_with_images = posts_with_images[:len(main_posts)]
+            saved_main_ids = self.content_generator.save_generated_posts(
+                main_posts_with_images, 
                 scheduled_times
             )
             
-            log_info(f"Content generation completed: {len(saved_post_ids)} posts saved")
+            # Save variant posts (scheduled for later review)
+            variant_posts_with_images = posts_with_images[len(main_posts):len(main_posts) + len(variant_posts)]
+            saved_variant_ids = self.content_generator.save_generated_posts(
+                variant_posts_with_images, 
+                []  # No immediate scheduling for variants
+            )
+            
+            # Save reserve posts (no scheduling)
+            reserve_posts_with_images = posts_with_images[len(main_posts) + len(variant_posts):]
+            saved_reserve_ids = self.content_generator.save_generated_posts(
+                reserve_posts_with_images, 
+                []  # No immediate scheduling for reserve
+            )
+            
+            log_info(f"Content generation completed:")
+            log_info(f"  - Main posts: {len(saved_main_ids)}")
+            log_info(f"  - Variant posts: {len(saved_variant_ids)}")
+            log_info(f"  - Reserve posts: {len(saved_reserve_ids)}")
             
         except Exception as e:
             log_error(f"Error in content generation job: {str(e)}")
@@ -388,6 +458,469 @@ class SocialMediaScheduler:
             log_error(f"Error in analytics collection job: {str(e)}")
             self._send_error_notification("Analytics Collection", str(e))
     
+    def job_check_trending_topics(self):
+        """
+        FREQUENT JOB (Every 2 hours)
+        
+        Check for trending fitness/business topics and generate reactive content:
+        1. Search for trending topics in fitness/business
+        2. Check if topics are relevant to our content
+        3. Generate reactive content for hot topics
+        4. Schedule immediate posting for time-sensitive content
+        """
+        try:
+            log_info("Starting trending topics check job")
+            
+            # Search for trending topics (placeholder - would integrate with real API)
+            trending_topics = self._search_trending_topics()
+            
+            if not trending_topics:
+                log_info("No trending topics found")
+                return
+            
+            log_info(f"Found {len(trending_topics)} trending topics")
+            
+            # Check each topic for relevance and generate content
+            for topic in trending_topics:
+                try:
+                    if self._is_topic_relevant(topic):
+                        log_info(f"Generating reactive content for trending topic: {topic['title']}")
+                        
+                        # Generate reactive content
+                        reactive_content = self._generate_reactive_content(topic)
+                        
+                        if reactive_content:
+                            # Schedule for immediate posting (within 2 hours)
+                            scheduled_time = datetime.now(self.sa_tz) + timedelta(hours=1)
+                            
+                            # Save reactive post
+                            self._save_reactive_post(reactive_content, scheduled_time, topic)
+                            log_info(f"Reactive content scheduled for {scheduled_time}")
+                        
+                except Exception as e:
+                    log_error(f"Error processing trending topic {topic.get('title', 'unknown')}: {str(e)}")
+            
+            log_info("Trending topics check completed")
+            
+        except Exception as e:
+            log_error(f"Error in trending topics job: {str(e)}")
+            self._send_error_notification("Trending Topics Check", str(e))
+    
+    def job_analyze_performance(self):
+        """
+        FREQUENT JOB (Every 6 hours)
+        
+        Analyze content performance and adjust strategy:
+        1. Check engagement on recent posts
+        2. Identify high-performing content patterns
+        3. Adjust upcoming content generation based on what's working
+        4. Boost high-performing content
+        """
+        try:
+            log_info("Starting performance analysis job")
+            
+            # Get recent posts with analytics
+            recent_posts = self._get_recent_posts_with_analytics()
+            
+            if not recent_posts:
+                log_info("No recent posts found for analysis")
+                return
+            
+            # Analyze performance patterns
+            performance_insights = self._analyze_performance_patterns(recent_posts)
+            
+            if performance_insights:
+                # Update content generation strategy
+                self._update_content_strategy(performance_insights)
+                
+                # Boost high-performing content
+                self.boost_high_performers(performance_insights)
+                
+                log_info("Performance analysis and strategy updates completed")
+            else:
+                log_info("No significant performance patterns found")
+            
+        except Exception as e:
+            log_error(f"Error in performance analysis job: {str(e)}")
+            self._send_error_notification("Performance Analysis", str(e))
+    
+    def job_check_content_queue(self):
+        """
+        FREQUENT JOB (Every hour)
+        
+        Check content queue and generate emergency content if needed:
+        1. Check how much content is scheduled
+        2. If less than 12 hours of content remaining, generate emergency content
+        3. Ensure content pipeline stays full
+        """
+        try:
+            log_info("Starting content queue check job")
+            
+            # Check content availability for next 12 hours
+            twelve_hours_from_now = datetime.now(self.sa_tz) + timedelta(hours=12)
+            
+            # Count scheduled posts in next 12 hours
+            scheduled_posts = self._get_posts_in_time_window(
+                datetime.now(self.sa_tz), 
+                twelve_hours_from_now
+            )
+            
+            if len(scheduled_posts) < 3:  # Less than 3 posts in 12 hours
+                log_warning("Content queue running low, generating emergency content")
+                self._generate_emergency_content()
+            else:
+                log_info(f"Content queue healthy: {len(scheduled_posts)} posts scheduled")
+            
+        except Exception as e:
+            log_error(f"Error in content queue check job: {str(e)}")
+            self._send_error_notification("Content Queue Check", str(e))
+    
+    def _search_trending_topics(self) -> List[Dict]:
+        """Search for trending fitness/business topics (placeholder implementation)."""
+        try:
+            # This would integrate with real APIs like Google Trends, Twitter API, etc.
+            # For now, return mock data
+            trending_topics = [
+                {
+                    'title': 'New Year Fitness Resolutions',
+                    'trend_score': 85,
+                    'category': 'fitness',
+                    'keywords': ['new year', 'fitness', 'resolutions', 'gym'],
+                    'relevance_score': 0.9
+                },
+                {
+                    'title': 'Remote Work Wellness',
+                    'trend_score': 72,
+                    'category': 'business',
+                    'keywords': ['remote work', 'wellness', 'productivity', 'health'],
+                    'relevance_score': 0.7
+                }
+            ]
+            
+            # Filter by relevance score
+            relevant_topics = [topic for topic in trending_topics if topic['relevance_score'] > 0.6]
+            return relevant_topics
+            
+        except Exception as e:
+            log_error(f"Error searching trending topics: {str(e)}")
+            return []
+    
+    def _is_topic_relevant(self, topic: Dict) -> bool:
+        """Check if a trending topic is relevant to our content strategy."""
+        try:
+            # Check if topic matches our content themes
+            fitness_keywords = ['fitness', 'workout', 'gym', 'training', 'health', 'wellness']
+            business_keywords = ['business', 'productivity', 'management', 'entrepreneur', 'success']
+            
+            topic_title = topic.get('title', '').lower()
+            topic_keywords = [kw.lower() for kw in topic.get('keywords', [])]
+            
+            # Check for fitness or business relevance
+            fitness_match = any(keyword in topic_title or keyword in topic_keywords for keyword in fitness_keywords)
+            business_match = any(keyword in topic_title or keyword in topic_keywords for keyword in business_keywords)
+            
+            return fitness_match or business_match
+            
+        except Exception as e:
+            log_error(f"Error checking topic relevance: {str(e)}")
+            return False
+    
+    def _generate_reactive_content(self, topic: Dict) -> Optional[Dict]:
+        """Generate reactive content based on trending topic."""
+        try:
+            # Create reactive content based on trending topic
+            reactive_content = {
+                'title': f"Hot Topic: {topic['title']}",
+                'content': f"🔥 {topic['title']} is trending right now! Here's how personal trainers can leverage this trend...",
+                'theme': 'trending_topic',
+                'format': 'text_only',
+                'is_reactive': True,
+                'trending_topic_id': topic.get('id'),
+                'trend_score': topic.get('trend_score', 0)
+            }
+            
+            return reactive_content
+            
+        except Exception as e:
+            log_error(f"Error generating reactive content: {str(e)}")
+            return None
+    
+    def _save_reactive_post(self, content: Dict, scheduled_time: datetime, topic: Dict):
+        """Save reactive post to database."""
+        try:
+            post_data = {
+                'content': content['content'],
+                'title': content['title'],
+                'theme': content['theme'],
+                'format': content['format'],
+                'scheduled_time': scheduled_time.isoformat(),
+                'status': 'scheduled',
+                'is_reactive': True,
+                'trending_topic': topic['title'],
+                'trend_score': topic.get('trend_score', 0),
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            result = self.supabase_client.table('social_posts').insert(post_data).execute()
+            
+            if result.data:
+                log_info(f"Reactive post saved: {result.data[0]['id']}")
+            else:
+                log_error("Failed to save reactive post")
+                
+        except Exception as e:
+            log_error(f"Error saving reactive post: {str(e)}")
+    
+    def _get_recent_posts_with_analytics(self) -> List[Dict]:
+        """Get recent posts with their analytics data."""
+        try:
+            # Get posts from last 7 days with analytics
+            seven_days_ago = datetime.now(self.sa_tz) - timedelta(days=7)
+            
+            result = self.supabase_client.table('social_posts').select(
+                '*, analytics(*)'
+            ).eq('status', 'published').gte(
+                'published_time', seven_days_ago.isoformat()
+            ).execute()
+            
+            return result.data or []
+            
+        except Exception as e:
+            log_error(f"Error getting recent posts with analytics: {str(e)}")
+            return []
+    
+    def _analyze_performance_patterns(self, posts: List[Dict]) -> Optional[Dict]:
+        """Analyze performance patterns from recent posts."""
+        try:
+            if not posts:
+                return None
+            
+            # Calculate average engagement metrics
+            total_likes = sum(post.get('analytics', {}).get('likes', 0) for post in posts)
+            total_comments = sum(post.get('analytics', {}).get('comments', 0) for post in posts)
+            total_shares = sum(post.get('analytics', {}).get('shares', 0) for post in posts)
+            
+            avg_likes = total_likes / len(posts) if posts else 0
+            avg_comments = total_comments / len(posts) if posts else 0
+            avg_shares = total_shares / len(posts) if posts else 0
+            
+            # Identify high-performing posts (2x average engagement)
+            high_performers = []
+            for post in posts:
+                analytics = post.get('analytics', {})
+                engagement = analytics.get('likes', 0) + analytics.get('comments', 0) + analytics.get('shares', 0)
+                avg_engagement = avg_likes + avg_comments + avg_shares
+                
+                if engagement >= avg_engagement * 2:
+                    high_performers.append(post)
+            
+            # Analyze content patterns
+            theme_performance = {}
+            format_performance = {}
+            
+            for post in posts:
+                theme = post.get('theme', 'unknown')
+                format_type = post.get('format', 'unknown')
+                analytics = post.get('analytics', {})
+                engagement = analytics.get('likes', 0) + analytics.get('comments', 0) + analytics.get('shares', 0)
+                
+                if theme not in theme_performance:
+                    theme_performance[theme] = {'total_engagement': 0, 'count': 0}
+                theme_performance[theme]['total_engagement'] += engagement
+                theme_performance[theme]['count'] += 1
+                
+                if format_type not in format_performance:
+                    format_performance[format_type] = {'total_engagement': 0, 'count': 0}
+                format_performance[format_type]['total_engagement'] += engagement
+                format_performance[format_type]['count'] += 1
+            
+            # Calculate average engagement per theme/format
+            for theme in theme_performance:
+                theme_performance[theme]['avg_engagement'] = (
+                    theme_performance[theme]['total_engagement'] / theme_performance[theme]['count']
+                )
+            
+            for format_type in format_performance:
+                format_performance[format_type]['avg_engagement'] = (
+                    format_performance[format_type]['total_engagement'] / format_performance[format_type]['count']
+                )
+            
+            insights = {
+                'high_performers': high_performers,
+                'theme_performance': theme_performance,
+                'format_performance': format_performance,
+                'avg_engagement': avg_likes + avg_comments + avg_shares,
+                'total_posts_analyzed': len(posts)
+            }
+            
+            return insights
+            
+        except Exception as e:
+            log_error(f"Error analyzing performance patterns: {str(e)}")
+            return None
+    
+    def _update_content_strategy(self, insights: Dict):
+        """Update content generation strategy based on performance insights."""
+        try:
+            # Update strategy based on high-performing themes and formats
+            best_themes = sorted(
+                insights['theme_performance'].items(),
+                key=lambda x: x[1]['avg_engagement'],
+                reverse=True
+            )[:3]
+            
+            best_formats = sorted(
+                insights['format_performance'].items(),
+                key=lambda x: x[1]['avg_engagement'],
+                reverse=True
+            )[:3]
+            
+            # Save strategy updates to database
+            strategy_update = {
+                'best_themes': [theme[0] for theme in best_themes],
+                'best_formats': [format_type[0] for format_type in best_formats],
+                'updated_at': datetime.now(self.sa_tz).isoformat(),
+                'avg_engagement': insights['avg_engagement']
+            }
+            
+            # This would update a strategy table in the database
+            log_info(f"Content strategy updated: {strategy_update}")
+            
+        except Exception as e:
+            log_error(f"Error updating content strategy: {str(e)}")
+    
+    def boost_high_performers(self, insights: Dict):
+        """Boost high-performing content by creating variations."""
+        try:
+            high_performers = insights.get('high_performers', [])
+            
+            if not high_performers:
+                log_info("No high-performing posts to boost")
+                return
+            
+            log_info(f"Boosting {len(high_performers)} high-performing posts")
+            
+            for post in high_performers:
+                try:
+                    # Create variations of successful posts
+                    variations = self._create_post_variations(post)
+                    
+                    # Schedule variations at peak times
+                    for variation in variations:
+                        # Schedule for next peak time (evening)
+                        peak_time = datetime.now(self.sa_tz).replace(hour=20, minute=0, second=0, microsecond=0)
+                        if peak_time <= datetime.now(self.sa_tz):
+                            peak_time += timedelta(days=1)
+                        
+                        self._save_boosted_post(variation, peak_time, post['id'])
+                        
+                except Exception as e:
+                    log_error(f"Error boosting post {post.get('id', 'unknown')}: {str(e)}")
+            
+            log_info("High performer boosting completed")
+            
+        except Exception as e:
+            log_error(f"Error in boost_high_performers: {str(e)}")
+    
+    def _create_post_variations(self, original_post: Dict) -> List[Dict]:
+        """Create variations of a successful post."""
+        try:
+            variations = []
+            original_content = original_post.get('content', '')
+            
+            # Create different hook variations
+            hook_variations = [
+                f"🔥 HOT TIP: {original_content}",
+                f"💡 PRO TIP: {original_content}",
+                f"⚡ QUICK WIN: {original_content}",
+                f"🎯 GAME CHANGER: {original_content}"
+            ]
+            
+            for i, variation_content in enumerate(hook_variations[:2]):  # Limit to 2 variations
+                variation = {
+                    'title': f"{original_post.get('title', '')} (Variation {i+1})",
+                    'content': variation_content,
+                    'theme': original_post.get('theme', 'general'),
+                    'format': original_post.get('format', 'text_only'),
+                    'is_boosted': True,
+                    'original_post_id': original_post['id'],
+                    'variation_type': f'hook_variation_{i+1}'
+                }
+                variations.append(variation)
+            
+            return variations
+            
+        except Exception as e:
+            log_error(f"Error creating post variations: {str(e)}")
+            return []
+    
+    def _save_boosted_post(self, content: Dict, scheduled_time: datetime, original_post_id: str):
+        """Save boosted post variation to database."""
+        try:
+            post_data = {
+                'content': content['content'],
+                'title': content['title'],
+                'theme': content['theme'],
+                'format': content['format'],
+                'scheduled_time': scheduled_time.isoformat(),
+                'status': 'scheduled',
+                'is_boosted': True,
+                'original_post_id': original_post_id,
+                'variation_type': content.get('variation_type'),
+                'created_at': datetime.now(self.sa_tz).isoformat()
+            }
+            
+            result = self.supabase_client.table('social_posts').insert(post_data).execute()
+            
+            if result.data:
+                log_info(f"Boosted post saved: {result.data[0]['id']}")
+            else:
+                log_error("Failed to save boosted post")
+                
+        except Exception as e:
+            log_error(f"Error saving boosted post: {str(e)}")
+    
+    def _generate_emergency_content(self):
+        """Generate emergency content when queue runs low."""
+        try:
+            log_info("Generating emergency content")
+            
+            # Generate 5 emergency posts
+            emergency_posts = self.content_generator.generate_batch(
+                5, 
+                self.calculate_week_number(),
+                emergency_mode=True
+            )
+            
+            if not emergency_posts:
+                log_error("No emergency content generated")
+                return
+            
+            # Schedule emergency posts for next 12 hours
+            now = datetime.now(self.sa_tz)
+            emergency_times = []
+            
+            for i in range(len(emergency_posts)):
+                # Schedule every 2-3 hours
+                scheduled_time = now + timedelta(hours=(i + 1) * 2.5)
+                emergency_times.append(scheduled_time)
+            
+            # Mark as emergency content
+            for post in emergency_posts:
+                post['is_emergency'] = True
+                post['emergency_type'] = 'queue_refill'
+            
+            # Save emergency posts
+            saved_ids = self.content_generator.save_generated_posts(
+                emergency_posts, 
+                emergency_times
+            )
+            
+            log_info(f"Emergency content generated: {len(saved_ids)} posts")
+            
+        except Exception as e:
+            log_error(f"Error generating emergency content: {str(e)}")
+
     def calculate_week_number(self) -> int:
         """
         Calculate which week we're in based on launch date.
@@ -594,6 +1127,37 @@ class SocialMediaScheduler:
             # This would typically send a notification to administrators
         except Exception as e:
             log_error(f"Failed to send error notification: {str(e)}")
+    
+    def get_content_queue_status(self) -> Dict:
+        """Get current content queue status and statistics."""
+        try:
+            now = datetime.now(self.sa_tz)
+            next_24_hours = now + timedelta(hours=24)
+            
+            # Count scheduled posts in next 24 hours
+            scheduled_posts = self._get_posts_in_time_window(now, next_24_hours)
+            
+            # Count reserve content
+            reserve_posts = self.supabase_client.table('social_posts').select('id').eq(
+                'is_reserve', True
+            ).eq('status', 'scheduled').execute()
+            
+            # Count variant posts
+            variant_posts = self.supabase_client.table('social_posts').select('id').eq(
+                'is_variant', True
+            ).eq('status', 'scheduled').execute()
+            
+            return {
+                'scheduled_posts_24h': len(scheduled_posts),
+                'reserve_content_available': len(reserve_posts.data or []),
+                'variant_posts_available': len(variant_posts.data or []),
+                'queue_healthy': len(scheduled_posts) >= 3,
+                'last_updated': now.isoformat()
+            }
+            
+        except Exception as e:
+            log_error(f"Error getting content queue status: {str(e)}")
+            return {'error': str(e)}
     
     def get_scheduler_status(self) -> Dict:
         """Get current scheduler status and job information."""

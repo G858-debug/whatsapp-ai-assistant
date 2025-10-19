@@ -64,13 +64,14 @@ class ContentGenerator:
                 }
             }
     
-    def generate_batch(self, num_posts: int, week_number: int, use_hooks: bool = False) -> List[Dict]:
+    def generate_batch(self, num_posts: int, week_number: int, hook_variations: bool = False, emergency_mode: bool = False) -> List[Dict]:
         """Generate multiple posts at once
         
         Args:
             num_posts: Number of posts to generate
             week_number: Week number for scheduling context
-            use_hooks: Whether to use hook-based generation for viral content
+            hook_variations: Whether to generate different hook types for A/B testing
+            emergency_mode: Whether to generate emergency content quickly
             
         Returns:
             List[Dict]: List of generated posts with metadata
@@ -107,8 +108,13 @@ class ContentGenerator:
                     # Select format
                     format_type = self._select_format()
                     
+                    # Select hook type if variations are enabled
+                    hook_type = None
+                    if hook_variations:
+                        hook_type = self._select_hook_type(post_count)
+                    
                     # Generate the post
-                    post = self.generate_single_post(theme, format_type, use_hook=use_hooks)
+                    post = self.generate_single_post(theme, format_type, hook_type=hook_type, emergency_mode=emergency_mode)
                     
                     if post:
                         # Add scheduling metadata
@@ -117,11 +123,16 @@ class ContentGenerator:
                         post['post_index'] = post_idx + 1
                         post['scheduled_time'] = self._calculate_scheduled_time(day, post_idx, posting_times)
                         
+                        # Add hook type if specified
+                        if hook_type:
+                            post['hook_type'] = hook_type
+                        
                         generated_posts.append(post)
                         post_count += 1
                         
-                        # Add delay to avoid rate limiting
-                        time.sleep(1)
+                        # Add delay to avoid rate limiting (shorter for emergency mode)
+                        delay = 0.5 if emergency_mode else 1
+                        time.sleep(delay)
                     else:
                         log_warning(f"Failed to generate post {post_count + 1}")
             
@@ -132,13 +143,14 @@ class ContentGenerator:
             log_error(f"Error in batch generation: {str(e)}")
             return []
     
-    def generate_single_post(self, theme: str, format_type: str, use_hook: bool = False) -> Dict:
+    def generate_single_post(self, theme: str, format_type: str, hook_type: str = None, emergency_mode: bool = False) -> Dict:
         """Generate one post
         
         Args:
             theme: Content theme from config (admin_hacks, relatable, etc)
             format_type: Post format (single_image, text_only, carousel)
-            use_hook: Whether to use hook-based generation for viral content
+            hook_type: Type of hook to use for the post
+            emergency_mode: Whether to generate emergency content quickly
             
         Returns:
             Dict: Structured post data
@@ -146,9 +158,22 @@ class ContentGenerator:
         log_info(f"Generating single post - Theme: {theme}, Format: {format_type}, Hook-based: {use_hook}")
         
         try:
-            if use_hook:
-                # Use hook-based generation for viral content
-                return self.generate_hook_based_post(theme, format_type)
+            # Create Claude prompt
+            prompt = self.create_claude_prompt(theme, format_type, hook_type, emergency_mode)
+            
+            # Call Claude API with retry logic
+            response = self._call_claude_with_retry(prompt)
+            
+            if not response:
+                log_error("Failed to get response from Claude API")
+                return {}
+            
+            # Parse response into structured format
+            post_data = self._parse_claude_response(response, theme, format_type)
+            
+            if post_data:
+                log_info(f"Successfully generated post: {theme} - {format_type}")
+                return post_data
             else:
                 # Use standard generation
                 # Create Claude prompt
@@ -175,13 +200,14 @@ class ContentGenerator:
             log_error(f"Error generating single post: {str(e)}")
             return {}
     
-    def create_claude_prompt(self, theme: str, format_type: str, hook_type: str = None) -> str:
-        """Build prompt for Claude based on theme, format, and hook type
+    def create_claude_prompt(self, theme: str, format_type: str, hook_type: str = None, emergency_mode: bool = False) -> str:
+        """Build prompt for Claude based on theme and format
         
         Args:
             theme: Content theme from config
             format_type: Post format type
-            hook_type: Hook category from config (pain_point, success_story, controversial, quick_win)
+            hook_type: Type of hook to use for the post
+            emergency_mode: Whether to generate emergency content quickly
             
         Returns:
             str: Formatted prompt for Claude
@@ -241,6 +267,7 @@ CONTENT REQUIREMENTS:
 - End with an engaging question or call-to-action
 - Be relatable and understanding of trainer challenges
 - Include practical, actionable advice
+{f"- EMERGENCY MODE: Generate content quickly with high engagement potential" if emergency_mode else ""}
 
 EMOJI GUIDELINES:
 - Max per post: {emoji_guidelines.get('max_per_post', 3)}
@@ -310,6 +337,47 @@ Please provide your response in the following JSON format:
 Generate engaging, valuable content that personal trainers will love and share!"""
 
         return prompt
+    
+    def _select_hook_type(self, post_index: int) -> str:
+        """Select hook type for A/B testing
+        
+        Args:
+            post_index: Index of the post in the batch
+            
+        Returns:
+            str: Hook type to use
+        """
+        hook_types = [
+            'question_hook',      # Start with a question
+            'statistic_hook',     # Start with a surprising statistic
+            'story_hook',         # Start with a personal story
+            'tip_hook',           # Start with a practical tip
+            'challenge_hook',     # Start with a challenge or problem
+            'benefit_hook'        # Start with a benefit or outcome
+        ]
+        
+        # Cycle through hook types for variety
+        return hook_types[post_index % len(hook_types)]
+    
+    def _get_hook_instructions(self, hook_type: str) -> str:
+        """Get instructions for specific hook type
+        
+        Args:
+            hook_type: Type of hook to use
+            
+        Returns:
+            str: Hook-specific instructions
+        """
+        hook_instructions = {
+            'question_hook': "Start with an engaging question that makes trainers think about their own experience",
+            'statistic_hook': "Start with a surprising or interesting statistic related to personal training",
+            'story_hook': "Start with a brief personal story or client experience that's relatable",
+            'tip_hook': "Start with a practical, actionable tip that trainers can implement immediately",
+            'challenge_hook': "Start by acknowledging a common challenge trainers face",
+            'benefit_hook': "Start by highlighting a specific benefit or outcome trainers can achieve"
+        }
+        
+        return hook_instructions.get(hook_type, "Create an engaging opening that hooks the reader")
     
     def _get_format_instructions(self, format_type: str) -> str:
         """Get format-specific instructions
