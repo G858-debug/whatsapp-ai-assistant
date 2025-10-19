@@ -32,7 +32,7 @@ class ContentGenerator:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         
         self.claude_client = Anthropic(api_key=api_key)
-        self.model = "claude-3-5-sonnet-20241022"  # Using the specified model
+        self.model = "claude-sonnet-4-20250514"  # Using the specified model
         
         log_info("ContentGenerator initialized successfully")
     
@@ -64,12 +64,13 @@ class ContentGenerator:
                 }
             }
     
-    def generate_batch(self, num_posts: int, week_number: int) -> List[Dict]:
+    def generate_batch(self, num_posts: int, week_number: int, use_hooks: bool = False) -> List[Dict]:
         """Generate multiple posts at once
         
         Args:
             num_posts: Number of posts to generate
             week_number: Week number for scheduling context
+            use_hooks: Whether to use hook-based generation for viral content
             
         Returns:
             List[Dict]: List of generated posts with metadata
@@ -107,7 +108,7 @@ class ContentGenerator:
                     format_type = self._select_format()
                     
                     # Generate the post
-                    post = self.generate_single_post(theme, format_type)
+                    post = self.generate_single_post(theme, format_type, use_hook=use_hooks)
                     
                     if post:
                         # Add scheduling metadata
@@ -131,49 +132,56 @@ class ContentGenerator:
             log_error(f"Error in batch generation: {str(e)}")
             return []
     
-    def generate_single_post(self, theme: str, format_type: str) -> Dict:
+    def generate_single_post(self, theme: str, format_type: str, use_hook: bool = False) -> Dict:
         """Generate one post
         
         Args:
             theme: Content theme from config (admin_hacks, relatable, etc)
             format_type: Post format (single_image, text_only, carousel)
+            use_hook: Whether to use hook-based generation for viral content
             
         Returns:
             Dict: Structured post data
         """
-        log_info(f"Generating single post - Theme: {theme}, Format: {format_type}")
+        log_info(f"Generating single post - Theme: {theme}, Format: {format_type}, Hook-based: {use_hook}")
         
         try:
-            # Create Claude prompt
-            prompt = self.create_claude_prompt(theme, format_type)
-            
-            # Call Claude API with retry logic
-            response = self._call_claude_with_retry(prompt)
-            
-            if not response:
-                log_error("Failed to get response from Claude API")
-                return {}
-            
-            # Parse response into structured format
-            post_data = self._parse_claude_response(response, theme, format_type)
-            
-            if post_data:
-                log_info(f"Successfully generated post: {theme} - {format_type}")
-                return post_data
+            if use_hook:
+                # Use hook-based generation for viral content
+                return self.generate_hook_based_post(theme, format_type)
             else:
-                log_error("Failed to parse Claude response")
-                return {}
+                # Use standard generation
+                # Create Claude prompt
+                prompt = self.create_claude_prompt(theme, format_type)
+                
+                # Call Claude API with retry logic
+                response = self._call_claude_with_retry(prompt)
+                
+                if not response:
+                    log_error("Failed to get response from Claude API")
+                    return {}
+                
+                # Parse response into structured format
+                post_data = self._parse_claude_response(response, theme, format_type)
+                
+                if post_data:
+                    log_info(f"Successfully generated post: {theme} - {format_type}")
+                    return post_data
+                else:
+                    log_error("Failed to parse Claude response")
+                    return {}
                 
         except Exception as e:
             log_error(f"Error generating single post: {str(e)}")
             return {}
     
-    def create_claude_prompt(self, theme: str, format_type: str) -> str:
-        """Build prompt for Claude based on theme and format
+    def create_claude_prompt(self, theme: str, format_type: str, hook_type: str = None) -> str:
+        """Build prompt for Claude based on theme, format, and hook type
         
         Args:
             theme: Content theme from config
             format_type: Post format type
+            hook_type: Hook category from config (pain_point, success_story, controversial, quick_win)
             
         Returns:
             str: Formatted prompt for Claude
@@ -181,6 +189,13 @@ class ContentGenerator:
         # Get theme configuration
         theme_config = self.config.get('content_themes', {}).get(theme, {})
         theme_examples = theme_config.get('examples', [])
+        
+        # Get hook configuration if provided
+        hook_config = {}
+        hook_template = ""
+        if hook_type:
+            hook_config = self.config.get('hook_categories', {}).get(hook_type, {})
+            hook_template = hook_config.get('template', '')
         
         # Get AI influencer settings
         ai_settings = self.config.get('ai_influencer_settings', {})
@@ -202,6 +217,23 @@ Theme Description: {theme_config.get('description', '')}
 
 POST FORMAT: {format_type.replace('_', ' ').title()}
 
+{f"HOOK TYPE: {hook_type.replace('_', ' ').title()}" if hook_type else ""}
+{f"HOOK DESCRIPTION: {hook_config.get('description', '')}" if hook_type else ""}
+
+HOOK FORMULA:
+{f"Use this specific opening template: {hook_template}" if hook_type and hook_template else "Create a compelling opening that grabs attention immediately"}
+
+SCROLL-STOPPER REQUIREMENT:
+- The first 7 words MUST grab attention and make people stop scrolling
+- Use power words, numbers, or emotional triggers
+- Create curiosity or urgency
+
+SHAREABILITY SCORE REQUIREMENT:
+- Include something surprising, valuable, or controversial enough to share
+- Add specific numbers, statistics, or results
+- Make it relatable to trainer experiences
+- Include actionable insights
+
 CONTENT REQUIREMENTS:
 - Target audience: Personal trainers worldwide
 - Length: 150-200 words for captions
@@ -218,19 +250,61 @@ EMOJI GUIDELINES:
 CONTENT EXAMPLES FOR THIS THEME:
 {chr(10).join(f"- {example}" for example in theme_examples[:3])}
 
+{f"HOOK EXAMPLES FOR {hook_type.upper()}:{chr(10)}{chr(10).join(f'- {example}' for example in hook_config.get('examples', [])[:3])}" if hook_type else ""}
+
 FORMAT SPECIFIC INSTRUCTIONS:
 {self._get_format_instructions(format_type)}
+
+CONTENT GENERATION PROCESS:
+1. Generate 3 different content variations
+2. For each variation, score it on:
+   - Emotional impact (1-10): How much does it make trainers feel?
+   - Shareability (1-10): How likely are trainers to share this?
+   - Actionability (1-10): How clear and useful are the next steps?
+3. Select the variation with the highest combined score
+4. Ensure the chosen content includes viral elements (numbers, emotions, controversy)
 
 OUTPUT FORMAT:
 Please provide your response in the following JSON format:
 {{
-    "title": "Compelling headline for the post",
-    "content": "Full post content with emojis and engagement hook",
+    "variations": [
+        {{
+            "content": "First content variation",
+            "emotional_impact": 8,
+            "shareability": 7,
+            "actionability": 9,
+            "total_score": 24
+        }},
+        {{
+            "content": "Second content variation", 
+            "emotional_impact": 6,
+            "shareability": 8,
+            "actionability": 7,
+            "total_score": 21
+        }},
+        {{
+            "content": "Third content variation",
+            "emotional_impact": 9,
+            "shareability": 9,
+            "actionability": 8,
+            "total_score": 26
+        }}
+    ],
+    "selected_variation": {{
+        "content": "The best performing content variation",
+        "emotional_impact": 9,
+        "shareability": 9,
+        "actionability": 8,
+        "total_score": 26,
+        "selection_reason": "Why this variation was chosen"
+    }},
+    "title": "Compelling headline for the selected post",
     "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
     "carousel_slides": [list of slide topics if carousel format],
     "engagement_hook": "Question or call-to-action for engagement",
     "tone": "The emotional tone of the post",
-    "key_points": [list of main points covered]
+    "key_points": [list of main points covered],
+    "viral_elements": ["List of viral elements included (numbers, emotions, controversy)"]
 }}
 
 Generate engaging, valuable content that personal trainers will love and share!"""
@@ -274,6 +348,19 @@ Generate engaging, valuable content that personal trainers will love and share!"
         }
         
         return format_instructions.get(format_type, "Create engaging content for this format.")
+    
+    def _get_hook_templates(self) -> Dict[str, str]:
+        """Get hook templates for different hook types
+        
+        Returns:
+            Dict[str, str]: Mapping of hook types to their templates
+        """
+        return {
+            'pain_point': "Every trainer knows the feeling when [specific situation]",
+            'success_story': "[Time period] ago, [trainer name] was [struggle]. Today they [achievement]",
+            'controversial': "Hot take: [widely accepted practice] is actually [contrarian view]",
+            'quick_win': "The [time] [tool/method] that [specific result]"
+        }
     
     def _call_claude_with_retry(self, prompt: str, max_retries: int = 3) -> Optional[str]:
         """Call Claude API with retry logic
@@ -335,6 +422,39 @@ Generate engaging, valuable content that personal trainers will love and share!"
             if json_match:
                 json_str = json_match.group()
                 post_data = json.loads(json_str)
+                
+                # Handle new response format with variations
+                if 'selected_variation' in post_data:
+                    # Use the selected variation as the main content
+                    selected = post_data['selected_variation']
+                    post_data['content'] = selected.get('content', post_data.get('content', ''))
+                    post_data['emotional_impact'] = selected.get('emotional_impact', 0)
+                    post_data['shareability'] = selected.get('shareability', 0)
+                    post_data['actionability'] = selected.get('actionability', 0)
+                    post_data['total_score'] = selected.get('total_score', 0)
+                    post_data['selection_reason'] = selected.get('selection_reason', '')
+                    
+                    # Keep all variations for analysis
+                    post_data['all_variations'] = post_data.get('variations', [])
+                    
+                    # Remove the selected_variation key to avoid duplication
+                    if 'selected_variation' in post_data:
+                        del post_data['selected_variation']
+                
+                # Ensure required fields exist
+                if 'content' not in post_data:
+                    post_data['content'] = response
+                if 'title' not in post_data:
+                    post_data['title'] = f"{theme.replace('_', ' ').title()} Post"
+                if 'hashtags' not in post_data:
+                    post_data['hashtags'] = self._generate_hashtags(theme)
+                if 'engagement_hook' not in post_data:
+                    post_data['engagement_hook'] = "What's your experience with this?"
+                if 'tone' not in post_data:
+                    post_data['tone'] = "encouraging"
+                if 'key_points' not in post_data:
+                    post_data['key_points'] = []
+                    
             else:
                 # Fallback: create structured data from text response
                 post_data = {
@@ -437,6 +557,99 @@ Generate engaging, valuable content that personal trainers will love and share!"
             return 'single_image_with_caption'
         
         return random.choice(enabled_formats)
+    
+    def generate_hook_based_post(self, theme: str = None, format_type: str = None) -> Dict:
+        """Generate content optimized for a specific hook type with viral elements
+        
+        Args:
+            theme: Optional specific theme, otherwise randomly selected
+            format_type: Optional specific format, otherwise randomly selected
+            
+        Returns:
+            Dict: Structured post data optimized for the selected hook
+        """
+        log_info("Generating hook-based post with viral elements")
+        
+        try:
+            # Select hook type based on configured percentages
+            hook_type = self._select_hook_type()
+            
+            # Select theme and format if not provided
+            if not theme:
+                theme = self._select_theme()
+            if not format_type:
+                format_type = self._select_format()
+            
+            # Create enhanced prompt with hook focus
+            prompt = self.create_claude_prompt(theme, format_type, hook_type)
+            
+            # Add viral elements instruction
+            viral_prompt_addition = """
+
+VIRAL ELEMENTS TO INCLUDE:
+- Specific numbers and statistics (e.g., "increased by 40%", "saved 2 hours daily")
+- Emotional triggers (frustration, excitement, relief, surprise)
+- Controversial or contrarian statements
+- Personal stories or case studies
+- Time-sensitive or urgent language
+- Power words (secret, proven, guaranteed, breakthrough, game-changer)
+- Questions that create curiosity
+- Bold claims backed by results
+
+Make this content impossible to scroll past!"""
+            
+            full_prompt = prompt + viral_prompt_addition
+            
+            # Call Claude API with retry logic
+            response = self._call_claude_with_retry(full_prompt)
+            
+            if not response:
+                log_error("Failed to get response from Claude API for hook-based post")
+                return {}
+            
+            # Parse response into structured format
+            post_data = self._parse_claude_response(response, theme, format_type)
+            
+            if post_data:
+                # Add hook-specific metadata
+                post_data['hook_type'] = hook_type
+                post_data['optimized_for_virality'] = True
+                post_data['generation_method'] = 'hook_based'
+                
+                log_info(f"Successfully generated hook-based post: {hook_type} - {theme} - {format_type}")
+                return post_data
+            else:
+                log_error("Failed to parse Claude response for hook-based post")
+                return {}
+                
+        except Exception as e:
+            log_error(f"Error generating hook-based post: {str(e)}")
+            return {}
+    
+    def _select_hook_type(self) -> str:
+        """Select hook type based on configured percentages
+        
+        Returns:
+            str: Selected hook type name
+        """
+        hook_categories = self.config.get('hook_categories', {})
+        if not hook_categories:
+            return 'pain_point'
+        
+        # Create weighted selection
+        hook_weights = []
+        hook_names = []
+        
+        for hook_type, config in hook_categories.items():
+            percentage = config.get('percentage', 0)
+            if percentage > 0:
+                hook_weights.append(percentage)
+                hook_names.append(hook_type)
+        
+        if not hook_names:
+            return 'pain_point'
+        
+        return random.choices(hook_names, weights=hook_weights)[0]
     
     def _calculate_scheduled_time(self, day_offset: int, post_index: int, posting_times: List[str]) -> str:
         """Calculate scheduled time for a post
@@ -545,3 +758,84 @@ Generate engaging, valuable content that personal trainers will love and share!"
                 enabled_formats.append(format_name)
         
         return enabled_formats
+    
+    def get_available_hook_types(self) -> List[str]:
+        """Get list of available hook types
+        
+        Returns:
+            List[str]: List of hook type names
+        """
+        hook_categories = self.config.get('hook_categories', {})
+        return list(hook_categories.keys())
+    
+    def get_hook_examples(self, hook_type: str) -> List[str]:
+        """Get examples for a specific hook type
+        
+        Args:
+            hook_type: Hook type name
+            
+        Returns:
+            List[str]: List of example hooks
+        """
+        hook_categories = self.config.get('hook_categories', {})
+        return hook_categories.get(hook_type, {}).get('examples', [])
+    
+    def generate_post_with_hook(self, theme: str, format_type: str, hook_type: str) -> Dict:
+        """Generate content with a specific hook type
+        
+        Args:
+            theme: Content theme from config
+            format_type: Post format type
+            hook_type: Specific hook type to use
+            
+        Returns:
+            Dict: Structured post data optimized for the specified hook
+        """
+        log_info(f"Generating post with specific hook - Theme: {theme}, Format: {format_type}, Hook: {hook_type}")
+        
+        try:
+            # Create enhanced prompt with specific hook focus
+            prompt = self.create_claude_prompt(theme, format_type, hook_type)
+            
+            # Add viral elements instruction
+            viral_prompt_addition = """
+
+VIRAL ELEMENTS TO INCLUDE:
+- Specific numbers and statistics (e.g., "increased by 40%", "saved 2 hours daily")
+- Emotional triggers (frustration, excitement, relief, surprise)
+- Controversial or contrarian statements
+- Personal stories or case studies
+- Time-sensitive or urgent language
+- Power words (secret, proven, guaranteed, breakthrough, game-changer)
+- Questions that create curiosity
+- Bold claims backed by results
+
+Make this content impossible to scroll past!"""
+            
+            full_prompt = prompt + viral_prompt_addition
+            
+            # Call Claude API with retry logic
+            response = self._call_claude_with_retry(full_prompt)
+            
+            if not response:
+                log_error("Failed to get response from Claude API for specific hook post")
+                return {}
+            
+            # Parse response into structured format
+            post_data = self._parse_claude_response(response, theme, format_type)
+            
+            if post_data:
+                # Add hook-specific metadata
+                post_data['hook_type'] = hook_type
+                post_data['optimized_for_virality'] = True
+                post_data['generation_method'] = 'specific_hook'
+                
+                log_info(f"Successfully generated post with hook {hook_type}: {theme} - {format_type}")
+                return post_data
+            else:
+                log_error("Failed to parse Claude response for specific hook post")
+                return {}
+                
+        except Exception as e:
+            log_error(f"Error generating post with specific hook: {str(e)}")
+            return {}
