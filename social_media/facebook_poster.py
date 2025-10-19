@@ -32,18 +32,19 @@ class FacebookPoster:
     - Error handling and retry logic
     """
     
-    def __init__(self, page_access_token: str, page_id: str):
+    def __init__(self, page_access_token: str, page_id: str, supabase_client=None):
         """
         Initialize Facebook API connection.
         
         Args:
             page_access_token: Facebook Page Access Token
             page_id: Facebook Page ID
+            supabase_client: Optional Supabase client for database operations
         """
         self.page_access_token = page_access_token
         self.page_id = page_id
         self.base_url = "https://graph.facebook.com/v18.0"
-        self.database = SocialMediaDatabase()
+        self.database = SocialMediaDatabase(supabase_client) if supabase_client else None
         
         # Load configuration
         self.config = self._load_config()
