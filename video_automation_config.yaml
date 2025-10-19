@@ -1,0 +1,83 @@
+video_settings:
+  ai_avatar:
+    provider: "d-id"  # or "heygen", "synthesia"
+    avatar_id: "refiloe_trainer_avatar"
+    voice_settings:
+      language: "en-US"
+      voice_id: "jenny"  # Professional female voice
+      speed: 1.0
+      pitch: 1.0
+    
+  screen_recording:
+    resolution: "1920x1080"
+    fps: 30
+    highlight_color: "#FF6B35"  # Orange for emphasis
+    cursor_visible: true
+    zoom_on_action: true
+    
+  exercise_library:
+    supabase_bucket: "exercise-videos"
+    overlay_style: "modern"
+    text_color: "#FFFFFF"
+    background_opacity: 0.8
+    
+  branding:
+    logo_position: "top-right"
+    logo_size: "small"
+    watermark_opacity: 0.3
+    end_screen_duration: 3
+    cta_button_color: "#FF6B35"
+
+video_templates:
+  quick_tip:
+    duration: "15-30"
+    hook_duration: 3
+    structure:
+      - hook: "0-3 seconds"
+      - problem: "3-10 seconds"  
+      - solution: "10-25 seconds"
+      - cta: "25-30 seconds"
+    music: "upbeat_motivational"
+    captions: "large_bold"
+    
+  trainer_story:
+    duration: "30-60"
+    structure:
+      - teaser: "0-5 seconds"
+      - setup: "5-20 seconds"
+      - conflict: "20-40 seconds"
+      - resolution: "40-55 seconds"
+      - lesson: "55-60 seconds"
+    music: "emotional_inspiring"
+    captions: "standard"
+    
+  educational_reel:
+    duration: "60-90"
+    structure:
+      - hook: "0-5 seconds"
+      - preview: "5-10 seconds"
+      - point_1: "10-30 seconds"
+      - point_2: "30-50 seconds"
+      - point_3: "50-70 seconds"
+      - summary: "70-85 seconds"
+      - cta: "85-90 seconds"
+    music: "energetic_teaching"
+    captions: "animated"
+
+script_formulas:
+  pain_agitate_solve:
+    template: |
+      [HOOK - 3 sec] "{attention_grabbing_question}"
+      [PAIN - 7 sec] "I know you struggle with {specific_pain_point}"
+      [AGITATE - 10 sec] "This costs you {time/money/energy} every single day"
+      [SOLVE - 10 sec] "Here's the simple solution: {solution}"
+      [CTA - 5 sec] "Try Refiloe free and {benefit}"
+      
+  before_after_story:
+    template: |
+      [HOOK - 3 sec] "This trainer went from {bad_state} to {good_state}"
+      [BEFORE - 10 sec] "They used to {old_painful_process}"
+      [TURNING POINT - 5 sec] "Then they discovered {solution}"
+      [AFTER - 10 sec] "Now they {new_amazing_result}"
+      [PROOF - 5 sec] "Here's the proof: {specific_metric}"
+      [CTA - 5 sec] "You can do this too - link in bio"
