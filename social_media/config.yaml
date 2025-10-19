@@ -8,29 +8,220 @@
 # Defines when and how often Refiloe posts content
 # Times are in SAST (South African Standard Time)
 posting_schedule:
-  # Week 1: High engagement phase - 3 posts per day
+  # Week 1: High engagement phase - 6 posts per day
   week_1:
     enabled: true
-    posts_per_day: 3
-    times: ["08:00", "12:00", "20:00"]
+    posts_per_day: 6
+    times: ["05:30", "08:00", "12:00", "15:00", "18:00", "21:00"]
     timezone: "SAST"
     description: "Initial engagement phase to build audience"
   
-  # Week 2-4: Steady growth phase - 2 posts per day
+  # Week 2-4: Steady growth phase - 5 posts per day
   week_2_to_4:
     enabled: true
-    posts_per_day: 2
-    times: ["12:00", "20:00"]
+    posts_per_day: 5
+    times: ["06:00", "09:00", "13:00", "17:00", "20:00"]
     timezone: "SAST"
     description: "Maintaining momentum with focused posting"
   
-  # Week 5+: Maintenance phase - 1 post per day
+  # Week 5+: Maintenance phase - 4 posts per day
   week_5_plus:
     enabled: true
-    posts_per_day: 1
-    times: ["20:00"]
+    posts_per_day: 4
+    times: ["07:00", "12:00", "16:00", "20:00"]
     timezone: "SAST"
     description: "Sustained presence with quality content"
+
+# =============================================================================
+# CONTENT HOOKS
+# =============================================================================
+# Defines different content hooks to capture attention and drive engagement
+content_hooks:
+  pain_point_hooks:
+    percentage: 25
+    description: "Posts that start with trainer pain points to create immediate relatability"
+    examples:
+      - "That moment when your 6 AM client cancels 5 minutes before..."
+      - "POV: You're a trainer and your client asks 'Can I eat pizza every day?'"
+      - "When your client says 'I don't have time to exercise' but scrolls Instagram for 3 hours"
+      - "That awkward silence when a client asks 'How much weight should I lose?'"
+  
+  success_story_hooks:
+    percentage: 20
+    description: "Transformation stories that inspire and motivate other trainers"
+    examples:
+      - "Client went from 0 to 5 pull-ups in 30 days"
+      - "From couch potato to 5K runner in 6 weeks"
+      - "Client lost 20kg and gained confidence - here's how"
+      - "From 'I can't' to 'I did it!' - client success story"
+  
+  controversial_takes:
+    percentage: 15
+    description: "Bold opinions that spark discussion and debate"
+    examples:
+      - "Unpopular opinion: Trainers spend too much on supplements"
+      - "Hot take: You don't need a gym membership to get fit"
+      - "Controversial: Cardio isn't the best way to lose weight"
+      - "Unpopular opinion: Rest days are more important than workout days"
+  
+  quick_wins:
+    percentage: 20
+    description: "Simple, actionable tips that provide immediate value"
+    examples:
+      - "5-minute hack that saves 2 hours of admin work"
+      - "30-second trick to double your client retention"
+      - "One simple change that transformed my client's results"
+      - "Quick fix for the most common training mistake"
+  
+  community_questions:
+    percentage: 20
+    description: "Questions designed to spark debate and community engagement"
+    examples:
+      - "What's the most ridiculous excuse you've heard from a client?"
+      - "Which exercise do you think is overrated?"
+      - "What's your biggest challenge as a trainer right now?"
+      - "If you could change one thing about the fitness industry, what would it be?"
+
+# =============================================================================
+# VIRAL CONTENT FORMATS
+# =============================================================================
+# Content formats that tend to perform well and go viral
+viral_content_formats:
+  before_after_comparisons:
+    description: "Visual transformations showing client progress"
+    implementation:
+      - "Side-by-side photos with clear progress indicators"
+      - "Include time frame and key metrics"
+      - "Focus on both physical and mental transformation"
+      - "Always get client permission and anonymize if requested"
+  
+  day_in_the_life:
+    description: "Behind-the-scenes content showing trainer's daily routine"
+    implementation:
+      - "Document a typical day from 5 AM to 9 PM"
+      - "Show both glamorous and challenging moments"
+      - "Include client interactions and admin tasks"
+      - "Use authentic, unpolished moments for relatability"
+  
+  myth_busting:
+    description: "Educational content that challenges common fitness myths"
+    implementation:
+      - "Present the myth clearly"
+      - "Provide scientific evidence to debunk it"
+      - "Explain the truth in simple terms"
+      - "Include actionable takeaways"
+  
+  trainer_confessions:
+    description: "Honest, vulnerable content about trainer struggles"
+    implementation:
+      - "Share real challenges and failures"
+      - "Be authentic about the difficulties of the job"
+      - "Show how you overcame obstacles"
+      - "Encourage others to share their experiences"
+  
+  client_horror_stories:
+    description: "Anonymized stories about challenging client situations"
+    implementation:
+      - "Always anonymize and protect client privacy"
+      - "Focus on the lesson learned, not the drama"
+      - "Use humor when appropriate"
+      - "End with positive resolution or advice"
+
+# =============================================================================
+# ENGAGEMENT MULTIPLIERS
+# =============================================================================
+# Strategies to maximize engagement and reach
+engagement_multipliers:
+  peak_times_by_day:
+    monday: ["06:00", "12:00", "18:00", "20:00"]
+    tuesday: ["07:00", "13:00", "17:00", "21:00"]
+    wednesday: ["06:30", "12:30", "18:30", "20:30"]
+    thursday: ["07:30", "13:30", "17:30", "21:30"]
+    friday: ["08:00", "14:00", "19:00", "22:00"]
+    saturday: ["09:00", "15:00", "20:00"]
+    sunday: ["10:00", "16:00", "19:00"]
+    timezone: "SAST"
+    description: "Optimal posting times for each day of the week"
+  
+  trending_hashtag_rotation:
+    description: "50 hashtags to rotate for maximum reach and discoverability"
+    hashtags:
+      - "#PersonalTrainer"
+      - "#FitnessCoach"
+      - "#TrainerLife"
+      - "#RefiloeAI"
+      - "#TrainerTips"
+      - "#FitnessBusiness"
+      - "#ClientManagement"
+      - "#TrainerHacks"
+      - "#FitnessMotivation"
+      - "#TrainerCommunity"
+      - "#AdminHacks"
+      - "#TrainerTools"
+      - "#FitnessTech"
+      - "#TrainerSupport"
+      - "#FitnessEntrepreneur"
+      - "#GymLife"
+      - "#WorkoutMotivation"
+      - "#FitnessGoals"
+      - "#HealthyLifestyle"
+      - "#ExerciseMotivation"
+      - "#FitnessJourney"
+      - "#TrainerProblems"
+      - "#ClientSuccess"
+      - "#FitnessTips"
+      - "#GymMotivation"
+      - "#PersonalTraining"
+      - "#FitnessInspiration"
+      - "#WorkoutTips"
+      - "#FitnessCommunity"
+      - "#TrainerStruggles"
+      - "#FitnessHacks"
+      - "#GymHacks"
+      - "#TrainerLifeHacks"
+      - "#FitnessMotivation"
+      - "#WorkoutMotivation"
+      - "#FitnessGoals"
+      - "#HealthyLiving"
+      - "#ExerciseTips"
+      - "#FitnessJourney"
+      - "#TrainerSupport"
+      - "#FitnessBusiness"
+      - "#ClientRetention"
+      - "#TrainerMarketing"
+      - "#FitnessMarketing"
+      - "#TrainerBrand"
+      - "#FitnessBrand"
+      - "#TrainerContent"
+      - "#FitnessContent"
+      - "#TrainerSocialMedia"
+      - "#FitnessSocialMedia"
+      - "#TrainerGrowth"
+      - "#FitnessGrowth"
+  
+  call_to_action_templates:
+    description: "20 different CTAs to encourage engagement and action"
+    templates:
+      - "What's your biggest training challenge? Drop it below! 👇"
+      - "Tag a trainer who needs to see this! 👥"
+      - "Save this post for later! 💾"
+      - "Share your experience in the comments! 💬"
+      - "Double-tap if this resonates with you! ❤️"
+      - "Follow for more trainer tips! ➕"
+      - "What would you add to this list? 🤔"
+      - "Share this with a fellow trainer! 📤"
+      - "Comment 'YES' if you agree! ✅"
+      - "What's your take on this? Let's discuss! 🗣️"
+      - "Save this and try it today! ⏰"
+      - "Tag someone who needs this motivation! 🎯"
+      - "What's your biggest win this week? 🏆"
+      - "Share your trainer story below! 📝"
+      - "Which tip will you try first? 🚀"
+      - "Comment with your favorite client success story! 🌟"
+      - "What's the most underrated training tip? 💡"
+      - "Share this if you're a proud trainer! 🙌"
+      - "What's your go-to motivation technique? 🔥"
+      - "Comment 'TRAINER LIFE' if this is your reality! 💪"
 
 # =============================================================================
 # CONTENT THEMES
