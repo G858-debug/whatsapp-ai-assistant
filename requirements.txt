@@ -11,6 +11,7 @@ supabase==1.2.0
 
 # AI & NLP
 anthropic==0.39.0
+replicate==0.25.0
 
 # Scheduling
 APScheduler==3.10.4
