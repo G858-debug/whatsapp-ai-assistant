@@ -74,6 +74,47 @@ content_themes:
       - "Best piece of advice for new trainers?"
 
 # =============================================================================
+# HOOK CATEGORIES
+# =============================================================================
+# Defines different types of content hooks to grab attention and increase engagement
+hook_categories:
+  pain_point:
+    percentage: 30
+    description: "Content that addresses common trainer struggles and pain points"
+    template: "Every trainer knows the feeling when [specific situation]"
+    examples:
+      - "Every trainer knows the feeling when a client cancels last minute"
+      - "Every trainer knows the feeling when your 6am client doesn't show up"
+      - "Every trainer knows the feeling when equipment breaks mid-session"
+  
+  success_story:
+    percentage: 25
+    description: "Inspiring success stories and transformations"
+    template: "[Time period] ago, [trainer name] was [struggle]. Today they [achievement]"
+    examples:
+      - "6 months ago, Sarah was struggling with client retention. Today she has a 95% retention rate"
+      - "1 year ago, Mike was working 12-hour days. Today he has a thriving online business"
+      - "3 months ago, Lisa was afraid to raise her prices. Today she's earning 50% more"
+  
+  controversial:
+    percentage: 20
+    description: "Contrarian takes that challenge common beliefs"
+    template: "Hot take: [widely accepted practice] is actually [contrarian view]"
+    examples:
+      - "Hot take: 1-hour sessions are actually hurting your business"
+      - "Hot take: Free consultations are costing you clients"
+      - "Hot take: Group classes are more profitable than personal training"
+  
+  quick_win:
+    percentage: 25
+    description: "Quick, actionable tips that deliver immediate results"
+    template: "The [time] [tool/method] that [specific result]"
+    examples:
+      - "The 5-minute morning routine that doubled my client bookings"
+      - "The 30-second script that increased my conversion rate by 40%"
+      - "The one-word change that made clients stick around longer"
+
+# =============================================================================
 # POST FORMATS
 # =============================================================================
 # Different ways Refiloe presents content on Facebook
