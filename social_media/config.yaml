@@ -1,0 +1,325 @@
+# Refiloe - WhatsApp AI Assistant for Personal Trainers
+# Facebook Automation Configuration
+# This file controls how Refiloe posts content to Facebook to reach more trainers globally
+
+# =============================================================================
+# POSTING SCHEDULE
+# =============================================================================
+# Defines when and how often Refiloe posts content
+# Times are in SAST (South African Standard Time)
+posting_schedule:
+  # Week 1: High engagement phase - 3 posts per day
+  week_1:
+    enabled: true
+    posts_per_day: 3
+    times: ["08:00", "12:00", "20:00"]
+    timezone: "SAST"
+    description: "Initial engagement phase to build audience"
+  
+  # Week 2-4: Steady growth phase - 2 posts per day
+  week_2_to_4:
+    enabled: true
+    posts_per_day: 2
+    times: ["12:00", "20:00"]
+    timezone: "SAST"
+    description: "Maintaining momentum with focused posting"
+  
+  # Week 5+: Maintenance phase - 1 post per day
+  week_5_plus:
+    enabled: true
+    posts_per_day: 1
+    times: ["20:00"]
+    timezone: "SAST"
+    description: "Sustained presence with quality content"
+
+# =============================================================================
+# CONTENT THEMES
+# =============================================================================
+# Defines what types of content Refiloe creates and their frequency
+content_themes:
+  admin_hacks:
+    percentage: 40
+    description: "Time-saving tips and admin shortcuts for trainers"
+    examples:
+      - "Quick client check-in templates"
+      - "Automated reminder systems"
+      - "Billing and scheduling hacks"
+      - "Social media content batching"
+  
+  relatable_trainer_life:
+    percentage: 30
+    description: "Real experiences and challenges trainers face daily"
+    examples:
+      - "Early morning client struggles"
+      - "Equipment fails and solutions"
+      - "Client success celebrations"
+      - "Work-life balance challenges"
+  
+  client_management_tips:
+    percentage: 20
+    description: "Professional advice for managing clients effectively"
+    examples:
+      - "Communication strategies"
+      - "Goal setting frameworks"
+      - "Retention techniques"
+      - "Handling difficult conversations"
+  
+  engagement_questions:
+    percentage: 10
+    description: "Interactive content to boost engagement and community"
+    examples:
+      - "What's your biggest training challenge?"
+      - "Share your favorite client success story"
+      - "What motivates you to train others?"
+      - "Best piece of advice for new trainers?"
+
+# =============================================================================
+# POST FORMATS
+# =============================================================================
+# Different ways Refiloe presents content on Facebook
+post_formats:
+  carousel_style:
+    enabled: true
+    description: "Multiple images in a single post with step-by-step content"
+    implementation:
+      - "Create 3-5 related images"
+      - "First image: Title/headline with Refiloe branding"
+      - "Middle images: Step-by-step process or tips"
+      - "Last image: Call-to-action or summary"
+      - "Each image should be 1080x1080px for optimal display"
+    use_cases:
+      - "Admin hacks with step-by-step instructions"
+      - "Client management workflows"
+      - "Equipment setup guides"
+  
+  single_image_with_caption:
+    enabled: true
+    description: "One compelling image with detailed caption"
+    implementation:
+      - "High-quality image (1080x1080px or 1080x1350px)"
+      - "Caption should be 150-300 words"
+      - "Include relevant hashtags"
+      - "Add engaging question at the end"
+    use_cases:
+      - "Motivational quotes with trainer imagery"
+      - "Quick tips with visual examples"
+      - "Behind-the-scenes trainer moments"
+  
+  video_with_caption:
+    enabled: true
+    description: "Short video content with descriptive caption"
+    implementation:
+      - "Video length: 30-90 seconds"
+      - "Vertical format (9:16) or square (1:1)"
+      - "Clear audio and good lighting"
+      - "Caption explains the video content"
+    use_cases:
+      - "Quick exercise demonstrations"
+      - "Equipment tutorials"
+      - "Client success story highlights"
+
+# =============================================================================
+# AI INFLUENCER SETTINGS
+# =============================================================================
+# Defines Refiloe's personality and communication style
+ai_influencer_settings:
+  name: "Refiloe"
+  
+  personality_traits:
+    - "Encouraging coach"
+    - "Friendly and approachable"
+    - "Relatable to all trainers"
+    - "Smart but humble"
+    - "Motivational cheerleader"
+    - "Organized professional assistant"
+  
+  speaking_style:
+    voice: "First person"
+    tone: "Conversational and supportive"
+    approach: "Like talking to a knowledgeable friend"
+    examples:
+      - "I've been helping trainers like you..."
+      - "Here's what I've learned from working with..."
+      - "Let me share a game-changing tip..."
+  
+  emoji_guidelines:
+    max_per_post: 3
+    placement_strategy:
+      - "One at the beginning to set tone"
+      - "One in the middle for emphasis"
+      - "One at the end for engagement"
+    avoid: "Emoji clusters or excessive use"
+    preferred_emojis:
+      - "✅ for checklists and completed tasks"
+      - "❤️⭐ for client testimonials and success stories"
+      - "🔥💪 for achievements and motivation"
+      - "🤝 for community and support"
+      - "💡 for tips and insights"
+      - "📱 for tech and admin content"
+  
+  content_style:
+    lists: "Use checkmarks (✅) instead of bullets"
+    testimonials: "Use hearts (❤️) and stars (⭐)"
+    achievements: "Use fire (🔥) and muscle (💪)"
+    professional: "Maintain approachable yet professional tone"
+    engagement: "Always end with a question or call-to-action"
+
+# =============================================================================
+# IMAGE GENERATION
+# =============================================================================
+# Settings for creating visual content
+image_generation:
+  base_prompt: |
+    "Professional personal trainer, friendly African woman, Refiloe, 
+    modern fitness studio background, clean and motivational atmosphere, 
+    wearing athletic wear, confident and encouraging expression, 
+    high quality, professional photography style"
+  
+  style_guidelines:
+    - "Consistent branding across all images"
+    - "Clean, modern aesthetic"
+    - "Professional yet approachable"
+    - "High contrast and clear visibility"
+    - "Motivational and inspiring mood"
+  
+  lora_configuration:
+    status: "Pending - will be updated when Lora file arrives"
+    description: "Specific Lora settings for consistent Refiloe appearance"
+    placeholder: "Configuration to be added when Lora model is available"
+  
+  image_specifications:
+    carousel_images: "1080x1080px"
+    single_images: "1080x1080px or 1080x1350px"
+    video_thumbnails: "1080x1920px (9:16 aspect ratio)"
+    quality: "High resolution, professional grade"
+
+# =============================================================================
+# FACEBOOK SETTINGS
+# =============================================================================
+# Configuration for Facebook posting and engagement
+facebook_settings:
+  page_posting:
+    enabled: true
+    description: "Post content to Refiloe's main Facebook page"
+    target_audience: "Personal trainers globally"
+  
+  group_posting:
+    enabled: false
+    description: "Post content to relevant Facebook groups"
+    reason_disabled: "Focus on page growth first, groups can be added later"
+  
+  hashtag_strategy:
+    primary_hashtags:
+      - "#PersonalTrainer"
+      - "#FitnessCoach"
+      - "#TrainerLife"
+      - "#RefiloeAI"
+      - "#TrainerTips"
+    
+    secondary_hashtags:
+      - "#FitnessBusiness"
+      - "#ClientManagement"
+      - "#TrainerHacks"
+      - "#FitnessMotivation"
+      - "#TrainerCommunity"
+    
+    niche_hashtags:
+      - "#AdminHacks"
+      - "#TrainerTools"
+      - "#FitnessTech"
+      - "#TrainerSupport"
+      - "#FitnessEntrepreneur"
+    
+    hashtag_guidelines:
+      - "Use 5-8 hashtags per post maximum"
+      - "Mix primary, secondary, and niche hashtags"
+      - "Research trending hashtags weekly"
+      - "Avoid overused generic hashtags"
+  
+  engagement_strategy:
+    respond_to_comments: true
+    like_mentions: true
+    share_relevant_content: true
+    community_building: true
+  
+  posting_optimization:
+    best_times: ["12:00", "20:00"]
+    avoid_times: ["02:00-06:00"]
+    weekend_strategy: "Reduced posting, focus on engagement"
+    holiday_strategy: "Adapt content to seasonal themes"
+
+# =============================================================================
+# CONTENT CALENDAR TEMPLATES
+# =============================================================================
+# Pre-defined content templates for easy scheduling
+content_templates:
+  monday_motivation:
+    theme: "relatable_trainer_life"
+    format: "single_image_with_caption"
+    template: "Monday motivation post about starting the week strong"
+  
+  wednesday_wisdom:
+    theme: "admin_hacks"
+    format: "carousel_style"
+    template: "Mid-week productivity tip or admin shortcut"
+  
+  friday_feature:
+    theme: "client_management_tips"
+    format: "video_with_caption"
+    template: "End-of-week client success story or management tip"
+  
+  weekend_engagement:
+    theme: "engagement_questions"
+    format: "single_image_with_caption"
+    template: "Community question to boost weekend engagement"
+
+# =============================================================================
+# MONITORING AND ANALYTICS
+# =============================================================================
+# Track performance and adjust strategy
+monitoring:
+  key_metrics:
+    - "Post engagement rate"
+    - "Reach and impressions"
+    - "Click-through rates"
+    - "Follower growth"
+    - "Comment quality and quantity"
+  
+  reporting_frequency: "Weekly"
+  adjustment_triggers:
+    - "Low engagement for 3+ consecutive posts"
+    - "Significant follower drop"
+    - "High-performing content patterns"
+  
+  success_indicators:
+    - "Consistent engagement above 3%"
+    - "Growing follower base"
+    - "Quality comments and shares"
+    - "Increased website traffic from Facebook"
+
+# =============================================================================
+# NOTES FOR MANUAL EDITING
+# =============================================================================
+# This configuration is designed to be easily editable without coding knowledge
+# 
+# TO MODIFY POSTING SCHEDULE:
+# - Change times in the posting_schedule section
+# - Adjust posts_per_day numbers
+# - Modify timezone if needed
+#
+# TO CHANGE CONTENT THEMES:
+# - Adjust percentage values (must total 100%)
+# - Add or remove examples
+# - Modify descriptions
+#
+# TO UPDATE AI PERSONALITY:
+# - Edit personality_traits list
+# - Modify speaking_style examples
+# - Adjust emoji_guidelines
+#
+# TO CHANGE FACEBOOK SETTINGS:
+# - Toggle page_posting and group_posting enabled/disabled
+# - Update hashtag lists
+# - Modify engagement_strategy settings
+#
+# Remember: After making changes, save the file and restart the automation system
