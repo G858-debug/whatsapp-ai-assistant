@@ -49,6 +49,7 @@ class Config:
     # Additional settings
     ENABLE_RATE_LIMITING = os.environ.get('ENABLE_RATE_LIMITING', 'true').lower() == 'true'
     ENABLE_WEB_DASHBOARD = os.environ.get('ENABLE_WEB_DASHBOARD', 'true').lower() == 'true'
+    ENABLE_SOCIAL_MEDIA = os.environ.get('ENABLE_SOCIAL_MEDIA', 'false').lower() == 'true'
     
     # Email settings
     SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')

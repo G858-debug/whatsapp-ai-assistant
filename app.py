@@ -3,6 +3,7 @@ from config import Config
 from app_core import setup_app_core
 from app_routes import setup_routes
 from routes.whatsapp_flow import whatsapp_flow_bp
+from social_media.scheduler import SocialMediaScheduler
 import os
 
 # Create Flask app
@@ -47,6 +48,22 @@ try:
         print("Warning: Supabase credentials not found. Flow webhook setup skipped.")
 except Exception as e:
     print(f"Warning: Failed to setup flow webhook: {str(e)}")
+
+# Social Media Scheduler
+if Config.ENABLE_SOCIAL_MEDIA:
+    try:
+        from utils.logger import log_info, log_error
+        
+        # Only initialize if we have Supabase credentials
+        if Config.SUPABASE_URL and Config.SUPABASE_SERVICE_KEY:
+            social_scheduler = SocialMediaScheduler(app, supabase)
+            social_scheduler.start()
+            log_info("Social media scheduler started")
+        else:
+            log_error("Supabase credentials not found. Social media scheduler disabled.")
+    except Exception as e:
+        log_error(f"Failed to start social media scheduler: {str(e)}")
+        print(f"Warning: Social media scheduler failed to start: {str(e)}")
 
 if __name__ == '__main__':
     # Use Railway's PORT environment variable
