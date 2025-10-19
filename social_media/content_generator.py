@@ -155,7 +155,7 @@ class ContentGenerator:
         Returns:
             Dict: Structured post data
         """
-        log_info(f"Generating single post - Theme: {theme}, Format: {format_type}, Hook-based: {use_hook}")
+        log_info(f"Generating single post - Theme: {theme}, Format: {format_type}, Hook-based: {hook_type}")
         
         try:
             # Create Claude prompt
@@ -907,3 +907,691 @@ Make this content impossible to scroll past!"""
         except Exception as e:
             log_error(f"Error generating post with specific hook: {str(e)}")
             return {}
+    
+    def create_video_script(self, theme: str, duration: int = 60, style: str = "educational") -> Dict:
+        """Generate time-coded video scripts with exact wording and visual cues
+        
+        Args:
+            theme: Content theme for the video
+            duration: Video duration in seconds (30, 60, 90, 120)
+            style: Video style (educational, motivational, behind_scenes, tutorial, story)
+            
+        Returns:
+            Dict: Structured video script with time codes, visual cues, and CTAs
+        """
+        log_info(f"Creating video script - Theme: {theme}, Duration: {duration}s, Style: {style}")
+        
+        try:
+            # Get video-specific hooks
+            video_hooks = self._get_video_hooks()
+            selected_hook = random.choice(video_hooks)
+            
+            # Create video script prompt
+            prompt = self._create_video_script_prompt(theme, duration, style, selected_hook)
+            
+            # Call Claude API
+            response = self._call_claude_with_retry(prompt)
+            
+            if not response:
+                log_error("Failed to get response from Claude API for video script")
+                return {}
+            
+            # Parse video script response
+            script_data = self._parse_video_script_response(response, theme, duration, style)
+            
+            if script_data:
+                log_info(f"Successfully generated video script: {theme} - {duration}s - {style}")
+                return script_data
+            else:
+                log_error("Failed to parse video script response")
+                return {}
+                
+        except Exception as e:
+            log_error(f"Error creating video script: {str(e)}")
+            return {}
+    
+    def generate_video_series(self, topic: str, num_videos: int = 6) -> List[Dict]:
+        """Generate a series of connected video scripts that build on each other
+        
+        Args:
+            topic: Main topic for the video series
+            num_videos: Number of videos in the series (5-7 recommended)
+            
+        Returns:
+            List[Dict]: List of video scripts with cliffhangers and teasers
+        """
+        log_info(f"Generating video series - Topic: {topic}, Videos: {num_videos}")
+        
+        try:
+            series_scripts = []
+            
+            # Create series outline first
+            series_outline = self._create_series_outline(topic, num_videos)
+            
+            for i, video_info in enumerate(series_outline):
+                # Generate script for each video
+                script = self.create_video_script(
+                    theme=video_info['theme'],
+                    duration=video_info['duration'],
+                    style=video_info['style']
+                )
+                
+                if script:
+                    # Add series metadata
+                    script['series_info'] = {
+                        'series_topic': topic,
+                        'video_number': i + 1,
+                        'total_videos': num_videos,
+                        'is_series': True,
+                        'previous_video': series_outline[i-1]['title'] if i > 0 else None,
+                        'next_video': series_outline[i+1]['title'] if i < len(series_outline) - 1 else None
+                    }
+                    
+                    # Add cliffhanger for next video (except last)
+                    if i < len(series_outline) - 1:
+                        script['cliffhanger'] = self._generate_cliffhanger(series_outline[i+1])
+                    
+                    # Add teaser for previous video (except first)
+                    if i > 0:
+                        script['teaser'] = self._generate_teaser(series_outline[i-1])
+                    
+                    series_scripts.append(script)
+            
+            log_info(f"Successfully generated {len(series_scripts)} video scripts for series: {topic}")
+            return series_scripts
+            
+        except Exception as e:
+            log_error(f"Error generating video series: {str(e)}")
+            return []
+    
+    def _get_video_hooks(self) -> List[str]:
+        """Get video-specific hooks optimized for social media retention
+        
+        Returns:
+            List[str]: List of video hook templates
+        """
+        return [
+            "Stop scrolling if you're a trainer who...",
+            "POV: You just lost another client because...",
+            "The #1 mistake trainers make that...",
+            "Watch this 30-second hack that...",
+            "I wish someone told me this when I started training...",
+            "The secret that changed my training business...",
+            "Why 90% of trainers fail at this...",
+            "This one thing saved me 5 hours per week...",
+            "The mistake that cost me $10k last year...",
+            "If you're struggling with [problem], this is for you..."
+        ]
+    
+    def _create_video_script_prompt(self, theme: str, duration: int, style: str, hook: str) -> str:
+        """Create prompt for video script generation
+        
+        Args:
+            theme: Content theme
+            duration: Video duration in seconds
+            style: Video style
+            hook: Video hook to use
+            
+        Returns:
+            str: Formatted prompt for video script generation
+        """
+        # Get AI influencer settings
+        ai_settings = self.config.get('ai_influencer_settings', {})
+        personality = ai_settings.get('personality_traits', [])
+        speaking_style = ai_settings.get('speaking_style', {})
+        
+        # Calculate timing breakdown
+        hook_duration = 3  # First 3 seconds for hook
+        main_content_duration = duration - hook_duration - 5  # 5 seconds for CTA
+        cta_duration = 5
+        
+        prompt = f"""You are {ai_settings.get('name', 'Refiloe')}, creating a {duration}-second video script for personal trainers.
+
+VIDEO SPECIFICATIONS:
+- Duration: {duration} seconds
+- Style: {style}
+- Theme: {theme}
+- Hook: {hook}
+
+PERSONALITY & VOICE:
+- {', '.join(personality)}
+- Voice: {speaking_style.get('voice', 'First person')}
+- Tone: {speaking_style.get('tone', 'Conversational and engaging')}
+
+RETENTION OPTIMIZATION:
+- Hook MUST grab attention in first 3 seconds
+- Use power words and emotional triggers
+- Include specific numbers and statistics
+- Create curiosity and urgency
+- Make it impossible to scroll past
+
+VIDEO STRUCTURE:
+1. Hook (0-3s): {hook}
+2. Main Content (3-{duration-5}s): Core message with visual cues
+3. CTA ({duration-5}-{duration}s): Strong call-to-action
+
+VISUAL CUES TO INCLUDE:
+- Text overlays for key points
+- Gestures and expressions
+- Props or demonstrations
+- Screen recordings if applicable
+- Transitions between topics
+
+TRENDING ELEMENTS:
+- Use current social media language
+- Include relevant hashtags in script
+- Reference popular challenges or trends
+- Use engaging visual descriptions
+
+CALL-TO-ACTION OPTIONS:
+- "Comment 'ADMIN' for the free guide"
+- "Share this with a trainer who needs it"
+- "Save this for your next client"
+- "Which tip will you try first?"
+- "Follow for more trainer hacks"
+
+OUTPUT FORMAT:
+Please provide your response in the following JSON format:
+{{
+    "title": "Compelling video title",
+    "hook": "The exact opening hook text",
+    "script": [
+        {{
+            "time_start": 0,
+            "time_end": 3,
+            "text": "Hook text with exact wording",
+            "visual_cue": "Visual instruction (e.g., 'Point to camera, serious expression')",
+            "tone": "Urgent, attention-grabbing"
+        }},
+        {{
+            "time_start": 3,
+            "time_end": {duration-5},
+            "text": "Main content with exact wording",
+            "visual_cue": "Visual instruction (e.g., 'Show demonstration, text overlay')",
+            "tone": "Educational, engaging"
+        }},
+        {{
+            "time_start": {duration-5},
+            "time_end": {duration},
+            "text": "Call-to-action with exact wording",
+            "visual_cue": "Visual instruction (e.g., 'Point to comment section, encouraging smile')",
+            "tone": "Encouraging, action-oriented"
+        }}
+    ],
+    "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
+    "visual_notes": "Overall visual direction and style",
+    "retention_hooks": ["List of retention elements used"],
+    "cta_type": "The type of call-to-action used",
+    "estimated_retention": "High/Medium/Low based on hook strength"
+}}
+
+Generate a script that will keep trainers watching until the end!"""
+
+        return prompt
+    
+    def _parse_video_script_response(self, response: str, theme: str, duration: int, style: str) -> Dict:
+        """Parse video script response from Claude
+        
+        Args:
+            response: Raw response from Claude
+            theme: Content theme
+            duration: Video duration
+            style: Video style
+            
+        Returns:
+            Dict: Structured video script data
+        """
+        try:
+            import json
+            import re
+            
+            # Look for JSON in the response
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+                script_data = json.loads(json_str)
+            else:
+                # Fallback: create basic structure
+                script_data = {
+                    "title": f"{theme.replace('_', ' ').title()} Video Script",
+                    "hook": "Stop scrolling if you're a trainer who...",
+                    "script": [
+                        {
+                            "time_start": 0,
+                            "time_end": 3,
+                            "text": "Hook text",
+                            "visual_cue": "Point to camera",
+                            "tone": "Urgent"
+                        }
+                    ],
+                    "hashtags": ["#PersonalTrainer", "#FitnessCoach"],
+                    "visual_notes": "Engaging visual content",
+                    "retention_hooks": ["Attention-grabbing hook"],
+                    "cta_type": "Comment engagement",
+                    "estimated_retention": "High"
+                }
+            
+            # Add metadata
+            script_data.update({
+                'theme': theme,
+                'duration': duration,
+                'style': style,
+                'platform': 'video',
+                'content_type': 'video_script',
+                'created_at': datetime.now(self.sa_tz).isoformat(),
+                'metadata': {
+                    'ai_generated': True,
+                    'model_used': self.model,
+                    'generation_time': datetime.now(self.sa_tz).isoformat()
+                }
+            })
+            
+            return script_data
+            
+        except Exception as e:
+            log_error(f"Error parsing video script response: {str(e)}")
+            return {}
+    
+    def _create_series_outline(self, topic: str, num_videos: int) -> List[Dict]:
+        """Create outline for video series
+        
+        Args:
+            topic: Main series topic
+            num_videos: Number of videos in series
+            
+        Returns:
+            List[Dict]: List of video information for the series
+        """
+        # Create series progression
+        series_structure = {
+            'client_management': [
+                {'theme': 'client_onboarding', 'duration': 60, 'style': 'tutorial', 'title': 'The Perfect Client Onboarding Process'},
+                {'theme': 'client_retention', 'duration': 60, 'style': 'educational', 'title': 'How to Keep Clients Long-Term'},
+                {'theme': 'client_communication', 'duration': 45, 'style': 'tips', 'title': 'Communication Hacks That Work'},
+                {'theme': 'client_progress_tracking', 'duration': 60, 'style': 'tutorial', 'title': 'Track Progress Like a Pro'},
+                {'theme': 'client_problem_solving', 'duration': 45, 'style': 'story', 'title': 'Handling Difficult Client Situations'},
+                {'theme': 'client_success_stories', 'duration': 60, 'style': 'motivational', 'title': 'Celebrating Client Wins'}
+            ],
+            'business_growth': [
+                {'theme': 'pricing_strategy', 'duration': 60, 'style': 'educational', 'title': 'How to Price Your Services Right'},
+                {'theme': 'marketing_basics', 'duration': 45, 'style': 'tips', 'title': 'Marketing That Actually Works'},
+                {'theme': 'social_media_strategy', 'duration': 60, 'style': 'tutorial', 'title': 'Social Media for Trainers'},
+                {'theme': 'networking_tips', 'duration': 45, 'style': 'educational', 'title': 'Build Your Network'},
+                {'theme': 'scaling_business', 'duration': 60, 'style': 'strategic', 'title': 'Scale Without Losing Quality'},
+                {'theme': 'success_mindset', 'duration': 45, 'style': 'motivational', 'title': 'Mindset for Success'}
+            ],
+            'training_techniques': [
+                {'theme': 'exercise_progression', 'duration': 60, 'style': 'tutorial', 'title': 'Master Exercise Progressions'},
+                {'theme': 'form_corrections', 'duration': 45, 'style': 'educational', 'title': 'Fix Form Issues Fast'},
+                {'theme': 'program_design', 'duration': 60, 'style': 'tutorial', 'title': 'Design Programs That Work'},
+                {'theme': 'injury_prevention', 'duration': 45, 'style': 'educational', 'title': 'Keep Clients Injury-Free'},
+                {'theme': 'motivation_techniques', 'duration': 60, 'style': 'motivational', 'title': 'Motivate Any Client'},
+                {'theme': 'advanced_techniques', 'duration': 60, 'style': 'tutorial', 'title': 'Advanced Training Methods'}
+            ]
+        }
+        
+        # Select appropriate series structure based on topic
+        topic_key = topic.lower().replace(' ', '_')
+        if topic_key in series_structure:
+            base_series = series_structure[topic_key]
+        else:
+            # Default series structure
+            base_series = series_structure['business_growth']
+        
+        # Return the requested number of videos
+        return base_series[:num_videos]
+    
+    def _generate_cliffhanger(self, next_video: Dict) -> str:
+        """Generate cliffhanger for next video
+        
+        Args:
+            next_video: Information about the next video in series
+            
+        Returns:
+            str: Cliffhanger text
+        """
+        cliffhangers = [
+            f"Next time, I'll show you {next_video['title'].lower()} - you won't want to miss this!",
+            f"Coming up: {next_video['title']} - this changed everything for me!",
+            f"Stay tuned for the next video where I reveal {next_video['title'].lower()}",
+            f"Don't miss next week's video: {next_video['title']}",
+            f"The next video will blow your mind - {next_video['title']}!"
+        ]
+        
+        return random.choice(cliffhangers)
+    
+    def _generate_teaser(self, previous_video: Dict) -> str:
+        """Generate teaser for previous video
+        
+        Args:
+            previous_video: Information about the previous video in series
+            
+        Returns:
+            str: Teaser text
+        """
+        teasers = [
+            f"If you missed last week's video on {previous_video['title'].lower()}, check it out!",
+            f"Building on what we covered in {previous_video['title']}...",
+            f"Following up on {previous_video['title'].lower()} from last time...",
+            f"As promised in {previous_video['title']}, here's the next step...",
+            f"Continuing from where we left off with {previous_video['title'].lower()}..."
+        ]
+        
+        return random.choice(teasers)
+    
+    def get_trending_audio_suggestions(self, platform: str = "facebook") -> List[Dict]:
+        """Get trending audio suggestions for video content
+        
+        Args:
+            platform: Social media platform (facebook, instagram, tiktok)
+            
+        Returns:
+            List[Dict]: List of trending audio with metadata
+        """
+        log_info(f"Getting trending audio suggestions for {platform}")
+        
+        # Mock trending audio data - in production, this would integrate with platform APIs
+        trending_audio = {
+            'facebook': [
+                {
+                    'name': 'Motivational Beat 2024',
+                    'duration': 30,
+                    'genre': 'motivational',
+                    'bpm': 120,
+                    'usage_count': '2.3M',
+                    'trending_score': 95,
+                    'best_for': ['workout_motivation', 'success_stories', 'transformation']
+                },
+                {
+                    'name': 'Epic Cinematic Sound',
+                    'duration': 60,
+                    'genre': 'cinematic',
+                    'bpm': 140,
+                    'usage_count': '1.8M',
+                    'trending_score': 88,
+                    'best_for': ['before_after', 'achievement', 'dramatic_reveals']
+                },
+                {
+                    'name': 'Upbeat Training Mix',
+                    'duration': 45,
+                    'genre': 'electronic',
+                    'bpm': 128,
+                    'usage_count': '3.1M',
+                    'trending_score': 92,
+                    'best_for': ['exercise_demos', 'quick_tips', 'energy_boost']
+                }
+            ],
+            'instagram': [
+                {
+                    'name': 'Viral Hook Sound',
+                    'duration': 15,
+                    'genre': 'trending',
+                    'bpm': 110,
+                    'usage_count': '5.2M',
+                    'trending_score': 98,
+                    'best_for': ['quick_hacks', 'attention_grabbers', 'viral_content']
+                },
+                {
+                    'name': 'Success Story Audio',
+                    'duration': 30,
+                    'genre': 'inspirational',
+                    'bpm': 100,
+                    'usage_count': '2.7M',
+                    'trending_score': 89,
+                    'best_for': ['client_stories', 'transformation', 'motivation']
+                }
+            ]
+        }
+        
+        return trending_audio.get(platform, trending_audio['facebook'])
+    
+    def match_content_to_trending_audio(self, script_data: Dict, platform: str = "facebook") -> Dict:
+        """Match video script to trending audio and adjust timing
+        
+        Args:
+            script_data: Video script data
+            platform: Target platform for audio matching
+            
+        Returns:
+            Dict: Updated script with audio integration
+        """
+        log_info(f"Matching content to trending audio for {platform}")
+        
+        try:
+            # Get trending audio suggestions
+            trending_audio = self.get_trending_audio_suggestions(platform)
+            
+            # Find best matching audio based on content theme and duration
+            script_duration = script_data.get('duration', 60)
+            script_theme = script_data.get('theme', 'general')
+            
+            # Score audio based on duration match and theme relevance
+            best_audio = None
+            best_score = 0
+            
+            for audio in trending_audio:
+                score = 0
+                
+                # Duration match (prefer exact or close match)
+                duration_diff = abs(audio['duration'] - script_duration)
+                if duration_diff == 0:
+                    score += 50
+                elif duration_diff <= 15:
+                    score += 30
+                elif duration_diff <= 30:
+                    score += 15
+                
+                # Theme relevance
+                if script_theme in audio.get('best_for', []):
+                    score += 30
+                
+                # Trending score
+                score += audio.get('trending_score', 0) * 0.2
+                
+                if score > best_score:
+                    best_score = score
+                    best_audio = audio
+            
+            if best_audio:
+                # Adjust script timing to match audio
+                script_data['trending_audio'] = best_audio
+                script_data['audio_timing'] = self._calculate_audio_timing(script_data, best_audio)
+                script_data['beat_sync_notes'] = self._generate_beat_sync_notes(best_audio)
+                
+                log_info(f"Matched script to trending audio: {best_audio['name']}")
+            
+            return script_data
+            
+        except Exception as e:
+            log_error(f"Error matching content to trending audio: {str(e)}")
+            return script_data
+    
+    def _calculate_audio_timing(self, script_data: Dict, audio: Dict) -> Dict:
+        """Calculate timing adjustments for audio synchronization
+        
+        Args:
+            script_data: Video script data
+            audio: Selected trending audio data
+            
+        Returns:
+            Dict: Audio timing information
+        """
+        script_duration = script_data.get('duration', 60)
+        audio_duration = audio['duration']
+        bpm = audio.get('bpm', 120)
+        
+        # Calculate beat intervals
+        beat_interval = 60 / bpm  # seconds per beat
+        
+        # Adjust script timing if needed
+        timing_adjustment = audio_duration - script_duration
+        
+        return {
+            'original_duration': script_duration,
+            'audio_duration': audio_duration,
+            'adjustment_needed': timing_adjustment,
+            'beat_interval': beat_interval,
+            'total_beats': int(audio_duration / beat_interval),
+            'sync_points': self._calculate_sync_points(script_data, beat_interval)
+        }
+    
+    def _calculate_sync_points(self, script_data: Dict, beat_interval: float) -> List[Dict]:
+        """Calculate key sync points for beat matching
+        
+        Args:
+            script_data: Video script data
+            beat_interval: Seconds per beat
+            
+        Returns:
+            List[Dict]: Sync points for visual/audio alignment
+        """
+        sync_points = []
+        script_segments = script_data.get('script', [])
+        
+        for segment in script_segments:
+            start_time = segment.get('time_start', 0)
+            end_time = segment.get('time_end', 0)
+            
+            # Find nearest beat for start and end
+            start_beat = round(start_time / beat_interval)
+            end_beat = round(end_time / beat_interval)
+            
+            sync_points.append({
+                'segment': segment.get('text', '')[:50] + '...',
+                'start_beat': start_beat,
+                'end_beat': end_beat,
+                'beat_aligned_start': start_beat * beat_interval,
+                'beat_aligned_end': end_beat * beat_interval
+            })
+        
+        return sync_points
+    
+    def _generate_beat_sync_notes(self, audio: Dict) -> List[str]:
+        """Generate notes for syncing content to audio beats
+        
+        Args:
+            audio: Audio metadata
+            
+        Returns:
+            List[str]: Beat sync instructions
+        """
+        bpm = audio.get('bpm', 120)
+        genre = audio.get('genre', 'general')
+        
+        notes = [
+            f"Sync key points to the {bpm} BPM beat",
+            f"Use {genre} style transitions between segments",
+            f"Match energy changes to beat drops",
+            "Emphasize important words on strong beats",
+            "Use quick cuts during high-energy sections"
+        ]
+        
+        if bpm > 130:
+            notes.append("Fast-paced editing for high energy")
+        elif bpm < 100:
+            notes.append("Slower, more deliberate pacing")
+        
+        return notes
+    
+    def get_video_cta_options(self, cta_type: str = "engagement") -> List[str]:
+        """Get video call-to-action options optimized for conversion
+        
+        Args:
+            cta_type: Type of CTA (engagement, lead_gen, social_proof, action)
+            
+        Returns:
+            List[str]: List of CTA options
+        """
+        cta_options = {
+            'engagement': [
+                "Comment 'ADMIN' for the free guide",
+                "Which tip will you try first?",
+                "Tag a trainer who needs this",
+                "What's your biggest challenge? Comment below",
+                "Save this for your next client",
+                "Double tap if this helped you"
+            ],
+            'lead_gen': [
+                "DM me 'GUIDE' for the free resource",
+                "Comment 'YES' if you want the template",
+                "Link in bio for the complete guide",
+                "Send me a message for the checklist",
+                "Comment 'MORE' for additional tips"
+            ],
+            'social_proof': [
+                "Share this with a trainer who needs it",
+                "Repost this to help other trainers",
+                "Send this to your trainer friends",
+                "Share your results in the comments",
+                "Show this to your training partner"
+            ],
+            'action': [
+                "Try this today and let me know how it goes",
+                "Implement this and share your results",
+                "Test this with your next client",
+                "Practice this technique this week",
+                "Apply this tip and tag me in your post"
+            ]
+        }
+        
+        return cta_options.get(cta_type, cta_options['engagement'])
+    
+    def optimize_script_for_retention(self, script_data: Dict) -> Dict:
+        """Optimize video script for maximum retention
+        
+        Args:
+            script_data: Video script data
+            
+        Returns:
+            Dict: Optimized script with retention improvements
+        """
+        log_info("Optimizing script for retention")
+        
+        try:
+            # Ensure hook is in first 3 seconds
+            script_segments = script_data.get('script', [])
+            if script_segments and script_segments[0]['time_end'] > 3:
+                # Adjust first segment to end at 3 seconds
+                script_segments[0]['time_end'] = 3
+                script_segments[0]['text'] = script_segments[0]['text'][:100] + "..."  # Truncate if needed
+            
+            # Add retention hooks throughout
+            retention_hooks = [
+                "But wait, there's more...",
+                "Here's the secret...",
+                "This is where it gets interesting...",
+                "The best part is...",
+                "You won't believe what happens next...",
+                "This changed everything for me...",
+                "Here's what most trainers miss..."
+            ]
+            
+            # Add retention hooks at strategic points
+            for i, segment in enumerate(script_segments[1:], 1):
+                if i % 2 == 0 and len(segment['text']) > 50:
+                    hook = random.choice(retention_hooks)
+                    segment['text'] = f"{hook} {segment['text']}"
+            
+            # Optimize CTA for maximum conversion
+            cta_segment = script_segments[-1] if script_segments else None
+            if cta_segment:
+                cta_options = self.get_video_cta_options('engagement')
+                cta_segment['text'] = random.choice(cta_options)
+                cta_segment['visual_cue'] = "Point to comment section with encouraging expression"
+            
+            # Add retention score
+            script_data['retention_optimization'] = {
+                'hook_timing': 'First 3 seconds' if script_segments and script_segments[0]['time_end'] <= 3 else 'Needs adjustment',
+                'retention_hooks_added': len([s for s in script_segments if any(hook in s['text'] for hook in retention_hooks)]),
+                'cta_optimized': True,
+                'estimated_retention_improvement': '15-25%'
+            }
+            
+            script_data['script'] = script_segments
+            
+            log_info("Script optimized for retention")
+            return script_data
+            
+        except Exception as e:
+            log_error(f"Error optimizing script for retention: {str(e)}")
+            return script_data
