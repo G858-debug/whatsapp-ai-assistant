@@ -11,6 +11,7 @@ supabase==1.2.0
 
 # AI & NLP
 anthropic==0.39.0
+replicate==0.25.0
 
 # Scheduling
 APScheduler==3.10.4
@@ -19,6 +20,7 @@ APScheduler==3.10.4
 pytz==2023.3
 python-dateutil==2.8.2
 icalendar==5.0.10
+PyYAML==6.0.1
 
 # Logging & Monitoring
 colorlog==6.7.0
