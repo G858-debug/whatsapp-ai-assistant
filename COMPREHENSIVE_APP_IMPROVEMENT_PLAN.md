@@ -19,55 +19,220 @@
 ### Current Issues:
 
 - Text-based registration collects different info than flow-based
+- Text-based inputs are hardcoded in Python files (not easily editable)
 - No unified data collection approach
 - Settings not easily viewable/customizable
 
-### **Solution: Unified Registration Data Collection**
+### **Solution: Unified Registration Data Collection + Separate Text Input Files**
 
-#### **A. Trainer Registration Standardization**
+#### **A. Create Text Input Configuration Structure**
+
+Just like your `whatsapp_flows/` folder, create a `text_inputs/` folder for easy editing:
 
 ```
-Text-Based Registration Fields (to match flow):
+text_inputs/
+├── config.json                           # Main configuration
+├── trainer_registration_inputs.json      # Trainer text-based questions
+├── client_registration_inputs.json       # Client text-based questions
+├── trainer_add_client_inputs.json        # Trainer adding client questions
+├── profile_edit_inputs.json              # Profile editing questions
+├── habit_setup_inputs.json               # Habit setup questions
+└── list_filter_inputs.json               # List filtering options
+```
+
+#### **B. Text Input Configuration Format**
+
+```json
+// text_inputs/trainer_registration_inputs.json
+{
+  "version": "1.0",
+  "registration_type": "trainer",
+  "description": "Text-based trainer registration questions",
+  "steps": [
+    {
+      "step": 0,
+      "field": "name",
+      "question": "What's your first and last name? 😊",
+      "validation": {
+        "type": "text",
+        "min_length": 2,
+        "max_length": 255,
+        "required": true
+      },
+      "error_messages": {
+        "too_short": "😊 Please enter your full name (at least 2 characters)",
+        "too_long": "😊 That name is too long. Please enter a shorter name"
+      },
+      "success_response": "Perfect! 👍"
+    },
+    {
+      "step": 1,
+      "field": "business_name",
+      "question": "What's your business name? (or type 'skip' if you don't have one)",
+      "validation": {
+        "type": "text",
+        "required": false,
+        "allow_skip": true
+      },
+      "success_response": "Great ✨"
+    },
+    {
+      "step": 2,
+      "field": "email",
+      "question": "What's your email address? 📧\n(We'll use this for important updates only)",
+      "validation": {
+        "type": "email",
+        "required": true
+      },
+      "error_messages": {
+        "invalid": "📧 Please enter a valid email. Example: john@gmail.com"
+      },
+      "success_response": "Awesome! 💪"
+    },
+    {
+      "step": 3,
+      "field": "specialization",
+      "question": "What's your training specialization?\n\n1️⃣ Weight Loss\n2️⃣ Muscle Building\n3️⃣ Sports Performance\n4️⃣ Functional Fitness\n5️⃣ Rehabilitation\n\nChoose a number or type your own:",
+      "validation": {
+        "type": "choice_or_text",
+        "choices": {
+          "1": "Weight Loss",
+          "2": "Muscle Building",
+          "3": "Sports Performance",
+          "4": "Functional Fitness",
+          "5": "Rehabilitation"
+        },
+        "min_text_length": 3
+      },
+      "success_response": "Nice specialization! 🎯"
+    }
+  ],
+  "completion": {
+    "message": "🎊 *CONGRATULATIONS!* 🎊\n\nWelcome aboard, {first_name}! You're all set up! 🚀"
+  }
+}
+```
+
+#### **C. Text Input Handler Class**
+
+```python
+class TextInputHandler:
+    def __init__(self, input_type: str):
+        self.config = self._load_input_config(input_type)
+        self.steps = self.config['steps']
+
+    def _load_input_config(self, input_type: str) -> Dict:
+        """Load text input configuration from JSON file"""
+        config_path = f"text_inputs/{input_type}_inputs.json"
+        with open(config_path, 'r') as f:
+            return json.load(f)
+
+    def get_question(self, step: int) -> str:
+        """Get question for specific step"""
+        if step < len(self.steps):
+            return self.steps[step]['question']
+        return None
+
+    def validate_response(self, step: int, response: str) -> Dict:
+        """Validate user response against step configuration"""
+        step_config = self.steps[step]
+        validation = step_config['validation']
+
+        if validation['type'] == 'email':
+            return self._validate_email(response, step_config)
+        elif validation['type'] == 'choice_or_text':
+            return self._validate_choice_or_text(response, validation, step_config)
+        # ... other validation types
+
+    def get_completion_message(self, user_data: Dict) -> str:
+        """Get completion message with user data interpolation"""
+        message = self.config['completion']['message']
+        return message.format(**user_data)
+```
+
+#### **D. Benefits of Separate Text Input Files**
+
+✅ **Easy Editing**: Non-developers can edit questions, validation, and messages
+✅ **Version Control**: Track changes to registration flows over time
+✅ **A/B Testing**: Easy to create different versions for testing
+✅ **Consistency**: Same data structure as WhatsApp flows
+✅ **Maintenance**: Update questions without touching Python code
+✅ **Localization**: Easy to add multiple languages later
+✅ **Customization**: Different question sets for different user types
+
+#### **E. Implementation Structure**
+
+```python
+# services/registration/text_input_manager.py
+class TextInputManager:
+    def __init__(self):
+        self.handlers = {
+            'trainer_registration': TextInputHandler('trainer_registration'),
+            'client_registration': TextInputHandler('client_registration'),
+            'trainer_add_client': TextInputHandler('trainer_add_client'),
+            'profile_edit': TextInputHandler('profile_edit')
+        }
+
+    def get_handler(self, input_type: str) -> TextInputHandler:
+        return self.handlers.get(input_type)
+
+# Updated registration classes use TextInputManager
+class TrainerRegistrationHandler:
+    def __init__(self, supabase_client, whatsapp_service):
+        self.db = supabase_client
+        self.whatsapp = whatsapp_service
+        self.input_manager = TextInputManager()
+        self.text_handler = self.input_manager.get_handler('trainer_registration')
+
+    def get_question_for_step(self, step: int) -> str:
+        return self.text_handler.get_question(step)
+
+    def validate_response(self, step: int, response: str) -> Dict:
+        return self.text_handler.validate_response(step, response)
+```
+
+#### **F. Unified Data Collection (Text + Flow)**
+
+Both text-based and flow-based registration will collect the same fields:
+
+```
+Trainer Registration Fields (Unified):
 ├── Basic Info
-│   ├── First Name ✓ (exists)
-│   ├── Last Name ✓ (exists)
-│   ├── Email ✓ (exists)
-│   └── City ✓ (exists)
+│   ├── First Name ✓
+│   ├── Last Name ✓
+│   ├── Email ✓
+│   └── City ✓
 ├── Business Details
-│   ├── Business Name ✓ (exists)
-│   ├── Specializations → standardize with flow options
-│   ├── Experience Years → standardize format
-│   └── Pricing Per Session ✓ (exists)
-├── Availability (NEW for text)
-│   ├── Available Days → add to text registration
-│   ├── Preferred Time Slots → add to text registration
-│   └── Services Offered → add to text registration
-└── Preferences (NEW for text)
-    ├── Notification Preferences → add to text registration
-    ├── Marketing Consent → add to text registration
-    └── Additional Notes → add to text registration
-```
+│   ├── Business Name ✓
+│   ├── Specializations ✓ (standardized options)
+│   ├── Experience Years ✓ (standardized format)
+│   └── Pricing Per Session ✓
+├── Availability
+│   ├── Available Days ✓
+│   ├── Preferred Time Slots ✓
+│   └── Services Offered ✓
+└── Preferences
+    ├── Notification Preferences ✓
+    ├── Marketing Consent ✓
+    └── Additional Notes ✓
 
-#### **B. Client Registration Standardization**
-
-```
-Text-Based Registration Fields (to match flow):
+Client Registration Fields (Unified):
 ├── Basic Info
-│   ├── Name ✓ (exists)
-│   ├── Email ✓ (exists - optional)
-│   └── Phone ✓ (exists)
+│   ├── Name ✓
+│   ├── Email ✓ (optional)
+│   └── Phone ✓
 ├── Fitness Profile
-│   ├── Fitness Goals ✓ (exists)
-│   ├── Experience Level ✓ (exists)
-│   ├── Health Conditions ✓ (exists)
-│   └── Preferred Training Times ✓ (exists)
-├── Preferences (NEW for text)
-│   ├── Notification Preferences → add
-│   ├── Training Preferences → add
-│   └── Emergency Contact → add (optional)
+│   ├── Fitness Goals ✓
+│   ├── Experience Level ✓
+│   ├── Health Conditions ✓
+│   └── Preferred Training Times ✓
+├── Preferences
+│   ├── Notification Preferences ✓
+│   ├── Training Preferences ✓
+│   └── Emergency Contact ✓ (optional)
 └── Trainer Connection
-    ├── Trainer ID (if invited) ✓ (exists)
-    └── Connection Status ✓ (exists)
+    ├── Trainer ID (if invited) ✓
+    └── Connection Status ✓
 ```
 
 ## 2. **User ID System Implementation**
@@ -615,30 +780,39 @@ def process_list_filter_request(self, message, user_type, current_list_type):
 
 ## 6. **Implementation Priority & Timeline**
 
-### **Phase 1: Core Privacy & User ID System (Week 1-2)**
+### **Phase 1: Critical Missing Features (Week 1-2)**
 
-1. ✅ Add user_id fields to database
-2. ✅ Create user_id generation system
-3. ✅ Update registration flows to generate user_ids
-4. ✅ Modify all list displays to hide contact info
-5. ✅ Update AI assistant to use user_ids in responses
+1. ✅ Add user_id fields to database and generation system
+2. ✅ **FIX MISSING**: Create text-based profile editing system (`/edit_profile` command)
+3. ✅ **FIX MISSING**: Complete client-trainer connection system with user IDs
+4. ✅ Add database fields for connection tracking (connection_status, approved_at, etc.)
+5. ✅ Create `ProfileEditor` class for text-based profile editing
+6. ✅ Enhance `ConnectionManager` for user ID-based linking
+7. ✅ Add AI intents for profile editing and connections
+8. ✅ Modify all list displays to hide contact info
 
-### **Phase 2: Registration Standardization (Week 2-3)**
+### **Phase 2: Text Input System & Registration Enhancement (Week 2-3)**
 
-1. ✅ Enhance text-based trainer registration
-2. ✅ Enhance text-based client registration
-3. ✅ Create unified data collection system
-4. ✅ Add missing fields to text registration
-5. ✅ Create settings view/edit system
+1. ✅ Create `text_inputs/` folder structure with JSON configuration files
+2. ✅ Develop `TextInputHandler` and `TextInputManager` classes
+3. ✅ Update `TrainerRegistrationHandler` to use text input configurations
+4. ✅ Update `ClientRegistrationHandler` to use text input configurations
+5. ✅ Create unified data collection system (same fields for text + flow)
+6. ✅ Add missing fields to text registration (availability, preferences, etc.)
+7. ✅ Create profile editing configurations (trainer_profile_edit_inputs.json)
+8. ✅ **FIX MISSING**: Add trainer "create new client" functionality
+9. ✅ Test text-based registration matches flow data structure
 
-### **Phase 3: Enhanced AI Assistant (Week 3-4)**
+### **Phase 3: Enhanced AI Assistant & Connection System (Week 3-4)**
 
-1. ✅ Enhance existing `AIIntentHandler` with handler mapping
-2. ✅ Create `EnhancedAIAssistant` class to bridge AI intents to handlers
-3. ✅ Add WhatsApp button suggestions based on AI confidence
-4. ✅ Integrate AI suggestions with existing slash command system
-5. ✅ Add contextual handler recommendations
-6. ✅ Implement smart button response handling
+1. ✅ **FIX CRITICAL**: Complete `generate_smart_response()` method in AIIntentHandler
+2. ✅ **FIX CRITICAL**: Consolidate duplicate code in AI system
+3. ✅ Add AI intents for profile editing, connections, and trainer search
+4. ✅ Create `EnhancedAIAssistant` class to bridge AI intents to handlers
+5. ✅ Add WhatsApp button suggestions based on AI confidence
+6. ✅ **NEW**: Implement AI-powered trainer search with natural language
+7. ✅ **NEW**: Add connection approval/decline handlers with AI assistance
+8. ✅ Integrate all new features with existing slash command system
 
 ### **Phase 4: Complete List Management (Week 4-5)**
 
@@ -1110,6 +1284,18 @@ def generate_smart_response(self, intent_data: Dict, sender_type: str, sender_da
 
 ### **📋 Implementation Checklist**
 
+#### **Text Input System**
+
+- [ ] **Create Folder Structure**: Set up `text_inputs/` directory
+- [ ] **Configuration Files**: Create JSON files for all registration types
+- [ ] **TextInputHandler Class**: Develop handler for JSON-based questions
+- [ ] **TextInputManager Class**: Create manager for multiple input types
+- [ ] **Update Registration Classes**: Modify existing handlers to use JSON configs
+- [ ] **Validation System**: Implement validation based on JSON configuration
+- [ ] **Testing**: Test all text-based registrations with new system
+
+#### **AI System Improvements**
+
 - [ ] **Architecture Fix**: Consolidate `AIIntentHandler` and `AIIntentCore`
 - [ ] **Complete Methods**: Finish `generate_smart_response()` implementation
 - [ ] **Handler Mapping**: Create `HandlerMapper` class with intent-to-function mapping
@@ -1119,6 +1305,163 @@ def generate_smart_response(self, intent_data: Dict, sender_type: str, sender_da
 - [ ] **Error Handling**: Add robust error handling for all AI operations
 - [ ] **Testing**: Test all intents with various user inputs
 - [ ] **Documentation**: Update code documentation and examples
+
+## **🚨 Critical Missing Features Identified**
+
+### **A. Profile Editing (Text-Based) - MISSING**
+
+- ❌ Trainers cannot edit their profile via text commands
+- ❌ Clients cannot edit their profile via text commands
+- ❌ Only flow-based profile editing exists
+
+### **B. Client-Trainer Connection System - INCOMPLETE**
+
+- ✅ Basic approval system exists (`/approve_client`, `/decline_client`)
+- ❌ No user ID-based linking (trainer links client by client user ID)
+- ❌ No client-initiated trainer linking (client links trainer by trainer user ID)
+- ❌ No AI-assisted trainer search and linking
+- ❌ Missing database fields for proper connection tracking
+
+### **C. Enhanced Client Management - MISSING**
+
+- ❌ Trainer cannot create new client via text (only invite existing)
+- ❌ No AI handler for "add client" with user ID lookup
+- ❌ No AI handler for "find trainer" with filtering
+
+## **🔧 Enhanced Implementation Plan**
+
+### **Phase 1A: Fix Missing Profile Editing (Week 1)**
+
+#### **Text-Based Profile Editing System**
+
+```python
+# services/profile/profile_editor.py
+class ProfileEditor:
+    def __init__(self, supabase_client):
+        self.db = supabase_client
+        self.input_manager = TextInputManager()
+
+    def start_profile_edit(self, phone: str, user_type: str) -> Dict:
+        """Start profile editing session"""
+        handler = self.input_manager.get_handler(f'{user_type}_profile_edit')
+        return handler.get_field_selection_question()
+
+    def edit_field(self, phone: str, user_type: str, field_name: str) -> Dict:
+        """Edit specific profile field"""
+        current_value = self._get_current_field_value(phone, user_type, field_name)
+        handler = self.input_manager.get_handler(f'{user_type}_profile_edit')
+        return handler.get_field_edit_question(field_name, current_value)
+```
+
+### **Phase 1B: Enhanced Connection System (Week 1-2)**
+
+#### **Database Schema Updates**
+
+```sql
+-- Add missing connection fields to clients table
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS connection_status VARCHAR(20) DEFAULT 'no_trainer';
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS requested_by VARCHAR(20) DEFAULT 'client';
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP WITH TIME ZONE;
+
+-- Create connection requests table for better tracking
+CREATE TABLE IF NOT EXISTS client_trainer_connections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_user_id VARCHAR(10),
+    trainer_user_id VARCHAR(10),
+    client_phone VARCHAR(20) NOT NULL,
+    trainer_phone VARCHAR(20) NOT NULL,
+    connection_type VARCHAR(20) NOT NULL, -- 'client_to_trainer' or 'trainer_to_client'
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'approved', 'declined'
+    requested_by VARCHAR(20) NOT NULL, -- 'client' or 'trainer'
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    responded_at TIMESTAMP WITH TIME ZONE,
+    response_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### **Enhanced Connection Manager**
+
+```python
+# services/connections/connection_manager.py
+class ConnectionManager:
+    def request_trainer_by_user_id(self, client_phone: str, trainer_user_id: str) -> Dict:
+        """Client requests to connect to trainer by user ID"""
+
+    def request_client_by_user_id(self, trainer_phone: str, client_user_id: str) -> Dict:
+        """Trainer requests to connect to client by user ID"""
+
+    def approve_connection(self, connection_id: str, approver_phone: str) -> Dict:
+        """Approve a pending connection request"""
+
+    def get_pending_connections(self, user_phone: str, user_type: str) -> List[Dict]:
+        """Get all pending connections for a user"""
+```
+
+### **Phase 1C: AI-Powered Connection Handlers (Week 2)**
+
+#### **Enhanced AI Intents for Connections**
+
+```python
+# Add to AIIntentHandler
+CONNECTION_INTENTS = {
+    'find_trainer_by_id': ['connect to trainer T1234', 'add trainer T5678'],
+    'search_trainers': ['find trainers', 'search trainers', 'show me trainers'],
+    'filter_trainers': ['trainers in Cape Town', 'trainers under R400'],
+    'add_client_by_id': ['connect client C1234', 'add client C5678'],
+    'create_new_client': ['create new client', 'add new client'],
+    'edit_profile': ['edit my profile', 'update my info', 'change my details']
+}
+```
+
+#### **Files to Create**
+
+```
+text_inputs/
+├── config.json
+├── trainer_registration_inputs.json
+├── client_registration_inputs.json
+├── trainer_add_client_inputs.json
+├── trainer_profile_edit_inputs.json      # NEW
+├── client_profile_edit_inputs.json       # NEW
+├── profile_field_configs.json            # NEW
+├── connection_request_inputs.json        # NEW
+└── trainer_search_inputs.json            # NEW
+
+services/profile/                          # NEW FOLDER
+├── profile_editor.py                     # NEW
+├── profile_validator.py                  # NEW
+└── profile_field_handler.py              # NEW
+
+services/connections/                      # NEW FOLDER
+├── connection_manager.py                 # NEW
+├── connection_validator.py               # NEW
+└── connection_notifications.py           # NEW
+
+services/search/                          # NEW FOLDER
+├── trainer_search_ai.py                 # NEW
+├── search_filter_processor.py           # NEW
+└── search_result_formatter.py           # NEW
+
+services/registration/
+├── text_input_handler.py                # NEW
+├── text_input_manager.py                # NEW
+└── validation_helpers.py                # ENHANCED
+```
+
+#### **Files to Modify**
+
+```
+services/registration/
+├── trainer_registration.py        # Use TextInputManager
+├── client_registration.py         # Use TextInputManager
+└── registration_state.py          # Support JSON configs
+
+services/
+├── ai_intent_handler.py           # Fix architecture issues
+├── ai_intent_core.py              # Remove duplication
+└── refiloe.py                     # Integrate enhanced AI
+```
 
 ### **Example User Interactions**
 
@@ -1139,6 +1482,76 @@ User: "Show me trainers in Cape Town under R400"
 AI Detects: primary_intent='find_trainer', confidence=0.8, extracted_data={'city': 'Cape Town', 'max_price': 400}
 Action: Executes filtered trainer search + suggests [Refine Search] [Contact Trainer] buttons
 ```
+
+## **📋 Current System Analysis & Required Fixes**
+
+### **✅ What's Working Well**
+
+- Basic client-trainer approval system (`/approve_client`, `/decline_client`, `/pending_requests`)
+- WhatsApp flow-based registration and profile editing
+- AI intent detection with Claude integration
+- User registration for both trainers and clients
+- Payment system integration
+
+### **🚨 Critical Issues Found**
+
+#### **1. Missing Text-Based Profile Editing**
+
+- **Current**: Only flow-based profile editing exists
+- **Missing**: `/edit_profile` command for trainers and clients
+- **Impact**: Users can't easily update their information via text
+
+#### **2. Incomplete Connection System**
+
+- **Current**: Basic approval system exists but limited
+- **Missing**: User ID-based linking (trainer connects to client C1234)
+- **Missing**: Client-initiated trainer linking (client connects to trainer T5678)
+- **Missing**: AI assistance for connection requests
+- **Impact**: Users can't easily find and connect to each other
+
+#### **3. Limited Client Management**
+
+- **Current**: Trainers can only approve existing client requests
+- **Missing**: Trainers can't create new clients via text
+- **Missing**: AI-powered trainer search for clients
+- **Impact**: Poor user experience for client acquisition
+
+#### **4. AI System Issues**
+
+- **Current**: Sophisticated AI system but incomplete implementation
+- **Issues**: `generate_smart_response()` method truncated, code duplication
+- **Missing**: Handler mapping from AI intents to actual functions
+- **Impact**: AI detects intents but can't execute actions
+
+### **🎯 Implementation Priority Order**
+
+#### **Week 1: Fix Critical Missing Features**
+
+1. **Complete AI System**: Fix truncated methods and code duplication
+2. **Add Profile Editing**: Create `/edit_profile` command with text input system
+3. **Database Updates**: Add missing connection fields to clients table
+4. **User ID System**: Implement user ID generation and privacy protection
+
+#### **Week 2: Enhanced Connection System**
+
+1. **Connection Manager**: Create user ID-based linking system
+2. **AI Integration**: Add connection intents to AI system
+3. **Client Creation**: Allow trainers to create new clients via text
+4. **Approval Enhancements**: Improve existing approval system
+
+#### **Week 3: Text Input Organization**
+
+1. **Text Input Files**: Create JSON configuration files like your flows
+2. **Input Handlers**: Develop TextInputHandler and TextInputManager
+3. **Registration Updates**: Update existing handlers to use JSON configs
+4. **Testing**: Ensure text and flow registration collect same data
+
+#### **Week 4: AI-Powered Features**
+
+1. **Trainer Search**: AI-powered trainer search with natural language
+2. **Button Integration**: WhatsApp buttons for AI suggestions
+3. **List Management**: Complete list system with filtering and downloads
+4. **Final Testing**: End-to-end testing of all features
 
 ---
 
