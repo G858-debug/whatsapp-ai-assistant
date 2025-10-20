@@ -163,112 +163,187 @@ def get_client_list_for_trainer(trainer_phone):
 
 ## 4. **Enhanced AI Assistant**
 
-### **Current AI Issues**
+### **Current AI Strengths** ✅
 
-- Limited handler detection
-- No WhatsApp button suggestions
-- Doesn't have access to all handlers
-- Not working as expected in message handling
+- Sophisticated AI intent detection with Claude (`AIIntentHandler`)
+- Comprehensive intent mapping system with 30+ intents
+- Context-aware understanding with conversation history
+- Fallback keyword system when AI unavailable
+- Habit tracking and response processing
+- Smart data extraction (names, phones, dates, etc.)
+
+### **Areas for Enhancement**
+
+- Map AI-detected intents to available handlers
+- Generate WhatsApp button suggestions based on AI understanding
+- Provide contextual handler recommendations
+- Integrate AI suggestions with existing slash commands
+- Improve handler accessibility through natural language
 
 ### **AI Assistant Enhancement Plan**
 
-#### **A. Handler Detection & Suggestion System**
+#### **A. AI-Powered Handler Detection & Suggestion System**
+
+Instead of fixed keywords, leverage your existing `AIIntentHandler` to intelligently map intents to handlers:
 
 ```python
 class EnhancedAIAssistant:
-    def __init__(self):
-        self.available_handlers = {
+    def __init__(self, ai_intent_handler):
+        self.ai_handler = ai_intent_handler  # Your existing sophisticated AI system
+
+        # Map AI-detected intents to available handlers
+        self.intent_to_handler_mapping = {
             # Registration & Profile
-            'register_trainer': {
-                'keywords': ['register', 'trainer', 'become trainer', 'sign up'],
+            'registration_trainer': {
+                'handler_function': 'start_trainer_registration',
                 'description': 'Register as a trainer',
-                'button_text': '💪 Register as Trainer'
+                'button_text': '💪 Register as Trainer',
+                'ai_intents': ['registration_trainer', 'become_trainer']
             },
-            'register_client': {
-                'keywords': ['register', 'client', 'find trainer', 'get fit'],
+            'registration_client': {
+                'handler_function': 'start_client_registration',
                 'description': 'Register as a client',
-                'button_text': '🏃‍♀️ Register as Client'
+                'button_text': '🏃‍♀️ Register as Client',
+                'ai_intents': ['registration_client', 'find_trainer']
             },
 
             # Profile Management
             'view_profile': {
-                'keywords': ['profile', 'my info', 'account'],
+                'handler_function': 'handle_profile_command',
                 'description': 'View your profile',
-                'button_text': '👤 View Profile'
+                'button_text': '👤 View Profile',
+                'ai_intents': ['view_profile', 'check_profile', 'general_question'],
+                'context_keywords': ['profile', 'my info', 'account']
             },
             'edit_profile': {
-                'keywords': ['edit', 'update', 'change profile'],
+                'handler_function': 'handle_edit_profile_command',
                 'description': 'Edit your profile',
-                'button_text': '✏️ Edit Profile'
+                'button_text': '✏️ Edit Profile',
+                'ai_intents': ['edit_profile', 'update_profile'],
+                'context_keywords': ['edit', 'update', 'change']
             },
 
             # Client Management (Trainers)
             'view_clients': {
-                'keywords': ['clients', 'my clients', 'client list'],
+                'handler_function': 'handle_clients_command',
                 'description': 'View your clients',
                 'button_text': '👥 My Clients',
-                'user_type': 'trainer'
+                'user_type': 'trainer',
+                'ai_intents': ['view_clients', 'client_progress', 'manage_client']
             },
             'add_client': {
-                'keywords': ['add client', 'new client', 'invite client'],
+                'handler_function': 'handle_add_client_command',
                 'description': 'Add a new client',
                 'button_text': '➕ Add Client',
-                'user_type': 'trainer'
+                'user_type': 'trainer',
+                'ai_intents': ['add_client', 'invite_client']
             },
 
             # Trainer Management (Clients)
             'find_trainer': {
-                'keywords': ['find trainer', 'search trainer', 'get trainer'],
+                'handler_function': 'handle_find_trainer_command',
                 'description': 'Find a trainer',
                 'button_text': '🔍 Find Trainer',
-                'user_type': 'client'
+                'user_type': 'client',
+                'ai_intents': ['find_trainer', 'request_trainer']
             },
             'my_trainer': {
-                'keywords': ['my trainer', 'trainer info'],
+                'handler_function': 'handle_trainer_info_command',
                 'description': 'View trainer information',
                 'button_text': '💪 My Trainer',
-                'user_type': 'client'
+                'user_type': 'client',
+                'ai_intents': ['view_trainer', 'trainer_info']
             },
 
             # Habit Tracking
             'view_habits': {
-                'keywords': ['habits', 'progress', 'tracking'],
+                'handler_function': 'handle_habits_command',
                 'description': 'View habit progress',
-                'button_text': '📊 My Habits'
+                'button_text': '📊 My Habits',
+                'ai_intents': ['view_habits', 'habit_progress', 'check_streak']
             },
-            'log_habit': {
-                'keywords': ['log', 'record', 'mark complete'],
+            'log_habits': {
+                'handler_function': 'handle_log_habit_command',
                 'description': 'Log today\'s habits',
-                'button_text': '✅ Log Habits'
+                'button_text': '✅ Log Habits',
+                'ai_intents': ['log_habits', 'setup_habit']
             },
 
             # Help & Support
             'get_help': {
-                'keywords': ['help', 'support', 'how to'],
+                'handler_function': 'handle_help_command',
                 'description': 'Get help and support',
-                'button_text': '❓ Get Help'
+                'button_text': '❓ Get Help',
+                'ai_intents': ['help', 'general_question'],
+                'context_keywords': ['help', 'commands', 'what can you do']
             }
         }
 
-    def detect_intent_and_suggest_handlers(self, message, user_type):
-        """Detect user intent and suggest relevant handlers"""
-        message_lower = message.lower()
-        suggestions = []
+    def detect_intent_and_suggest_handlers(self, message, user_type, sender_data, conversation_history=None):
+        """Use AI to detect intent and suggest relevant handlers"""
 
-        for handler_id, handler_info in self.available_handlers.items():
+        # Use your existing sophisticated AI intent detection
+        intent_data = self.ai_handler.understand_message(
+            message, user_type, sender_data, conversation_history
+        )
+
+        # Map AI intent to available handlers
+        suggestions = self._map_ai_intent_to_handlers(intent_data, user_type, message)
+
+        return {
+            'ai_intent_data': intent_data,
+            'handler_suggestions': suggestions,
+            'confidence': intent_data.get('confidence', 0.5),
+            'should_show_buttons': len(suggestions) > 0 and intent_data.get('confidence', 0) > 0.6
+        }
+
+    def _map_ai_intent_to_handlers(self, intent_data, user_type, original_message):
+        """Map AI-detected intent to available handlers"""
+        primary_intent = intent_data.get('primary_intent')
+        secondary_intents = intent_data.get('secondary_intents', [])
+        all_intents = [primary_intent] + secondary_intents
+
+        suggestions = []
+        message_lower = original_message.lower()
+
+        for handler_id, handler_info in self.intent_to_handler_mapping.items():
             # Check if handler is available for user type
             if handler_info.get('user_type') and handler_info['user_type'] != user_type:
                 continue
 
-            # Check if any keywords match
-            for keyword in handler_info['keywords']:
-                if keyword in message_lower:
-                    suggestions.append({
-                        'handler_id': handler_id,
-                        'button_text': handler_info['button_text'],
-                        'description': handler_info['description']
-                    })
-                    break
+            # Check if AI intent matches handler intents
+            handler_intents = handler_info.get('ai_intents', [])
+            matched_intent = None
+
+            # Primary intent match (highest priority)
+            if primary_intent in handler_intents:
+                matched_intent = primary_intent
+                priority = 1
+            # Secondary intent match
+            elif any(intent in handler_intents for intent in secondary_intents):
+                matched_intent = next(intent for intent in secondary_intents if intent in handler_intents)
+                priority = 2
+            # Context keyword match (for general questions)
+            elif handler_info.get('context_keywords'):
+                for keyword in handler_info['context_keywords']:
+                    if keyword in message_lower:
+                        matched_intent = 'context_match'
+                        priority = 3
+                        break
+
+            if matched_intent:
+                suggestions.append({
+                    'handler_id': handler_id,
+                    'handler_function': handler_info['handler_function'],
+                    'button_text': handler_info['button_text'],
+                    'description': handler_info['description'],
+                    'matched_intent': matched_intent,
+                    'priority': priority,
+                    'confidence': intent_data.get('confidence', 0.5)
+                })
+
+        # Sort by priority (1=highest) and confidence
+        suggestions.sort(key=lambda x: (x['priority'], -x['confidence']))
 
         return suggestions[:3]  # Limit to 3 suggestions
 ```
@@ -276,26 +351,123 @@ class EnhancedAIAssistant:
 #### **B. WhatsApp Button Integration**
 
 ```python
-def send_ai_response_with_suggestions(self, phone, ai_response, suggestions):
-    """Send AI response with handler suggestion buttons"""
+def send_ai_response_with_smart_suggestions(self, phone, intent_data, suggestions, user_type, sender_data):
+    """Send AI response with contextual handler suggestion buttons"""
 
-    if suggestions:
+    # Generate AI response using existing system
+    ai_response = self.ai_handler.generate_smart_response(
+        intent_data, user_type, sender_data
+    )
+
+    # Add handler suggestions if confidence is high enough
+    if suggestions and intent_data.get('confidence', 0) > 0.6:
         buttons = []
+
         for suggestion in suggestions:
             buttons.append({
                 'id': f"handler_{suggestion['handler_id']}",
                 'title': suggestion['button_text']
             })
 
+        # Create contextual message based on intent
+        if intent_data.get('primary_intent') == 'greeting':
+            suggestion_text = "\n\n🚀 *What would you like to do?*"
+        elif intent_data.get('primary_intent') == 'general_question':
+            suggestion_text = "\n\n💡 *Or try these quick actions:*"
+        else:
+            suggestion_text = "\n\n⚡ *Quick actions:*"
+
         # Send response with buttons
         self.whatsapp_service.send_button_message(
             phone,
-            f"{ai_response}\n\n💡 *Quick Actions:*",
+            f"{ai_response}{suggestion_text}",
             buttons
         )
     else:
-        # Send regular message
+        # Send regular AI response without buttons
         self.whatsapp_service.send_message(phone, ai_response)
+
+def handle_button_response(self, phone, button_id, user_type, sender_data):
+    """Handle when user clicks a suggested handler button"""
+
+    if button_id.startswith('handler_'):
+        handler_id = button_id.replace('handler_', '')
+
+        # Find the handler function
+        handler_info = self.intent_to_handler_mapping.get(handler_id)
+        if handler_info:
+            handler_function = handler_info['handler_function']
+
+            # Execute the handler (integrate with existing slash command system)
+            if handler_function == 'start_trainer_registration':
+                return self._handle_trainer_registration(phone)
+            elif handler_function == 'handle_profile_command':
+                return self._handle_slash_command(phone, '/profile')
+            elif handler_function == 'handle_clients_command':
+                return self._handle_slash_command(phone, '/clients')
+            # ... map other handlers
+
+            # Generic handler execution
+            return self._execute_handler_function(handler_function, phone, user_type, sender_data)
+```
+
+#### **C. Integration with Existing Message Handling**
+
+Update your `RefiloeService.handle_message()` to use AI-powered suggestions:
+
+```python
+def handle_message(self, phone: str, text: str) -> Dict:
+    """Enhanced message handling with AI-powered suggestions"""
+
+    # ... existing code for role selection, slash commands, etc.
+
+    # Get user context
+    context = self.get_user_context(phone)
+
+    # Handle dual role selection needed
+    if context['user_type'] == 'dual_role_selection_needed':
+        return self.send_role_selection_message(phone, context)
+
+    # Get conversation history
+    history = self.get_conversation_history(phone)
+
+    # Use enhanced AI assistant for intent detection and suggestions
+    ai_result = self.enhanced_ai_assistant.detect_intent_and_suggest_handlers(
+        text,
+        context['user_type'],
+        context['user_data'],
+        [h['message'] for h in history]
+    )
+
+    # Save incoming message
+    self.save_message(phone, text, 'user')
+
+    # Check if we should execute a handler directly or show suggestions
+    intent_data = ai_result['ai_intent_data']
+    suggestions = ai_result['handler_suggestions']
+
+    # High confidence single handler - execute directly
+    if (len(suggestions) == 1 and
+        intent_data.get('confidence', 0) > 0.8 and
+        suggestions[0]['priority'] == 1):
+
+        handler_function = suggestions[0]['handler_function']
+        return self._execute_handler_function(handler_function, phone, context)
+
+    # Multiple suggestions or medium confidence - show AI response with buttons
+    elif ai_result.get('should_show_buttons'):
+        self.enhanced_ai_assistant.send_ai_response_with_smart_suggestions(
+            phone, intent_data, suggestions, context['user_type'], context['user_data']
+        )
+        return {'success': True, 'response': 'AI response with suggestions sent'}
+
+    # Low confidence or no handlers - regular AI conversation
+    else:
+        ai_response = self.ai_handler.generate_smart_response(
+            intent_data, context['user_type'], context['user_data']
+        )
+        self.whatsapp_service.send_message(phone, ai_response)
+        return {'success': True, 'response': ai_response}
 ```
 
 ## 5. **Complete List Management System**
@@ -461,11 +633,12 @@ def process_list_filter_request(self, message, user_type, current_list_type):
 
 ### **Phase 3: Enhanced AI Assistant (Week 3-4)**
 
-1. ✅ Implement handler detection system
-2. ✅ Add WhatsApp button suggestions
-3. ✅ Create intent recognition engine
-4. ✅ Integrate with all existing handlers
-5. ✅ Add natural language processing
+1. ✅ Enhance existing `AIIntentHandler` with handler mapping
+2. ✅ Create `EnhancedAIAssistant` class to bridge AI intents to handlers
+3. ✅ Add WhatsApp button suggestions based on AI confidence
+4. ✅ Integrate AI suggestions with existing slash command system
+5. ✅ Add contextual handler recommendations
+6. ✅ Implement smart button response handling
 
 ### **Phase 4: Complete List Management (Week 4-5)**
 
@@ -681,6 +854,37 @@ def get_improvement_metrics():
             'list_interaction_engagement': get_list_engagement()
         }
     }
+```
+
+## **Key AI Enhancement Benefits**
+
+### **Why AI-Powered Intent Detection is Superior**
+
+✅ **Contextual Understanding**: Your `AIIntentHandler` understands context, not just keywords
+✅ **Natural Language**: Users can say "I want to see my clients" instead of typing `/clients`
+✅ **Confidence-Based Actions**: High confidence = direct execution, medium = suggestions, low = conversation
+✅ **Smart Suggestions**: AI suggests relevant handlers based on actual intent, not keyword matching
+✅ **Conversation Flow**: Maintains natural conversation while providing quick actions
+✅ **Adaptive Learning**: AI can understand variations and new ways of expressing intents
+
+### **Example User Interactions**
+
+```
+User: "Hi Refiloe, how are my clients doing?"
+AI Detects: primary_intent='client_progress', confidence=0.85
+Action: Shows client progress + suggests [View All Clients] [Add Client] buttons
+
+User: "I need to update my profile information"
+AI Detects: primary_intent='edit_profile', confidence=0.9
+Action: Directly launches profile editing flow
+
+User: "Hello"
+AI Detects: primary_intent='greeting', confidence=0.95
+Action: Friendly greeting + suggests [My Profile] [My Clients] [Help] buttons
+
+User: "Show me trainers in Cape Town under R400"
+AI Detects: primary_intent='find_trainer', confidence=0.8, extracted_data={'city': 'Cape Town', 'max_price': 400}
+Action: Executes filtered trainer search + suggests [Refine Search] [Contact Trainer] buttons
 ```
 
 ---
