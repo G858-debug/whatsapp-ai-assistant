@@ -13,11 +13,30 @@ from config import Config
 
 
 class AIIntentHandler:
-    """Handles AI-powered intent detection for Phase 1"""
+    """Handles AI-powered intent detection for Phases 1-3"""
     
-    def __init__(self, db, whatsapp):
-        self.db = db
-        self.whatsapp = whatsapp
+    def __init__(self, db_or_config, whatsapp_or_supabase=None, services_dict=None):
+        """
+        Initialize AIIntentHandler with flexible parameters for backward compatibility
+        
+        Can be called as:
+        - AIIntentHandler(db, whatsapp) - Phase 1-3 style
+        - AIIntentHandler(Config, supabase, services_dict) - app_core.py style
+        """
+        # Handle different calling conventions
+        if services_dict is not None:
+            # Called from app_core.py: (Config, supabase, services_dict)
+            self.config = db_or_config
+            self.db = whatsapp_or_supabase
+            self.whatsapp = services_dict.get('whatsapp') if services_dict else None
+            self.services = services_dict
+        else:
+            # Called from message_router: (db, whatsapp)
+            self.db = db_or_config
+            self.whatsapp = whatsapp_or_supabase
+            self.config = None
+            self.services = None
+        
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
         
         # Initialize Claude client
