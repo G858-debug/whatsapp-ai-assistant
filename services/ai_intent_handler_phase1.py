@@ -118,7 +118,7 @@ class AIIntentHandler:
     def _create_intent_prompt(self, message: str, role: str, context: Dict) -> str:
         """Create prompt for Claude AI"""
         
-        # Define available Phase 1 features
+        # Define available features (Phase 1 & 2)
         if role == 'trainer':
             available_features = """
 Available Features (Phase 1):
@@ -129,10 +129,11 @@ Available Features (Phase 1):
 - Switch role (/switch-role if has both roles)
 - Help (/help)
 
-Coming Soon (Phase 2):
-- Invite clients
-- Manage clients
-- View client list
+Available Features (Phase 2):
+- Invite existing client (/invite-trainee)
+- Create new client (/create-trainee)
+- View clients (/view-trainees)
+- Remove client (/remove-trainee)
 
 Coming Soon (Phase 3):
 - Create habits
@@ -149,10 +150,11 @@ Available Features (Phase 1):
 - Switch role (/switch-role if has both roles)
 - Help (/help)
 
-Coming Soon (Phase 2):
-- Search trainers
-- Invite trainers
-- View trainer list
+Available Features (Phase 2):
+- Search trainers (/search-trainer)
+- Invite trainer (/invite-trainer)
+- View trainers (/view-trainers)
+- Remove trainer (/remove-trainer)
 
 Coming Soon (Phase 3):
 - View assigned habits
@@ -173,12 +175,11 @@ CONTEXT:
 
 Analyze the message and return ONLY valid JSON with:
 {{
-    "intent": "one of: view_profile, edit_profile, delete_account, logout, switch_role, help, general_conversation, unclear",
+    "intent": "one of: view_profile, edit_profile, delete_account, logout, switch_role, help, invite_trainee, create_trainee, view_trainees, remove_trainee, search_trainer, invite_trainer, view_trainers, remove_trainer, general_conversation, unclear",
     "confidence": 0.0-1.0,
     "needs_action": true/false,
     "suggested_command": "/command or null",
     "user_sentiment": "positive/neutral/negative/frustrated",
-    "is_asking_about_phase2": true/false,
     "is_asking_about_phase3": true/false
 }}
 
@@ -280,6 +281,72 @@ Return ONLY the JSON, no other text."""
                 )
                 buttons = [{'id': '/help', 'title': '📚 Show Help'}]
                 self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            # Phase 2: Trainer intents
+            elif intent_type == 'invite_trainee':
+                msg = (
+                    f"Sure {name}! I can help you invite a client.\n\n"
+                    f"Click the button below or type /invite-trainee"
+                )
+                buttons = [{'id': '/invite-trainee', 'title': '📨 Invite Client'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            elif intent_type == 'create_trainee':
+                msg = (
+                    f"I can help you create a new client account, {name}!\n\n"
+                    f"Click the button below or type /create-trainee"
+                )
+                buttons = [{'id': '/create-trainee', 'title': '➕ Create Client'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            elif intent_type == 'view_trainees':
+                msg = (
+                    f"Let me show you your clients, {name}!\n\n"
+                    f"Click the button below or type /view-trainees"
+                )
+                buttons = [{'id': '/view-trainees', 'title': '👥 View Clients'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            elif intent_type == 'remove_trainee':
+                msg = (
+                    f"I can help you remove a client, {name}.\n\n"
+                    f"Click the button below or type /remove-trainee"
+                )
+                buttons = [{'id': '/remove-trainee', 'title': '🗑️ Remove Client'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            # Phase 2: Client intents
+            elif intent_type == 'search_trainer':
+                msg = (
+                    f"I can help you search for trainers, {name}!\n\n"
+                    f"Click the button below or type /search-trainer"
+                )
+                buttons = [{'id': '/search-trainer', 'title': '🔍 Search Trainers'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            elif intent_type == 'invite_trainer':
+                msg = (
+                    f"Sure {name}! I can help you invite a trainer.\n\n"
+                    f"Click the button below or type /invite-trainer"
+                )
+                buttons = [{'id': '/invite-trainer', 'title': '📨 Invite Trainer'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            elif intent_type == 'view_trainers':
+                msg = (
+                    f"Let me show you your trainers, {name}!\n\n"
+                    f"Click the button below or type /view-trainers"
+                )
+                buttons = [{'id': '/view-trainers', 'title': '👥 View Trainers'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            elif intent_type == 'remove_trainer':
+                msg = (
+                    f"I can help you remove a trainer, {name}.\n\n"
+                    f"Click the button below or type /remove-trainer"
+                )
+                buttons = [{'id': '/remove-trainer', 'title': '🗑️ Remove Trainer'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
                 
             else:
                 # Generic action
@@ -309,20 +376,8 @@ Return ONLY the JSON, no other text."""
         try:
             name = context.get('name', 'there')
             
-            # Check if asking about Phase 2/3 features
-            if intent.get('is_asking_about_phase2'):
-                msg = (
-                    f"Great question, {name}!\n\n"
-                    f"That feature is coming in Phase 2 (very soon!).\n\n"
-                    f"For now, here's what you can do:"
-                )
-                buttons = [
-                    {'id': '/view-profile', 'title': '👤 View Profile'},
-                    {'id': '/help', 'title': '📚 Show Help'}
-                ]
-                self.whatsapp.send_button_message(phone, msg, buttons)
-                
-            elif intent.get('is_asking_about_phase3'):
+            # Check if asking about Phase 3 features
+            if intent.get('is_asking_about_phase3'):
                 msg = (
                     f"That's a great feature, {name}!\n\n"
                     f"Habit tracking is coming in Phase 3.\n\n"

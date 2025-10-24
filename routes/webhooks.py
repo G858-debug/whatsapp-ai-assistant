@@ -174,7 +174,7 @@ def whatsapp_webhook():
                                     whatsapp_service.send_message(phone, prompt)
                                     continue
                                 
-                                # PHASE 1 INTEGRATION: Use MessageRouter for new system
+                                # PHASE 1 & 2 INTEGRATION: Use MessageRouter for new system
                                 try:
                                     from services.message_router import MessageRouter
                                     whatsapp_service = app.config['services']['whatsapp']
@@ -182,8 +182,8 @@ def whatsapp_webhook():
                                     # Initialize MessageRouter
                                     router = MessageRouter(supabase, whatsapp_service)
                                     
-                                    # Route the message
-                                    result = router.route_message(phone, text)
+                                    # Route the message (pass button_id for Phase 2 invitation handling)
+                                    result = router.route_message(phone, text, button_id=button_id if button_id else None)
                                     
                                     log_info(f"Message routed successfully: {result.get('handler')}")
                                     

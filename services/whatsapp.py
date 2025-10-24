@@ -278,6 +278,50 @@ class WhatsAppService:
             log_error(f"Error sending WhatsApp button message: {str(e)}")
             return {'success': False, 'error': str(e)}
     
+    def send_document(self, phone_number: str, document_url: str, 
+                     filename: str = None, caption: str = None) -> Dict:
+        """Send document (PDF, CSV, etc) via WhatsApp"""
+        try:
+            phone = self._format_phone_number(phone_number)
+            
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "document",
+                "document": {
+                    "link": document_url
+                }
+            }
+            
+            if filename:
+                payload["document"]["filename"] = filename
+            
+            if caption:
+                payload["document"]["caption"] = caption
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                log_info(f"Document sent to {phone}")
+                return {'success': True, 'message_id': response.json().get('messages', [{}])[0].get('id')}
+            else:
+                log_error(f"Failed to send document: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            log_error(f"Error sending document: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
     def send_flow_message(self, flow_message: Dict) -> Dict:
         """Send WhatsApp flow message"""
         try:
