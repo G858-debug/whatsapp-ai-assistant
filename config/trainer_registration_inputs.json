@@ -1,0 +1,180 @@
+{
+  "fields": [
+    {
+      "name": "first_name",
+      "label": "First Name",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 2,
+        "max_length": 50
+      },
+      "prompt": "What's your first name? 👤"
+    },
+    {
+      "name": "last_name",
+      "label": "Last Name / Surname",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 2,
+        "max_length": 50
+      },
+      "prompt": "What's your last name or surname?"
+    },
+    {
+      "name": "email",
+      "label": "Email Address",
+      "type": "email",
+      "required": true,
+      "validation": {
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      },
+      "prompt": "What's your email address? 📧"
+    },
+    {
+      "name": "city",
+      "label": "City / Location",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 2,
+        "max_length": 100
+      },
+      "prompt": "Which city or location are you based in? 📍"
+    },
+    {
+      "name": "business_name",
+      "label": "Business Name",
+      "type": "text",
+      "required": false,
+      "validation": {
+        "max_length": 100
+      },
+      "prompt": "Do you have a business name? (Optional - type 'skip' to skip) 💼"
+    },
+    {
+      "name": "specialization",
+      "label": "Specialization",
+      "type": "multi_choice",
+      "required": true,
+      "options": [
+        "Personal Training",
+        "Group Fitness",
+        "Strength Training",
+        "Cardio Fitness",
+        "Yoga & Pilates",
+        "Sports Coaching",
+        "Nutrition Coaching",
+        "Rehabilitation & Recovery",
+        "General Fitness"
+      ],
+      "prompt": "What are your specializations? (You can select multiple)\n\n1️⃣ Personal Training\n2️⃣ Group Fitness\n3️⃣ Strength Training\n4️⃣ Cardio Fitness\n5️⃣ Yoga & Pilates\n6️⃣ Sports Coaching\n7️⃣ Nutrition Coaching\n8️⃣ Rehabilitation & Recovery\n9️⃣ General Fitness\n\nReply with numbers separated by commas (e.g., 1,3,7)"
+    },
+    {
+      "name": "experience_years",
+      "label": "Years of Experience",
+      "type": "choice",
+      "required": true,
+      "options": [
+        "0-1 years",
+        "2-3 years",
+        "4-5 years",
+        "6-10 years",
+        "10+ years"
+      ],
+      "prompt": "How many years of experience do you have? 📊\n\n1️⃣ 0-1 years\n2️⃣ 2-3 years\n3️⃣ 4-5 years\n4️⃣ 6-10 years\n5️⃣ 10+ years\n\nReply with the number"
+    },
+    {
+      "name": "pricing_per_session",
+      "label": "Price per Session",
+      "type": "number",
+      "required": true,
+      "validation": {
+        "min": 0,
+        "max": 10000
+      },
+      "prompt": "What's your price per training session? (in Rands) 💰"
+    },
+    {
+      "name": "available_days",
+      "label": "Available Days",
+      "type": "multi_choice",
+      "required": true,
+      "options": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ],
+      "prompt": "Which days are you available for training? 📅\n\n1️⃣ Monday\n2️⃣ Tuesday\n3️⃣ Wednesday\n4️⃣ Thursday\n5️⃣ Friday\n6️⃣ Saturday\n7️⃣ Sunday\n\nReply with numbers separated by commas (e.g., 1,2,3,4,5)"
+    },
+    {
+      "name": "preferred_time_slots",
+      "label": "Preferred Time Slots",
+      "type": "choice",
+      "required": true,
+      "options": [
+        "Early Morning (5:00-8:00)",
+        "Morning (8:00-12:00)",
+        "Afternoon (12:00-17:00)",
+        "Evening (17:00-20:00)",
+        "Flexible - Any Time"
+      ],
+      "prompt": "What are your preferred training time slots? ⏰\n\n1️⃣ Early Morning (5:00-8:00)\n2️⃣ Morning (8:00-12:00)\n3️⃣ Afternoon (12:00-17:00)\n4️⃣ Evening (17:00-20:00)\n5️⃣ Flexible - Any Time\n\nReply with the number"
+    },
+    {
+      "name": "services_offered",
+      "label": "Services Offered",
+      "type": "multi_choice",
+      "required": false,
+      "options": [
+        "In-Person Training",
+        "Online Training",
+        "Nutrition Planning",
+        "Fitness Assessments",
+        "Group Classes"
+      ],
+      "prompt": "What additional services do you offer? (Optional) 🏢\n\n1️⃣ In-Person Training\n2️⃣ Online Training\n3️⃣ Nutrition Planning\n4️⃣ Fitness Assessments\n5️⃣ Group Classes\n\nReply with numbers separated by commas, or type 'skip' to skip"
+    },
+    {
+      "name": "pricing_flexibility",
+      "label": "Pricing Options",
+      "type": "multi_choice",
+      "required": false,
+      "options": [
+        "Package Discounts",
+        "Student Discounts",
+        "Group Session Rates"
+      ],
+      "prompt": "Do you offer any pricing flexibility? (Optional) 💸\n\n1️⃣ Package Discounts\n2️⃣ Student Discounts\n3️⃣ Group Session Rates\n\nReply with numbers separated by commas, or type 'skip' to skip"
+    },
+    {
+      "name": "additional_notes",
+      "label": "Additional Notes",
+      "type": "textarea",
+      "required": false,
+      "validation": {
+        "max_length": 500
+      },
+      "prompt": "Any additional information you'd like to share? (Optional - type 'skip' to skip) 📝"
+    }
+  ],
+  "showable_fields": [
+    "first_name",
+    "last_name",
+    "email",
+    "city",
+    "business_name",
+    "specialization",
+    "experience_years",
+    "pricing_per_session",
+    "available_days",
+    "preferred_time_slots",
+    "services_offered",
+    "pricing_flexibility"
+  ]
+}

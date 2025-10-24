@@ -163,61 +163,49 @@ def whatsapp_webhook():
                                 
                                 log_info(f"Processing message from {phone}: {text or 'EMPTY MESSAGE'}")
                                 
-                                # Get Refiloe service from app config
-                                refiloe = app.config['services']['refiloe']
-                                
                                 # Handle empty messages
                                 if not text and not button_id:
                                     log_warning(f"Empty message received from {phone}")
-                                    # Check conversation state to see if we're expecting something
-                                    try:
-                                        conv_state = supabase.table('conversation_states').select('*').eq(
-                                            'phone_number', phone
-                                        ).single().execute()
-                                        
-                                        if conv_state.data and conv_state.data.get('state') == 'AWAITING_REGISTRATION_CHOICE':
-                                            # Send a helpful prompt
-                                            whatsapp_service = app.config['services']['whatsapp']
-                                            prompt = (
-                                                "I didn't catch that! 😊\n\n"
-                                                "Please choose one of these options:\n"
-                                                "• Type 'trainer' if you're a fitness professional\n"
-                                                "• Type 'client' if you're looking for training\n"
-                                                "• Type 'learn' to learn more about me"
-                                            )
-                                            whatsapp_service.send_message(phone, prompt)
-                                            continue
-                                    except:
-                                        pass
+                                    whatsapp_service = app.config['services']['whatsapp']
+                                    prompt = (
+                                        "I didn't catch that! 😊\n\n"
+                                        "Please send me a message or use one of the buttons."
+                                    )
+                                    whatsapp_service.send_message(phone, prompt)
+                                    continue
                                 
-                                # Process the message with Refiloe
-                                if hasattr(refiloe, 'handle_message'):
-                                    result = refiloe.handle_message(phone, text)
-                                elif hasattr(refiloe, 'process_whatsapp_message'):
-                                    result = refiloe.process_whatsapp_message(phone, text)
-                                else:
-                                    # Fallback: use AI handler directly
-                                    ai_handler = app.config['services']['ai_handler']
+                                # PHASE 1 INTEGRATION: Use MessageRouter for new system
+                                try:
+                                    from services.message_router import MessageRouter
                                     whatsapp_service = app.config['services']['whatsapp']
                                     
-                                    # Process with AI
-                                    intent = ai_handler.understand_message(
-                                        text, 
-                                        'unknown',  # We'll determine this
-                                        {},
-                                        []
-                                    )
+                                    # Initialize MessageRouter
+                                    router = MessageRouter(supabase, whatsapp_service)
                                     
-                                    # Generate smart response using existing method
-                                    response_text = ai_handler.generate_smart_response(
-                                        intent, 
-                                        sender_type='unknown',  # or determine from database
-                                        sender_data={'name': 'there', 'whatsapp': phone}
-                                    )
+                                    # Route the message
+                                    result = router.route_message(phone, text)
                                     
-                                    # If no smart response generated, use the response generator
-                                    if not response_text or response_text == "":
-                                        from services.ai_intent_responses import AIResponseGenerator
+                                    log_info(f"Message routed successfully: {result.get('handler')}")
+                                    
+                                except Exception as router_error:
+                                    log_error(f"MessageRouter error: {str(router_error)}")
+                                    
+                                    # Fallback to old system if Phase 1 fails
+                                    log_info("Falling back to legacy Refiloe handler")
+                                    refiloe = app.config['services']['refiloe']
+                                    
+                                    if hasattr(refiloe, 'handle_message'):
+                                        result = refiloe.handle_message(phone, text)
+                                    elif hasattr(refiloe, 'process_whatsapp_message'):
+                                        result = refiloe.process_whatsapp_message(phone, text)
+                                    else:
+                                        # Last resort fallback
+                                        whatsapp_service = app.config['services']['whatsapp']
+                                        whatsapp_service.send_message(
+                                            phone,
+                                            "Sorry, I encountered an error. Please try again."
+                                        )
+                                        result = {'success': False}
                                         response_generator = AIResponseGenerator()
                                         response_text = response_generator.generate_response(
                                             intent,

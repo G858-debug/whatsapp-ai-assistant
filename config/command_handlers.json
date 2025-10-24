@@ -1,0 +1,202 @@
+{
+  "universal_commands": {
+    "/logout": {
+      "description": "Clears login status and logs out user",
+      "available_when": "logged_in",
+      "handler": "handle_logout"
+    },
+    "/switch-role": {
+      "description": "Switch between trainer and client roles",
+      "available_when": "has_both_roles",
+      "handler": "handle_switch_role"
+    },
+    "/register": {
+      "description": "Start registration for new role",
+      "available_when": "logged_out",
+      "handler": "handle_register"
+    },
+    "/stop": {
+      "description": "Stop currently running task",
+      "available_when": "task_running",
+      "handler": "handle_stop_task"
+    },
+    "/help": {
+      "description": "Show available commands and features",
+      "available_when": "always",
+      "handler": "handle_help"
+    }
+  },
+  "common_commands": {
+    "/view-profile": {
+      "description": "View your profile information",
+      "roles": ["trainer", "client"],
+      "handler": "handle_view_profile"
+    },
+    "/edit-profile": {
+      "description": "Edit your profile information",
+      "roles": ["trainer", "client"],
+      "handler": "handle_edit_profile"
+    },
+    "/delete-account": {
+      "description": "Delete your account",
+      "roles": ["trainer", "client"],
+      "handler": "handle_delete_account"
+    }
+  },
+  "trainer_commands": {
+    "/invite-trainee": {
+      "description": "Invite existing trainee by ID",
+      "phase": 2,
+      "handler": "handle_invite_trainee"
+    },
+    "/create-trainee": {
+      "description": "Create and invite new trainee",
+      "phase": 2,
+      "handler": "handle_create_trainee"
+    },
+    "/view-trainees": {
+      "description": "View all your trainees",
+      "phase": 2,
+      "handler": "handle_view_trainees"
+    },
+    "/remove-trainee": {
+      "description": "Remove a trainee from your list",
+      "phase": 2,
+      "handler": "handle_remove_trainee"
+    },
+    "/create-habit": {
+      "description": "Create a new fitness habit",
+      "phase": 3,
+      "handler": "handle_create_habit"
+    },
+    "/edit-habit": {
+      "description": "Edit existing habit",
+      "phase": 3,
+      "handler": "handle_edit_habit"
+    },
+    "/delete-habit": {
+      "description": "Delete a habit",
+      "phase": 3,
+      "handler": "handle_delete_habit"
+    },
+    "/assign-habit": {
+      "description": "Assign habit to trainees",
+      "phase": 3,
+      "handler": "handle_assign_habit"
+    },
+    "/view-habits": {
+      "description": "View all created habits",
+      "phase": 3,
+      "handler": "handle_view_habits"
+    },
+    "/view-trainee-progress": {
+      "description": "View trainee's habit progress",
+      "phase": 3,
+      "handler": "handle_view_trainee_progress"
+    },
+    "/trainee-weekly-report": {
+      "description": "Get trainee's weekly progress report",
+      "phase": 3,
+      "handler": "handle_trainee_weekly_report"
+    },
+    "/trainee-monthly-report": {
+      "description": "Get trainee's monthly progress report",
+      "phase": 3,
+      "handler": "handle_trainee_monthly_report"
+    }
+  },
+  "client_commands": {
+    "/search-trainer": {
+      "description": "Search for trainers by name",
+      "phase": 2,
+      "handler": "handle_search_trainer"
+    },
+    "/invite-trainer": {
+      "description": "Invite a trainer by ID",
+      "phase": 2,
+      "handler": "handle_invite_trainer"
+    },
+    "/view-trainers": {
+      "description": "View all your trainers",
+      "phase": 2,
+      "handler": "handle_view_trainers"
+    },
+    "/remove-trainer": {
+      "description": "Remove a trainer from your list",
+      "phase": 2,
+      "handler": "handle_remove_trainer"
+    },
+    "/view-my-habits": {
+      "description": "View assigned habits",
+      "phase": 3,
+      "handler": "handle_view_my_habits"
+    },
+    "/log-habits": {
+      "description": "Log daily habit completion",
+      "phase": 3,
+      "handler": "handle_log_habits"
+    },
+    "/view-progress": {
+      "description": "View habit progress for a specific day",
+      "phase": 3,
+      "handler": "handle_view_progress"
+    },
+    "/weekly-report": {
+      "description": "Get weekly progress report",
+      "phase": 3,
+      "handler": "handle_weekly_report"
+    },
+    "/monthly-report": {
+      "description": "Get monthly progress report",
+      "phase": 3,
+      "handler": "handle_monthly_report"
+    }
+  },
+  "task_types": {
+    "registration": {
+      "name": "Registration",
+      "roles": ["trainer", "client"],
+      "stoppable": true
+    },
+    "edit_profile": {
+      "name": "Edit Profile",
+      "roles": ["trainer", "client"],
+      "stoppable": true
+    },
+    "delete_account": {
+      "name": "Delete Account",
+      "roles": ["trainer", "client"],
+      "stoppable": false
+    },
+    "invite_trainee": {
+      "name": "Invite Trainee",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "create_trainee": {
+      "name": "Create Trainee",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "remove_trainee": {
+      "name": "Remove Trainee",
+      "roles": ["trainer"],
+      "stoppable": false
+    },
+    "search_trainer": {
+      "name": "Search Trainer",
+      "roles": ["client"],
+      "stoppable": true
+    },
+    "invite_trainer": {
+      "name": "Invite Trainer",
+      "roles": ["client"],
+      "stoppable": true
+    },
+    "remove_trainer": {
+      "name": "Remove Trainer",
+      "roles": ["client"],
+      "stoppable": false
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "fields": [
+    {
+      "name": "full_name",
+      "label": "Full Name",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 2,
+        "max_length": 100
+      },
+      "prompt": "What's your full name? 👤"
+    },
+    {
+      "name": "email",
+      "label": "Email Address",
+      "type": "email",
+      "required": false,
+      "validation": {
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      },
+      "prompt": "What's your email address? (Optional - type 'skip' to skip) 📧"
+    },
+    {
+      "name": "fitness_goals",
+      "label": "Fitness Goals",
+      "type": "multi_choice",
+      "required": true,
+      "options": [
+        "Lose Weight",
+        "Build Muscle",
+        "Get Stronger",
+        "Improve Fitness",
+        "Train for Event",
+        "General Health"
+      ],
+      "prompt": "What are your fitness goals? (You can select multiple) 🎯\n\n1️⃣ Lose Weight\n2️⃣ Build Muscle\n3️⃣ Get Stronger\n4️⃣ Improve Fitness\n5️⃣ Train for Event\n6️⃣ General Health\n\nReply with numbers separated by commas (e.g., 1,3,4)"
+    },
+    {
+      "name": "experience_level",
+      "label": "Experience Level",
+      "type": "choice",
+      "required": true,
+      "options": [
+        "Beginner - New to exercise",
+        "Intermediate - Some experience",
+        "Advanced - Regular exerciser",
+        "Athlete - Competitive level"
+      ],
+      "prompt": "What's your current fitness experience level? 📊\n\n1️⃣ Beginner - New to exercise\n2️⃣ Intermediate - Some experience\n3️⃣ Advanced - Regular exerciser\n4️⃣ Athlete - Competitive level\n\nReply with the number"
+    },
+    {
+      "name": "health_conditions",
+      "label": "Health Conditions",
+      "type": "textarea",
+      "required": false,
+      "validation": {
+        "max_length": 500
+      },
+      "prompt": "Do you have any health conditions, injuries, or concerns we should know about? (Type 'none' if you're all good, or 'skip' to skip) 🏥"
+    },
+    {
+      "name": "availability",
+      "label": "Training Availability",
+      "type": "multi_choice",
+      "required": true,
+      "options": [
+        "Early Morning (5:00-8:00)",
+        "Morning (8:00-12:00)",
+        "Afternoon (12:00-17:00)",
+        "Evening (17:00-20:00)",
+        "Flexible - Any Time"
+      ],
+      "prompt": "When are you available for training sessions? ⏰\n\n1️⃣ Early Morning (5:00-8:00)\n2️⃣ Morning (8:00-12:00)\n3️⃣ Afternoon (12:00-17:00)\n4️⃣ Evening (17:00-20:00)\n5️⃣ Flexible - Any Time\n\nReply with numbers separated by commas (e.g., 1,2,5)"
+    },
+    {
+      "name": "preferred_training_type",
+      "label": "Preferred Training Type",
+      "type": "multi_choice",
+      "required": false,
+      "options": [
+        "In-Person Training",
+        "Online Training",
+        "Group Classes",
+        "One-on-One Sessions"
+      ],
+      "prompt": "What type of training do you prefer? (Optional) 🏋️\n\n1️⃣ In-Person Training\n2️⃣ Online Training\n3️⃣ Group Classes\n4️⃣ One-on-One Sessions\n\nReply with numbers separated by commas, or type 'skip' to skip"
+    }
+  ],
+  "showable_fields": [
+    "full_name",
+    "email",
+    "fitness_goals",
+    "experience_level",
+    "health_conditions",
+    "availability",
+    "preferred_training_type"
+  ]
+}
