@@ -1,6 +1,6 @@
 """
-AI Intent Handler - Phase 1
-Natural language intent detection for Phase 1 features
+AI Intent Handler - Phases 1, 2 & 3
+Natural language intent detection for all features
 Uses Claude AI for accurate, context-aware understanding
 """
 from typing import Dict, List, Optional
@@ -24,7 +24,7 @@ class AIIntentHandler:
         if Config.ANTHROPIC_API_KEY:
             self.client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
             self.model = "claude-sonnet-4-20250514"
-            log_info("AI Intent Handler (Phase 1) initialized with Claude")
+            log_info("AI Intent Handler (Phases 1-3) initialized with Claude")
         else:
             self.client = None
             log_error("No Anthropic API key - AI intent detection disabled")
@@ -118,7 +118,7 @@ class AIIntentHandler:
     def _create_intent_prompt(self, message: str, role: str, context: Dict) -> str:
         """Create prompt for Claude AI"""
         
-        # Define available features (Phase 1 & 2)
+        # Define available features (Phases 1, 2 & 3)
         if role == 'trainer':
             available_features = """
 Available Features (Phase 1):
@@ -135,10 +135,14 @@ Available Features (Phase 2):
 - View clients (/view-trainees)
 - Remove client (/remove-trainee)
 
-Coming Soon (Phase 3):
-- Create habits
-- Assign habits
-- View client progress
+Available Features (Phase 3):
+- Create habits (/create-habit)
+- Edit habits (/edit-habit)
+- Delete habits (/delete-habit)
+- Assign habits to clients (/assign-habit)
+- View all habits (/view-habits)
+- View client progress (/view-trainee-progress)
+- Generate client reports (/trainee-weekly-report, /trainee-monthly-report)
 """
         else:
             available_features = """
@@ -156,10 +160,11 @@ Available Features (Phase 2):
 - View trainers (/view-trainers)
 - Remove trainer (/remove-trainer)
 
-Coming Soon (Phase 3):
-- View assigned habits
-- Log habits
-- View progress
+Available Features (Phase 3):
+- View assigned habits (/view-my-habits)
+- Log habits (/log-habits)
+- View progress (/view-progress)
+- Generate reports (/weekly-report, /monthly-report)
 """
         
         prompt = f"""You are Refiloe, an AI fitness assistant. Analyze this message from a {role}.
@@ -175,12 +180,11 @@ CONTEXT:
 
 Analyze the message and return ONLY valid JSON with:
 {{
-    "intent": "one of: view_profile, edit_profile, delete_account, logout, switch_role, help, invite_trainee, create_trainee, view_trainees, remove_trainee, search_trainer, invite_trainer, view_trainers, remove_trainer, general_conversation, unclear",
+    "intent": "one of: view_profile, edit_profile, delete_account, logout, switch_role, help, invite_trainee, create_trainee, view_trainees, remove_trainee, search_trainer, invite_trainer, view_trainers, remove_trainer, create_habit, edit_habit, delete_habit, assign_habit, view_habits, view_trainee_progress, trainee_report, view_my_habits, log_habits, view_progress, weekly_report, monthly_report, general_conversation, unclear",
     "confidence": 0.0-1.0,
     "needs_action": true/false,
     "suggested_command": "/command or null",
-    "user_sentiment": "positive/neutral/negative/frustrated",
-    "is_asking_about_phase3": true/false
+    "user_sentiment": "positive/neutral/negative/frustrated"
 }}
 
 Examples:

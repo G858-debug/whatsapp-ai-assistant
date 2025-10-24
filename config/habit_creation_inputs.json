@@ -1,0 +1,66 @@
+{
+  "fields": [
+    {
+      "name": "habit_name",
+      "label": "Habit Name",
+      "prompt": "What habit do you want to track?\n\n*Examples:*\n• Water Intake\n• Daily Steps\n• Sleep Hours\n• Meals Logged\n• Body Weight\n• Workout Minutes\n\nPlease enter the habit name:",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 3,
+        "max_length": 100
+      }
+    },
+    {
+      "name": "description",
+      "label": "Description",
+      "prompt": "Describe this habit (optional).\n\nYou can skip this by typing 'skip' or provide a brief description:",
+      "type": "text",
+      "required": false,
+      "validation": {
+        "max_length": 500
+      }
+    },
+    {
+      "name": "target_value",
+      "label": "Target Value",
+      "prompt": "What's the daily target value?\n\n*Examples:*\n• 8 (for 8 glasses of water)\n• 10000 (for 10,000 steps)\n• 7.5 (for 7.5 hours of sleep)\n• 5 (for 5 meals)\n\nPlease enter the target value:",
+      "type": "number",
+      "required": true,
+      "validation": {
+        "min": 0.01,
+        "max": 999999
+      }
+    },
+    {
+      "name": "unit",
+      "label": "Unit of Measurement",
+      "prompt": "What unit of measurement?\n\n*Examples:*\n• glasses\n• liters\n• steps\n• hours\n• minutes\n• meals\n• kg\n• reps\n• sets\n\nPlease enter the unit:",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 1,
+        "max_length": 50
+      }
+    },
+    {
+      "name": "frequency",
+      "label": "Frequency",
+      "prompt": "How often should this habit be tracked?\n\nPlease choose:",
+      "type": "choice",
+      "options": [
+        {
+          "value": "daily",
+          "label": "Daily",
+          "description": "Track this habit every day"
+        },
+        {
+          "value": "weekly",
+          "label": "Weekly",
+          "description": "Track this habit weekly"
+        }
+      ],
+      "required": true
+    }
+  ]
+}

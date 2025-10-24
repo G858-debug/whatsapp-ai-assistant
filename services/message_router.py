@@ -508,8 +508,9 @@ class MessageRouter:
                 return handle_delete_account(phone, role, user_id, self.db, self.whatsapp,
                                             self.auth_service, self.task_service)
             
-            # Trainer commands (Phase 2)
+            # Trainer commands (Phase 2 & 3)
             elif role == 'trainer':
+                # Phase 2: Relationship commands
                 if cmd == '/invite-trainee':
                     from services.commands.trainer_relationship_commands import handle_invite_trainee
                     return handle_invite_trainee(phone, user_id, self.db, self.whatsapp, self.task_service)
@@ -522,9 +523,36 @@ class MessageRouter:
                 elif cmd == '/remove-trainee':
                     from services.commands.trainer_relationship_commands import handle_remove_trainee
                     return handle_remove_trainee(phone, user_id, self.db, self.whatsapp, self.task_service)
+                
+                # Phase 3: Habit commands
+                elif cmd == '/create-habit':
+                    from services.commands.trainer_habit_commands import handle_create_habit
+                    return handle_create_habit(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/edit-habit':
+                    from services.commands.trainer_habit_commands import handle_edit_habit
+                    return handle_edit_habit(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/delete-habit':
+                    from services.commands.trainer_habit_commands import handle_delete_habit
+                    return handle_delete_habit(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/assign-habit':
+                    from services.commands.trainer_habit_commands import handle_assign_habit
+                    return handle_assign_habit(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/view-habits':
+                    from services.commands.trainer_habit_commands import handle_view_habits
+                    return handle_view_habits(phone, user_id, self.db, self.whatsapp)
+                elif cmd == '/view-trainee-progress':
+                    from services.commands.trainer_habit_commands import handle_view_trainee_progress
+                    return handle_view_trainee_progress(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/trainee-weekly-report':
+                    from services.commands.trainer_habit_commands import handle_trainee_report
+                    return handle_trainee_report(phone, user_id, self.db, self.whatsapp, self.task_service, 'weekly')
+                elif cmd == '/trainee-monthly-report':
+                    from services.commands.trainer_habit_commands import handle_trainee_report
+                    return handle_trainee_report(phone, user_id, self.db, self.whatsapp, self.task_service, 'monthly')
             
-            # Client commands (Phase 2)
+            # Client commands (Phase 2 & 3)
             elif role == 'client':
+                # Phase 2: Relationship commands
                 if cmd == '/search-trainer':
                     from services.commands.client_relationship_commands import handle_search_trainer
                     return handle_search_trainer(phone, user_id, self.db, self.whatsapp, self.task_service)
@@ -537,6 +565,23 @@ class MessageRouter:
                 elif cmd == '/remove-trainer':
                     from services.commands.client_relationship_commands import handle_remove_trainer
                     return handle_remove_trainer(phone, user_id, self.db, self.whatsapp, self.task_service)
+                
+                # Phase 3: Habit commands
+                elif cmd == '/view-my-habits':
+                    from services.commands.client_habit_commands import handle_view_my_habits
+                    return handle_view_my_habits(phone, user_id, self.db, self.whatsapp)
+                elif cmd == '/log-habits':
+                    from services.commands.client_habit_commands import handle_log_habits
+                    return handle_log_habits(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/view-progress':
+                    from services.commands.client_habit_commands import handle_view_progress
+                    return handle_view_progress(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/weekly-report':
+                    from services.commands.client_habit_commands import handle_weekly_report
+                    return handle_weekly_report(phone, user_id, self.db, self.whatsapp, self.task_service)
+                elif cmd == '/monthly-report':
+                    from services.commands.client_habit_commands import handle_monthly_report
+                    return handle_monthly_report(phone, user_id, self.db, self.whatsapp, self.task_service)
             
             # Unknown command
             return {
@@ -616,6 +661,58 @@ class MessageRouter:
                 handler = ClientRelationshipFlows(self.db, self.whatsapp, self.task_service)
                 return handler.continue_remove_trainer(phone, message, user_id, task)
             
+            # Phase 3: Trainer habit tasks
+            elif task_type == 'create_habit':
+                from services.flows.trainer_habit_flows import TrainerHabitFlows
+                handler = TrainerHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_create_habit(phone, message, user_id, task)
+            
+            elif task_type == 'edit_habit':
+                from services.flows.trainer_habit_flows import TrainerHabitFlows
+                handler = TrainerHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_edit_habit(phone, message, user_id, task)
+            
+            elif task_type == 'delete_habit':
+                from services.flows.trainer_habit_flows import TrainerHabitFlows
+                handler = TrainerHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_delete_habit(phone, message, user_id, task)
+            
+            elif task_type == 'assign_habit':
+                from services.flows.trainer_habit_flows import TrainerHabitFlows
+                handler = TrainerHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_assign_habit(phone, message, user_id, task)
+            
+            elif task_type == 'view_trainee_progress':
+                from services.flows.trainer_habit_flows import TrainerHabitFlows
+                handler = TrainerHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_view_trainee_progress(phone, message, user_id, task)
+            
+            elif task_type == 'trainee_report':
+                from services.flows.trainer_habit_flows import TrainerHabitFlows
+                handler = TrainerHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_trainee_report(phone, message, user_id, task)
+            
+            # Phase 3: Client habit tasks
+            elif task_type == 'log_habits':
+                from services.flows.client_habit_flows import ClientHabitFlows
+                handler = ClientHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_log_habits(phone, message, user_id, task)
+            
+            elif task_type == 'view_progress':
+                from services.flows.client_habit_flows import ClientHabitFlows
+                handler = ClientHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_view_progress(phone, message, user_id, task)
+            
+            elif task_type == 'weekly_report':
+                from services.flows.client_habit_flows import ClientHabitFlows
+                handler = ClientHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_weekly_report(phone, message, user_id, task)
+            
+            elif task_type == 'monthly_report':
+                from services.flows.client_habit_flows import ClientHabitFlows
+                handler = ClientHabitFlows(self.db, self.whatsapp, self.task_service)
+                return handler.continue_monthly_report(phone, message, user_id, task)
+            
             else:
                 log_error(f"Unknown task type: {task_type}")
                 # Stop the unknown task
@@ -647,7 +744,7 @@ class MessageRouter:
             self._save_message(phone, message, 'user')
             
             # Use AI to determine intent
-            from services.ai_intent_handler_phase1 import AIIntentHandler
+            from services.ai_intent_handler_phase1 import AIIntentHandler  # Will be renamed to ai_intent_handler.py
             ai_handler = AIIntentHandler(self.db, self.whatsapp)
             
             result = ai_handler.handle_intent(

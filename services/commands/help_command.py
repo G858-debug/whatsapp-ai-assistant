@@ -1,5 +1,5 @@
 """
-Help Command Handler - Phase 1
+Help Command Handler - Phases 1, 2 & 3
 Shows available commands based on user's role
 """
 from typing import Dict
@@ -38,10 +38,16 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "• /create-trainee - Create & invite client\n"
                 "• /view-trainees - View your clients\n"
                 "• /remove-trainee - Remove a client\n\n"
-                "*Habit Management:* (Coming Soon)\n"
+                "*Habit Management:*\n"
                 "• /create-habit - Create fitness habit\n"
+                "• /edit-habit - Edit habit details\n"
+                "• /delete-habit - Delete a habit\n"
                 "• /assign-habit - Assign habit to clients\n"
                 "• /view-habits - View created habits\n\n"
+                "*Client Progress:*\n"
+                "• /view-trainee-progress - View client's progress\n"
+                "• /trainee-weekly-report - Get weekly report\n"
+                "• /trainee-monthly-report - Get monthly report\n\n"
                 "💡 *Tip:* You can also just tell me what you want to do!"
             )
         else:  # client
@@ -61,10 +67,13 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "• /invite-trainer - Invite a trainer\n"
                 "• /view-trainers - View your trainers\n"
                 "• /remove-trainer - Remove a trainer\n\n"
-                "*Habit Tracking:* (Coming Soon)\n"
+                "*Habit Tracking:*\n"
                 "• /view-my-habits - View assigned habits\n"
                 "• /log-habits - Log today's habits\n"
                 "• /view-progress - View your progress\n\n"
+                "*Progress Reports:*\n"
+                "• /weekly-report - Get weekly report\n"
+                "• /monthly-report - Get monthly report\n\n"
                 "💡 *Tip:* You can also just tell me what you want to do!"
             )
         

@@ -197,6 +197,56 @@
       "name": "Remove Trainer",
       "roles": ["client"],
       "stoppable": false
+    },
+    "create_habit": {
+      "name": "Create Habit",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "edit_habit": {
+      "name": "Edit Habit",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "delete_habit": {
+      "name": "Delete Habit",
+      "roles": ["trainer"],
+      "stoppable": false
+    },
+    "assign_habit": {
+      "name": "Assign Habit",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "view_trainee_progress": {
+      "name": "View Trainee Progress",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "trainee_report": {
+      "name": "Trainee Report",
+      "roles": ["trainer"],
+      "stoppable": true
+    },
+    "log_habits": {
+      "name": "Log Habits",
+      "roles": ["client"],
+      "stoppable": true
+    },
+    "view_progress": {
+      "name": "View Progress",
+      "roles": ["client"],
+      "stoppable": true
+    },
+    "weekly_report": {
+      "name": "Weekly Report",
+      "roles": ["client"],
+      "stoppable": true
+    },
+    "monthly_report": {
+      "name": "Monthly Report",
+      "roles": ["client"],
+      "stoppable": true
     }
   }
 }
