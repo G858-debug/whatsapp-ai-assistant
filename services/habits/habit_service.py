@@ -6,7 +6,6 @@ Handles CRUD operations for fitness habits
 import re
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from services.auth.authentication_service import generate_unique_id
 
 
 def log_error(message: str):
