@@ -19,47 +19,34 @@ class ProfileFlowHandler:
         """Continue profile editing flow"""
         try:
             task_data = task.get('task_data', {})
-            current_index = task_data.get('current_field_index', 0)
-            updates = task_data.get('updates', {})
+            step = task_data.get('step', 'editing_fields')
             
             # Get all fields
             fields = self.reg.get_registration_fields(role)
             
-            if current_index >= len(fields):
-                # All fields processed - apply updates
+            # Step 1: Handle field selection
+            if step == 'selecting_fields':
+                return self._handle_field_selection(phone, message, role, user_id, task, fields)
+            
+            # Step 2: Handle field editing
+            selected_fields = task_data.get('selected_fields', [])
+            current_index = task_data.get('current_field_index', 0)
+            updates = task_data.get('updates', {})
+            
+            if current_index >= len(selected_fields):
+                # All selected fields processed
                 return self._apply_profile_updates(phone, role, user_id, updates, task)
             
-            # Get current field
-            current_field = fields[current_index]
-            
-            # Check if user wants to skip
-            if message.lower().strip() == 'skip':
-                # Skip this field, move to next
-                current_index += 1
-                
-                # Update task
-                self.task.update_task(
-                    task_id=task['id'],
-                    role=role,
-                    task_data={
-                        'current_field_index': current_index,
-                        'updates': updates,
-                        'role': role
-                    }
-                )
-                
-                # Check if more fields
-                if current_index < len(fields):
-                    return self._send_next_edit_field(phone, role, user_id, fields, current_index, task)
-                else:
-                    return self._apply_profile_updates(phone, role, user_id, updates, task)
+            # Get current field from selected fields
+            field_index = selected_fields[current_index]
+            current_field = fields[field_index]
             
             # Validate the new value
             is_valid, error_msg = self.reg.validate_field_value(current_field, message)
             
             if not is_valid:
                 # Send error and ask again
-                error_response = f"❌ {error_msg}\n\nPlease try again or type 'skip' to keep current value."
+                error_response = f"❌ {error_msg}\n\nPlease try again."
                 self.whatsapp.send_message(phone, error_response)
                 
                 return {
@@ -72,7 +59,7 @@ class ProfileFlowHandler:
             parsed_value = self.reg.parse_field_value(current_field, message)
             updates[current_field['name']] = parsed_value
             
-            # Move to next field
+            # Move to next selected field
             current_index += 1
             
             # Update task
@@ -80,17 +67,16 @@ class ProfileFlowHandler:
                 task_id=task['id'],
                 role=role,
                 task_data={
+                    'step': 'editing_fields',
+                    'selected_fields': selected_fields,
                     'current_field_index': current_index,
                     'updates': updates,
                     'role': role
                 }
             )
             
-            # Check if more fields
-            if current_index < len(fields):
-                return self._send_next_edit_field(phone, role, user_id, fields, current_index, task)
-            else:
-                return self._apply_profile_updates(phone, role, user_id, updates, task)
+            # Send next selected field
+            return self._send_next_selected_field(phone, role, user_id, fields, selected_fields, current_index, task)
                 
         except Exception as e:
             log_error(f"Error continuing profile edit: {str(e)}")
@@ -100,6 +86,131 @@ class ProfileFlowHandler:
                 'handler': 'edit_profile_continue_error'
             }
 
+    
+    def _handle_field_selection(self, phone: str, message: str, role: str, user_id: str, task: Dict, fields: list) -> Dict:
+        """Handle field selection step"""
+        try:
+            msg_lower = message.lower().strip()
+            
+            # Parse field selection
+            selected_indices = []
+            
+            if msg_lower == 'all':
+                # Select all fields
+                selected_indices = list(range(len(fields)))
+            else:
+                # Parse comma-separated numbers
+                try:
+                    parts = [p.strip() for p in message.split(',')]
+                    for part in parts:
+                        num = int(part)
+                        if 1 <= num <= len(fields):
+                            selected_indices.append(num - 1)  # Convert to 0-based index
+                        else:
+                            raise ValueError(f"Number {num} is out of range")
+                except ValueError as e:
+                    # Invalid input
+                    msg = (
+                        f"❌ Invalid selection: {str(e)}\n\n"
+                        f"Please enter numbers between 1 and {len(fields)}, separated by commas.\n"
+                        f"Example: 1,3,5 or type 'all' to edit all fields."
+                    )
+                    self.whatsapp.send_message(phone, msg)
+                    return {
+                        'success': True,
+                        'response': msg,
+                        'handler': 'edit_profile_invalid_selection'
+                    }
+            
+            if not selected_indices:
+                msg = (
+                    "❌ No fields selected.\n\n"
+                    "Please enter at least one field number or type /stop to cancel."
+                )
+                self.whatsapp.send_message(phone, msg)
+                return {
+                    'success': True,
+                    'response': msg,
+                    'handler': 'edit_profile_no_selection'
+                }
+            
+            # Remove duplicates and sort
+            selected_indices = sorted(list(set(selected_indices)))
+            
+            # Update task with selected fields
+            self.task.update_task(
+                task_id=task['id'],
+                role=role,
+                task_data={
+                    'step': 'editing_fields',
+                    'selected_fields': selected_indices,
+                    'current_field_index': 0,
+                    'updates': {},
+                    'role': role
+                }
+            )
+            
+            # Send first selected field
+            return self._send_next_selected_field(phone, role, user_id, fields, selected_indices, 0, task)
+            
+        except Exception as e:
+            log_error(f"Error handling field selection: {str(e)}")
+            return {
+                'success': False,
+                'response': "Sorry, I encountered an error. Please try again.",
+                'handler': 'edit_profile_selection_error'
+            }
+    
+    def _send_next_selected_field(self, phone: str, role: str, user_id: str, fields: list, selected_indices: list, current_index: int, task: Dict) -> Dict:
+        """Send next selected field for editing"""
+        try:
+            if current_index >= len(selected_indices):
+                # All selected fields processed
+                return self._apply_profile_updates(phone, role, user_id, task.get('task_data', {}).get('updates', {}), task)
+            
+            field_index = selected_indices[current_index]
+            field = fields[field_index]
+            
+            # Get current value from database
+            table = 'trainers' if role == 'trainer' else 'clients'
+            id_column = 'trainer_id' if role == 'trainer' else 'client_id'
+            
+            current_data = self.db.table(table).select('*').eq(id_column, user_id).execute()
+            
+            current_value = "Not set"
+            if current_data.data:
+                field_value = current_data.data[0].get(field['name'])
+                if field_value:
+                    if isinstance(field_value, list):
+                        current_value = ', '.join(str(v) for v in field_value)
+                    else:
+                        current_value = str(field_value)
+            
+            # Show progress
+            progress_msg = f"✅ Field {current_index + 1} of {len(selected_indices)}\n\n"
+            
+            field_msg = (
+                f"{progress_msg}"
+                f"*{field['label']}*\n"
+                f"Current: {current_value}\n\n"
+                f"{field['prompt']}"
+            )
+            
+            self.whatsapp.send_message(phone, field_msg)
+            
+            return {
+                'success': True,
+                'response': field_msg,
+                'handler': 'edit_profile_next_field'
+            }
+            
+        except Exception as e:
+            log_error(f"Error sending next selected field: {str(e)}")
+            return {
+                'success': False,
+                'response': "Sorry, I encountered an error.",
+                'handler': 'edit_profile_next_field_error'
+            }
     
     def _send_next_edit_field(self, phone: str, role: str, user_id: str, fields: list, index: int, task: Dict) -> Dict:
         """Send next field for editing"""
