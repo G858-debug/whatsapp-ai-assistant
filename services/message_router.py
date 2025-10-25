@@ -31,7 +31,10 @@ class MessageRouter:
             
             # Step 1: Check for universal commands (work regardless of state)
             if message.startswith('/'):
-                return self._handle_universal_command(phone, message)
+                universal_result = self._handle_universal_command(phone, message)
+                if universal_result is not None:
+                    return universal_result
+                # If None, it's not a universal command, continue routing
             
             # Step 2: Check for running registration tasks (before checking user exists)
             # This handles the case where registration is in progress but user not created yet

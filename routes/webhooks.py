@@ -206,15 +206,6 @@ def whatsapp_webhook():
                                             "Sorry, I encountered an error. Please try again."
                                         )
                                         result = {'success': False}
-                                        response_generator = AIResponseGenerator()
-                                        response_text = response_generator.generate_response(
-                                            intent,
-                                            'unknown',
-                                            {'name': 'there', 'whatsapp': phone}
-                                        )
-                                    
-                                    whatsapp_service.send_message(phone, response_text)
-                                    result = {'success': True}
                                 
                                 log_info(f"Message processed: {result}")
             
