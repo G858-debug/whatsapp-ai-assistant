@@ -244,13 +244,23 @@ class WhatsAppService:
                 }
             }
             
-            # Format buttons (WhatsApp allows max 3 buttons)
+            # Format buttons (WhatsApp allows max 3 buttons, max 20 chars per title)
             for i, button in enumerate(buttons[:3]):
+                title = button.get('title', 'Option')
+                # Truncate to 20 chars if needed, but try to keep it readable
+                if len(title) > 20:
+                    # Remove emoji if present to save space
+                    title_no_emoji = ''.join(c for c in title if ord(c) < 0x1F000)
+                    if len(title_no_emoji) <= 20:
+                        title = title_no_emoji.strip()
+                    else:
+                        title = title[:20]
+                
                 payload["interactive"]["action"]["buttons"].append({
                     "type": "reply",
                     "reply": {
                         "id": button.get('id', f'button_{i}'),
-                        "title": button.get('title', 'Option')[:20]  # Max 20 chars
+                        "title": title
                     }
                 })
             

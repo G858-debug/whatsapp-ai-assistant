@@ -45,8 +45,8 @@ class RegistrationFlowHandler:
             
             # Send message with buttons
             buttons = [
-                {'id': 'register_trainer', 'title': '💪 Register as Trainer'},
-                {'id': 'register_client', 'title': '🏃 Register as Client'}
+                {'id': 'register_trainer', 'title': 'Register as Trainer'},
+                {'id': 'register_client', 'title': 'Register as Client'}
             ]
             
             self.whatsapp.send_button_message(phone, welcome_msg, buttons)

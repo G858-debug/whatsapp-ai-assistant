@@ -76,8 +76,8 @@ class LoginFlowHandler:
             )
             
             buttons = [
-                {'id': 'login_trainer', 'title': '💪 Login as Trainer'},
-                {'id': 'login_client', 'title': '🏃 Login as Client'}
+                {'id': 'login_trainer', 'title': 'Login as Trainer'},
+                {'id': 'login_client', 'title': 'Login as Client'}
             ]
             
             self.whatsapp.send_button_message(phone, message, buttons)
