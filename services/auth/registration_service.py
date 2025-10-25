@@ -173,6 +173,16 @@ class RegistrationService:
         
         return field_name
     
+    def clean_phone_number(self, phone: str) -> str:
+        """
+        Clean phone number by removing +, -, spaces, and other non-digit characters
+        Returns only digits
+        """
+        import re
+        # Remove all non-digit characters
+        cleaned = re.sub(r'[^\d]', '', phone)
+        return cleaned
+    
     def save_trainer_registration(self, phone: str, data: Dict) -> Tuple[bool, str, Optional[str]]:
         """
         Save trainer registration data

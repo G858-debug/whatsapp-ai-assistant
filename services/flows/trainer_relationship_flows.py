@@ -225,8 +225,13 @@ class TrainerRelationshipFlows:
                 
                 # Check if we have all fields
                 if current_index >= len(fields):
-                    # All fields collected - check if phone exists
+                    # All fields collected - clean and check if phone exists
                     phone_number = collected_data.get('phone_number')
+                    
+                    # Clean phone number (remove +, -, spaces, etc.)
+                    if phone_number:
+                        phone_number = self.reg_service.clean_phone_number(phone_number)
+                        collected_data['phone_number'] = phone_number
                     
                     existing_client = self.db.table('clients').select('client_id, name, whatsapp').eq(
                         'whatsapp', phone_number

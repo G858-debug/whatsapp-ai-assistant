@@ -159,6 +159,11 @@ class RegistrationFlowHandler:
             # Get all fields
             fields = self.reg.get_registration_fields(reg_role)
             
+            # For client self-registration, skip phone_number field (we already have it)
+            # Filter out phone_number field for client self-registration
+            if reg_role == 'client':
+                fields = [f for f in fields if f['name'] != 'phone_number']
+            
             if current_index >= len(fields):
                 # All fields collected - complete registration
                 return self._complete_registration(phone, reg_role, collected_data, task)
