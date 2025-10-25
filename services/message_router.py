@@ -367,6 +367,38 @@ class MessageRouter:
                     
                     return {'success': True, 'response': msg, 'handler': 'reject_new_client'}
             
+            # Handle registration buttons
+            elif button_id == 'register_trainer':
+                log_info(f"Registration button clicked: register_trainer")
+                from services.flows.registration_flow import RegistrationFlowHandler
+                handler = RegistrationFlowHandler(
+                    self.db, self.whatsapp, self.auth_service,
+                    self.reg_service, self.task_service
+                )
+                return handler.start_registration(phone, 'trainer')
+            
+            elif button_id == 'register_client':
+                log_info(f"Registration button clicked: register_client")
+                from services.flows.registration_flow import RegistrationFlowHandler
+                handler = RegistrationFlowHandler(
+                    self.db, self.whatsapp, self.auth_service,
+                    self.reg_service, self.task_service
+                )
+                return handler.start_registration(phone, 'client')
+            
+            # Handle login buttons
+            elif button_id == 'login_trainer':
+                log_info(f"Login button clicked: login_trainer")
+                from services.flows.login_flow import LoginFlowHandler
+                handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service)
+                return handler.handle_role_selection(phone, 'trainer')
+            
+            elif button_id == 'login_client':
+                log_info(f"Login button clicked: login_client")
+                from services.flows.login_flow import LoginFlowHandler
+                handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service)
+                return handler.handle_role_selection(phone, 'client')
+            
             else:
                 log_error(f"Unknown button ID: {button_id}")
                 return {'success': False, 'response': 'Unknown button action', 'handler': 'button_unknown'}
