@@ -1,6 +1,16 @@
 {
   "fields": [
     {
+      "name": "phone_number",
+      "label": "Phone Number",
+      "type": "phone",
+      "required": true,
+      "validation": {
+        "pattern": "^[0-9]{10,15}$"
+      },
+      "prompt": "📱 *Client's Phone Number*\n\nWhat's the client's WhatsApp phone number?\n\n💡 Include country code (e.g., 27730564882)"
+    },
+    {
       "name": "full_name",
       "label": "Full Name",
       "type": "text",
@@ -9,7 +19,7 @@
         "min_length": 2,
         "max_length": 100
       },
-      "prompt": "What's your full name? 👤"
+      "prompt": "👤 *Client's Full Name*\n\nWhat's the client's full name?"
     },
     {
       "name": "email",
@@ -19,7 +29,7 @@
       "validation": {
         "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
       },
-      "prompt": "What's your email address? (Optional - type 'skip' to skip) 📧"
+      "prompt": "📧 *Email Address*\n\nWhat's the client's email address?\n\n💡 Type 'skip' if not available"
     },
     {
       "name": "fitness_goals",
@@ -34,7 +44,7 @@
         "Train for Event",
         "General Health"
       ],
-      "prompt": "What are your fitness goals? (You can select multiple) 🎯\n\n1️⃣ Lose Weight\n2️⃣ Build Muscle\n3️⃣ Get Stronger\n4️⃣ Improve Fitness\n5️⃣ Train for Event\n6️⃣ General Health\n\nReply with numbers separated by commas (e.g., 1,3,4)"
+      "prompt": "🎯 *Fitness Goals*\n\nWhat are the client's fitness goals? (You can select multiple)\n\n1️⃣ Lose Weight\n2️⃣ Build Muscle\n3️⃣ Get Stronger\n4️⃣ Improve Fitness\n5️⃣ Train for Event\n6️⃣ General Health\n\n💡 Reply with numbers separated by commas (e.g., 1,3,4)"
     },
     {
       "name": "experience_level",
@@ -47,7 +57,7 @@
         "Advanced - Regular exerciser",
         "Athlete - Competitive level"
       ],
-      "prompt": "What's your current fitness experience level? 📊\n\n1️⃣ Beginner - New to exercise\n2️⃣ Intermediate - Some experience\n3️⃣ Advanced - Regular exerciser\n4️⃣ Athlete - Competitive level\n\nReply with the number"
+      "prompt": "📊 *Experience Level*\n\nWhat's the client's current fitness experience level?\n\n1️⃣ Beginner - New to exercise\n2️⃣ Intermediate - Some experience\n3️⃣ Advanced - Regular exerciser\n4️⃣ Athlete - Competitive level\n\n💡 Reply with the number"
     },
     {
       "name": "health_conditions",
@@ -57,7 +67,7 @@
       "validation": {
         "max_length": 500
       },
-      "prompt": "Do you have any health conditions, injuries, or concerns we should know about? (Type 'none' if you're all good, or 'skip' to skip) 🏥"
+      "prompt": "🏥 *Health Conditions*\n\nDoes the client have any health conditions, injuries, or concerns?\n\n💡 Type 'none' if all good, or 'skip' to skip"
     },
     {
       "name": "availability",
@@ -71,7 +81,7 @@
         "Evening (17:00-20:00)",
         "Flexible - Any Time"
       ],
-      "prompt": "When are you available for training sessions? ⏰\n\n1️⃣ Early Morning (5:00-8:00)\n2️⃣ Morning (8:00-12:00)\n3️⃣ Afternoon (12:00-17:00)\n4️⃣ Evening (17:00-20:00)\n5️⃣ Flexible - Any Time\n\nReply with numbers separated by commas (e.g., 1,2,5)"
+      "prompt": "⏰ *Training Availability*\n\nWhen is the client available for training sessions?\n\n1️⃣ Early Morning (5:00-8:00)\n2️⃣ Morning (8:00-12:00)\n3️⃣ Afternoon (12:00-17:00)\n4️⃣ Evening (17:00-20:00)\n5️⃣ Flexible - Any Time\n\n💡 Reply with numbers separated by commas (e.g., 1,2,5)"
     },
     {
       "name": "preferred_training_type",
@@ -84,10 +94,11 @@
         "Group Classes",
         "One-on-One Sessions"
       ],
-      "prompt": "What type of training do you prefer? (Optional) 🏋️\n\n1️⃣ In-Person Training\n2️⃣ Online Training\n3️⃣ Group Classes\n4️⃣ One-on-One Sessions\n\nReply with numbers separated by commas, or type 'skip' to skip"
+      "prompt": "🏋️ *Preferred Training Type*\n\nWhat type of training does the client prefer?\n\n1️⃣ In-Person Training\n2️⃣ Online Training\n3️⃣ Group Classes\n4️⃣ One-on-One Sessions\n\n💡 Reply with numbers separated by commas, or type 'skip' to skip"
     }
   ],
   "showable_fields": [
+    "phone_number",
     "full_name",
     "email",
     "fitness_goals",

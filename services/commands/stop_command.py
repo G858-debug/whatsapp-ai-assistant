@@ -12,38 +12,34 @@ def handle_stop(phone: str, auth_service, task_service, whatsapp) -> Dict:
         # Get current login status
         login_status = auth_service.get_login_status(phone)
         
-        if not login_status:
-            msg = (
-                "You don't have any active tasks to stop.\n\n"
-                "Type /help to see what you can do."
-            )
-            whatsapp.send_message(phone, msg)
+        # Try to find running task - check both with user_id and phone
+        running_task = None
+        
+        if login_status:
+            # User is logged in - get user ID
+            user_id = auth_service.get_user_id_by_role(phone, login_status)
             
-            return {
-                'success': True,
-                'response': msg,
-                'handler': 'stop_not_logged_in'
-            }
+            if user_id:
+                # Check for task with user_id
+                running_task = task_service.get_running_task(user_id, login_status)
         
-        # Get user ID
-        user_id = auth_service.get_user_id_by_role(phone, login_status)
-        
-        if not user_id:
-            msg = "Sorry, I couldn't find your user information."
-            whatsapp.send_message(phone, msg)
-            
-            return {
-                'success': False,
-                'response': msg,
-                'handler': 'stop_no_user_id'
-            }
-        
-        # Get running task
-        running_task = task_service.get_running_task(user_id, login_status)
+        # If no task found with user_id, check with phone (for registration tasks)
+        if not running_task:
+            # Check trainer tasks with phone
+            trainer_task = task_service.get_running_task(phone, 'trainer')
+            if trainer_task:
+                running_task = trainer_task
+                login_status = 'trainer'
+            else:
+                # Check client tasks with phone
+                client_task = task_service.get_running_task(phone, 'client')
+                if client_task:
+                    running_task = client_task
+                    login_status = 'client'
         
         if not running_task:
             msg = (
-                "You don't have any active tasks to stop.\n\n"
+                "✅ You don't have any active tasks to stop.\n\n"
                 "Type /help to see what you can do."
             )
             whatsapp.send_message(phone, msg)
@@ -56,12 +52,13 @@ def handle_stop(phone: str, auth_service, task_service, whatsapp) -> Dict:
         
         # Stop the task
         task_type = running_task.get('task_type', 'task')
+        task_type_display = task_type.replace('_', ' ').title()
         success = task_service.stop_task(running_task['id'], login_status)
         
         if success:
             msg = (
-                f"✅ *Task stopped!*\n\n"
-                f"I've cancelled your {task_type.replace('_', ' ')} task.\n\n"
+                f"✅ *Task Stopped!*\n\n"
+                f"I've cancelled your *{task_type_display}* task.\n\n"
                 f"What would you like to do next?"
             )
             whatsapp.send_message(phone, msg)

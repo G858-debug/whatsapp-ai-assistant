@@ -47,24 +47,15 @@ def handle_invite_trainee(phone: str, trainer_id: str, db, whatsapp, task_servic
 
 
 def handle_create_trainee(phone: str, trainer_id: str, db, whatsapp, reg_service, task_service) -> Dict:
-    """Handle /create-trainee command"""
+    """Handle /create-trainee command - now asks to create or link"""
     try:
-        # Get client registration fields
-        fields = reg_service.get_registration_fields('client')
-        
-        if not fields:
-            msg = "❌ I couldn't load the registration fields. Please try again."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'create_trainee_fields_error'}
-        
-        # Create create_trainee task
+        # Create task to ask for choice
         task_id = task_service.create_task(
             user_id=trainer_id,
             role='trainer',
             task_type='create_trainee',
             task_data={
-                'current_field_index': 0,
-                'collected_data': {},
+                'step': 'ask_create_or_link',
                 'trainer_id': trainer_id
             }
         )
@@ -74,22 +65,20 @@ def handle_create_trainee(phone: str, trainer_id: str, db, whatsapp, reg_service
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'create_trainee_task_error'}
         
-        # Send intro message
-        intro_msg = (
-            "👤 *Create New Client*\n\n"
-            f"I'll ask you {len(fields)} questions to create a client account.\n\n"
-            "💡 *Tip:* You can type /stop at any time to cancel.\n\n"
-            "Let's start! 👇"
+        # Ask if they want to create new or link existing
+        msg = (
+            "👥 *Add Client*\n\n"
+            "How would you like to add a client?\n\n"
+            "1️⃣ *Create New* - Create a new client account and send them an invitation to accept\n\n"
+            "2️⃣ *Link Existing* - Link with a client who's already registered (you'll need their Client ID)\n\n"
+            "💡 *Tip:* Type /stop to cancel\n\n"
+            "Reply with *1* or *2*"
         )
-        whatsapp.send_message(phone, intro_msg)
-        
-        # Send first field prompt
-        first_field = fields[0]
-        whatsapp.send_message(phone, first_field['prompt'])
+        whatsapp.send_message(phone, msg)
         
         return {
             'success': True,
-            'response': first_field['prompt'],
+            'response': msg,
             'handler': 'create_trainee_started'
         }
         

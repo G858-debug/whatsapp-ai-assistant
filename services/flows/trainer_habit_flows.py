@@ -140,8 +140,19 @@ class TrainerHabitFlows:
             
         except Exception as e:
             log_error(f"Error in create habit flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'trainer')
-            return {'success': False, 'response': 'Error creating habit', 'handler': 'create_habit_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while creating the habit.\n\n"
+                "The task has been cancelled. Please try again with /create-habit"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'create_habit_error'}
     
     def continue_edit_habit(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle edit habit flow"""
@@ -270,8 +281,19 @@ class TrainerHabitFlows:
             
         except Exception as e:
             log_error(f"Error in edit habit flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'trainer')
-            return {'success': False, 'response': 'Error editing habit', 'handler': 'edit_habit_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while editing the habit.\n\n"
+                "The task has been cancelled. Please try again with /edit-habit"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'edit_habit_error'}
     
     def continue_delete_habit(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle delete habit flow"""
@@ -353,8 +375,19 @@ class TrainerHabitFlows:
             
         except Exception as e:
             log_error(f"Error in delete habit flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'trainer')
-            return {'success': False, 'response': 'Error deleting habit', 'handler': 'delete_habit_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while deleting the habit.\n\n"
+                "The task has been cancelled. Please try again with /delete-habit"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'delete_habit_error'}
 
     def continue_assign_habit(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle assign habit flow"""
@@ -453,8 +486,19 @@ class TrainerHabitFlows:
             
         except Exception as e:
             log_error(f"Error in assign habit flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'trainer')
-            return {'success': False, 'response': 'Error assigning habit', 'handler': 'assign_habit_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while assigning the habit.\n\n"
+                "The task has been cancelled. Please try again with /assign-habit"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'assign_habit_error'}
     
     def continue_view_trainee_progress(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle view trainee progress flow"""
@@ -543,8 +587,19 @@ class TrainerHabitFlows:
             
         except Exception as e:
             log_error(f"Error in view trainee progress flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'trainer')
-            return {'success': False, 'response': 'Error viewing progress', 'handler': 'view_trainee_progress_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while viewing progress.\n\n"
+                "The task has been cancelled. Please try again with /view-trainee-progress"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'view_trainee_progress_error'}
     
     def continue_trainee_report(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle trainee report flow"""
@@ -693,5 +748,16 @@ class TrainerHabitFlows:
             
         except Exception as e:
             log_error(f"Error in trainee report flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'trainer')
-            return {'success': False, 'response': 'Error generating report', 'handler': 'trainee_report_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while generating the report.\n\n"
+                "The task has been cancelled. Please try again."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'trainee_report_error'}

@@ -60,9 +60,18 @@ class LoginFlowHandler:
                 
         except Exception as e:
             log_error(f"Error handling login: {str(e)}")
+            
+            # Send error message
+            error_msg = (
+                "❌ *Login Error*\n\n"
+                "Sorry, I encountered an error during login.\n\n"
+                "Please try again or contact support if the issue persists."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error during login. Please try again.",
+                'response': error_msg,
                 'handler': 'login_error'
             }
     
@@ -90,9 +99,18 @@ class LoginFlowHandler:
             
         except Exception as e:
             log_error(f"Error showing role selection: {str(e)}")
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error showing role selection.\n\n"
+                "Please try again."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error. Please try again.",
+                'response': error_msg,
                 'handler': 'role_selection_error'
             }
     
@@ -158,8 +176,17 @@ class LoginFlowHandler:
                 
         except Exception as e:
             log_error(f"Error logging in as {role}: {str(e)}")
+            
+            # Send error message
+            error_msg = (
+                "❌ *Login Error*\n\n"
+                "Sorry, I encountered an error during login.\n\n"
+                "Please try again or contact support if the issue persists."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error during login. Please try again.",
+                'response': error_msg,
                 'handler': 'login_role_error'
             }

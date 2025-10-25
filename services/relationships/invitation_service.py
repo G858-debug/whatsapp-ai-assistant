@@ -150,14 +150,17 @@ class InvitationService:
                 self.db.table('client_invitations').insert(invitation_data).execute()
             
             # Create invitation message with prefilled data
+            client_name = client_data.get('full_name', 'there')
+            
             message = (
                 f"🎯 *Training Invitation*\n\n"
-                f"*{trainer_name}* has created an account for you!\n\n"
-                f"*Your Information:*\n"
-                f"• Name: {client_data.get('first_name', '')} {client_data.get('last_name', '')}\n"
+                f"Hi {client_name}! 👋\n\n"
+                f"*{trainer_name}* has created a fitness profile for you and invited you to train together!\n\n"
+                f"📋 *Your Profile:*\n"
+                f"• Name: {client_name}\n"
             )
             
-            if client_data.get('email'):
+            if client_data.get('email') and client_data['email'].lower() not in ['skip', 'none']:
                 message += f"• Email: {client_data['email']}\n"
             if client_data.get('fitness_goals'):
                 message += f"• Goals: {client_data['fitness_goals']}\n"
@@ -165,7 +168,7 @@ class InvitationService:
                 message += f"• Experience: {client_data['experience_level']}\n"
             
             message += (
-                f"\n*Trainer Info:*\n"
+                f"\n👨‍🏫 *Your Trainer:*\n"
                 f"• Name: {trainer_name}\n"
                 f"• ID: {trainer_id}\n"
             )
@@ -173,12 +176,12 @@ class InvitationService:
             if trainer.get('specialization'):
                 message += f"• Specialization: {trainer['specialization']}\n"
             
-            message += f"\nDo you approve this account and want to train with {trainer_name}?"
+            message += f"\n✅ Do you accept this invitation and want to train with {trainer_name}?"
             
             # Send with buttons
             buttons = [
-                {'id': f'approve_new_client_{trainer_id}', 'title': '✅ Approve'},
-                {'id': f'reject_new_client_{trainer_id}', 'title': '❌ Reject'}
+                {'id': f'approve_new_client_{trainer_id}', 'title': '✅ Accept'},
+                {'id': f'reject_new_client_{trainer_id}', 'title': '❌ Decline'}
             ]
             
             self.whatsapp.send_button_message(client_phone, message, buttons)

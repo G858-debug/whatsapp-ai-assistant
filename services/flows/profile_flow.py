@@ -80,9 +80,21 @@ class ProfileFlowHandler:
                 
         except Exception as e:
             log_error(f"Error continuing profile edit: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while editing your profile.\n\n"
+                "The task has been cancelled. Please try again with /edit-profile"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error. Type /stop to cancel.",
+                'response': error_msg,
                 'handler': 'edit_profile_continue_error'
             }
 
@@ -155,9 +167,21 @@ class ProfileFlowHandler:
             
         except Exception as e:
             log_error(f"Error handling field selection: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error with field selection.\n\n"
+                "The task has been cancelled. Please try again with /edit-profile"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error. Please try again.",
+                'response': error_msg,
                 'handler': 'edit_profile_selection_error'
             }
     
@@ -179,7 +203,9 @@ class ProfileFlowHandler:
             
             current_value = "Not set"
             if current_data.data:
-                field_value = current_data.data[0].get(field['name'])
+                # Map config field name to database column name
+                db_column = self.reg.map_field_to_db_column(field['name'], role)
+                field_value = current_data.data[0].get(db_column)
                 if field_value:
                     if isinstance(field_value, list):
                         current_value = ', '.join(str(v) for v in field_value)
@@ -206,9 +232,21 @@ class ProfileFlowHandler:
             
         except Exception as e:
             log_error(f"Error sending next selected field: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while editing your profile.\n\n"
+                "The task has been cancelled. Please try again with /edit-profile"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error.",
+                'response': error_msg,
                 'handler': 'edit_profile_next_field_error'
             }
     
@@ -253,9 +291,21 @@ class ProfileFlowHandler:
             
         except Exception as e:
             log_error(f"Error sending next edit field: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while editing your profile.\n\n"
+                "The task has been cancelled. Please try again with /edit-profile"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error.",
+                'response': error_msg,
                 'handler': 'edit_profile_next_field_error'
             }
     
@@ -282,6 +332,12 @@ class ProfileFlowHandler:
                     'handler': 'edit_profile_no_changes'
                 }
             
+            # Map config field names to database column names
+            mapped_updates = {}
+            for field_name, value in updates.items():
+                db_column = self.reg.map_field_to_db_column(field_name, role)
+                mapped_updates[db_column] = value
+            
             # Apply updates to database
             table = 'trainers' if role == 'trainer' else 'clients'
             id_column = 'trainer_id' if role == 'trainer' else 'client_id'
@@ -290,9 +346,9 @@ class ProfileFlowHandler:
             from datetime import datetime
             import pytz
             sa_tz = pytz.timezone('Africa/Johannesburg')
-            updates['updated_at'] = datetime.now(sa_tz).isoformat()
+            mapped_updates['updated_at'] = datetime.now(sa_tz).isoformat()
             
-            result = self.db.table(table).update(updates).eq(id_column, user_id).execute()
+            result = self.db.table(table).update(mapped_updates).eq(id_column, user_id).execute()
             
             if result.data:
                 # Success
@@ -337,9 +393,21 @@ class ProfileFlowHandler:
                 
         except Exception as e:
             log_error(f"Error applying profile updates: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message to user
+            error_msg = (
+                "❌ *Update Failed*\n\n"
+                "Sorry, I encountered an error updating your profile.\n\n"
+                "Please try again later or contact support if the issue persists."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error updating your profile.",
+                'response': error_msg,
                 'handler': 'edit_profile_apply_error'
             }
     
@@ -386,9 +454,21 @@ class ProfileFlowHandler:
             
         except Exception as e:
             log_error(f"Error continuing account deletion: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error during account deletion.\n\n"
+                "The task has been cancelled. Your account is safe."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error. Type /stop to cancel.",
+                'response': error_msg,
                 'handler': 'delete_account_continue_error'
             }
 
@@ -458,8 +538,20 @@ class ProfileFlowHandler:
                 
         except Exception as e:
             log_error(f"Error executing account deletion: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Deletion Failed*\n\n"
+                "Sorry, I encountered an error deleting your account.\n\n"
+                "Your account is still active. Please try again or contact support."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error deleting your account.",
+                'response': error_msg,
                 'handler': 'delete_account_execute_error'
             }

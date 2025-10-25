@@ -153,7 +153,9 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
         field_list = "✏️ *Edit Your Profile*\n\n*Select fields to edit:*\n\n"
         
         for i, field in enumerate(fields, 1):
-            field_value = profile_data.get(field['name'])
+            # Map config field name to database column name
+            db_column = reg_service.map_field_to_db_column(field['name'], role)
+            field_value = profile_data.get(db_column)
             
             # Format current value
             if field_value:

@@ -205,8 +205,13 @@ Analyze the message and return ONLY valid JSON with:
 Examples:
 - "show me my profile" → {{"intent": "view_profile", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-profile"}}
 - "I want to change my email" → {{"intent": "edit_profile", "confidence": 0.85, "needs_action": true, "suggested_command": "/edit-profile"}}
+- "delete my account" → {{"intent": "delete_account", "confidence": 0.95, "needs_action": true, "suggested_command": "/delete-account"}}
+- "remove me" → {{"intent": "delete_account", "confidence": 0.85, "needs_action": true, "suggested_command": "/delete-account"}}
+- "I want to leave" → {{"intent": "delete_account", "confidence": 0.8, "needs_action": true, "suggested_command": "/delete-account"}}
 - "how do I add clients?" → {{"intent": "general_conversation", "confidence": 0.8, "needs_action": false, "is_asking_about_phase2": true}}
 - "hi" → {{"intent": "general_conversation", "confidence": 0.9, "needs_action": false}}
+
+IMPORTANT: Be very sensitive to delete/remove/leave phrases - these should map to "delete_account" intent with high confidence.
 
 Return ONLY the JSON, no other text."""
         

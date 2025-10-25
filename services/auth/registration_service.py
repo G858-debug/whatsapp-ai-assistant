@@ -150,6 +150,29 @@ class RegistrationService:
             log_error(f"Error parsing field value: {str(e)}")
             return value
     
+    def map_field_to_db_column(self, field_name: str, role: str) -> str:
+        """
+        Map config field name to database column name
+        Some fields have different names in config vs database
+        """
+        # Client field mappings
+        if role == 'client':
+            field_mapping = {
+                'full_name': 'name',
+                'preferred_training_type': 'preferred_training_times',
+                'phone_number': 'whatsapp'
+            }
+            return field_mapping.get(field_name, field_name)
+        
+        # Trainer field mappings
+        elif role == 'trainer':
+            field_mapping = {
+                # Add trainer mappings if needed
+            }
+            return field_mapping.get(field_name, field_name)
+        
+        return field_name
+    
     def save_trainer_registration(self, phone: str, data: Dict) -> Tuple[bool, str, Optional[str]]:
         """
         Save trainer registration data

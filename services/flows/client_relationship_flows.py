@@ -74,8 +74,19 @@ class ClientRelationshipFlows:
             
         except Exception as e:
             log_error(f"Error in search trainer flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'client')
-            return {'success': False, 'response': 'Error searching trainers', 'handler': 'search_trainer_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'client')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while searching for trainers.\n\n"
+                "The task has been cancelled. Please try again with /search-trainer"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'search_trainer_error'}
     
     def continue_invite_trainer(self, phone: str, message: str, client_id: str, task: Dict) -> Dict:
         """Handle invite trainer flow"""
@@ -133,8 +144,19 @@ class ClientRelationshipFlows:
             
         except Exception as e:
             log_error(f"Error in invite trainer flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'client')
-            return {'success': False, 'response': 'Error processing invitation', 'handler': 'invite_trainer_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'client')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while processing the invitation.\n\n"
+                "The task has been cancelled. Please try again with /invite-trainer"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'invite_trainer_error'}
     
     def continue_remove_trainer(self, phone: str, message: str, client_id: str, task: Dict) -> Dict:
         """Handle remove trainer flow"""
@@ -250,5 +272,16 @@ class ClientRelationshipFlows:
             
         except Exception as e:
             log_error(f"Error in remove trainer flow: {str(e)}")
-            self.task_service.complete_task(task['id'], 'client')
-            return {'success': False, 'response': 'Error removing trainer', 'handler': 'remove_trainer_error'}
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'client')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while removing the trainer.\n\n"
+                "The task has been cancelled. Please try again with /remove-trainer"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'remove_trainer_error'}

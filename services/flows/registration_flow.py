@@ -59,9 +59,18 @@ class RegistrationFlowHandler:
             
         except Exception as e:
             log_error(f"Error handling new user: {str(e)}")
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error.\n\n"
+                "Please try sending me a message again to start registration."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error. Please try again.",
+                'response': error_msg,
                 'handler': 'new_user_error'
             }
 
@@ -124,9 +133,18 @@ class RegistrationFlowHandler:
             
         except Exception as e:
             log_error(f"Error starting registration: {str(e)}")
+            
+            # Send error message
+            error_msg = (
+                "❌ *Registration Error*\n\n"
+                "Sorry, I encountered an error starting registration.\n\n"
+                "Please try again by sending me a message."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error starting registration. Please try again.",
+                'response': error_msg,
                 'handler': 'registration_start_error'
             }
     
@@ -202,9 +220,21 @@ class RegistrationFlowHandler:
                 
         except Exception as e:
             log_error(f"Error continuing registration: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Registration Error*\n\n"
+                "Sorry, I encountered an error during registration.\n\n"
+                "The registration has been cancelled. Please start again by sending me a message."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error. Type /stop to cancel or try again.",
+                'response': error_msg,
                 'handler': 'registration_continue_error'
             }
     
@@ -254,9 +284,21 @@ class RegistrationFlowHandler:
                 
         except Exception as e:
             log_error(f"Error completing registration: {str(e)}")
+            
+            # Stop the task
+            self.task.stop_task(task['id'], role)
+            
+            # Send error message
+            error_msg = (
+                "❌ *Registration Error*\n\n"
+                "Sorry, I encountered an error saving your registration.\n\n"
+                "The registration has been cancelled. Please start again by sending me a message."
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
             return {
                 'success': False,
-                'response': "Sorry, I encountered an error saving your registration. Please try again.",
+                'response': error_msg,
                 'handler': 'registration_complete_error'
             }
     
