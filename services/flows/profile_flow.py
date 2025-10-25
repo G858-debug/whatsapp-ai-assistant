@@ -266,9 +266,12 @@ class ProfileFlowHandler:
                 # No updates made
                 msg = (
                     "No changes were made to your profile.\n\n"
-                    "Type /view-profile to see your current information."
+                    "Click the button below to see your current information."
                 )
-                self.whatsapp.send_message(phone, msg)
+                
+                # Send message with View Profile button
+                buttons = [{'id': '/view-profile', 'title': '👤 View Profile'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
                 
                 # Complete task
                 self.task.complete_task(task['id'], role)
@@ -298,9 +301,12 @@ class ProfileFlowHandler:
                 msg = (
                     f"✅ *Profile Updated!*\n\n"
                     f"I've updated {update_count} field{'s' if update_count > 1 else ''}.\n\n"
-                    f"Type /view-profile to see your updated information."
+                    f"Click the button below to see your updated information."
                 )
-                self.whatsapp.send_message(phone, msg)
+                
+                # Send message with View Profile button
+                buttons = [{'id': '/view-profile', 'title': '👤 View Profile'}]
+                self.whatsapp.send_button_message(phone, msg, buttons)
                 
                 # Complete task
                 self.task.complete_task(task['id'], role)
