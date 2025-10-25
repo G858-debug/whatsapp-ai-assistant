@@ -85,6 +85,11 @@ class MessageRouter:
         try:
             log_info(f"Handling button response: {button_id} from {phone}")
             
+            # Check if button_id is a command (starts with /)
+            if button_id.startswith('/'):
+                log_info(f"Button is a command: {button_id}")
+                return self.route_message(phone, button_id, button_id=None)
+            
             from services.relationships import RelationshipService
             relationship_service = RelationshipService(self.db)
             
