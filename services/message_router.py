@@ -33,21 +33,42 @@ class MessageRouter:
             if message.startswith('/'):
                 return self._handle_universal_command(phone, message)
             
-            # Step 2: Check if user exists
+            # Step 2: Check for running registration tasks (before checking user exists)
+            # This handles the case where registration is in progress but user not created yet
+            trainer_task = self.task_service.get_running_task(phone, 'trainer')
+            client_task = self.task_service.get_running_task(phone, 'client')
+            
+            if trainer_task and trainer_task.get('task_type') == 'registration':
+                from services.flows.registration_flow import RegistrationFlowHandler
+                handler = RegistrationFlowHandler(
+                    self.db, self.whatsapp, self.auth_service,
+                    self.reg_service, self.task_service
+                )
+                return handler.continue_registration(phone, message, 'trainer', trainer_task)
+            
+            if client_task and client_task.get('task_type') == 'registration':
+                from services.flows.registration_flow import RegistrationFlowHandler
+                handler = RegistrationFlowHandler(
+                    self.db, self.whatsapp, self.auth_service,
+                    self.reg_service, self.task_service
+                )
+                return handler.continue_registration(phone, message, 'client', client_task)
+            
+            # Step 3: Check if user exists
             user = self.auth_service.check_user_exists(phone)
             
             if not user:
                 # New user - start registration flow
                 return self._handle_new_user(phone, message)
             
-            # Step 3: Check login status
+            # Step 4: Check login status
             login_status = self.auth_service.get_login_status(phone)
             
             if not login_status:
                 # User exists but not logged in
                 return self._handle_login_flow(phone, message)
             
-            # Step 4: User is logged in - route to role handler
+            # Step 5: User is logged in - route to role handler
             return self._handle_logged_in_user(phone, message, login_status)
             
         except Exception as e:
