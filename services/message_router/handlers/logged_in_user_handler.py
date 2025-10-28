@@ -25,7 +25,7 @@ class LoggedInUserHandler:
             self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )
         self.task_handler = TaskHandler(
-            self.db, self.whatsapp, self.task_service
+            self.db, self.whatsapp, self.task_service, self.reg_service
         )
         self.ai_intent_handler = AIIntentHandler(
             self.db, self.whatsapp, self.task_service

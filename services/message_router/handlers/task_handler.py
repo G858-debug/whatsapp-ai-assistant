@@ -11,8 +11,8 @@ from .tasks.task_handler import TaskHandler as TaskHandlerImpl
 class TaskHandler:
     """Main task handler that delegates to the implementation"""
     
-    def __init__(self, supabase_client, whatsapp_service, task_service):
-        self.handler = TaskHandlerImpl(supabase_client, whatsapp_service, task_service)
+    def __init__(self, supabase_client, whatsapp_service, task_service, reg_service=None):
+        self.handler = TaskHandlerImpl(supabase_client, whatsapp_service, task_service, reg_service)
     
     def continue_task(self, phone: str, message: str, role: str, user_id: str, task: Dict) -> Dict:
         """Delegate task continuation to the implementation"""

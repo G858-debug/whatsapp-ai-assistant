@@ -9,10 +9,11 @@ from utils.logger import log_error
 class CoreTaskHandler:
     """Handles core system tasks"""
     
-    def __init__(self, supabase_client, whatsapp_service, task_service):
+    def __init__(self, supabase_client, whatsapp_service, task_service, reg_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.task_service = task_service
+        self.reg_service = reg_service
     
     def handle_core_task(self, phone: str, message: str, role: str, user_id: str, task: Dict) -> Dict:
         """Handle core system tasks"""
@@ -40,7 +41,7 @@ class CoreTaskHandler:
         try:
             from services.flows import RegistrationFlowHandler
             handler = RegistrationFlowHandler(
-                self.db, self.whatsapp, None, None, self.task_service
+                self.db, self.whatsapp, None, self.reg_service, self.task_service
             )
             return handler.continue_registration(phone, message, role, task)
         except Exception as e:
@@ -52,7 +53,7 @@ class CoreTaskHandler:
         try:
             from services.flows import ProfileFlowHandler
             handler = ProfileFlowHandler(
-                self.db, self.whatsapp, None, self.task_service
+                self.db, self.whatsapp, self.reg_service, self.task_service
             )
             
             if task_action == 'edit':

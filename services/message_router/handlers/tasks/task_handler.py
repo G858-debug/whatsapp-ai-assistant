@@ -13,14 +13,15 @@ from .habit_tasks import HabitTaskHandler
 class TaskHandler:
     """Main task handler that delegates to specific task handlers"""
     
-    def __init__(self, supabase_client, whatsapp_service, task_service):
+    def __init__(self, supabase_client, whatsapp_service, task_service, reg_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.task_service = task_service
+        self.reg_service = reg_service
         
         # Initialize sub-handlers
         self.core_handler = CoreTaskHandler(
-            self.db, self.whatsapp, self.task_service
+            self.db, self.whatsapp, self.task_service, self.reg_service
         )
         self.relationship_handler = RelationshipTaskHandler(
             self.db, self.whatsapp, self.task_service
