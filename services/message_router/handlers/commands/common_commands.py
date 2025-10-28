@@ -9,11 +9,12 @@ from utils.logger import log_error
 class CommonCommandHandler:
     """Handles commands common to both trainers and clients"""
     
-    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service):
+    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service, reg_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
         self.task_service = task_service
+        self.reg_service = reg_service
     
     def handle_common_command(self, phone: str, cmd: str, role: str, user_id: str) -> Optional[Dict]:
         """Handle common commands, return None if not a common command"""
@@ -53,7 +54,7 @@ class CommonCommandHandler:
         try:
             from services.commands import handle_edit_profile
             return handle_edit_profile(phone, role, user_id, self.db, self.whatsapp, 
-                                      None, self.task_service)
+                                      self.reg_service, self.task_service)
         except Exception as e:
             log_error(f"Error handling edit profile: {str(e)}")
             return {'success': False, 'response': 'Error starting profile edit', 'handler': 'edit_profile_error'}

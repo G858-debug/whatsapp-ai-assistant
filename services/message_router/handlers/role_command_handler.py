@@ -11,8 +11,8 @@ from .commands.role_command_handler import RoleCommandHandler as RoleCommandHand
 class RoleCommandHandler:
     """Main role command handler that delegates to the implementation"""
     
-    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service):
-        self.handler = RoleCommandHandlerImpl(supabase_client, whatsapp_service, auth_service, task_service)
+    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service, reg_service=None):
+        self.handler = RoleCommandHandlerImpl(supabase_client, whatsapp_service, auth_service, task_service, reg_service)
     
     def handle_role_command(self, phone: str, command: str, role: str, user_id: str) -> Dict:
         """Delegate role command handling to the implementation"""

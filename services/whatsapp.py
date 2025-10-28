@@ -16,6 +16,10 @@ class WhatsAppService:
         self.api_url = config.WHATSAPP_API_URL
         self.api_token = config.WHATSAPP_API_TOKEN
         self.sa_tz = pytz.timezone(config.TIMEZONE)
+        
+        # Test mode support
+        self.test_mode = False
+        self.test_output_file = "testing/outputs/whatsapp_messages.json"
     
     def send_message(self, phone_number: str, message: str, 
                     buttons: List[Dict] = None) -> Dict:
@@ -23,6 +27,10 @@ class WhatsAppService:
         try:
             # Format phone number
             phone = self._format_phone_number(phone_number)
+            
+            # Test mode: write to file instead of sending
+            if self.test_mode:
+                return self._write_test_message(phone, message, buttons, 'text')
             
             # Build message payload
             payload = {
@@ -228,6 +236,10 @@ class WhatsAppService:
             # Format phone number
             phone = self._format_phone_number(phone_number)
             
+            # Test mode: write to file instead of sending
+            if self.test_mode:
+                return self._write_test_message(phone, message, buttons, 'button')
+            
             # Build interactive message payload with buttons
             payload = {
                 "messaging_product": "whatsapp",
@@ -364,3 +376,61 @@ class WhatsAppService:
         except Exception as e:
             log_error(f"Error sending WhatsApp flow message: {str(e)}")
             return {'success': False, 'error': str(e)}
+
+    def _write_test_message(self, phone: str, message: str, buttons: List[Dict] = None, message_type: str = 'text') -> Dict:
+        """Write message to test file instead of sending to WhatsApp"""
+        try:
+            import os
+            
+            # Create test output directory if it doesn't exist
+            os.makedirs(os.path.dirname(self.test_output_file), exist_ok=True)
+            
+            # Create message entry
+            test_message = {
+                'timestamp': datetime.now(self.sa_tz).isoformat(),
+                'to': phone,
+                'type': message_type,
+                'message': message,
+                'buttons': buttons if buttons else [],
+                'message_id': f'test_{datetime.now().timestamp()}'
+            }
+            
+            # Read existing messages or create new list
+            messages = []
+            if os.path.exists(self.test_output_file):
+                try:
+                    with open(self.test_output_file, 'r', encoding='utf-8') as f:
+                        messages = json.load(f)
+                except (json.JSONDecodeError, FileNotFoundError):
+                    messages = []
+            
+            # Add new message
+            messages.append(test_message)
+            
+            # Write back to file
+            with open(self.test_output_file, 'w', encoding='utf-8') as f:
+                json.dump(messages, f, indent=2, ensure_ascii=False)
+            
+            log_info(f"Test message logged to {phone}: {message[:50]}...")
+            
+            return {
+                'success': True, 
+                'message_id': test_message['message_id'],
+                'test_mode': True
+            }
+            
+        except Exception as e:
+            log_error(f"Error writing test message: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def enable_test_mode(self, output_file: str = None):
+        """Enable test mode"""
+        self.test_mode = True
+        if output_file:
+            self.test_output_file = output_file
+        log_info(f"WhatsApp test mode enabled, output: {self.test_output_file}")
+    
+    def disable_test_mode(self):
+        """Disable test mode"""
+        self.test_mode = False
+        log_info("WhatsApp test mode disabled")

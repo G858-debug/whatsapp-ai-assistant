@@ -38,8 +38,13 @@ class ButtonHandler:
             
             # Check if button_id is a command (starts with /)
             if button_id.startswith('/'):
-                log_info(f"Button is a command: {button_id}")
-                return {'success': True, 'response': 'Command button', 'handler': 'command_button'}
+                log_info(f"Button is a command: {button_id} - routing through command processing")
+                # Route command buttons through the normal message processing flow
+                # Import here to avoid circular imports
+                from services.message_router.message_router import MessageRouter
+                router = MessageRouter(self.db, self.whatsapp)
+                # Process as a regular message (no button_id to avoid infinite loop)
+                return router.route_message(phone, button_id, button_id=None)
             
             # Delegate to appropriate handler based on button type
             if button_id.startswith(('accept_trainer_', 'decline_trainer_', 'accept_client_', 'decline_client_')):

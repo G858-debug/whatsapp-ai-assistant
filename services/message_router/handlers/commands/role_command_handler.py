@@ -13,15 +13,16 @@ from .client_commands import ClientCommandHandler
 class RoleCommandHandler:
     """Main role command handler that delegates to specific command handlers"""
     
-    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service):
+    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service, reg_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
         self.task_service = task_service
+        self.reg_service = reg_service
         
         # Initialize sub-handlers
         self.common_handler = CommonCommandHandler(
-            self.db, self.whatsapp, self.auth_service, self.task_service
+            self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )
         self.trainer_handler = TrainerCommandHandler(
             self.db, self.whatsapp, self.task_service

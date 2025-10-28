@@ -13,15 +13,16 @@ from .ai_intent_handler import AIIntentHandler
 class LoggedInUserHandler:
     """Handles messages from logged-in users"""
     
-    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service):
+    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service, reg_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
         self.task_service = task_service
+        self.reg_service = reg_service
         
         # Initialize sub-handlers
         self.role_command_handler = RoleCommandHandler(
-            self.db, self.whatsapp, self.auth_service, self.task_service
+            self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )
         self.task_handler = TaskHandler(
             self.db, self.whatsapp, self.task_service

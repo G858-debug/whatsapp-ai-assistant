@@ -36,7 +36,7 @@ class MessageRouter:
             self.db, self.whatsapp, self.auth_service, self.task_service
         )
         self.logged_in_user_handler = LoggedInUserHandler(
-            self.db, self.whatsapp, self.auth_service, self.task_service
+            self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )
         self.message_history = MessageHistoryManager(self.db)
     
