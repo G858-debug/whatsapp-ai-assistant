@@ -37,6 +37,9 @@ class LoginStatusManager:
         status: 'trainer', 'client', or None (for logout)
         """
         try:
+            # Clean phone number (remove + and other formatting)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            
             # Validate status
             if status not in ['trainer', 'client', None]:
                 log_error(f"Invalid login status: {status}")
@@ -46,15 +49,15 @@ class LoginStatusManager:
             result = self.db.table('users').update({
                 'login_status': status,
                 'updated_at': datetime.now(self.sa_tz).isoformat()
-            }).eq('phone_number', phone).execute()
+            }).eq('phone_number', clean_phone).execute()
             
-            # Also update conversation_states for consistency
+            # Also update conversation_states for consistency (use original phone for conversation_states)
             self.db.table('conversation_states').update({
                 'login_status': status,
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }).eq('phone_number', phone).execute()
             
-            log_info(f"Login status set to '{status}' for {phone}")
+            log_info(f"Login status set to '{status}' for {clean_phone}")
             return bool(result.data)
             
         except Exception as e:

@@ -25,7 +25,7 @@ class MessageRouter:
         self.task_service = TaskService(supabase_client)
         
         # Initialize handlers
-        self.button_handler = ButtonHandler(self.db, self.whatsapp, self.auth_service)
+        self.button_handler = ButtonHandler(self.db, self.whatsapp, self.auth_service, self.reg_service, self.task_service)
         self.universal_command_handler = UniversalCommandHandler(
             self.auth_service, self.task_service, self.whatsapp
         )

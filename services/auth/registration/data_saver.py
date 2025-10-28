@@ -22,30 +22,38 @@ class DataSaver:
         Returns: (success, message, trainer_id)
         """
         try:
+            # Clean phone number (remove + and other formatting)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            
             # Generate unique trainer ID
             name = f"{data.get('first_name', '')} {data.get('last_name', '')}"
             trainer_id = self.auth_service.generate_unique_id(name, 'trainer')
             
-            # Prepare trainer data
+            # Prepare trainer data - map all fields from config to database schema
             trainer_data = {
                 'trainer_id': trainer_id,
-                'whatsapp': phone,
+                'whatsapp': clean_phone,  # Use cleaned phone number
                 'name': name,
                 'first_name': data.get('first_name'),
                 'last_name': data.get('last_name'),
                 'email': data.get('email'),
                 'city': data.get('city'),
+                'location': data.get('city'),  # Map city to location as well
                 'business_name': data.get('business_name'),
                 'specialization': ', '.join(data.get('specialization', [])) if isinstance(data.get('specialization'), list) else data.get('specialization'),
                 'experience_years': data.get('experience_years'),
-                'pricing_per_session': data.get('pricing_per_session'),
-                'available_days': data.get('available_days', []),
+                'years_experience': self._parse_experience_to_number(data.get('experience_years')),  # Convert to number
+                'pricing_per_session': float(data.get('pricing_per_session', 500)) if data.get('pricing_per_session') else 500.0,
+                'available_days': data.get('available_days', []) if data.get('available_days') else [],
                 'preferred_time_slots': data.get('preferred_time_slots'),
-                'services_offered': data.get('services_offered', []),
-                'pricing_flexibility': data.get('pricing_flexibility', []),
+                'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],
+                'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],
                 'additional_notes': data.get('additional_notes'),
                 'status': 'active',
                 'registration_method': 'chat',
+                'onboarding_method': 'chat',
+                'terms_accepted': True,  # Assume accepted during registration
+                'marketing_consent': False,  # Default to false
                 'created_at': datetime.now(self.sa_tz).isoformat(),
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }
@@ -170,3 +178,18 @@ class DataSaver:
         except Exception as e:
             log_error(f"Error creating relationship: {str(e)}")
             return False
+    
+    def _parse_experience_to_number(self, experience_text: str) -> int:
+        """Convert experience text to number for years_experience field"""
+        if not experience_text:
+            return 0
+        
+        experience_map = {
+            '0-1 years': 1,
+            '2-3 years': 3,
+            '4-5 years': 5,
+            '6-10 years': 8,
+            '10+ years': 12
+        }
+        
+        return experience_map.get(experience_text, 0)

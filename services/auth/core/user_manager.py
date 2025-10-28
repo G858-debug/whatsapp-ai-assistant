@@ -21,8 +21,11 @@ class UserManager:
         Returns user data if found, None otherwise
         """
         try:
+            # Clean phone number (remove + and other formatting)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            
             result = self.db.table('users').select('*').eq(
-                'phone_number', phone
+                'phone_number', clean_phone
             ).execute()
             
             if result.data and len(result.data) > 0:
@@ -38,7 +41,10 @@ class UserManager:
         Create or update user entry in users table
         """
         try:
-            existing_user = self.check_user_exists(phone)
+            # Clean phone number (remove + and other formatting)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            
+            existing_user = self.check_user_exists(clean_phone)
             
             if existing_user:
                 # Update existing user with new role
@@ -52,14 +58,14 @@ class UserManager:
                     update_data['client_id'] = role_id
                 
                 result = self.db.table('users').update(update_data).eq(
-                    'phone_number', phone
+                    'phone_number', clean_phone
                 ).execute()
                 
-                log_info(f"Updated user entry for {phone} with {role} role")
+                log_info(f"Updated user entry for {clean_phone} with {role} role")
             else:
                 # Create new user
                 user_data = {
-                    'phone_number': phone,
+                    'phone_number': clean_phone,
                     'login_status': None,
                     'created_at': datetime.now(self.sa_tz).isoformat(),
                     'updated_at': datetime.now(self.sa_tz).isoformat()
@@ -72,7 +78,7 @@ class UserManager:
                 
                 result = self.db.table('users').insert(user_data).execute()
                 
-                log_info(f"Created new user entry for {phone} as {role}")
+                log_info(f"Created new user entry for {clean_phone} as {role}")
             
             return bool(result.data)
             
@@ -85,7 +91,9 @@ class UserManager:
         Get trainer_id or client_id for user based on role
         """
         try:
-            user = self.check_user_exists(phone)
+            # Clean phone number (remove + and other formatting)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            user = self.check_user_exists(clean_phone)
             if not user:
                 return None
             
@@ -106,7 +114,9 @@ class UserManager:
         Returns True if successful
         """
         try:
-            user = self.check_user_exists(phone)
+            # Clean phone number (remove + and other formatting)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            user = self.check_user_exists(clean_phone)
             if not user:
                 return False
             
@@ -132,14 +142,14 @@ class UserManager:
             
             if not other_role_id:
                 # Delete user completely
-                self.db.table('users').delete().eq('phone_number', phone).execute()
-                log_info(f"Deleted user entry for {phone}")
+                self.db.table('users').delete().eq('phone_number', clean_phone).execute()
+                log_info(f"Deleted user entry for {clean_phone}")
             else:
                 # Just remove this role
                 self.db.table('users').update(update_data).eq(
-                    'phone_number', phone
+                    'phone_number', clean_phone
                 ).execute()
-                log_info(f"Removed {role} role for {phone}")
+                log_info(f"Removed {role} role for {clean_phone}")
             
             return True
             

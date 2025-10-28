@@ -9,8 +9,11 @@ from utils.logger import log_info, log_error
 def handle_view_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_service) -> Dict:
     """Handle view profile command"""
     try:
+        # Clean phone number (remove + and other formatting)
+        clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+        
         # Get user data from users table
-        user_result = db.table('users').select('*').eq('phone_number', phone).execute()
+        user_result = db.table('users').select('*').eq('phone_number', clean_phone).execute()
         
         if not user_result.data:
             msg = "❌ I couldn't find your profile information."
@@ -29,10 +32,6 @@ def handle_view_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
             return {'success': False, 'response': msg, 'handler': 'view_profile_role_not_found'}
         
         role_data = role_result.data[0]
-        
-        # Get showable fields from config
-        config_key = 'trainer' if role == 'trainer' else 'client'
-        fields_config = reg_service.get_registration_fields(config_key)
         
         # Build profile message
         if role == 'trainer':

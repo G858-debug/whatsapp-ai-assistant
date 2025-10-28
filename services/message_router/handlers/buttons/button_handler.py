@@ -13,17 +13,19 @@ from .client_creation_buttons import ClientCreationButtonHandler
 class ButtonHandler:
     """Main button handler that delegates to specific button handlers"""
     
-    def __init__(self, supabase_client, whatsapp_service, auth_service):
+    def __init__(self, supabase_client, whatsapp_service, auth_service, reg_service=None, task_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
+        self.reg_service = reg_service
+        self.task_service = task_service
         
         # Initialize sub-handlers
         self.relationship_handler = RelationshipButtonHandler(
             self.db, self.whatsapp, self.auth_service
         )
         self.registration_handler = RegistrationButtonHandler(
-            self.db, self.whatsapp, self.auth_service
+            self.db, self.whatsapp, self.auth_service, self.reg_service, self.task_service
         )
         self.client_creation_handler = ClientCreationButtonHandler(
             self.db, self.whatsapp, self.auth_service

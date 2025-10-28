@@ -9,10 +9,12 @@ from utils.logger import log_info, log_error
 class RegistrationButtonHandler:
     """Handles registration and login buttons"""
     
-    def __init__(self, supabase_client, whatsapp_service, auth_service):
+    def __init__(self, supabase_client, whatsapp_service, auth_service, reg_service=None, task_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
+        self.reg_service = reg_service
+        self.task_service = task_service
     
     def handle_registration_button(self, phone: str, button_id: str) -> Dict:
         """Handle registration and login buttons"""
@@ -39,7 +41,7 @@ class RegistrationButtonHandler:
             from services.flows import RegistrationFlowHandler
             handler = RegistrationFlowHandler(
                 self.db, self.whatsapp, self.auth_service,
-                None, None  # reg_service and task_service will be passed from main router
+                self.reg_service, self.task_service
             )
             return handler.start_registration(phone, 'trainer')
         except Exception as e:
@@ -53,7 +55,7 @@ class RegistrationButtonHandler:
             from services.flows import RegistrationFlowHandler
             handler = RegistrationFlowHandler(
                 self.db, self.whatsapp, self.auth_service,
-                None, None  # reg_service and task_service will be passed from main router
+                self.reg_service, self.task_service
             )
             return handler.start_registration(phone, 'client')
         except Exception as e:
@@ -65,7 +67,7 @@ class RegistrationButtonHandler:
         try:
             log_info(f"Login button clicked: login_trainer")
             from services.flows import LoginFlowHandler
-            handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, None)
+            handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, self.task_service)
             return handler.handle_role_selection(phone, 'trainer')
         except Exception as e:
             log_error(f"Error handling trainer login: {str(e)}")
@@ -76,7 +78,7 @@ class RegistrationButtonHandler:
         try:
             log_info(f"Login button clicked: login_client")
             from services.flows import LoginFlowHandler
-            handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, None)
+            handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, self.task_service)
             return handler.handle_role_selection(phone, 'client')
         except Exception as e:
             log_error(f"Error handling client login: {str(e)}")

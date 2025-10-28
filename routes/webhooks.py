@@ -179,6 +179,12 @@ def whatsapp_webhook():
                                     from services.message_router import MessageRouter
                                     whatsapp_service = app.config['services']['whatsapp']
                                     
+                                    # Enable test mode if environment variable is set
+                                    import os
+                                    if os.getenv('TEST_MODE') == 'true' and hasattr(whatsapp_service, 'test_mode'):
+                                        whatsapp_service.test_mode = True
+                                        log_info("Test mode enabled for WhatsApp service")
+                                    
                                     # Initialize MessageRouter
                                     router = MessageRouter(supabase, whatsapp_service)
                                     

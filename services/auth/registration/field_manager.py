@@ -21,7 +21,7 @@ class FieldManager:
         try:
             config_file = f'config/{role}_registration_inputs.json'
             if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
+                with open(config_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             else:
                 log_error(f"Registration config not found: {config_file}")

@@ -54,9 +54,13 @@ class TrainerRegistrationHandler:
             current_index = self.task_manager.get_task_data(task, 'current_field_index', 0)
             collected_data = self.task_manager.get_task_data(task, 'collected_data', {})
             
-            # Validate and store current answer if we're past the first field
-            if current_index > 0:
-                current_field = fields[current_index - 1]
+            log_info(f"Current field index: {current_index}, Total fields: {len(fields)}")
+            
+            # If we have a message to process (not the initial call)
+            if current_index >= 0 and message:
+                # Get the current field to validate
+                current_field = fields[current_index]
+                log_info(f"Validating field: {current_field['name']} with value: {message}")
                 
                 # Validate the input
                 is_valid, error_msg = self.validator.validate_field_value(current_field, message)
@@ -76,12 +80,17 @@ class TrainerRegistrationHandler:
                 # Parse and store the value
                 parsed_value = self.validator.parse_field_value(current_field, message)
                 field_name = current_field['name']
+                log_info(f"Storing field {field_name} = {parsed_value}")
                 
                 # Store in task data
                 self.task_manager.store_field_data(task, 'trainer', field_name, parsed_value)
                 collected_data[field_name] = parsed_value
+                
+                # Move to next field
+                current_index += 1
+                log_info(f"Advanced to field index: {current_index}")
             
-            # Update current field index
+            # Update current field index in database
             self.task_manager.update_flow_task(task, 'trainer', {
                 'current_field_index': current_index,
                 'collected_data': collected_data
@@ -91,20 +100,20 @@ class TrainerRegistrationHandler:
             if current_index < len(fields):
                 # Send next field prompt with progress
                 next_field = fields[current_index]
+                log_info(f"Next field: {next_field['name']} - {next_field['prompt']}")
+                
                 progress_msg = self.message_builder.build_progress_message(
                     current_index + 1, len(fields), next_field['prompt']
                 )
                 
                 self.whatsapp.send_message(phone, progress_msg)
                 
-                # Advance to next field
-                self.task_manager.advance_field_index(task, 'trainer')
-                
                 return {
                     'success': True,
                     'response': progress_msg,
                     'handler': 'trainer_registration_next_field'
                 }
+                
             else:
                 # All fields collected - complete registration
                 from .completion_handler import RegistrationCompletionHandler

@@ -37,7 +37,9 @@ class FieldValidator:
                 return self._validate_phone_field(value, validation)
             elif field_type == 'choice':
                 return self._validate_choice_field(value, field.get('options', []))
-            elif field_type == 'text':
+            elif field_type == 'multi_choice':
+                return self._validate_multi_choice_field(value, field.get('options', []))
+            elif field_type == 'text' or field_type == 'textarea':
                 return self._validate_text_field(value, validation)
             else:
                 return True, ""  # Unknown type, allow it
@@ -86,13 +88,39 @@ class FieldValidator:
         if not options:
             return True, ""
         
-        valid_values = [opt.get('value', '').lower() if isinstance(opt, dict) else str(opt).lower() 
-                       for opt in options]
+        try:
+            # Try to parse as number (option index)
+            choice_num = int(value.strip())
+            if 1 <= choice_num <= len(options):
+                return True, ""
+            else:
+                return False, f"Please choose a number between 1 and {len(options)}."
+        except ValueError:
+            # Not a number, check if it's a valid option text
+            valid_values = [str(opt).lower() for opt in options]
+            if value.strip().lower() not in valid_values:
+                return False, f"Please choose from: {', '.join(options)}"
+            return True, ""
+    
+    def _validate_multi_choice_field(self, value: str, options: list) -> Tuple[bool, str]:
+        """Validate multi-choice field"""
+        if not options:
+            return True, ""
         
-        if value.strip().lower() not in valid_values:
-            option_labels = [opt.get('label', opt.get('value', '')) if isinstance(opt, dict) else str(opt) 
-                           for opt in options]
-            return False, f"Please choose from: {', '.join(option_labels)}"
+        # Parse comma-separated values
+        choices = [choice.strip() for choice in value.split(',')]
+        
+        for choice in choices:
+            try:
+                # Try to parse as number (option index)
+                choice_num = int(choice)
+                if not (1 <= choice_num <= len(options)):
+                    return False, f"Choice {choice_num} is not valid. Please choose numbers between 1 and {len(options)}."
+            except ValueError:
+                # Not a number, check if it's a valid option text
+                valid_values = [str(opt).lower() for opt in options]
+                if choice.lower() not in valid_values:
+                    return False, f"'{choice}' is not a valid option. Please choose from: {', '.join(options)}"
         
         return True, ""
     
@@ -116,6 +144,7 @@ class FieldValidator:
         """Parse field value to appropriate type"""
         try:
             field_type = field.get('type', 'text')
+            options = field.get('options', [])
             
             # Handle optional fields
             if not field.get('required', True) and value.strip().lower() in ['skip', 'no', 'none', '']:
@@ -124,7 +153,30 @@ class FieldValidator:
             if field_type == 'number':
                 return float(value.strip())
             elif field_type == 'choice':
-                return value.strip().lower()
+                # Try to parse as number (option index)
+                try:
+                    choice_num = int(value.strip())
+                    if 1 <= choice_num <= len(options):
+                        return options[choice_num - 1]  # Convert to actual option value
+                except ValueError:
+                    pass
+                return value.strip()
+            elif field_type == 'multi_choice':
+                # Parse comma-separated values
+                choices = [choice.strip() for choice in value.split(',')]
+                parsed_choices = []
+                
+                for choice in choices:
+                    try:
+                        # Try to parse as number (option index)
+                        choice_num = int(choice)
+                        if 1 <= choice_num <= len(options):
+                            parsed_choices.append(options[choice_num - 1])
+                    except ValueError:
+                        # Not a number, use as-is
+                        parsed_choices.append(choice)
+                
+                return parsed_choices
             else:
                 return value.strip()
                 
