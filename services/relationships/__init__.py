@@ -1,11 +1,21 @@
 """
-Relationship Services - Phase 2
-Handles trainer-client relationships, invitations, and connections
+Relationship Services - Enhanced Structure
+Handles trainer-client relationships, invitations, and connections with organized components
 """
-from services.relationships.relationship_service import RelationshipService
-from services.relationships.invitation_service import InvitationService
+
+# Main services (backward compatibility)
+from .relationship_service import RelationshipService
+from .invitation_service import InvitationService
+
+# Core components
+from .core import RelationshipService as CoreRelationshipService, RelationshipManager
+from .invitations import InvitationService as CoreInvitationService, InvitationManager
 
 __all__ = [
     'RelationshipService',
-    'InvitationService'
+    'InvitationService',
+    'CoreRelationshipService',
+    'RelationshipManager',
+    'CoreInvitationService',
+    'InvitationManager'
 ]

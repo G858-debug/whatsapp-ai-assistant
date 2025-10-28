@@ -189,23 +189,31 @@ def whatsapp_webhook():
                                     
                                 except Exception as router_error:
                                     log_error(f"MessageRouter error: {str(router_error)}")
+
+                                    # Last resort fallback
+                                    whatsapp_service = app.config['services']['whatsapp']
+                                    whatsapp_service.send_message(
+                                        phone,
+                                        "Sorry, I encountered an error. Please try again."
+                                    )
+                                    result = {'success': False}
                                     
                                     # Fallback to old system if Phase 1 fails
-                                    log_info("Falling back to legacy Refiloe handler")
-                                    refiloe = app.config['services']['refiloe']
+                                    # log_info("Falling back to legacy Refiloe handler")
+                                    # refiloe = app.config['services']['refiloe']
                                     
-                                    if hasattr(refiloe, 'handle_message'):
-                                        result = refiloe.handle_message(phone, text)
-                                    elif hasattr(refiloe, 'process_whatsapp_message'):
-                                        result = refiloe.process_whatsapp_message(phone, text)
-                                    else:
-                                        # Last resort fallback
-                                        whatsapp_service = app.config['services']['whatsapp']
-                                        whatsapp_service.send_message(
-                                            phone,
-                                            "Sorry, I encountered an error. Please try again."
-                                        )
-                                        result = {'success': False}
+                                    # if hasattr(refiloe, 'handle_message'):
+                                    #     result = refiloe.handle_message(phone, text)
+                                    # elif hasattr(refiloe, 'process_whatsapp_message'):
+                                    #     result = refiloe.process_whatsapp_message(phone, text)
+                                    # else:
+                                    #     # Last resort fallback
+                                    #     whatsapp_service = app.config['services']['whatsapp']
+                                    #     whatsapp_service.send_message(
+                                    #         phone,
+                                    #         "Sorry, I encountered an error. Please try again."
+                                    #     )
+                                    #     result = {'success': False}
                                 
                                 log_info(f"Message processed: {result}")
             
