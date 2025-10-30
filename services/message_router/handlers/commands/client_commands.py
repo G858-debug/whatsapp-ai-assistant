@@ -61,6 +61,10 @@ class ClientCommandHandler:
                 from services.commands import handle_remove_trainer
                 return handle_remove_trainer(phone, user_id, self.db, self.whatsapp, self.task_service)
             
+            elif cmd == '/dashboard-trainers':
+                from services.commands.dashboard import generate_dashboard_link
+                return generate_dashboard_link(user_id, 'client', self.db, self.whatsapp)
+            
             else:
                 # Not a relationship command
                 return None

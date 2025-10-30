@@ -24,9 +24,9 @@ def handle_view_trainees(phone: str, trainer_id: str, db, whatsapp) -> Dict:
             whatsapp.send_message(phone, msg)
             return {'success': True, 'response': msg, 'handler': 'view_trainees_empty'}
         
-        # Check if we need CSV or can display in chat
-        if len(clients) <= 5:
-            # Display in chat
+        # Check if we need dashboard or can display in chat
+        if len(clients) <= 3:
+            # Display in chat with dashboard option
             msg = f"📋 *Your Clients* ({len(clients)})\n\n"
             
             for i, client in enumerate(clients, 1):
@@ -40,10 +40,26 @@ def handle_view_trainees(phone: str, trainer_id: str, db, whatsapp) -> Dict:
                 
                 msg += f"   Joined: {rel.get('created_at', 'N/A')[:10]}\n\n"
             
-            whatsapp.send_message(phone, msg)
+            # Add dashboard option
+            msg += "🌐 *Want a better view?*\nUse the web dashboard for search, filter, and management features!"
+            
+            buttons = [
+                {'id': '/dashboard-clients', 'title': '🌐 Web Dashboard'},
+                {'id': '/help', 'title': '📚 Help'}
+            ]
+            whatsapp.send_button_message(phone, msg, buttons)
             return {'success': True, 'response': msg, 'handler': 'view_trainees_chat'}
         
         else:
+            # Too many clients - recommend dashboard
+            from services.commands.dashboard import generate_dashboard_link
+            
+            dashboard_result = generate_dashboard_link(trainer_id, 'trainer', db, whatsapp)
+            
+            if dashboard_result['success']:
+                return dashboard_result
+            
+            # Fallback to CSV if dashboard fails
             # Generate CSV
             import csv
             import io

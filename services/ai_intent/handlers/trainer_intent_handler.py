@@ -107,7 +107,7 @@ class TrainerIntentHandler:
             f"Let me show you your clients, {name}!\n\n"
             f"Click the button below or type /view-trainees"
         )
-        buttons = [{'id': '/view-trainees', 'title': '👥 View Clients'}]
+        buttons = [{'id': '/view-trainees', 'title': '👥 View Trainees'}]
         self.whatsapp.send_button_message(phone, msg, buttons)
         
         return {
@@ -248,7 +248,7 @@ class TrainerIntentHandler:
             f"Here are some trainer features:"
         )
         buttons = [
-            {'id': '/view-trainees', 'title': '👥 View Clients'},
+            {'id': '/view-trainees', 'title': '👥 View Trainees'},
             {'id': '/view-habits', 'title': '📋 View Habits'},
             {'id': '/help', 'title': '📚 Show Help'}
         ]

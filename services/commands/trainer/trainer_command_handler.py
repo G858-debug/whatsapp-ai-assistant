@@ -73,3 +73,8 @@ class TrainerCommandHandler:
     def handle_remove_trainee(self, phone: str, trainer_id: str) -> Dict:
         """Handle /remove-trainee command"""
         return handle_remove_trainee(phone, trainer_id, self.db, self.whatsapp, self.task_service)
+    
+    def handle_dashboard_clients(self, phone: str, trainer_id: str) -> Dict:
+        """Handle /dashboard-clients command"""
+        from services.commands.dashboard import generate_dashboard_link
+        return generate_dashboard_link(trainer_id, 'trainer', self.db, self.whatsapp)

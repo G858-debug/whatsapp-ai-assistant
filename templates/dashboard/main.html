@@ -1,0 +1,504 @@
+{% extends "dashboard/base.html" %} {% block title %}{{ user.name }} - {{
+relationship_type|title }} Dashboard{% endblock %} {% block content %}
+<!-- Header Section -->
+<div class="header-section">
+  <div class="row align-items-center">
+    <div class="col-md-8">
+      <h1><i class="bi bi-person-circle"></i> {{ user.name }}</h1>
+      <p class="mb-0">
+        <i class="bi bi-telephone"></i> {{ user.phone }} |
+        <i class="bi bi-envelope"></i> {{ user.email }}
+      </p>
+      <p class="mb-0">
+        <i class="bi bi-shield-check"></i> {{ role|title }} Dashboard
+      </p>
+    </div>
+    <div class="col-md-4 text-end">
+      <button class="btn btn-light btn-lg" onclick="exportCSV()">
+        <i class="bi bi-download"></i> Export CSV
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Section -->
+<div class="row p-4">
+  <div class="col-md-4">
+    <div class="stats-card text-center">
+      <h3 class="text-success">{{ stats.active_count }}</h3>
+      <p class="mb-0">Active {{ relationship_type|title }}</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stats-card text-center">
+      <h3 class="text-warning">{{ stats.pending_count }}</h3>
+      <p class="mb-0">Pending {{ relationship_type|title }}</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stats-card text-center">
+      <h3 class="text-info">{{ stats.total_count }}</h3>
+      <p class="mb-0">Total {{ relationship_type|title }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="p-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <input
+        type="text"
+        id="searchBox"
+        class="form-control search-box"
+        placeholder="🔍 Search by name, phone, or ID..."
+      />
+    </div>
+    <div class="col-md-4">
+      <select id="sortSelect" class="form-select search-box">
+        <option value="name">Sort by Name</option>
+        <option value="date">Sort by Date</option>
+        <option value="id">Sort by ID</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="text-center mb-4">
+    <button class="btn filter-btn active" data-status="active">
+      <i class="bi bi-check-circle"></i> Active
+    </button>
+    <button class="btn filter-btn" data-status="pending">
+      <i class="bi bi-clock"></i> Pending
+    </button>
+    <button class="btn filter-btn" data-status="all">
+      <i class="bi bi-list"></i> All
+    </button>
+  </div>
+</div>
+
+<!-- Loading Spinner -->
+<div class="loading" id="loading">
+  <div class="spinner-border" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+  <p class="mt-3">Loading {{ relationship_type }}...</p>
+</div>
+
+<!-- Relationships Section -->
+<div class="p-4">
+  <div id="relationshipsContainer">
+    {% if relationships %} {% for rel in relationships %}
+    <div
+      class="relationship-card"
+      data-name="{{ rel.name|lower }}"
+      data-phone="{{ rel.phone }}"
+      data-id="{{ rel.id|lower }}"
+      data-date="{{ rel.connected_date }}"
+      data-status="{{ rel.status }}"
+    >
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <h5 class="mb-2">
+            <i class="bi bi-person-fill text-success"></i>
+            {{ rel.name }}
+            <span
+              class="badge bg-{{ 'success' if rel.status == 'active' else 'warning' }} ms-2"
+            >
+              {{ rel.status|title }}
+            </span>
+          </h5>
+          <div class="row">
+            <div class="col-md-6">
+              <p class="mb-1">
+                <i class="bi bi-hash"></i> <strong>ID:</strong>
+                <span class="text-primary">{{ rel.id }}</span>
+                <button
+                  class="btn btn-copy ms-2"
+                  onclick="copyToClipboard('{{ rel.id }}')"
+                >
+                  <i class="bi bi-clipboard"></i> Copy
+                </button>
+              </p>
+              <p class="mb-1">
+                <i class="bi bi-telephone"></i> <strong>Phone:</strong> {{
+                rel.phone }}
+              </p>
+              <p class="mb-1">
+                <i class="bi bi-envelope"></i> <strong>Email:</strong> {{
+                rel.email }}
+              </p>
+            </div>
+            <div class="col-md-6">
+              {% if role == 'trainer' %} {% if rel.additional_info.goals %}
+              <p class="mb-1">
+                <i class="bi bi-target"></i> <strong>Goals:</strong> {{
+                rel.additional_info.goals }}
+              </p>
+              {% endif %} {% if rel.additional_info.experience %}
+              <p class="mb-1">
+                <i class="bi bi-star"></i> <strong>Experience:</strong> {{
+                rel.additional_info.experience }}
+              </p>
+              {% endif %} {% else %} {% if rel.additional_info.specialization %}
+              <p class="mb-1">
+                <i class="bi bi-award"></i> <strong>Specialization:</strong> {{
+                rel.additional_info.specialization }}
+              </p>
+              {% endif %} {% if rel.additional_info.experience %}
+              <p class="mb-1">
+                <i class="bi bi-calendar"></i> <strong>Experience:</strong> {{
+                rel.additional_info.experience }} years
+              </p>
+              {% endif %} {% if rel.additional_info.city %}
+              <p class="mb-1">
+                <i class="bi bi-geo-alt"></i> <strong>City:</strong> {{
+                rel.additional_info.city }}
+              </p>
+              {% endif %} {% endif %}
+              <p class="mb-1">
+                <i class="bi bi-calendar-check"></i>
+                <strong>Connected:</strong> {{ rel.connected_date }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 text-end">
+          <button
+            class="btn btn-remove"
+            onclick="removeRelationship('{{ rel.id }}', '{{ rel.name }}')"
+          >
+            <i class="bi bi-trash"></i> Remove
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %} {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-people" style="font-size: 4rem; color: #ccc"></i>
+      <h4 class="mt-3 text-muted">No {{ relationship_type }} found</h4>
+      <p class="text-muted">
+        Start building your network by inviting {{ relationship_type }}!
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Pagination -->
+  <nav aria-label="Relationships pagination" class="mt-4">
+    <ul
+      class="pagination pagination-custom justify-content-center"
+      id="pagination"
+    >
+      <!-- Pagination will be generated by JavaScript -->
+    </ul>
+  </nav>
+</div>
+
+<!-- Success/Error Messages -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+  <div id="alertContainer"></div>
+</div>
+
+<!-- Remove Confirmation Modal -->
+<div class="modal fade" id="removeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Removal</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Are you sure you want to remove <strong id="removeName"></strong>?
+        </p>
+        <p class="text-muted">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="confirmRemove">
+          Remove
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  let currentPage = 1;
+  let itemsPerPage = 10;
+  let currentFilter = "active";
+  let currentSort = "name";
+  let allRelationships = [];
+
+  // Initialize
+  $(document).ready(function () {
+    loadRelationships();
+    setupEventListeners();
+  });
+
+  function setupEventListeners() {
+    // Search functionality
+    $("#searchBox").on("input", function () {
+      currentPage = 1;
+      filterAndDisplayRelationships();
+    });
+
+    // Sort functionality
+    $("#sortSelect").on("change", function () {
+      currentSort = $(this).val();
+      currentPage = 1;
+      filterAndDisplayRelationships();
+    });
+
+    // Filter buttons
+    $(".filter-btn").on("click", function () {
+      $(".filter-btn").removeClass("active");
+      $(this).addClass("active");
+      currentFilter = $(this).data("status");
+      currentPage = 1;
+      filterAndDisplayRelationships();
+    });
+  }
+
+  function loadRelationships() {
+    $("#loading").show();
+
+    // Get relationships from the rendered data
+    allRelationships = [];
+    $(".relationship-card").each(function () {
+      const card = $(this);
+      allRelationships.push({
+        element: card,
+        name: card.data("name"),
+        phone: card.data("phone"),
+        id: card.data("id"),
+        date: card.data("date"),
+        status: card.data("status"),
+      });
+    });
+
+    $("#loading").hide();
+    filterAndDisplayRelationships();
+  }
+
+  function filterAndDisplayRelationships() {
+    const searchTerm = $("#searchBox").val().toLowerCase();
+
+    // Filter relationships
+    let filtered = allRelationships.filter((rel) => {
+      // Status filter
+      if (currentFilter !== "all" && rel.status !== currentFilter) {
+        return false;
+      }
+
+      // Search filter
+      if (searchTerm) {
+        return (
+          rel.name.includes(searchTerm) ||
+          rel.phone.includes(searchTerm) ||
+          rel.id.includes(searchTerm)
+        );
+      }
+
+      return true;
+    });
+
+    // Sort relationships
+    filtered.sort((a, b) => {
+      switch (currentSort) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "date":
+          return new Date(b.date) - new Date(a.date);
+        case "id":
+          return a.id.localeCompare(b.id);
+        default:
+          return 0;
+      }
+    });
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageItems = filtered.slice(startIndex, endIndex);
+
+    // Hide all cards
+    $(".relationship-card").hide();
+
+    // Show filtered cards
+    pageItems.forEach((rel) => {
+      rel.element.show();
+    });
+
+    // Update pagination
+    updatePagination(totalPages);
+
+    // Update results count
+    updateResultsCount(filtered.length, allRelationships.length);
+  }
+
+  function updatePagination(totalPages) {
+    const pagination = $("#pagination");
+    pagination.empty();
+
+    if (totalPages <= 1) return;
+
+    // Previous button
+    pagination.append(`
+        <li class="page-item ${currentPage === 1 ? "disabled" : ""}">
+            <a class="page-link" href="#" onclick="changePage(${
+              currentPage - 1
+            })">Previous</a>
+        </li>
+    `);
+
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - 2 && i <= currentPage + 2)
+      ) {
+        pagination.append(`
+                <li class="page-item ${i === currentPage ? "active" : ""}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                </li>
+            `);
+      } else if (i === currentPage - 3 || i === currentPage + 3) {
+        pagination.append(
+          '<li class="page-item disabled"><span class="page-link">...</span></li>'
+        );
+      }
+    }
+
+    // Next button
+    pagination.append(`
+        <li class="page-item ${currentPage === totalPages ? "disabled" : ""}">
+            <a class="page-link" href="#" onclick="changePage(${
+              currentPage + 1
+            })">Next</a>
+        </li>
+    `);
+  }
+
+  function updateResultsCount(filtered, total) {
+    // You can add a results counter here if needed
+  }
+
+  function changePage(page) {
+    if (page < 1 || page > Math.ceil(allRelationships.length / itemsPerPage))
+      return;
+    currentPage = page;
+    filterAndDisplayRelationships();
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard
+      .writeText(text)
+      .then(function () {
+        showAlert("success", "ID copied to clipboard!");
+      })
+      .catch(function () {
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        showAlert("success", "ID copied to clipboard!");
+      });
+  }
+
+  function removeRelationship(id, name) {
+    $("#removeName").text(name);
+    $("#removeModal").modal("show");
+
+    $("#confirmRemove")
+      .off("click")
+      .on("click", function () {
+        // Here you would make an API call to remove the relationship
+        // For now, we'll just remove it from the display
+        $(`.relationship-card[data-id="${id.toLowerCase()}"]`).fadeOut(
+          500,
+          function () {
+            $(this).remove();
+            allRelationships = allRelationships.filter(
+              (rel) => rel.id !== id.toLowerCase()
+            );
+            filterAndDisplayRelationships();
+          }
+        );
+
+        $("#removeModal").modal("hide");
+        showAlert("success", `${name} has been removed successfully!`);
+      });
+  }
+
+  function exportCSV() {
+    // Create CSV content
+    const headers = [
+      "Name",
+      "ID",
+      "Phone",
+      "Email",
+      "Status",
+      "Connected Date",
+    ];
+    let csvContent = headers.join(",") + "\n";
+
+    allRelationships.forEach((rel) => {
+      const row = [
+        rel.element.find("h5").text().replace(/\s+/g, " ").trim(),
+        rel.id,
+        rel.phone,
+        rel.element
+          .find('strong:contains("Email:")')
+          .parent()
+          .text()
+          .replace("Email:", "")
+          .trim(),
+        rel.status,
+        rel.date,
+      ];
+      csvContent += row.map((field) => `"${field}"`).join(",") + "\n";
+    });
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `{{ role }}_{{ user.id }}_relationships.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    showAlert("success", "CSV file downloaded successfully!");
+  }
+
+  function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    $("#alertContainer").append(alertHtml);
+
+    // Auto-dismiss after 3 seconds
+    setTimeout(function () {
+      $("#alertContainer .alert").first().alert("close");
+    }, 3000);
+  }
+</script>
+{% endblock %}
