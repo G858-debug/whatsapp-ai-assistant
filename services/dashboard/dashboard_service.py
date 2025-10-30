@@ -48,17 +48,27 @@ class DashboardService:
                 formatted = []
                 for client in relationships:
                     rel = client.get('relationship', {})
+                    
+                    # Format JSON arrays to comma-separated text
+                    preferred_training_times = client.get('preferred_training_times', [])
+                    if isinstance(preferred_training_times, list):
+                        training_times_text = ', '.join(preferred_training_times) if preferred_training_times else ''
+                    else:
+                        training_times_text = str(preferred_training_times) if preferred_training_times else ''
+                    
                     formatted.append({
                         'id': client.get('client_id', 'N/A'),
                         'name': client.get('name', 'N/A'),
-                        'phone': client.get('whatsapp', 'N/A'),
-                        'email': client.get('email', 'N/A'),
+                        'status': client.get('status', 'N/A'),
                         'additional_info': {
-                            'goals': client.get('fitness_goals', ''),
-                            'experience': client.get('experience_level', '')
+                            'experience_level': client.get('experience_level', ''),
+                            'health_conditions': client.get('health_conditions', ''),
+                            'fitness_goals': client.get('fitness_goals', ''),
+                            'availability': client.get('availability', ''),
+                            'preferred_training_times': training_times_text
                         },
                         'connected_date': rel.get('created_at', '')[:10] if rel.get('created_at') else 'N/A',
-                        'status': rel.get('connection_status', status)
+                        'connection_status': rel.get('connection_status', status)
                     })
                 return formatted
             
@@ -68,18 +78,48 @@ class DashboardService:
                 formatted = []
                 for trainer in relationships:
                     rel = trainer.get('relationship', {})
+                    
+                    # Format JSON arrays to comma-separated text
+                    services_offered = trainer.get('services_offered', [])
+                    if isinstance(services_offered, list):
+                        services_text = ', '.join(services_offered) if services_offered else ''
+                    else:
+                        services_text = str(services_offered) if services_offered else ''
+                    
+                    pricing_flexibility = trainer.get('pricing_flexibility', [])
+                    if isinstance(pricing_flexibility, list):
+                        pricing_flex_text = ', '.join(pricing_flexibility) if pricing_flexibility else ''
+                    else:
+                        pricing_flex_text = str(pricing_flexibility) if pricing_flexibility else ''
+                    
+                    available_days = trainer.get('available_days', [])
+                    if isinstance(available_days, list):
+                        available_days_text = ', '.join(available_days) if available_days else ''
+                    else:
+                        available_days_text = str(available_days) if available_days else ''
+                    
                     formatted.append({
                         'id': trainer.get('trainer_id', 'N/A'),
                         'name': trainer.get('name', 'N/A'),
-                        'phone': trainer.get('whatsapp', 'N/A'),
-                        'email': trainer.get('email', 'N/A'),
+                        'first_name': trainer.get('first_name', ''),
+                        'last_name': trainer.get('last_name', ''),
+                        'business_name': trainer.get('business_name', ''),
+                        'status': trainer.get('status', 'N/A'),
                         'additional_info': {
+                            'pricing_per_session': f"R{trainer.get('pricing_per_session', 0)}" if trainer.get('pricing_per_session') else '',
+                            'city': trainer.get('city', ''),
+                            'location': trainer.get('location', ''),
+                            'experience_years': trainer.get('experience_years', ''),
+                            'years_experience': trainer.get('years_experience', ''),
+                            'available_days': available_days_text,
+                            'preferred_time_slots': trainer.get('preferred_time_slots', ''),
                             'specialization': trainer.get('specialization', ''),
-                            'experience': trainer.get('experience_years', ''),
-                            'city': trainer.get('city', '')
+                            'services_offered': services_text,
+                            'pricing_flexibility': pricing_flex_text,
+                            'additional_notes': trainer.get('additional_notes', '')
                         },
                         'connected_date': rel.get('created_at', '')[:10] if rel.get('created_at') else 'N/A',
-                        'status': rel.get('connection_status', status)
+                        'connection_status': rel.get('connection_status', status)
                     })
                 return formatted
             

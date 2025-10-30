@@ -14,9 +14,12 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
       </p>
     </div>
     <div class="col-md-4 text-end">
-      <button class="btn btn-light btn-lg" onclick="exportCSV()">
-        <i class="bi bi-download"></i> Export CSV
-      </button>
+      <div class="alert alert-info p-2 mb-0">
+        <small
+          ><i class="bi bi-info-circle"></i> Use search and filters to find
+          specific {{ relationship_type }}</small
+        >
+      </div>
     </div>
   </div>
 </div>
@@ -46,23 +49,35 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
 <!-- Search and Filter Section -->
 <div class="p-4">
   <div class="row mb-4">
-    <div class="col-md-8">
+    <div class="col-md-6">
       <input
         type="text"
         id="searchBox"
         class="form-control search-box"
-        placeholder="🔍 Search by name, phone, or ID..."
+        placeholder="🔍 Search by name, ID, location, specialization..."
       />
     </div>
-    <div class="col-md-4">
+    <div class="col-md-6">
       <select id="sortSelect" class="form-select search-box">
         <option value="name">Sort by Name</option>
-        <option value="date">Sort by Date</option>
+        <option value="date">Sort by Date Connected</option>
         <option value="id">Sort by ID</option>
+        {% if role == 'client' %}
+        <option value="status">Sort by Status</option>
+        <option value="pricing">Sort by Price</option>
+        <option value="city">Sort by City</option>
+        <option value="experience">Sort by Experience</option>
+        <option value="specialization">Sort by Specialization</option>
+        {% else %}
+        <option value="status">Sort by Status</option>
+        <option value="experience_level">Sort by Experience Level</option>
+        <option value="goals">Sort by Fitness Goals</option>
+        {% endif %}
       </select>
     </div>
   </div>
 
+  <!-- Enhanced Filter Buttons -->
   <div class="text-center mb-4">
     <button class="btn filter-btn active" data-status="active">
       <i class="bi bi-check-circle"></i> Active
@@ -73,6 +88,47 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
     <button class="btn filter-btn" data-status="all">
       <i class="bi bi-list"></i> All
     </button>
+
+    {% if role == 'client' %}
+    <!-- Additional filters for trainers -->
+    <button
+      class="btn filter-btn"
+      data-filter="city"
+      onclick="showCityFilter()"
+    >
+      <i class="bi bi-geo-alt"></i> By City
+    </button>
+    <button
+      class="btn filter-btn"
+      data-filter="specialization"
+      onclick="showSpecializationFilter()"
+    >
+      <i class="bi bi-award"></i> By Specialization
+    </button>
+    <button
+      class="btn filter-btn"
+      data-filter="pricing"
+      onclick="showPricingFilter()"
+    >
+      <i class="bi bi-currency-dollar"></i> By Price Range
+    </button>
+    {% else %}
+    <!-- Additional filters for clients -->
+    <button
+      class="btn filter-btn"
+      data-filter="experience"
+      onclick="showExperienceFilter()"
+    >
+      <i class="bi bi-star"></i> By Experience
+    </button>
+    <button
+      class="btn filter-btn"
+      data-filter="goals"
+      onclick="showGoalsFilter()"
+    >
+      <i class="bi bi-target"></i> By Goals
+    </button>
+    {% endif %}
   </div>
 </div>
 
@@ -86,118 +142,145 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
 
 <!-- Relationships Section -->
 <div class="p-4">
-  <div id="relationshipsContainer">
-    {% if relationships %} {% for rel in relationships %}
-    <div
-      class="relationship-card"
-      data-name="{{ rel.name|lower }}"
-      data-phone="{{ rel.phone }}"
-      data-id="{{ rel.id|lower }}"
-      data-date="{{ rel.connected_date }}"
-      data-status="{{ rel.status }}"
-    >
-      <div class="row align-items-center">
-        <div class="col-md-8">
-          <h5 class="mb-2">
-            <i class="bi bi-person-fill text-success"></i>
-            {{ rel.name }}
-            <span
-              class="badge bg-{{ 'success' if rel.status == 'active' else 'warning' }} ms-2"
-            >
-              {{ rel.status|title }}
-            </span>
-          </h5>
-          <div class="row">
-            <div class="col-md-6">
-              <p class="mb-1">
-                <i class="bi bi-hash"></i> <strong>ID:</strong>
-                <span class="text-primary">{{ rel.id }}</span>
-                <button
-                  class="btn btn-copy ms-2"
-                  onclick="copyToClipboard('{{ rel.id }}')"
-                >
-                  <i class="bi bi-clipboard"></i> Copy
-                </button>
-              </p>
-              <p class="mb-1">
-                <i class="bi bi-telephone"></i> <strong>Phone:</strong> {{
-                rel.phone }}
-              </p>
-              <p class="mb-1">
-                <i class="bi bi-envelope"></i> <strong>Email:</strong> {{
-                rel.email }}
-              </p>
+    <div id="relationshipsContainer">
+        {% if relationships %}
+            {% for rel in relationships %}
+            <div class="relationship-card" 
+                 data-name="{{ rel.name|lower }}" 
+                 data-id="{{ rel.id|lower }}" 
+                 data-date="{{ rel.connected_date }}" 
+                 data-status="{{ rel.connection_status }}"
+                 {% if role == 'client' %}
+                 data-city="{{ rel.additional_info.city|lower }}"
+                 data-location="{{ rel.additional_info.location|lower }}"
+                 data-specialization="{{ rel.additional_info.specialization|lower }}"
+                 data-pricing="{{ rel.additional_info.pricing_per_session }}"
+                 data-experience="{{ rel.additional_info.experience_years }}"
+                 {% else %}
+                 data-experience-level="{{ rel.additional_info.experience_level|lower }}"
+                 data-goals="{{ rel.additional_info.fitness_goals|lower }}"
+                 data-health="{{ rel.additional_info.health_conditions|lower }}"
+                 {% endif %}>
+                
+                <div class="row align-items-center">
+                    <div class="col-md-12">
+                        <h5 class="mb-3">
+                            <i class="bi bi-person-fill text-success"></i> 
+                            {{ rel.name }}
+                            <span class="badge bg-{{ 'success' if rel.connection_status == 'active' else 'warning' }} ms-2">
+                                {{ rel.connection_status|title }}
+                            </span>
+                        </h5>
+                        
+                        <div class="row">
+                            <!-- Left Column -->
+                            <div class="col-md-6">
+                                <p class="mb-2">
+                                    <i class="bi bi-hash"></i> <strong>ID:</strong>
+                                    <span class="text-primary">{{ rel.id }}</span>
+                                    <button class="btn btn-copy ms-2" onclick="copyToClipboard('{{ rel.id }}')">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </p>
+                                
+                                {% if role == 'trainer' %}
+                                    <!-- Client Information -->
+                                    <p class="mb-2"><i class="bi bi-check-circle"></i> <strong>Status:</strong> {{ rel.status }}</p>
+                                    {% if rel.additional_info.experience_level %}
+                                    <p class="mb-2"><i class="bi bi-star"></i> <strong>Experience Level:</strong> {{ rel.additional_info.experience_level }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.health_conditions %}
+                                    <p class="mb-2"><i class="bi bi-heart-pulse"></i> <strong>Health Conditions:</strong> {{ rel.additional_info.health_conditions }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.fitness_goals %}
+                                    <p class="mb-2"><i class="bi bi-target"></i> <strong>Fitness Goals:</strong> {{ rel.additional_info.fitness_goals }}</p>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- Trainer Information -->
+                                    <p class="mb-2"><i class="bi bi-check-circle"></i> <strong>Status:</strong> {{ rel.status }}</p>
+                                    {% if rel.first_name or rel.last_name %}
+                                    <p class="mb-2"><i class="bi bi-person"></i> <strong>Full Name:</strong> {{ rel.first_name }} {{ rel.last_name }}</p>
+                                    {% endif %}
+                                    {% if rel.business_name %}
+                                    <p class="mb-2"><i class="bi bi-building"></i> <strong>Business:</strong> {{ rel.business_name }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.pricing_per_session %}
+                                    <p class="mb-2"><i class="bi bi-currency-dollar"></i> <strong>Price/Session:</strong> {{ rel.additional_info.pricing_per_session }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.city or rel.additional_info.location %}
+                                    <p class="mb-2"><i class="bi bi-geo-alt"></i> <strong>Location:</strong> {{ rel.additional_info.city or rel.additional_info.location }}</p>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Right Column -->
+                            <div class="col-md-6">
+                                {% if role == 'trainer' %}
+                                    <!-- More Client Information -->
+                                    {% if rel.additional_info.availability %}
+                                    <p class="mb-2"><i class="bi bi-calendar"></i> <strong>Availability:</strong> {{ rel.additional_info.availability }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.preferred_training_times %}
+                                    <p class="mb-2"><i class="bi bi-clock"></i> <strong>Preferred Times:</strong> {{ rel.additional_info.preferred_training_times }}</p>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- More Trainer Information -->
+                                    {% if rel.additional_info.experience_years or rel.additional_info.years_experience %}
+                                    <p class="mb-2"><i class="bi bi-calendar"></i> <strong>Experience:</strong> {{ rel.additional_info.experience_years or rel.additional_info.years_experience }} years</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.available_days %}
+                                    <p class="mb-2"><i class="bi bi-calendar-week"></i> <strong>Available Days:</strong> {{ rel.additional_info.available_days }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.preferred_time_slots %}
+                                    <p class="mb-2"><i class="bi bi-clock"></i> <strong>Time Slots:</strong> {{ rel.additional_info.preferred_time_slots }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.specialization %}
+                                    <p class="mb-2"><i class="bi bi-award"></i> <strong>Specialization:</strong> {{ rel.additional_info.specialization }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.services_offered %}
+                                    <p class="mb-2"><i class="bi bi-list-check"></i> <strong>Services:</strong> {{ rel.additional_info.services_offered }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.pricing_flexibility %}
+                                    <p class="mb-2"><i class="bi bi-cash-stack"></i> <strong>Pricing Flexibility:</strong> {{ rel.additional_info.pricing_flexibility }}</p>
+                                    {% endif %}
+                                    {% if rel.additional_info.additional_notes %}
+                                    <p class="mb-2"><i class="bi bi-journal-text"></i> <strong>Notes:</strong> {{ rel.additional_info.additional_notes }}</p>
+                                    {% endif %}
+                                {% endif %}
+                                <p class="mb-2">
+                                    <i class="bi bi-calendar-check"></i>
+                                    <strong>Connected:</strong> {{ rel.connected_date }}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Remove Instructions -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-info p-2 mb-0">
+                                    <small>
+                                        <i class="bi bi-info-circle"></i> 
+                                        To remove: Copy ID above, then use 
+                                        <code>{{ '/remove-trainee' if role == 'trainer' else '/remove-trainer' }}</code> 
+                                        in WhatsApp
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6">
-              {% if role == 'trainer' %} {% if rel.additional_info.goals %}
-              <p class="mb-1">
-                <i class="bi bi-target"></i> <strong>Goals:</strong> {{
-                rel.additional_info.goals }}
-              </p>
-              {% endif %} {% if rel.additional_info.experience %}
-              <p class="mb-1">
-                <i class="bi bi-star"></i> <strong>Experience:</strong> {{
-                rel.additional_info.experience }}
-              </p>
-              {% endif %} {% else %} {% if rel.additional_info.specialization %}
-              <p class="mb-1">
-                <i class="bi bi-award"></i> <strong>Specialization:</strong> {{
-                rel.additional_info.specialization }}
-              </p>
-              {% endif %} {% if rel.additional_info.experience %}
-              <p class="mb-1">
-                <i class="bi bi-calendar"></i> <strong>Experience:</strong> {{
-                rel.additional_info.experience }} years
-              </p>
-              {% endif %} {% if rel.additional_info.city %}
-              <p class="mb-1">
-                <i class="bi bi-geo-alt"></i> <strong>City:</strong> {{
-                rel.additional_info.city }}
-              </p>
-              {% endif %} {% endif %}
-              <p class="mb-1">
-                <i class="bi bi-calendar-check"></i>
-                <strong>Connected:</strong> {{ rel.connected_date }}
-              </p>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-people" style="font-size: 4rem; color: #ccc;"></i>
+                <h4 class="mt-3 text-muted">No {{ relationship_type }} found</h4>
+                <p class="text-muted">Start building your network by inviting {{ relationship_type }}!</p>
             </div>
-          </div>
-        </div>
-        <div class="col-md-4 text-end">
-          <div class="alert alert-info p-2 mb-0">
-            <small>
-              <i class="bi bi-info-circle"></i>
-              To remove: Copy ID above, then use
-              <code
-                >{{ '/remove-trainee' if role == 'trainer' else
-                '/remove-trainer' }}</code
-              >
-              in WhatsApp
-            </small>
-          </div>
-        </div>
-      </div>
+        {% endif %}
     </div>
-    {% endfor %} {% else %}
-    <div class="text-center py-5">
-      <i class="bi bi-people" style="font-size: 4rem; color: #ccc"></i>
-      <h4 class="mt-3 text-muted">No {{ relationship_type }} found</h4>
-      <p class="text-muted">
-        Start building your network by inviting {{ relationship_type }}!
-      </p>
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Pagination -->
-  <nav aria-label="Relationships pagination" class="mt-4">
-    <ul
-      class="pagination pagination-custom justify-content-center"
-      id="pagination"
-    >
-      <!-- Pagination will be generated by JavaScript -->
-    </ul>
-  </nav>
 </div>
+
 
 <!-- Success/Error Messages -->
 <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
@@ -263,62 +346,143 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
     filterAndDisplayRelationships();
   }
 
-  function filterAndDisplayRelationships() {
-    const searchTerm = $("#searchBox").val().toLowerCase();
+ // Enhanced filtering and sorting
+    function filterAndDisplayRelationships() {
+        const searchTerm = $('#searchBox').val().toLowerCase();
+        
+        // Filter relationships
+        let filtered = allRelationships.filter(rel => {
+            // Status filter
+            if (currentFilter !== 'all' && rel.status !== currentFilter) {
+                return false;
+            }
+            
+            // Search filter - enhanced to search more fields
+            if (searchTerm) {
+                const searchableText = [
+                    rel.name,
+                    rel.id,
+                    rel.element.data('city') || '',
+                    rel.element.data('location') || '',
+                    rel.element.data('specialization') || '',
+                    rel.element.data('experience-level') || '',
+                    rel.element.data('goals') || '',
+                    rel.element.data('health') || ''
+                ].join(' ').toLowerCase();
+                
+                return searchableText.includes(searchTerm);
+            }
+            
+            return true;
+        });
+        
+        // Enhanced sorting
+        filtered.sort((a, b) => {
+            switch (currentSort) {
+                case 'name':
+                    return a.name.localeCompare(b.name);
+                case 'date':
+                    return new Date(b.date) - new Date(a.date);
+                case 'id':
+                    return a.id.localeCompare(b.id);
+                case 'status':
+                    return a.element.data('status').localeCompare(b.element.data('status'));
+                case 'pricing':
+                    const priceA = parseFloat(a.element.data('pricing')) || 0;
+                    const priceB = parseFloat(b.element.data('pricing')) || 0;
+                    return priceA - priceB;
+                case 'city':
+                    const cityA = a.element.data('city') || a.element.data('location') || '';
+                    const cityB = b.element.data('city') || b.element.data('location') || '';
+                    return cityA.localeCompare(cityB);
+                case 'experience':
+                    const expA = a.element.data('experience') || '';
+                    const expB = b.element.data('experience') || '';
+                    return expA.localeCompare(expB);
+                case 'specialization':
+                    const specA = a.element.data('specialization') || '';
+                    const specB = b.element.data('specialization') || '';
+                    return specA.localeCompare(specB);
+                case 'experience_level':
+                    const levelA = a.element.data('experience-level') || '';
+                    const levelB = b.element.data('experience-level') || '';
+                    return levelA.localeCompare(levelB);
+                case 'goals':
+                    const goalsA = a.element.data('goals') || '';
+                    const goalsB = b.element.data('goals') || '';
+                    return goalsA.localeCompare(goalsB);
+                default:
+                    return 0;
+            }
+        });
+        
+        // Pagination and display logic (same as before)
+        const totalPages = Math.ceil(filtered.length / itemsPerPage);
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageItems = filtered.slice(startIndex, endIndex);
+        
+        // Hide all cards
+        $('.relationship-card').hide();
+        
+        // Show filtered cards
+        pageItems.forEach(rel => {
+            rel.element.show();
+        });
+        
+        // Update pagination
+        updatePagination(totalPages);
+    }
 
-    // Filter relationships
-    let filtered = allRelationships.filter((rel) => {
-      // Status filter
-      if (currentFilter !== "all" && rel.status !== currentFilter) {
-        return false;
-      }
+    // Additional filter functions
+    function showCityFilter() {
+        // Get unique cities
+        const cities = [...new Set(allRelationships.map(rel => 
+            rel.element.data('city') || rel.element.data('location') || ''
+        ).filter(city => city))];
+        
+        // Create city filter dropdown (you can implement this)
+        console.log('Available cities:', cities);
+    }
 
-      // Search filter
-      if (searchTerm) {
-        return (
-          rel.name.includes(searchTerm) ||
-          rel.phone.includes(searchTerm) ||
-          rel.id.includes(searchTerm)
-        );
-      }
+    function showSpecializationFilter() {
+        // Get unique specializations
+        const specializations = [...new Set(allRelationships.map(rel => 
+            rel.element.data('specialization') || ''
+        ).filter(spec => spec))];
+        
+        console.log('Available specializations:', specializations);
+    }
 
-      return true;
-    });
+    function showPricingFilter() {
+        // Get price ranges
+        const prices = allRelationships.map(rel => 
+            parseFloat(rel.element.data('pricing')) || 0
+        ).filter(price => price > 0);
+        
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        
+        console.log('Price range:', minPrice, 'to', maxPrice);
+    }
 
-    // Sort relationships
-    filtered.sort((a, b) => {
-      switch (currentSort) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "date":
-          return new Date(b.date) - new Date(a.date);
-        case "id":
-          return a.id.localeCompare(b.id);
-        default:
-          return 0;
-      }
-    });
+    function showExperienceFilter() {
+        // Get unique experience levels
+        const levels = [...new Set(allRelationships.map(rel => 
+            rel.element.data('experience-level') || ''
+        ).filter(level => level))];
+        
+        console.log('Available experience levels:', levels);
+    }
 
-    // Pagination
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageItems = filtered.slice(startIndex, endIndex);
-
-    // Hide all cards
-    $(".relationship-card").hide();
-
-    // Show filtered cards
-    pageItems.forEach((rel) => {
-      rel.element.show();
-    });
-
-    // Update pagination
-    updatePagination(totalPages);
-
-    // Update results count
-    updateResultsCount(filtered.length, allRelationships.length);
-  }
+    function showGoalsFilter() {
+        // Get unique fitness goals
+        const goals = [...new Set(allRelationships.map(rel => 
+            rel.element.data('goals') || ''
+        ).filter(goal => goal))];
+        
+        console.log('Available fitness goals:', goals);
+    }
 
   function updatePagination(totalPages) {
     const pagination = $("#pagination");
@@ -391,49 +555,6 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
         document.body.removeChild(textArea);
         showAlert("success", "ID copied to clipboard!");
       });
-  }
-
-  function exportCSV() {
-    // Create CSV content
-    const headers = [
-      "Name",
-      "ID",
-      "Phone",
-      "Email",
-      "Status",
-      "Connected Date",
-    ];
-    let csvContent = headers.join(",") + "\n";
-
-    allRelationships.forEach((rel) => {
-      const row = [
-        rel.element.find("h5").text().replace(/\s+/g, " ").trim(),
-        rel.id,
-        rel.phone,
-        rel.element
-          .find('strong:contains("Email:")')
-          .parent()
-          .text()
-          .replace("Email:", "")
-          .trim(),
-        rel.status,
-        rel.date,
-      ];
-      csvContent += row.map((field) => `"${field}"`).join(",") + "\n";
-    });
-
-    // Download CSV
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `{{ role }}_{{ user.id }}_relationships.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    showAlert("success", "CSV file downloaded successfully!");
   }
 
   function showAlert(type, message) {
