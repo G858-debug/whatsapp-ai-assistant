@@ -25,28 +25,16 @@ class DashboardTokenManager:
             # Set expiration (1 hour from now)
             expires_at = datetime.now() + timedelta(hours=1)
             
-            # Store token in database - compatible with existing schema
+            # Use your current schema format
             token_data = {
-                'user_id': user_id,  # New field for both trainers and clients
-                'role': role,        # New field to distinguish trainer/client
-                'purpose': purpose,  # New field for token purpose
-                'token_hash': token_hash,  # New secure hash field
-                'token': token[:255],      # Keep original token field for compatibility
+                'user_id': user_id,
+                'role': role,
+                'purpose': purpose,
+                'token_hash': token_hash,
                 'expires_at': expires_at.isoformat(),
                 'created_at': datetime.now().isoformat(),
                 'used': False
             }
-            
-            # For trainers, also set trainer_id for backward compatibility
-            if role == 'trainer':
-                try:
-                    # Try to get trainer UUID from trainers table
-                    trainer_result = self.db.table('trainers').select('id').eq('trainer_id', user_id).execute()
-                    if trainer_result.data:
-                        token_data['trainer_id'] = trainer_result.data[0]['id']
-                except:
-                    # If we can't get UUID, skip trainer_id (new schema doesn't need it)
-                    pass
             
             result = self.db.table('dashboard_tokens').insert(token_data).execute()
             
@@ -65,64 +53,30 @@ class DashboardTokenManager:
         try:
             token_hash = hashlib.sha256(token.encode()).hexdigest()
             
-            # Try new token_hash field first, fallback to old token field
-            result = None
+            # Find valid token using your current schema
+            result = self.db.table('dashboard_tokens').select('*').eq(
+                'token_hash', token_hash
+            ).eq('user_id', user_id).eq('used', False).gt(
+                'expires_at', datetime.now().isoformat()
+            ).execute()
             
-            # Method 1: Try with token_hash (new secure method)
-            try:
-                result = self.db.table('dashboard_tokens').select('*').eq(
-                    'token_hash', token_hash
-                ).eq('user_id', user_id).eq('used', False).gt(
-                    'expires_at', datetime.now().isoformat()
-                ).execute()
-            except:
-                pass
-            
-            # Method 2: Fallback to old token field if token_hash doesn't exist
-            if not result or not result.data:
-                try:
-                    result = self.db.table('dashboard_tokens').select('*').eq(
-                        'token', token
-                    ).eq('user_id', user_id).gt(
-                        'expires_at', datetime.now().isoformat()
-                    ).execute()
-                except:
-                    pass
-            
-            # Method 3: For old records without user_id, try trainer_id
-            if not result or not result.data:
-                try:
-                    result = self.db.table('dashboard_tokens').select('*').eq(
-                        'token', token
-                    ).eq('trainer_id', user_id).gt(
-                        'expires_at', datetime.now().isoformat()
-                    ).execute()
-                except:
-                    pass
-            
-            if not result or not result.data:
+            if not result.data:
                 return None
             
             token_data = result.data[0]
             
             # Mark token as used (one-time use for security)
-            update_data = {'used_at': datetime.now().isoformat()}
-            if 'used' in token_data:  # Only set used if column exists
-                update_data['used'] = True
-                
-            self.db.table('dashboard_tokens').update(update_data).eq('id', token_data['id']).execute()
+            self.db.table('dashboard_tokens').update({
+                'used': True,
+                'used_at': datetime.now().isoformat()
+            }).eq('id', token_data['id']).execute()
             
-            # Extract role and user_id with fallbacks for old records
-            role = token_data.get('role', 'trainer')  # Default to trainer for old records
-            actual_user_id = token_data.get('user_id', user_id)
-            purpose = token_data.get('purpose', 'dashboard')
-            
-            log_info(f"Validated dashboard token for {role} {actual_user_id}")
+            log_info(f"Validated dashboard token for {token_data['role']} {user_id}")
             
             return {
-                'user_id': actual_user_id,
-                'role': role,
-                'purpose': purpose
+                'user_id': token_data['user_id'],
+                'role': token_data['role'],
+                'purpose': token_data['purpose']
             }
             
         except Exception as e:
@@ -142,23 +96,3 @@ class DashboardTokenManager:
         except Exception as e:
             log_error(f"Error cleaning up expired tokens: {str(e)}")
     
-    def migrate_old_tokens(self):
-        """Migrate old tokens to new format (run once after schema update)"""
-        try:
-            # Find tokens without user_id or role
-            result = self.db.table('dashboard_tokens').select('*').is_('user_id', 'null').execute()
-            
-            for token_record in result.data:
-                if token_record.get('trainer_id'):
-                    # Update old token with new fields
-                    self.db.table('dashboard_tokens').update({
-                        'user_id': str(token_record['trainer_id']),
-                        'role': 'trainer',
-                        'purpose': 'dashboard',
-                        'used': False
-                    }).eq('id', token_record['id']).execute()
-            
-            log_info("Migrated old dashboard tokens to new format")
-            
-        except Exception as e:
-            log_error(f"Error migrating old tokens: {str(e)}")
