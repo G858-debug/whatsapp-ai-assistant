@@ -44,6 +44,10 @@ Analyze the message and return ONLY valid JSON with:
 Examples:
 - "show me my profile" → {{"intent": "view_profile", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-profile"}}
 - "I want to change my email" → {{"intent": "edit_profile", "confidence": 0.85, "needs_action": true, "suggested_command": "/edit-profile"}}
+- "show my clients" (trainer) → {{"intent": "view_trainees", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainees"}}
+- "view my trainers" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
+- "list my trainees" (trainer) → {{"intent": "view_trainees", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainees"}}
+- "see trainer list" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
 - "how do I add clients?" → {{"intent": "general_conversation", "confidence": 0.8, "needs_action": false, "is_asking_about_phase2": true}}
 - "hi" → {{"intent": "general_conversation", "confidence": 0.9, "needs_action": false}}
 
@@ -66,8 +70,8 @@ Available Features (Phase 1):
 Available Features (Phase 2):
 - Invite existing client (/invite-trainee)
 - Create new client (/create-trainee)
-- View clients (/view-trainees)
-- Remove client (/remove-trainee)
+- View client list or manage clients (/view-trainees)
+- Remove client from list (/remove-trainee)
 
 Available Features (Phase 3):
 - Create habits (/create-habit)
@@ -91,8 +95,8 @@ Available Features (Phase 1):
 Available Features (Phase 2):
 - Search trainers (/search-trainer)
 - Invite trainer (/invite-trainer)
-- View trainers or view trainer (/view-trainers)
-- Remove trainer (/remove-trainer)
+- View trainer list or manage trainers (/view-trainers)
+- Remove trainer from list (/remove-trainer)
 
 Available Features (Phase 3):
 - View assigned habits (/view-my-habits)

@@ -31,20 +31,47 @@ def generate_dashboard_link(phone: str, user_id: str, role: str, db, whatsapp, p
         
         # Send dashboard link
         remove_command = '/remove-trainee' if role == 'trainer' else '/remove-trainer'
-        msg = (
-            f"🌐 *Web Dashboard*\n\n"
-            f"View and manage your {viewing_type} in a beautiful web interface:\n\n"
-            f"🔗 {dashboard_url}\n\n"
-            f"✨ *Features:*\n"
-            f"• Search and filter {viewing_type}\n"
-            f"• Sort by name, date, etc.\n"
-            f"• Copy IDs for quick actions\n"
-            f"• Export to CSV\n"
-            f"• Mobile-friendly design\n\n"
-            f"🗑️ *To Remove:* Copy ID from dashboard, then use `{remove_command}` command\n\n"
-            f"🔒 *Security:* Link expires in 1 hour\n\n"
-            f"💡 *Tip:* Bookmark the link for quick access!"
-        )
+        
+        # Customize message based on purpose
+        if purpose == 'view_clients' or purpose == 'view_trainers':
+            msg = (
+                f"🌐 *{viewing_type.title()} Dashboard*\n\n"
+                f"Use this link to search, filter, and browse your {viewing_type}:\n\n"
+                f"🔗 {dashboard_url}\n\n"
+                f"✨ *Perfect for:*\n"
+                f"• Finding specific {viewing_type[:-1]} quickly\n"
+                f"• Getting IDs for other commands\n"
+                f"• Viewing detailed information\n"
+                f"• Exporting your list\n\n"
+                f"🔒 *Security:* Link expires in 1 hour"
+            )
+        elif purpose == 'remove_client' or purpose == 'remove_trainer':
+            target_type = 'client' if purpose == 'remove_client' else 'trainer'
+            msg = (
+                f"🗑️ *Remove {target_type.title()} - Step 1*\n\n"
+                f"First, browse your {viewing_type} to find who you want to remove:\n\n"
+                f"🔗 {dashboard_url}\n\n"
+                f"📋 *What to do:*\n"
+                f"• Search or browse to find the {target_type}\n"
+                f"• Copy their ID (click the copy button)\n"
+                f"• Return to WhatsApp with the ID\n\n"
+                f"🔒 *Security:* Link expires in 1 hour"
+            )
+        else:
+            msg = (
+                f"🌐 *Web Dashboard*\n\n"
+                f"View and manage your {viewing_type} in a beautiful web interface:\n\n"
+                f"🔗 {dashboard_url}\n\n"
+                f"✨ *Features:*\n"
+                f"• Search and filter {viewing_type}\n"
+                f"• Sort by name, date, etc.\n"
+                f"• Copy IDs for quick actions\n"
+                f"• Export to CSV\n"
+                f"• Mobile-friendly design\n\n"
+                f"🗑️ *To Remove:* Copy ID from dashboard, then use `{remove_command}` command\n\n"
+                f"🔒 *Security:* Link expires in 1 hour\n\n"
+                f"💡 *Tip:* Bookmark the link for quick access!"
+            )
         
         whatsapp.send_message(phone, msg)
         

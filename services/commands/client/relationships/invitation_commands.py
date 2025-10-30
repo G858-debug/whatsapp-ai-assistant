@@ -47,9 +47,35 @@ def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service
 
 
 def handle_remove_trainer(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
-    """Handle /remove-trainer command"""
+    """Handle /remove-trainer command - Guide to dashboard first"""
     try:
-        # Create remove_trainer task
+        from services.commands.dashboard import generate_dashboard_link
+        
+        # Generate dashboard link for browsing trainers
+        dashboard_result = generate_dashboard_link(phone, client_id, 'client', db, whatsapp, 'remove_trainer')
+        
+        if dashboard_result['success']:
+            # Add additional instructions for removal
+            additional_msg = (
+                "\n\n🗑️ *To Remove a Trainer:*\n"
+                "1. Browse your trainers using the link above\n"
+                "2. Find the trainer you want to remove\n"
+                "3. Copy their Trainer ID\n"
+                "4. Come back to WhatsApp and type: `/remove-trainer [TRAINER_ID]`\n\n"
+                "⚠️ *Warning:* This will remove them from your list and delete all habit assignments from them.\n\n"
+                "Type /stop to cancel anytime."
+            )
+            
+            # Send the additional instructions
+            whatsapp.send_message(phone, additional_msg)
+            
+            return {
+                'success': True,
+                'response': dashboard_result['response'] + additional_msg,
+                'handler': 'remove_trainer_dashboard_sent'
+            }
+        
+        # Fallback to direct ID request if dashboard fails
         task_id = task_service.create_task(
             user_id=client_id,
             role='client',
@@ -62,10 +88,11 @@ def handle_remove_trainer(phone: str, client_id: str, db, whatsapp, task_service
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'remove_trainer_task_error'}
         
-        # Ask for trainer ID
+        # Ask for trainer ID directly
         msg = (
             "🗑️ *Remove Trainer*\n\n"
             "Please provide the trainer ID you want to remove.\n\n"
+            "💡 *Tip:* Use /view-trainers to see your trainer list and get their IDs.\n\n"
             "⚠️ This will remove them from your trainer list and delete all habit assignments from them.\n\n"
             "Type /stop to cancel."
         )
