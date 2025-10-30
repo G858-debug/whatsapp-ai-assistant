@@ -21,19 +21,7 @@
 
 <!-- Stats Section -->
 <div class="row p-4">
-    <div class="col-md-4">
-        <div class="stats-card text-center">
-            <h3 class="text-success">{{ stats.active_count }}</h3>
-            <p class="mb-0">Active {{ relationship_type|title }}</p>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="stats-card text-center">
-            <h3 class="text-warning">{{ stats.pending_count }}</h3>
-            <p class="mb-0">Pending {{ relationship_type|title }}</p>
-        </div>
-    </div>
-    <div class="col-md-4">
+    <div class="col-md-12">
         <div class="stats-card text-center">
             <h3 class="text-info">{{ stats.total_count }}</h3>
             <p class="mb-0">Total {{ relationship_type|title }}</p>
@@ -68,17 +56,7 @@
         </div>
     </div>
     
-    <div class="text-center mb-4">
-        <button class="btn filter-btn active" data-status="active">
-            <i class="bi bi-check-circle"></i> Active
-        </button>
-        <button class="btn filter-btn" data-status="pending">
-            <i class="bi bi-clock"></i> Pending
-        </button>
-        <button class="btn filter-btn" data-status="all">
-            <i class="bi bi-list"></i> All
-        </button>
-    </div>
+
 </div>
 
 <!-- Loading Spinner -->
@@ -271,14 +249,7 @@ function setupEventListeners() {
         filterAndDisplayRelationships();
     });
     
-    // Filter buttons
-    $('.filter-btn').on('click', function() {
-        $('.filter-btn').removeClass('active');
-        $(this).addClass('active');
-        currentFilter = $(this).data('status');
-        currentPage = 1;
-        filterAndDisplayRelationships();
-    });
+
 }
 
 function loadRelationships() {
@@ -306,11 +277,6 @@ function filterAndDisplayRelationships() {
     
     // Filter relationships
     let filtered = allRelationships.filter(rel => {
-        // Status filter
-        if (currentFilter !== 'all' && rel.status !== currentFilter) {
-            return false;
-        }
-        
         // Enhanced search filter
         if (searchTerm) {
             const searchableText = [

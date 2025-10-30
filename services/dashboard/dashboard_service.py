@@ -51,10 +51,12 @@ class DashboardService:
                     
                     # Format JSON arrays to comma-separated text
                     preferred_training_times = client.get('preferred_training_times', [])
-                    if isinstance(preferred_training_times, list):
-                        training_times_text = ', '.join(preferred_training_times) if preferred_training_times else ''
+                    if isinstance(preferred_training_times, list) and preferred_training_times:
+                        training_times_text = ', '.join([str(item) for item in preferred_training_times if item])
+                    elif isinstance(preferred_training_times, str) and preferred_training_times and preferred_training_times != '[]':
+                        training_times_text = preferred_training_times
                     else:
-                        training_times_text = str(preferred_training_times) if preferred_training_times else ''
+                        training_times_text = ''
                     
                     formatted.append({
                         'id': client.get('client_id', 'N/A'),
@@ -81,22 +83,28 @@ class DashboardService:
                     
                     # Format JSON arrays to comma-separated text
                     services_offered = trainer.get('services_offered', [])
-                    if isinstance(services_offered, list):
-                        services_text = ', '.join(services_offered) if services_offered else ''
+                    if isinstance(services_offered, list) and services_offered:
+                        services_text = ', '.join([str(item) for item in services_offered if item])
+                    elif isinstance(services_offered, str) and services_offered and services_offered != '[]':
+                        services_text = services_offered
                     else:
-                        services_text = str(services_offered) if services_offered else ''
+                        services_text = ''
                     
                     pricing_flexibility = trainer.get('pricing_flexibility', [])
-                    if isinstance(pricing_flexibility, list):
-                        pricing_flex_text = ', '.join(pricing_flexibility) if pricing_flexibility else ''
+                    if isinstance(pricing_flexibility, list) and pricing_flexibility:
+                        pricing_flex_text = ', '.join([str(item) for item in pricing_flexibility if item])
+                    elif isinstance(pricing_flexibility, str) and pricing_flexibility and pricing_flexibility != '[]':
+                        pricing_flex_text = pricing_flexibility
                     else:
-                        pricing_flex_text = str(pricing_flexibility) if pricing_flexibility else ''
+                        pricing_flex_text = ''
                     
                     available_days = trainer.get('available_days', [])
-                    if isinstance(available_days, list):
-                        available_days_text = ', '.join(available_days) if available_days else ''
+                    if isinstance(available_days, list) and available_days:
+                        available_days_text = ', '.join([str(item) for item in available_days if item])
+                    elif isinstance(available_days, str) and available_days and available_days != '[]':
+                        available_days_text = available_days
                     else:
-                        available_days_text = str(available_days) if available_days else ''
+                        available_days_text = ''
                     
                     formatted.append({
                         'id': trainer.get('trainer_id', 'N/A'),
