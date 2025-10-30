@@ -26,9 +26,6 @@ def handle_invite_client(phone: str, trainer_id: str, db, whatsapp, task_service
         msg = (
             "👥 *Invite Existing Client*\n\n"
             "Please provide the client ID or phone number you want to invite.\n\n"
-            "💡 Examples:\n"
-            "• Client ID: asra30\n"
-            "• Phone: 8801902604456\n\n"
             "The client must already be registered in the system.\n\n"
             "Type /stop to cancel."
         )

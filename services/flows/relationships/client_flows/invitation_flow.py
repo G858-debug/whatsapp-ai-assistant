@@ -24,21 +24,28 @@ class InvitationFlow:
             step = task_data.get('step', 'ask_trainer_id')
             
             if step == 'ask_trainer_id':
-                # User provided trainer_id
-                trainer_id = message.strip().upper()
+                # User provided trainer_id or phone number
+                input_value = message.strip()
                 
-                # Validate trainer exists
-                trainer_result = self.db.table('trainers').select('*').eq('trainer_id', trainer_id).execute()
+                # Try to find trainer by ID first (case-insensitive)
+                trainer_result = self.db.table('trainers').select('*').ilike('trainer_id', input_value).execute()
+                
+                # If not found by ID, try by phone number
+                if not trainer_result.data:
+                    # Clean phone number (remove + and formatting)
+                    clean_phone = input_value.replace('+', '').replace('-', '').replace(' ', '')
+                    trainer_result = self.db.table('trainers').select('*').eq('whatsapp', clean_phone).execute()
                 
                 if not trainer_result.data:
                     msg = (
-                        f"❌ Trainer ID '{trainer_id}' not found.\n\n"
-                        f"Please check the ID and try again, or type /stop to cancel."
+                        f"❌ Trainer with ID or phone number '{input_value}' not found.\n\n"
+                        f"Please check the ID/phone number and try again, or type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
                     return {'success': True, 'response': msg, 'handler': 'invite_trainer_invalid_id'}
                 
                 trainer = trainer_result.data[0]
+                trainer_id = trainer['trainer_id']  # Use actual trainer_id from database
                 
                 # Check if already connected
                 if self.relationship_service.check_relationship_exists(trainer_id, client_id):
@@ -51,8 +58,9 @@ class InvitationFlow:
                     return {'success': True, 'response': msg, 'handler': 'invite_trainer_already_connected'}
                 
                 # Send invitation
-                success = self.invitation_service.send_client_to_trainer_invitation(
-                    client_id, trainer_id
+                trainer_phone = trainer.get('whatsapp')
+                success, error_msg = self.invitation_service.send_client_to_trainer_invitation(
+                    client_id, trainer_id, trainer_phone
                 )
                 
                 if success:
@@ -64,7 +72,7 @@ class InvitationFlow:
                     self.task_service.complete_task(task['id'], 'client')
                     return {'success': True, 'response': msg, 'handler': 'invite_trainer_sent'}
                 else:
-                    msg = "❌ Failed to send invitation. Please try again later."
+                    msg = f"❌ Failed to send invitation: {error_msg}"
                     self.whatsapp.send_message(phone, msg)
                     self.task_service.complete_task(task['id'], 'client')
                     return {'success': False, 'response': msg, 'handler': 'invite_trainer_failed'}

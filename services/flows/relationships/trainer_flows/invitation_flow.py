@@ -58,8 +58,9 @@ class InvitationFlow:
                     return {'success': True, 'response': msg, 'handler': 'invite_trainee_already_connected'}
                 
                 # Send invitation
-                success = self.invitation_service.send_trainer_to_client_invitation(
-                    trainer_id, client_id
+                client_phone = client.get('whatsapp')
+                success, error_msg = self.invitation_service.send_trainer_to_client_invitation(
+                    trainer_id, client_id, client_phone
                 )
                 
                 if success:
@@ -71,7 +72,7 @@ class InvitationFlow:
                     self.task_service.complete_task(task['id'], 'trainer')
                     return {'success': True, 'response': msg, 'handler': 'invite_trainee_sent'}
                 else:
-                    msg = "❌ Failed to send invitation. Please try again later."
+                    msg = f"❌ Failed to send invitation: {error_msg}"
                     self.whatsapp.send_message(phone, msg)
                     self.task_service.complete_task(task['id'], 'trainer')
                     return {'success': False, 'response': msg, 'handler': 'invite_trainee_failed'}

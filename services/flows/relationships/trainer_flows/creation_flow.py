@@ -69,9 +69,6 @@ class CreationFlow:
                     msg = (
                         "🔗 *Link Existing Client*\n\n"
                         "Please provide the *Client ID* or *phone number* of the client you want to link with.\n\n"
-                        "💡 Examples:\n"
-                        "• Client ID: asra30\n"
-                        "• Phone: 8801902604456\n\n"
                         "The client must already be registered in the system.\n\n"
                         "Type /stop to cancel."
                     )

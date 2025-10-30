@@ -22,11 +22,11 @@ def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'invite_trainer_task_error'}
         
-        # Ask for trainer ID
+        # Ask for trainer ID or phone number
         msg = (
             "👥 *Invite Trainer*\n\n"
-            "Please provide the trainer ID you want to invite.\n\n"
-            "💡 Use /search-trainer to find trainers first.\n\n"
+            "Please provide the trainer ID or phone number you want to invite.\n\n"
+            "Use /search-trainer to find trainers first.\n\n"
             "Type /stop to cancel."
         )
         whatsapp.send_message(phone, msg)
