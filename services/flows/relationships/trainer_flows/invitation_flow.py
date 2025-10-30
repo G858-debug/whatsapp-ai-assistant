@@ -49,8 +49,9 @@ class InvitationFlow:
                 
                 # Check if already connected
                 if self.relationship_service.check_relationship_exists(trainer_id, client_id):
+                    client_name = client.get('name') or 'this client'
                     msg = (
-                        f"ℹ️ You're already connected with {client.get('first_name')} {client.get('last_name')}!\n\n"
+                        f"ℹ️ You're already connected with {client_name}!\n\n"
                         f"Type /view-trainees to see all your clients."
                     )
                     self.whatsapp.send_message(phone, msg)
@@ -64,8 +65,9 @@ class InvitationFlow:
                 )
                 
                 if success:
+                    client_name = client.get('name') or 'the client'
                     msg = (
-                        f"✅ Invitation sent to {client.get('first_name')} {client.get('last_name')}!\n\n"
+                        f"✅ Invitation sent to {client_name}!\n\n"
                         f"I'll notify you when they respond."
                     )
                     self.whatsapp.send_message(phone, msg)

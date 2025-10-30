@@ -48,7 +48,7 @@ class RelationshipButtonHandler:
             client_id = user['client_id']
             
             # Approve relationship
-            success = relationship_service.approve_relationship(trainer_id, client_id)
+            success, error_msg = relationship_service.approve_relationship(trainer_id, client_id)
             
             if success:
                 return self._notify_relationship_accepted(phone, trainer_id, client_id, 'trainer')
@@ -75,7 +75,7 @@ class RelationshipButtonHandler:
             client_id = user['client_id']
             
             # Decline relationship
-            success = relationship_service.decline_relationship(trainer_id, client_id)
+            success, error_msg = relationship_service.decline_relationship(trainer_id, client_id)
             
             if success:
                 return self._notify_relationship_declined(phone, trainer_id, client_id, 'trainer')
@@ -102,7 +102,7 @@ class RelationshipButtonHandler:
             trainer_id = user['trainer_id']
             
             # Approve relationship
-            success = relationship_service.approve_relationship(trainer_id, client_id)
+            success, error_msg = relationship_service.approve_relationship(trainer_id, client_id)
             
             if success:
                 return self._notify_relationship_accepted(phone, trainer_id, client_id, 'client')
@@ -129,7 +129,7 @@ class RelationshipButtonHandler:
             trainer_id = user['trainer_id']
             
             # Decline relationship
-            success = relationship_service.decline_relationship(trainer_id, client_id)
+            success, error_msg = relationship_service.decline_relationship(trainer_id, client_id)
             
             if success:
                 return self._notify_relationship_declined(phone, trainer_id, client_id, 'client')
@@ -145,55 +145,55 @@ class RelationshipButtonHandler:
         try:
             if accepted_role == 'trainer':
                 # Client accepted trainer
-                trainer_result = self.db.table('trainers').select('first_name, last_name, phone_number').eq(
+                trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
                     'trainer_id', trainer_id
                 ).execute()
                 
                 if trainer_result.data:
                     trainer = trainer_result.data[0]
-                    trainer_name = f"{trainer.get('first_name')} {trainer.get('last_name')}"
+                    trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
                     
                     # Notify client
                     msg = f"✅ You're now connected with {trainer_name}!"
                     self.whatsapp.send_message(phone, msg)
                     
                     # Notify trainer
-                    client_result = self.db.table('clients').select('first_name, last_name').eq(
+                    client_result = self.db.table('clients').select('name').eq(
                         'client_id', client_id
                     ).execute()
                     
                     if client_result.data:
                         client = client_result.data[0]
-                        client_name = f"{client.get('first_name')} {client.get('last_name')}"
+                        client_name = client.get('name') or 'the client'
                         trainer_msg = f"✅ {client_name} accepted your invitation!"
-                        self.whatsapp.send_message(trainer['phone_number'], trainer_msg)
+                        self.whatsapp.send_message(trainer.get('whatsapp'), trainer_msg)
                     
                     return {'success': True, 'response': msg, 'handler': 'accept_trainer'}
             
             else:
                 # Trainer accepted client
-                client_result = self.db.table('clients').select('first_name, last_name, phone_number').eq(
+                client_result = self.db.table('clients').select('name, whatsapp').eq(
                     'client_id', client_id
                 ).execute()
                 
                 if client_result.data:
                     client = client_result.data[0]
-                    client_name = f"{client.get('first_name')} {client.get('last_name')}"
+                    client_name = client.get('name') or 'the client'
                     
                     # Notify trainer
                     msg = f"✅ You're now connected with {client_name}!"
                     self.whatsapp.send_message(phone, msg)
                     
                     # Notify client
-                    trainer_result = self.db.table('trainers').select('first_name, last_name').eq(
+                    trainer_result = self.db.table('trainers').select('name, first_name, last_name').eq(
                         'trainer_id', trainer_id
                     ).execute()
                     
                     if trainer_result.data:
                         trainer = trainer_result.data[0]
-                        trainer_name = f"{trainer.get('first_name')} {trainer.get('last_name')}"
+                        trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
                         client_msg = f"✅ {trainer_name} accepted your invitation!"
-                        self.whatsapp.send_message(client['phone_number'], client_msg)
+                        self.whatsapp.send_message(client.get('whatsapp'), client_msg)
                     
                     return {'success': True, 'response': msg, 'handler': 'accept_client'}
             
@@ -208,55 +208,55 @@ class RelationshipButtonHandler:
         try:
             if declined_role == 'trainer':
                 # Client declined trainer
-                trainer_result = self.db.table('trainers').select('first_name, last_name, phone_number').eq(
+                trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
                     'trainer_id', trainer_id
                 ).execute()
                 
                 if trainer_result.data:
                     trainer = trainer_result.data[0]
-                    trainer_name = f"{trainer.get('first_name')} {trainer.get('last_name')}"
+                    trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
                     
                     # Notify client
                     msg = f"You declined the invitation from {trainer_name}."
                     self.whatsapp.send_message(phone, msg)
                     
                     # Notify trainer
-                    client_result = self.db.table('clients').select('first_name, last_name').eq(
+                    client_result = self.db.table('clients').select('name').eq(
                         'client_id', client_id
                     ).execute()
                     
                     if client_result.data:
                         client = client_result.data[0]
-                        client_name = f"{client.get('first_name')} {client.get('last_name')}"
+                        client_name = client.get('name') or 'the client'
                         trainer_msg = f"ℹ️ {client_name} declined your invitation."
-                        self.whatsapp.send_message(trainer['phone_number'], trainer_msg)
+                        self.whatsapp.send_message(trainer.get('whatsapp'), trainer_msg)
                     
                     return {'success': True, 'response': msg, 'handler': 'decline_trainer'}
             
             else:
                 # Trainer declined client
-                client_result = self.db.table('clients').select('first_name, last_name, phone_number').eq(
+                client_result = self.db.table('clients').select('name, whatsapp').eq(
                     'client_id', client_id
                 ).execute()
                 
                 if client_result.data:
                     client = client_result.data[0]
-                    client_name = f"{client.get('first_name')} {client.get('last_name')}"
+                    client_name = client.get('name') or 'the client'
                     
                     # Notify trainer
                     msg = f"You declined the invitation from {client_name}."
                     self.whatsapp.send_message(phone, msg)
                     
                     # Notify client
-                    trainer_result = self.db.table('trainers').select('first_name, last_name').eq(
+                    trainer_result = self.db.table('trainers').select('name, first_name, last_name').eq(
                         'trainer_id', trainer_id
                     ).execute()
                     
                     if trainer_result.data:
                         trainer = trainer_result.data[0]
-                        trainer_name = f"{trainer.get('first_name')} {trainer.get('last_name')}"
+                        trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
                         client_msg = f"ℹ️ {trainer_name} declined your invitation."
-                        self.whatsapp.send_message(client['phone_number'], client_msg)
+                        self.whatsapp.send_message(client.get('whatsapp'), client_msg)
                     
                     return {'success': True, 'response': msg, 'handler': 'decline_client'}
             
