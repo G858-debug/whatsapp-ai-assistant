@@ -8,7 +8,7 @@ from services.dashboard import DashboardTokenManager
 import os
 
 
-def generate_dashboard_link(user_id: str, role: str, db, whatsapp, purpose: str = 'relationships') -> Dict:
+def generate_dashboard_link(phone: str, user_id: str, role: str, db, whatsapp, purpose: str = 'relationships') -> Dict:
     """Generate dashboard link and send to user"""
     try:
         # Generate secure token
@@ -30,6 +30,7 @@ def generate_dashboard_link(user_id: str, role: str, db, whatsapp, purpose: str 
         viewing_type = 'clients' if role == 'trainer' else 'trainers'
         
         # Send dashboard link
+        remove_command = '/remove-trainee' if role == 'trainer' else '/remove-trainer'
         msg = (
             f"🌐 *Web Dashboard*\n\n"
             f"View and manage your {viewing_type} in a beautiful web interface:\n\n"
@@ -38,14 +39,14 @@ def generate_dashboard_link(user_id: str, role: str, db, whatsapp, purpose: str 
             f"• Search and filter {viewing_type}\n"
             f"• Sort by name, date, etc.\n"
             f"• Copy IDs for quick actions\n"
-            f"• Remove {viewing_type} with confirmation\n"
             f"• Export to CSV\n"
             f"• Mobile-friendly design\n\n"
+            f"🗑️ *To Remove:* Copy ID from dashboard, then use `{remove_command}` command\n\n"
             f"🔒 *Security:* Link expires in 1 hour\n\n"
             f"💡 *Tip:* Bookmark the link for quick access!"
         )
         
-        whatsapp.send_message(user_id.replace('trainer_', '').replace('client_', ''), msg)
+        whatsapp.send_message(phone, msg)
         
         log_info(f"Dashboard link sent to {role} {user_id}")
         

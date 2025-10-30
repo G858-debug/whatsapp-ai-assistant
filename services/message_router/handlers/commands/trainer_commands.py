@@ -63,7 +63,7 @@ class TrainerCommandHandler:
             
             elif cmd == '/dashboard-clients':
                 from services.commands.dashboard import generate_dashboard_link
-                return generate_dashboard_link(user_id, 'trainer', self.db, self.whatsapp)
+                return generate_dashboard_link(phone, user_id, 'trainer', self.db, self.whatsapp)
             
             else:
                 # Not a relationship command

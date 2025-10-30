@@ -163,12 +163,17 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
           </div>
         </div>
         <div class="col-md-4 text-end">
-          <button
-            class="btn btn-remove"
-            onclick="removeRelationship('{{ rel.id }}', '{{ rel.name }}')"
-          >
-            <i class="bi bi-trash"></i> Remove
-          </button>
+          <div class="alert alert-info p-2 mb-0">
+            <small>
+              <i class="bi bi-info-circle"></i>
+              To remove: Copy ID above, then use
+              <code
+                >{{ '/remove-trainee' if role == 'trainer' else
+                '/remove-trainer' }}</code
+              >
+              in WhatsApp
+            </small>
+          </div>
         </div>
       </div>
     </div>
@@ -199,35 +204,6 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
   <div id="alertContainer"></div>
 </div>
 
-<!-- Remove Confirmation Modal -->
-<div class="modal fade" id="removeModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Confirm Removal</h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-        ></button>
-      </div>
-      <div class="modal-body">
-        <p>
-          Are you sure you want to remove <strong id="removeName"></strong>?
-        </p>
-        <p class="text-muted">This action cannot be undone.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-          Cancel
-        </button>
-        <button type="button" class="btn btn-danger" id="confirmRemove">
-          Remove
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %} {% block scripts %}
 <script>
   let currentPage = 1;
@@ -414,31 +390,6 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
         document.execCommand("copy");
         document.body.removeChild(textArea);
         showAlert("success", "ID copied to clipboard!");
-      });
-  }
-
-  function removeRelationship(id, name) {
-    $("#removeName").text(name);
-    $("#removeModal").modal("show");
-
-    $("#confirmRemove")
-      .off("click")
-      .on("click", function () {
-        // Here you would make an API call to remove the relationship
-        // For now, we'll just remove it from the display
-        $(`.relationship-card[data-id="${id.toLowerCase()}"]`).fadeOut(
-          500,
-          function () {
-            $(this).remove();
-            allRelationships = allRelationships.filter(
-              (rel) => rel.id !== id.toLowerCase()
-            );
-            filterAndDisplayRelationships();
-          }
-        );
-
-        $("#removeModal").modal("hide");
-        showAlert("success", `${name} has been removed successfully!`);
       });
   }
 

@@ -77,4 +77,4 @@ class TrainerCommandHandler:
     def handle_dashboard_clients(self, phone: str, trainer_id: str) -> Dict:
         """Handle /dashboard-clients command"""
         from services.commands.dashboard import generate_dashboard_link
-        return generate_dashboard_link(trainer_id, 'trainer', self.db, self.whatsapp)
+        return generate_dashboard_link(phone, trainer_id, 'trainer', self.db, self.whatsapp)

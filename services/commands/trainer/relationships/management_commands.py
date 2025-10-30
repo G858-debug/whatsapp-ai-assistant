@@ -54,7 +54,7 @@ def handle_view_trainees(phone: str, trainer_id: str, db, whatsapp) -> Dict:
             # Too many clients - recommend dashboard
             from services.commands.dashboard import generate_dashboard_link
             
-            dashboard_result = generate_dashboard_link(trainer_id, 'trainer', db, whatsapp)
+            dashboard_result = generate_dashboard_link(phone, trainer_id, 'trainer', db, whatsapp)
             
             if dashboard_result['success']:
                 return dashboard_result

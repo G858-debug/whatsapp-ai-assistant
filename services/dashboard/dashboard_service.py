@@ -87,19 +87,7 @@ class DashboardService:
             log_error(f"Error getting relationships: {str(e)}")
             return []
     
-    def remove_relationship(self, user_id: str, role: str, target_id: str) -> Dict:
-        """Remove a relationship"""
-        try:
-            if role == 'trainer':
-                success, message = self.relationship_service.remove_trainer_client(user_id, target_id)
-            else:
-                success, message = self.relationship_service.remove_client_trainer(user_id, target_id)
-            
-            return {'success': success, 'message': message}
-            
-        except Exception as e:
-            log_error(f"Error removing relationship: {str(e)}")
-            return {'success': False, 'message': str(e)}
+
     
     def get_dashboard_stats(self, user_id: str, role: str) -> Dict:
         """Get dashboard statistics"""

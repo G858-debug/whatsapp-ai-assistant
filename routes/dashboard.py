@@ -85,23 +85,7 @@ def api_get_relationships(user_id, token):
         log_error(f"API error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@dashboard_bp.route('/api/<user_id>/<token>/remove/<target_id>', methods=['POST'])
-def api_remove_relationship(user_id, token, target_id):
-    """API endpoint to remove a relationship"""
-    try:
-        # Validate token
-        token_data = token_manager.validate_token(token, user_id)
-        if not token_data:
-            return jsonify({'error': 'Invalid token'}), 403
-        
-        # Remove relationship
-        result = dashboard_service.remove_relationship(user_id, token_data['role'], target_id)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        log_error(f"Remove relationship error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+
 
 @dashboard_bp.route('/api/<user_id>/<token>/export')
 def api_export_csv(user_id, token):
