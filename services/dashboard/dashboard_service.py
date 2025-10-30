@@ -14,6 +14,20 @@ class DashboardService:
         self.db = supabase_client
         self.relationship_service = RelationshipService(supabase_client)
     
+    def _format_array_field(self, field_value):
+        """Helper to format array fields, handling empty arrays and strings properly"""
+        if isinstance(field_value, list) and field_value:
+            # Filter out empty strings and None values
+            filtered_items = [str(item) for item in field_value if item and str(item).strip()]
+            return ', '.join(filtered_items) if filtered_items else ''
+        elif isinstance(field_value, str) and field_value:
+            # Handle string representations of arrays and empty cases
+            if field_value in ['[]', '[""]', 'null', 'None', '""', "''", 'undefined']:
+                return ''
+            return field_value
+        else:
+            return ''
+    
     def get_user_info(self, user_id: str, role: str) -> Optional[Dict]:
         """Get user information for dashboard"""
         try:
@@ -50,13 +64,7 @@ class DashboardService:
                     rel = client.get('relationship', {})
                     
                     # Format JSON arrays to comma-separated text
-                    preferred_training_times = client.get('preferred_training_times', [])
-                    if isinstance(preferred_training_times, list) and preferred_training_times:
-                        training_times_text = ', '.join([str(item) for item in preferred_training_times if item])
-                    elif isinstance(preferred_training_times, str) and preferred_training_times and preferred_training_times != '[]':
-                        training_times_text = preferred_training_times
-                    else:
-                        training_times_text = ''
+                    training_times_text = self._format_array_field(client.get('preferred_training_times', []))
                     
                     formatted.append({
                         'id': client.get('client_id', 'N/A'),
@@ -82,29 +90,9 @@ class DashboardService:
                     rel = trainer.get('relationship', {})
                     
                     # Format JSON arrays to comma-separated text
-                    services_offered = trainer.get('services_offered', [])
-                    if isinstance(services_offered, list) and services_offered:
-                        services_text = ', '.join([str(item) for item in services_offered if item])
-                    elif isinstance(services_offered, str) and services_offered and services_offered != '[]':
-                        services_text = services_offered
-                    else:
-                        services_text = ''
-                    
-                    pricing_flexibility = trainer.get('pricing_flexibility', [])
-                    if isinstance(pricing_flexibility, list) and pricing_flexibility:
-                        pricing_flex_text = ', '.join([str(item) for item in pricing_flexibility if item])
-                    elif isinstance(pricing_flexibility, str) and pricing_flexibility and pricing_flexibility != '[]':
-                        pricing_flex_text = pricing_flexibility
-                    else:
-                        pricing_flex_text = ''
-                    
-                    available_days = trainer.get('available_days', [])
-                    if isinstance(available_days, list) and available_days:
-                        available_days_text = ', '.join([str(item) for item in available_days if item])
-                    elif isinstance(available_days, str) and available_days and available_days != '[]':
-                        available_days_text = available_days
-                    else:
-                        available_days_text = ''
+                    services_text = self._format_array_field(trainer.get('services_offered', []))
+                    pricing_flex_text = self._format_array_field(trainer.get('pricing_flexibility', []))
+                    available_days_text = self._format_array_field(trainer.get('available_days', []))
                     
                     formatted.append({
                         'id': trainer.get('trainer_id', 'N/A'),

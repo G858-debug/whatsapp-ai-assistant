@@ -107,6 +107,9 @@ class RelationshipManager:
                 'updated_at': now
             }).eq('client_id', client_id).eq('trainer_id', trainer_id).execute()
             
+            # Update any pending invitations to accepted status
+            self._update_invitation_status(trainer_id, client_id, 'accepted')
+            
             log_info(f"Approved relationship: trainer {trainer_id} <-> client {client_id}")
             return True, "Relationship approved"
             
@@ -129,6 +132,9 @@ class RelationshipManager:
                 'connection_status': 'declined',
                 'updated_at': now
             }).eq('client_id', client_id).eq('trainer_id', trainer_id).execute()
+            
+            # Update any pending invitations to declined status
+            self._update_invitation_status(trainer_id, client_id, 'declined')
             
             log_info(f"Declined relationship: trainer {trainer_id} <-> client {client_id}")
             return True, "Relationship declined"
@@ -169,3 +175,30 @@ class RelationshipManager:
         except Exception as e:
             log_error(f"Error searching trainers: {str(e)}")
             return []
+    
+    def _update_invitation_status(self, trainer_id: str, client_id: str, status: str):
+        """Update invitation status in client_invitations table"""
+        try:
+            # Get client phone number
+            client_result = self.db.table('clients').select('whatsapp').eq(
+                'client_id', client_id
+            ).execute()
+            
+            if not client_result.data:
+                log_error(f"Client {client_id} not found when updating invitation status")
+                return
+            
+            client_phone = client_result.data[0]['whatsapp']
+            
+            # Update any pending invitations between this trainer and client
+            self.db.table('client_invitations').update({
+                'status': status,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('trainer_id', trainer_id).eq('client_phone', client_phone).eq(
+                'status', 'pending'
+            ).execute()
+            
+            log_info(f"Updated invitation status to {status} for trainer {trainer_id} and client {client_id}")
+            
+        except Exception as e:
+            log_error(f"Error updating invitation status: {str(e)}")
