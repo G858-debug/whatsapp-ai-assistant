@@ -72,9 +72,9 @@ class DashboardService:
                         'status': client.get('status', 'N/A'),
                         'additional_info': {
                             'experience_level': client.get('experience_level', ''),
-                            'health_conditions': client.get('health_conditions', ''),
-                            'fitness_goals': client.get('fitness_goals', ''),
-                            'availability': client.get('availability', ''),
+                            'health_conditions': self._format_array_field(client.get('health_conditions', '')),
+                            'fitness_goals': self._format_array_field(client.get('fitness_goals', '')),
+                            'availability': self._format_array_field(client.get('availability', '')),
                             'preferred_training_times': training_times_text
                         },
                         'connected_date': rel.get('created_at', '')[:10] if rel.get('created_at') else 'N/A',
@@ -108,8 +108,8 @@ class DashboardService:
                             'experience_years': trainer.get('experience_years', ''),
                             'years_experience': trainer.get('years_experience', ''),
                             'available_days': available_days_text,
-                            'preferred_time_slots': trainer.get('preferred_time_slots', ''),
-                            'specialization': trainer.get('specialization', ''),
+                            'preferred_time_slots': self._format_array_field(trainer.get('preferred_time_slots', '')),
+                            'specialization': self._format_array_field(trainer.get('specialization', '')),
                             'services_offered': services_text,
                             'pricing_flexibility': pricing_flex_text,
                             'additional_notes': trainer.get('additional_notes', '')
