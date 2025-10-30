@@ -22,11 +22,14 @@ def handle_invite_client(phone: str, trainer_id: str, db, whatsapp, task_service
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'invite_trainee_task_error'}
         
-        # Ask for client ID
+        # Ask for client ID or phone number
         msg = (
             "👥 *Invite Existing Client*\n\n"
-            "Please provide the client ID you want to invite.\n\n"
-            "💡 The client must already be registered in the system.\n\n"
+            "Please provide the client ID or phone number you want to invite.\n\n"
+            "💡 Examples:\n"
+            "• Client ID: asra30\n"
+            "• Phone: 8801902604456\n\n"
+            "The client must already be registered in the system.\n\n"
             "Type /stop to cancel."
         )
         whatsapp.send_message(phone, msg)
@@ -70,7 +73,7 @@ def handle_create_client(phone: str, trainer_id: str, db, whatsapp, reg_service,
             "👥 *Add Client*\n\n"
             "How would you like to add a client?\n\n"
             "1️⃣ *Create New* - Create a new client account and send them an invitation to accept\n\n"
-            "2️⃣ *Link Existing* - Link with a client who's already registered (you'll need their Client ID)\n\n"
+            "2️⃣ *Link Existing* - Link with a client who's already registered (you'll need their Client ID or phone number)\n\n"
             "💡 *Tip:* Type /stop to cancel\n\n"
             "Reply with *1* or *2*"
         )

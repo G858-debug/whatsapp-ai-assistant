@@ -24,21 +24,28 @@ class InvitationFlow:
             step = task_data.get('step', 'ask_client_id')
             
             if step == 'ask_client_id':
-                # User provided client_id
-                client_id = message.strip().upper()
+                # User provided client_id or phone number
+                input_value = message.strip()
                 
-                # Validate client exists
-                client_result = self.db.table('clients').select('*').eq('client_id', client_id).execute()
+                # Try to find client by ID first (case-insensitive)
+                client_result = self.db.table('clients').select('*').ilike('client_id', input_value).execute()
+                
+                # If not found by ID, try by phone number
+                if not client_result.data:
+                    # Clean phone number (remove + and formatting)
+                    clean_phone = input_value.replace('+', '').replace('-', '').replace(' ', '')
+                    client_result = self.db.table('clients').select('*').eq('whatsapp', clean_phone).execute()
                 
                 if not client_result.data:
                     msg = (
-                        f"❌ Client ID '{client_id}' not found.\n\n"
-                        f"Please check the ID and try again, or type /stop to cancel."
+                        f"❌ Client with ID or phone number '{input_value}' not found.\n\n"
+                        f"Please check the ID/phone number and try again, or type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
                     return {'success': True, 'response': msg, 'handler': 'invite_trainee_invalid_id'}
                 
                 client = client_result.data[0]
+                client_id = client['client_id']  # Use actual client_id from database
                 
                 # Check if already connected
                 if self.relationship_service.check_relationship_exists(trainer_id, client_id):

@@ -256,8 +256,16 @@ class ProfileEditHandler:
                 if field_value:
                     if isinstance(field_value, list):
                         return ', '.join(str(v) for v in field_value)
-                    else:
-                        return str(field_value)
+                    elif isinstance(field_value, str) and field_value.startswith('['):
+                        # Handle string representation of list
+                        import ast
+                        try:
+                            field_list = ast.literal_eval(field_value)
+                            if isinstance(field_list, list):
+                                return ', '.join(str(v) for v in field_list)
+                        except:
+                            pass
+                    return str(field_value)
             
             return "Not set"
             

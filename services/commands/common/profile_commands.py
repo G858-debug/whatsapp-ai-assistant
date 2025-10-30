@@ -56,6 +56,22 @@ def handle_view_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
         }
 
 
+def _format_list_value(value) -> str:
+    """Helper function to format list values consistently"""
+    if isinstance(value, list):
+        return ', '.join(str(v) for v in value)
+    elif isinstance(value, str) and value.startswith('['):
+        # Handle string representation of list
+        import ast
+        try:
+            value_list = ast.literal_eval(value)
+            if isinstance(value_list, list):
+                return ', '.join(str(v) for v in value_list)
+        except:
+            pass
+    return str(value) if value else ""
+
+
 def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
     """Format trainer profile for display"""
     name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or data.get('name', 'N/A')
@@ -73,10 +89,9 @@ def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
         profile += f"*Business:* {data['business_name']}\n"
     
     if data.get('specialization'):
-        spec = data['specialization']
-        if isinstance(spec, list):
-            spec = ', '.join(spec)
-        profile += f"*Specialization:* {spec}\n"
+        spec = _format_list_value(data['specialization'])
+        if spec:
+            profile += f"*Specialization:* {spec}\n"
     
     # Use experience_years (primary field) instead of years_experience
     if data.get('experience_years'):
@@ -87,27 +102,24 @@ def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
     
     # Show available days as list
     if data.get('available_days'):
-        days = data['available_days']
-        if isinstance(days, list):
-            days = ', '.join(days)
-        profile += f"*Available Days:* {days}\n"
+        days = _format_list_value(data['available_days'])
+        if days:
+            profile += f"*Available Days:* {days}\n"
     
     if data.get('preferred_time_slots'):
         profile += f"*Preferred Time:* {data['preferred_time_slots']}\n"
     
     # Show services offered as list
     if data.get('services_offered'):
-        services = data['services_offered']
-        if isinstance(services, list):
-            services = ', '.join(services)
-        profile += f"*Services:* {services}\n"
+        services = _format_list_value(data['services_offered'])
+        if services:
+            profile += f"*Services:* {services}\n"
     
     # Show pricing flexibility as list
     if data.get('pricing_flexibility'):
-        pricing = data['pricing_flexibility']
-        if isinstance(pricing, list):
-            pricing = ', '.join(pricing)
-        profile += f"*Pricing Options:* {pricing}\n"
+        pricing = _format_list_value(data['pricing_flexibility'])
+        if pricing:
+            profile += f"*Pricing Options:* {pricing}\n"
     
     profile += f"\n💡 Type /edit-profile to update your information"
     
@@ -127,10 +139,9 @@ def _format_client_profile(data: Dict, client_id: str) -> str:
     )
     
     if data.get('fitness_goals'):
-        goals = data['fitness_goals']
-        if isinstance(goals, list):
-            goals = ', '.join(goals)
-        profile += f"*Fitness Goals:* {goals}\n"
+        goals = _format_list_value(data['fitness_goals'])
+        if goals:
+            profile += f"*Fitness Goals:* {goals}\n"
     
     if data.get('experience_level'):
         profile += f"*Experience Level:* {data['experience_level']}\n"
@@ -139,16 +150,14 @@ def _format_client_profile(data: Dict, client_id: str) -> str:
         profile += f"*Health Conditions:* {data['health_conditions']}\n"
     
     if data.get('availability'):
-        avail = data['availability']
-        if isinstance(avail, list):
-            avail = ', '.join(avail)
-        profile += f"*Availability:* {avail}\n"
+        avail = _format_list_value(data['availability'])
+        if avail:
+            profile += f"*Availability:* {avail}\n"
     
     if data.get('preferred_training_times'):
-        training_types = data['preferred_training_times']
-        if isinstance(training_types, list):
-            training_types = ', '.join(training_types)
-        profile += f"*Preferred Training:* {training_types}\n"
+        training_types = _format_list_value(data['preferred_training_times'])
+        if training_types:
+            profile += f"*Preferred Training:* {training_types}\n"
     
     profile += f"\n💡 Type /edit-profile to update your information"
     
@@ -188,9 +197,8 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
             
             # Format current value
             if field_value:
-                if isinstance(field_value, list):
-                    current_value = ', '.join(str(v) for v in field_value)
-                else:
+                current_value = _format_list_value(field_value)
+                if not current_value:
                     current_value = str(field_value)
             else:
                 current_value = "Not set"

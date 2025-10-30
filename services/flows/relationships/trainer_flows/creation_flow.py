@@ -68,8 +68,11 @@ class CreationFlow:
                     
                     msg = (
                         "🔗 *Link Existing Client*\n\n"
-                        "Please provide the *Client ID* of the client you want to link with.\n\n"
-                        "💡 The client must already be registered in the system.\n\n"
+                        "Please provide the *Client ID* or *phone number* of the client you want to link with.\n\n"
+                        "💡 Examples:\n"
+                        "• Client ID: asra30\n"
+                        "• Phone: 8801902604456\n\n"
+                        "The client must already be registered in the system.\n\n"
                         "Type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
@@ -82,22 +85,31 @@ class CreationFlow:
             
             # Step 2: Handle link existing client
             if step == 'ask_client_id':
-                client_id = message.strip().upper()
+                input_value = message.strip()
                 
-                # Validate client exists
-                client_result = self.db.table('clients').select('client_id, name, whatsapp').eq(
-                    'client_id', client_id
+                # Try to find client by ID first (case-insensitive)
+                client_result = self.db.table('clients').select('client_id, name, whatsapp').ilike(
+                    'client_id', input_value
                 ).execute()
+                
+                # If not found by ID, try by phone number
+                if not client_result.data:
+                    # Clean phone number (remove + and formatting)
+                    clean_phone = input_value.replace('+', '').replace('-', '').replace(' ', '')
+                    client_result = self.db.table('clients').select('client_id, name, whatsapp').eq(
+                        'whatsapp', clean_phone
+                    ).execute()
                 
                 if not client_result.data:
                     msg = (
-                        f"❌ Client ID '{client_id}' not found.\n\n"
-                        f"Please check the ID and try again, or type /stop to cancel."
+                        f"❌ Client with ID or phone number '{input_value}' not found.\n\n"
+                        f"Please check the ID/phone number and try again, or type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
                     return {'success': True, 'response': msg, 'handler': 'create_trainee_invalid_id'}
                 
                 client = client_result.data[0]
+                client_id = client['client_id']  # Use actual client_id from database
                 client_phone = client.get('whatsapp')
                 
                 # Check if already connected

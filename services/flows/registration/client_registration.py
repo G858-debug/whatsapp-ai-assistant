@@ -54,9 +54,9 @@ class ClientRegistrationHandler:
             current_index = self.task_manager.get_task_data(task, 'current_field_index', 0)
             collected_data = self.task_manager.get_task_data(task, 'collected_data', {})
             
-            # Validate and store current answer if we're past the first field
-            if current_index > 0:
-                current_field = fields[current_index - 1]
+            # If we have a message to process (user response to a field)
+            if message and current_index < len(fields):
+                current_field = fields[current_index]
                 
                 # Validate the input
                 is_valid, error_msg = self.validator.validate_field_value(current_field, message)
@@ -80,8 +80,11 @@ class ClientRegistrationHandler:
                 # Store in task data
                 self.task_manager.store_field_data(task, 'client', field_name, parsed_value)
                 collected_data[field_name] = parsed_value
+                
+                # Move to next field
+                current_index += 1
             
-            # Update current field index
+            # Update current field index in database
             self.task_manager.update_flow_task(task, 'client', {
                 'current_field_index': current_index,
                 'collected_data': collected_data
@@ -96,9 +99,6 @@ class ClientRegistrationHandler:
                 )
                 
                 self.whatsapp.send_message(phone, progress_msg)
-                
-                # Advance to next field
-                self.task_manager.advance_field_index(task, 'client')
                 
                 return {
                     'success': True,

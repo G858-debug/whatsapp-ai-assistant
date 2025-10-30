@@ -56,8 +56,8 @@ class TrainerRegistrationHandler:
             
             log_info(f"Current field index: {current_index}, Total fields: {len(fields)}")
             
-            # If we have a message to process (not the initial call)
-            if current_index >= 0 and message:
+            # If we have a message to process (user response to a field)
+            if message and current_index < len(fields):
                 # Get the current field to validate
                 current_field = fields[current_index]
                 log_info(f"Validating field: {current_field['name']} with value: {message}")
