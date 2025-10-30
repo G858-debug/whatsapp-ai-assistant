@@ -1,143 +1,92 @@
-{% extends "dashboard/base.html" %} {% block title %}{{ user.name }} - {{
-relationship_type|title }} Dashboard{% endblock %} {% block content %}
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ user.name }} - {{ relationship_type|title }} Dashboard{% endblock %}
+
+{% block content %}
 <!-- Header Section -->
 <div class="header-section">
-  <div class="row align-items-center">
-    <div class="col-md-8">
-      <h1><i class="bi bi-person-circle"></i> {{ user.name }}</h1>
-      <p class="mb-0">
-        <i class="bi bi-telephone"></i> {{ user.phone }} |
-        <i class="bi bi-envelope"></i> {{ user.email }}
-      </p>
-      <p class="mb-0">
-        <i class="bi bi-shield-check"></i> {{ role|title }} Dashboard
-      </p>
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1><i class="bi bi-person-circle"></i> {{ user.name }}</h1>
+            <p class="mb-0"><i class="bi bi-telephone"></i> {{ user.phone }} | <i class="bi bi-envelope"></i> {{ user.email }}</p>
+            <p class="mb-0"><i class="bi bi-shield-check"></i> {{ role|title }} Dashboard</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="alert alert-info p-2 mb-0">
+                <small><i class="bi bi-info-circle"></i> Use search and filters to find specific {{ relationship_type }}</small>
+            </div>
+        </div>
     </div>
-    <div class="col-md-4 text-end">
-      <div class="alert alert-info p-2 mb-0">
-        <small
-          ><i class="bi bi-info-circle"></i> Use search and filters to find
-          specific {{ relationship_type }}</small
-        >
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- Stats Section -->
 <div class="row p-4">
-  <div class="col-md-4">
-    <div class="stats-card text-center">
-      <h3 class="text-success">{{ stats.active_count }}</h3>
-      <p class="mb-0">Active {{ relationship_type|title }}</p>
+    <div class="col-md-4">
+        <div class="stats-card text-center">
+            <h3 class="text-success">{{ stats.active_count }}</h3>
+            <p class="mb-0">Active {{ relationship_type|title }}</p>
+        </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stats-card text-center">
-      <h3 class="text-warning">{{ stats.pending_count }}</h3>
-      <p class="mb-0">Pending {{ relationship_type|title }}</p>
+    <div class="col-md-4">
+        <div class="stats-card text-center">
+            <h3 class="text-warning">{{ stats.pending_count }}</h3>
+            <p class="mb-0">Pending {{ relationship_type|title }}</p>
+        </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stats-card text-center">
-      <h3 class="text-info">{{ stats.total_count }}</h3>
-      <p class="mb-0">Total {{ relationship_type|title }}</p>
+    <div class="col-md-4">
+        <div class="stats-card text-center">
+            <h3 class="text-info">{{ stats.total_count }}</h3>
+            <p class="mb-0">Total {{ relationship_type|title }}</p>
+        </div>
     </div>
-  </div>
 </div>
 
 <!-- Search and Filter Section -->
 <div class="p-4">
-  <div class="row mb-4">
-    <div class="col-md-6">
-      <input
-        type="text"
-        id="searchBox"
-        class="form-control search-box"
-        placeholder="🔍 Search by name, ID, location, specialization..."
-      />
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <input type="text" id="searchBox" class="form-control search-box" 
+                   placeholder="🔍 Search by name, ID, location, specialization...">
+        </div>
+        <div class="col-md-6">
+            <select id="sortSelect" class="form-select search-box">
+                <option value="name">Sort by Name</option>
+                <option value="date">Sort by Date Connected</option>
+                <option value="id">Sort by ID</option>
+                {% if role == 'client' %}
+                <option value="status">Sort by Status</option>
+                <option value="pricing">Sort by Price</option>
+                <option value="city">Sort by City</option>
+                <option value="experience">Sort by Experience</option>
+                <option value="specialization">Sort by Specialization</option>
+                {% else %}
+                <option value="status">Sort by Status</option>
+                <option value="experience_level">Sort by Experience Level</option>
+                <option value="goals">Sort by Fitness Goals</option>
+                {% endif %}
+            </select>
+        </div>
     </div>
-    <div class="col-md-6">
-      <select id="sortSelect" class="form-select search-box">
-        <option value="name">Sort by Name</option>
-        <option value="date">Sort by Date Connected</option>
-        <option value="id">Sort by ID</option>
-        {% if role == 'client' %}
-        <option value="status">Sort by Status</option>
-        <option value="pricing">Sort by Price</option>
-        <option value="city">Sort by City</option>
-        <option value="experience">Sort by Experience</option>
-        <option value="specialization">Sort by Specialization</option>
-        {% else %}
-        <option value="status">Sort by Status</option>
-        <option value="experience_level">Sort by Experience Level</option>
-        <option value="goals">Sort by Fitness Goals</option>
-        {% endif %}
-      </select>
+    
+    <div class="text-center mb-4">
+        <button class="btn filter-btn active" data-status="active">
+            <i class="bi bi-check-circle"></i> Active
+        </button>
+        <button class="btn filter-btn" data-status="pending">
+            <i class="bi bi-clock"></i> Pending
+        </button>
+        <button class="btn filter-btn" data-status="all">
+            <i class="bi bi-list"></i> All
+        </button>
     </div>
-  </div>
-
-  <!-- Enhanced Filter Buttons -->
-  <div class="text-center mb-4">
-    <button class="btn filter-btn active" data-status="active">
-      <i class="bi bi-check-circle"></i> Active
-    </button>
-    <button class="btn filter-btn" data-status="pending">
-      <i class="bi bi-clock"></i> Pending
-    </button>
-    <button class="btn filter-btn" data-status="all">
-      <i class="bi bi-list"></i> All
-    </button>
-
-    {% if role == 'client' %}
-    <!-- Additional filters for trainers -->
-    <button
-      class="btn filter-btn"
-      data-filter="city"
-      onclick="showCityFilter()"
-    >
-      <i class="bi bi-geo-alt"></i> By City
-    </button>
-    <button
-      class="btn filter-btn"
-      data-filter="specialization"
-      onclick="showSpecializationFilter()"
-    >
-      <i class="bi bi-award"></i> By Specialization
-    </button>
-    <button
-      class="btn filter-btn"
-      data-filter="pricing"
-      onclick="showPricingFilter()"
-    >
-      <i class="bi bi-currency-dollar"></i> By Price Range
-    </button>
-    {% else %}
-    <!-- Additional filters for clients -->
-    <button
-      class="btn filter-btn"
-      data-filter="experience"
-      onclick="showExperienceFilter()"
-    >
-      <i class="bi bi-star"></i> By Experience
-    </button>
-    <button
-      class="btn filter-btn"
-      data-filter="goals"
-      onclick="showGoalsFilter()"
-    >
-      <i class="bi bi-target"></i> By Goals
-    </button>
-    {% endif %}
-  </div>
 </div>
 
 <!-- Loading Spinner -->
 <div class="loading" id="loading">
-  <div class="spinner-border" role="status">
-    <span class="visually-hidden">Loading...</span>
-  </div>
-  <p class="mt-3">Loading {{ relationship_type }}...</p>
+    <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-3">Loading {{ relationship_type }}...</p>
 </div>
 
 <!-- Relationships Section -->
@@ -279,298 +228,235 @@ relationship_type|title }} Dashboard{% endblock %} {% block content %}
             </div>
         {% endif %}
     </div>
+    
+    <!-- Pagination -->
+    <nav aria-label="Relationships pagination" class="mt-4">
+        <ul class="pagination pagination-custom justify-content-center" id="pagination">
+            <!-- Pagination will be generated by JavaScript -->
+        </ul>
+    </nav>
 </div>
-
 
 <!-- Success/Error Messages -->
 <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
-  <div id="alertContainer"></div>
+    <div id="alertContainer"></div>
 </div>
+{% endblock %}
 
-{% endblock %} {% block scripts %}
+{% block scripts %}
 <script>
-  let currentPage = 1;
-  let itemsPerPage = 10;
-  let currentFilter = "active";
-  let currentSort = "name";
-  let allRelationships = [];
+let currentPage = 1;
+let itemsPerPage = 10;
+let currentFilter = 'active';
+let currentSort = 'name';
+let allRelationships = [];
 
-  // Initialize
-  $(document).ready(function () {
+// Initialize
+$(document).ready(function() {
     loadRelationships();
     setupEventListeners();
-  });
+});
 
-  function setupEventListeners() {
+function setupEventListeners() {
     // Search functionality
-    $("#searchBox").on("input", function () {
-      currentPage = 1;
-      filterAndDisplayRelationships();
+    $('#searchBox').on('input', function() {
+        currentPage = 1;
+        filterAndDisplayRelationships();
     });
-
+    
     // Sort functionality
-    $("#sortSelect").on("change", function () {
-      currentSort = $(this).val();
-      currentPage = 1;
-      filterAndDisplayRelationships();
+    $('#sortSelect').on('change', function() {
+        currentSort = $(this).val();
+        currentPage = 1;
+        filterAndDisplayRelationships();
     });
-
+    
     // Filter buttons
-    $(".filter-btn").on("click", function () {
-      $(".filter-btn").removeClass("active");
-      $(this).addClass("active");
-      currentFilter = $(this).data("status");
-      currentPage = 1;
-      filterAndDisplayRelationships();
+    $('.filter-btn').on('click', function() {
+        $('.filter-btn').removeClass('active');
+        $(this).addClass('active');
+        currentFilter = $(this).data('status');
+        currentPage = 1;
+        filterAndDisplayRelationships();
     });
-  }
+}
 
-  function loadRelationships() {
-    $("#loading").show();
-
+function loadRelationships() {
+    $('#loading').show();
+    
     // Get relationships from the rendered data
     allRelationships = [];
-    $(".relationship-card").each(function () {
-      const card = $(this);
-      allRelationships.push({
-        element: card,
-        name: card.data("name"),
-        phone: card.data("phone"),
-        id: card.data("id"),
-        date: card.data("date"),
-        status: card.data("status"),
-      });
+    $('.relationship-card').each(function() {
+        const card = $(this);
+        allRelationships.push({
+            element: card,
+            name: card.data('name'),
+            id: card.data('id'),
+            date: card.data('date'),
+            status: card.data('status')
+        });
     });
-
-    $("#loading").hide();
+    
+    $('#loading').hide();
     filterAndDisplayRelationships();
-  }
+}
 
- // Enhanced filtering and sorting
-    function filterAndDisplayRelationships() {
-        const searchTerm = $('#searchBox').val().toLowerCase();
+function filterAndDisplayRelationships() {
+    const searchTerm = $('#searchBox').val().toLowerCase();
+    
+    // Filter relationships
+    let filtered = allRelationships.filter(rel => {
+        // Status filter
+        if (currentFilter !== 'all' && rel.status !== currentFilter) {
+            return false;
+        }
         
-        // Filter relationships
-        let filtered = allRelationships.filter(rel => {
-            // Status filter
-            if (currentFilter !== 'all' && rel.status !== currentFilter) {
-                return false;
-            }
+        // Enhanced search filter
+        if (searchTerm) {
+            const searchableText = [
+                rel.name,
+                rel.id,
+                rel.element.data('city') || '',
+                rel.element.data('location') || '',
+                rel.element.data('specialization') || '',
+                rel.element.data('experience-level') || '',
+                rel.element.data('goals') || '',
+                rel.element.data('health') || ''
+            ].join(' ').toLowerCase();
             
-            // Search filter - enhanced to search more fields
-            if (searchTerm) {
-                const searchableText = [
-                    rel.name,
-                    rel.id,
-                    rel.element.data('city') || '',
-                    rel.element.data('location') || '',
-                    rel.element.data('specialization') || '',
-                    rel.element.data('experience-level') || '',
-                    rel.element.data('goals') || '',
-                    rel.element.data('health') || ''
-                ].join(' ').toLowerCase();
-                
-                return searchableText.includes(searchTerm);
-            }
-            
-            return true;
-        });
+            return searchableText.includes(searchTerm);
+        }
         
-        // Enhanced sorting
-        filtered.sort((a, b) => {
-            switch (currentSort) {
-                case 'name':
-                    return a.name.localeCompare(b.name);
-                case 'date':
-                    return new Date(b.date) - new Date(a.date);
-                case 'id':
-                    return a.id.localeCompare(b.id);
-                case 'status':
-                    return a.element.data('status').localeCompare(b.element.data('status'));
-                case 'pricing':
-                    const priceA = parseFloat(a.element.data('pricing')) || 0;
-                    const priceB = parseFloat(b.element.data('pricing')) || 0;
-                    return priceA - priceB;
-                case 'city':
-                    const cityA = a.element.data('city') || a.element.data('location') || '';
-                    const cityB = b.element.data('city') || b.element.data('location') || '';
-                    return cityA.localeCompare(cityB);
-                case 'experience':
-                    const expA = a.element.data('experience') || '';
-                    const expB = b.element.data('experience') || '';
-                    return expA.localeCompare(expB);
-                case 'specialization':
-                    const specA = a.element.data('specialization') || '';
-                    const specB = b.element.data('specialization') || '';
-                    return specA.localeCompare(specB);
-                case 'experience_level':
-                    const levelA = a.element.data('experience-level') || '';
-                    const levelB = b.element.data('experience-level') || '';
-                    return levelA.localeCompare(levelB);
-                case 'goals':
-                    const goalsA = a.element.data('goals') || '';
-                    const goalsB = b.element.data('goals') || '';
-                    return goalsA.localeCompare(goalsB);
-                default:
-                    return 0;
-            }
-        });
-        
-        // Pagination and display logic (same as before)
-        const totalPages = Math.ceil(filtered.length / itemsPerPage);
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const pageItems = filtered.slice(startIndex, endIndex);
-        
-        // Hide all cards
-        $('.relationship-card').hide();
-        
-        // Show filtered cards
-        pageItems.forEach(rel => {
-            rel.element.show();
-        });
-        
-        // Update pagination
-        updatePagination(totalPages);
-    }
+        return true;
+    });
+    
+    // Enhanced sorting
+    filtered.sort((a, b) => {
+        switch (currentSort) {
+            case 'name':
+                return a.name.localeCompare(b.name);
+            case 'date':
+                return new Date(b.date) - new Date(a.date);
+            case 'id':
+                return a.id.localeCompare(b.id);
+            case 'status':
+                return a.element.data('status').localeCompare(b.element.data('status'));
+            case 'pricing':
+                const priceA = parseFloat(a.element.data('pricing')) || 0;
+                const priceB = parseFloat(b.element.data('pricing')) || 0;
+                return priceA - priceB;
+            case 'city':
+                const cityA = a.element.data('city') || a.element.data('location') || '';
+                const cityB = b.element.data('city') || b.element.data('location') || '';
+                return cityA.localeCompare(cityB);
+            case 'experience':
+                const expA = a.element.data('experience') || '';
+                const expB = b.element.data('experience') || '';
+                return expA.localeCompare(expB);
+            case 'specialization':
+                const specA = a.element.data('specialization') || '';
+                const specB = b.element.data('specialization') || '';
+                return specA.localeCompare(specB);
+            case 'experience_level':
+                const levelA = a.element.data('experience-level') || '';
+                const levelB = b.element.data('experience-level') || '';
+                return levelA.localeCompare(levelB);
+            case 'goals':
+                const goalsA = a.element.data('goals') || '';
+                const goalsB = b.element.data('goals') || '';
+                return goalsA.localeCompare(goalsB);
+            default:
+                return 0;
+        }
+    });
+    
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageItems = filtered.slice(startIndex, endIndex);
+    
+    // Hide all cards
+    $('.relationship-card').hide();
+    
+    // Show filtered cards
+    pageItems.forEach(rel => {
+        rel.element.show();
+    });
+    
+    // Update pagination
+    updatePagination(totalPages);
+}
 
-    // Additional filter functions
-    function showCityFilter() {
-        // Get unique cities
-        const cities = [...new Set(allRelationships.map(rel => 
-            rel.element.data('city') || rel.element.data('location') || ''
-        ).filter(city => city))];
-        
-        // Create city filter dropdown (you can implement this)
-        console.log('Available cities:', cities);
-    }
-
-    function showSpecializationFilter() {
-        // Get unique specializations
-        const specializations = [...new Set(allRelationships.map(rel => 
-            rel.element.data('specialization') || ''
-        ).filter(spec => spec))];
-        
-        console.log('Available specializations:', specializations);
-    }
-
-    function showPricingFilter() {
-        // Get price ranges
-        const prices = allRelationships.map(rel => 
-            parseFloat(rel.element.data('pricing')) || 0
-        ).filter(price => price > 0);
-        
-        const minPrice = Math.min(...prices);
-        const maxPrice = Math.max(...prices);
-        
-        console.log('Price range:', minPrice, 'to', maxPrice);
-    }
-
-    function showExperienceFilter() {
-        // Get unique experience levels
-        const levels = [...new Set(allRelationships.map(rel => 
-            rel.element.data('experience-level') || ''
-        ).filter(level => level))];
-        
-        console.log('Available experience levels:', levels);
-    }
-
-    function showGoalsFilter() {
-        // Get unique fitness goals
-        const goals = [...new Set(allRelationships.map(rel => 
-            rel.element.data('goals') || ''
-        ).filter(goal => goal))];
-        
-        console.log('Available fitness goals:', goals);
-    }
-
-  function updatePagination(totalPages) {
-    const pagination = $("#pagination");
+function updatePagination(totalPages) {
+    const pagination = $('#pagination');
     pagination.empty();
-
+    
     if (totalPages <= 1) return;
-
+    
     // Previous button
     pagination.append(`
-        <li class="page-item ${currentPage === 1 ? "disabled" : ""}">
-            <a class="page-link" href="#" onclick="changePage(${
-              currentPage - 1
-            })">Previous</a>
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">Previous</a>
         </li>
     `);
-
+    
     // Page numbers
     for (let i = 1; i <= totalPages; i++) {
-      if (
-        i === 1 ||
-        i === totalPages ||
-        (i >= currentPage - 2 && i <= currentPage + 2)
-      ) {
-        pagination.append(`
-                <li class="page-item ${i === currentPage ? "active" : ""}">
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            pagination.append(`
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
                     <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
                 </li>
             `);
-      } else if (i === currentPage - 3 || i === currentPage + 3) {
-        pagination.append(
-          '<li class="page-item disabled"><span class="page-link">...</span></li>'
-        );
-      }
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            pagination.append('<li class="page-item disabled"><span class="page-link">...</span></li>');
+        }
     }
-
+    
     // Next button
     pagination.append(`
-        <li class="page-item ${currentPage === totalPages ? "disabled" : ""}">
-            <a class="page-link" href="#" onclick="changePage(${
-              currentPage + 1
-            })">Next</a>
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">Next</a>
         </li>
     `);
-  }
+}
 
-  function updateResultsCount(filtered, total) {
-    // You can add a results counter here if needed
-  }
-
-  function changePage(page) {
-    if (page < 1 || page > Math.ceil(allRelationships.length / itemsPerPage))
-      return;
+function changePage(page) {
+    if (page < 1 || page > Math.ceil(allRelationships.length / itemsPerPage)) return;
     currentPage = page;
     filterAndDisplayRelationships();
-  }
+}
 
-  function copyToClipboard(text) {
-    navigator.clipboard
-      .writeText(text)
-      .then(function () {
-        showAlert("success", "ID copied to clipboard!");
-      })
-      .catch(function () {
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        showAlert('success', 'ID copied to clipboard!');
+    }).catch(function() {
         // Fallback for older browsers
-        const textArea = document.createElement("textarea");
+        const textArea = document.createElement('textarea');
         textArea.value = text;
         document.body.appendChild(textArea);
         textArea.select();
-        document.execCommand("copy");
+        document.execCommand('copy');
         document.body.removeChild(textArea);
-        showAlert("success", "ID copied to clipboard!");
-      });
-  }
+        showAlert('success', 'ID copied to clipboard!');
+    });
+}
 
-  function showAlert(type, message) {
+function showAlert(type, message) {
     const alertHtml = `
         <div class="alert alert-${type} alert-dismissible fade show" role="alert">
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
-
-    $("#alertContainer").append(alertHtml);
-
+    
+    $('#alertContainer').append(alertHtml);
+    
     // Auto-dismiss after 3 seconds
-    setTimeout(function () {
-      $("#alertContainer .alert").first().alert("close");
+    setTimeout(function() {
+        $('#alertContainer .alert').first().alert('close');
     }, 3000);
-  }
+}
 </script>
 {% endblock %}
