@@ -293,6 +293,22 @@ class ProfileEditHandler:
             for field_name, value in updates.items():
                 db_column = self.reg.map_field_to_db_column(field_name, role)
                 mapped_updates[db_column] = value
+                
+                # Handle duplicate fields for trainers to maintain consistency
+                if role == 'trainer':
+                    if field_name == 'city':
+                        # Also update location field
+                        mapped_updates['location'] = value
+                    elif field_name == 'location':
+                        # Also update city field (reverse mapping)
+                        mapped_updates['city'] = value
+                    elif field_name == 'experience_years':
+                        # Also update years_experience field (convert to number)
+                        mapped_updates['years_experience'] = self._parse_experience_to_number(value)
+                    elif field_name == 'years_experience':
+                        # This shouldn't happen in normal flow, but handle it for completeness
+                        # Try to reverse map the number back to text
+                        mapped_updates['experience_years'] = self._number_to_experience_text(value)
             
             # Apply updates to database
             table = 'trainers' if role == 'trainer' else 'clients'
@@ -364,3 +380,35 @@ class ProfileEditHandler:
                 'response': error_msg,
                 'handler': 'edit_profile_apply_error'
             }
+    
+    def _parse_experience_to_number(self, experience_text: str) -> int:
+        """Convert experience text to number for years_experience field"""
+        if not experience_text:
+            return 0
+        
+        experience_map = {
+            '0-1 years': 1,
+            '2-3 years': 3,
+            '4-5 years': 5,
+            '6-10 years': 8,
+            '10+ years': 12
+        }
+        
+        return experience_map.get(experience_text, 0)
+    
+    def _number_to_experience_text(self, years: int) -> str:
+        """Convert years number back to experience text"""
+        if not years or years == 0:
+            return '0-1 years'
+        
+        # Reverse mapping from number to text
+        if years <= 1:
+            return '0-1 years'
+        elif years <= 3:
+            return '2-3 years'
+        elif years <= 5:
+            return '4-5 years'
+        elif years <= 10:
+            return '6-10 years'
+        else:
+            return '10+ years'

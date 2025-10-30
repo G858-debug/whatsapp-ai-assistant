@@ -35,6 +35,10 @@ class RegistrationService:
         """Get list of fields for registration"""
         return self.field_manager.get_registration_fields(role)
     
+    def get_trainer_add_client_fields(self) -> List[Dict]:
+        """Get fields for trainer adding client (includes phone number)"""
+        return self.field_manager.get_trainer_add_client_fields()
+    
     def get_next_field(self, role: str, current_index: int) -> Optional[Dict]:
         """Get next field in registration flow"""
         return self.field_manager.get_next_field(role, current_index)

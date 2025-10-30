@@ -38,16 +38,16 @@ class DataSaver:
                 'last_name': data.get('last_name'),
                 'email': data.get('email'),
                 'city': data.get('city'),
-                'location': data.get('city'),  # Map city to location as well
+                'location': data.get('city'),  # Keep both for compatibility
                 'business_name': data.get('business_name'),
-                'specialization': ', '.join(data.get('specialization', [])) if isinstance(data.get('specialization'), list) else data.get('specialization'),
+                'specialization': data.get('specialization', []) if data.get('specialization') else [],  # Store as list
                 'experience_years': data.get('experience_years'),
-                'years_experience': self._parse_experience_to_number(data.get('experience_years')),  # Convert to number
+                'years_experience': self._parse_experience_to_number(data.get('experience_years')),  # Keep both for compatibility
                 'pricing_per_session': float(data.get('pricing_per_session', 500)) if data.get('pricing_per_session') else 500.0,
-                'available_days': data.get('available_days', []) if data.get('available_days') else [],
+                'available_days': data.get('available_days', []) if data.get('available_days') else [],  # Store as list
                 'preferred_time_slots': data.get('preferred_time_slots'),
-                'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],
-                'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],
+                'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],  # Store as list
+                'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],  # Store as list
                 'additional_notes': data.get('additional_notes'),
                 'status': 'active',
                 'registration_method': 'chat',
@@ -94,17 +94,25 @@ class DataSaver:
             name = data.get('full_name', '')
             client_id = self.auth_service.generate_unique_id(name, 'client')
             
+            # Determine client phone number
+            # If created by trainer, use phone from data (trainer provided it)
+            # If self-registration, use webhook phone
+            client_phone = data.get('phone_number', phone) if created_by_trainer else phone
+            
+            # Clean phone number
+            clean_phone = client_phone.replace('+', '').replace('-', '').replace(' ', '')
+            
             # Prepare client data
             client_data = {
                 'client_id': client_id,
-                'whatsapp': phone,
+                'whatsapp': clean_phone,
                 'name': name,
                 'email': data.get('email'),
-                'fitness_goals': ', '.join(data.get('fitness_goals', [])) if isinstance(data.get('fitness_goals'), list) else data.get('fitness_goals'),
+                'fitness_goals': data.get('fitness_goals', []) if data.get('fitness_goals') else [],  # Store as list
                 'experience_level': data.get('experience_level'),
                 'health_conditions': data.get('health_conditions'),
-                'availability': ', '.join(data.get('availability', [])) if isinstance(data.get('availability'), list) else data.get('availability'),
-                'preferred_training_times': ', '.join(data.get('preferred_training_type', [])) if isinstance(data.get('preferred_training_type'), list) else data.get('preferred_training_type'),
+                'availability': data.get('availability', []) if data.get('availability') else [],  # Store as list
+                'preferred_training_times': data.get('preferred_training_type', []) if data.get('preferred_training_type') else [],  # Store as list
                 'status': 'active',
                 'created_at': datetime.now(self.sa_tz).isoformat(),
                 'updated_at': datetime.now(self.sa_tz).isoformat()
@@ -114,15 +122,16 @@ class DataSaver:
             result = self.db.table('clients').insert(client_data).execute()
             
             if result.data:
-                # Create user entry
-                self.auth_service.create_user_entry(phone, 'client', client_id)
+                # Create user entry with correct phone number
+                self.auth_service.create_user_entry(clean_phone, 'client', client_id)
                 
                 # If created by trainer, establish relationship
                 if created_by_trainer and trainer_id:
                     self._create_trainer_client_relationship(trainer_id, client_id, 'trainer')
                 
-                # Set login status
-                self.auth_service.set_login_status(phone, 'client')
+                # Set login status (only for self-registration, not trainer-created)
+                if not created_by_trainer:
+                    self.auth_service.set_login_status(clean_phone, 'client')
                 
                 log_info(f"Client registered successfully: {client_id}")
                 

@@ -59,13 +59,18 @@ class RegistrationFlowHandler(FlowCoordinator):
         except Exception as e:
             return self.handle_flow_error(phone, None, e, 'new_user', 'new user handling')
     
-    def start_registration(self, phone: str, role: str) -> Dict:
+    def start_registration(self, phone: str, role: str, created_by_trainer: bool = False, trainer_id: str = None) -> Dict:
         """Start registration process for selected role"""
         try:
             log_info(f"Starting {role} registration for {phone}")
             
             # Get registration fields for this role
-            fields = self.reg.get_registration_fields(role)
+            if role == 'client' and created_by_trainer:
+                # Use trainer-add-client fields (includes phone number)
+                fields = self.reg.get_trainer_add_client_fields()
+            else:
+                # Use regular registration fields
+                fields = self.reg.get_registration_fields(role)
             
             if not fields:
                 error_msg = "Sorry, registration is not available right now. Please try again later."
@@ -85,7 +90,9 @@ class RegistrationFlowHandler(FlowCoordinator):
                     'current_field_index': 0,
                     'collected_data': {},
                     'role': role,
-                    'fields': fields
+                    'fields': fields,
+                    'created_by_trainer': created_by_trainer,
+                    'trainer_id': trainer_id
                 }
             )
             

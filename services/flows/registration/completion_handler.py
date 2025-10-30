@@ -82,19 +82,29 @@ class RegistrationCompletionHandler:
         try:
             log_info(f"Completing client registration for {phone}")
             
+            # Check if this is trainer-created client
+            task_data = task.get('task_data', {})
+            created_by_trainer = task_data.get('created_by_trainer', False)
+            trainer_id = task_data.get('trainer_id')
+            
             # Save client registration
-            success, message, user_id = self.reg.save_client_registration(phone, data)
+            success, message, user_id = self.reg.save_client_registration(
+                phone, data, created_by_trainer, trainer_id
+            )
             
             if success:
                 # Complete the task
                 self.task_manager.complete_flow_task(task, 'client')
                 
-                # Send success message
+                # Send success message to trainer (who initiated the registration)
                 self.whatsapp.send_message(phone, message)
                 
-                # Send welcome message with available commands
-                welcome_msg = self.message_builder.build_welcome_message('client', user_id, data.get('first_name'))
-                self.whatsapp.send_message(phone, welcome_msg)
+                # If created by trainer, don't send welcome message to trainer
+                # The client will get their own welcome when they first contact the bot
+                if not created_by_trainer:
+                    # Send welcome message with available commands (for self-registration)
+                    welcome_msg = self.message_builder.build_welcome_message('client', user_id, data.get('full_name'))
+                    self.whatsapp.send_message(phone, welcome_msg)
                 
                 return {
                     'success': True,

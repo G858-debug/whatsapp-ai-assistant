@@ -66,7 +66,7 @@ def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
         f"*Name:* {name}\n"
         f"*Email:* {data.get('email', 'N/A')}\n"
         f"*Phone:* {data.get('whatsapp', 'N/A')}\n"
-        f"*City:* {data.get('city', 'N/A')}\n"
+        f"*Location:* {data.get('city', 'N/A')}\n"  # Use city (primary field)
     )
     
     if data.get('business_name'):
@@ -78,11 +78,36 @@ def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
             spec = ', '.join(spec)
         profile += f"*Specialization:* {spec}\n"
     
+    # Use experience_years (primary field) instead of years_experience
     if data.get('experience_years'):
         profile += f"*Experience:* {data['experience_years']}\n"
     
     if data.get('pricing_per_session'):
         profile += f"*Price per Session:* R{data['pricing_per_session']}\n"
+    
+    # Show available days as list
+    if data.get('available_days'):
+        days = data['available_days']
+        if isinstance(days, list):
+            days = ', '.join(days)
+        profile += f"*Available Days:* {days}\n"
+    
+    if data.get('preferred_time_slots'):
+        profile += f"*Preferred Time:* {data['preferred_time_slots']}\n"
+    
+    # Show services offered as list
+    if data.get('services_offered'):
+        services = data['services_offered']
+        if isinstance(services, list):
+            services = ', '.join(services)
+        profile += f"*Services:* {services}\n"
+    
+    # Show pricing flexibility as list
+    if data.get('pricing_flexibility'):
+        pricing = data['pricing_flexibility']
+        if isinstance(pricing, list):
+            pricing = ', '.join(pricing)
+        profile += f"*Pricing Options:* {pricing}\n"
     
     profile += f"\n💡 Type /edit-profile to update your information"
     
@@ -118,6 +143,12 @@ def _format_client_profile(data: Dict, client_id: str) -> str:
         if isinstance(avail, list):
             avail = ', '.join(avail)
         profile += f"*Availability:* {avail}\n"
+    
+    if data.get('preferred_training_times'):
+        training_types = data['preferred_training_times']
+        if isinstance(training_types, list):
+            training_types = ', '.join(training_types)
+        profile += f"*Preferred Training:* {training_types}\n"
     
     profile += f"\n💡 Type /edit-profile to update your information"
     

@@ -30,6 +30,21 @@ class FieldManager:
             log_error(f"Error loading registration config: {str(e)}")
             return {'fields': [], 'showable_fields': []}
     
+    def get_trainer_add_client_fields(self) -> List[Dict]:
+        """Get fields for trainer adding client (includes phone number)"""
+        try:
+            config_file = 'config/trainer_add_client_inputs.json'
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    return config.get('fields', [])
+            else:
+                log_error(f"Trainer add client config not found: {config_file}")
+                return []
+        except Exception as e:
+            log_error(f"Error loading trainer add client config: {str(e)}")
+            return []
+    
     def get_registration_fields(self, role: str) -> List[Dict]:
         """Get list of fields for registration"""
         if role == 'trainer':
@@ -94,7 +109,9 @@ class FieldManager:
         # Trainer field mappings
         elif role == 'trainer':
             field_mapping = {
-                # Add trainer mappings if needed
+                # Handle potential reverse mappings for compatibility
+                'location': 'city',  # If someone somehow edits location, map to city
+                'years_experience': 'experience_years'  # If someone edits years_experience, map to experience_years
             }
             return field_mapping.get(field_name, field_name)
         
