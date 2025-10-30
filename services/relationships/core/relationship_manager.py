@@ -18,11 +18,27 @@ class RelationshipManager:
     def get_trainer_clients(self, trainer_id: str, status: str = 'active') -> List[Dict]:
         """Get all clients for a trainer"""
         try:
-            result = self.db.table('trainer_client_list').select(
-                '*, clients!trainer_client_list_client_id_fkey(*)'
-            ).eq('trainer_id', trainer_id).eq('connection_status', status).execute()
+            # Get relationship records
+            relationships = self.db.table('trainer_client_list').select('*').eq(
+                'trainer_id', trainer_id
+            ).eq('connection_status', status).execute()
             
-            return result.data if result.data else []
+            if not relationships.data:
+                return []
+            
+            # Get client details for each relationship
+            clients = []
+            for rel in relationships.data:
+                client_result = self.db.table('clients').select('*').eq(
+                    'client_id', rel['client_id']
+                ).execute()
+                
+                if client_result.data:
+                    client_data = client_result.data[0]
+                    client_data['relationship'] = rel  # Include relationship info
+                    clients.append(client_data)
+            
+            return clients
             
         except Exception as e:
             log_error(f"Error getting trainer clients: {str(e)}")
@@ -31,11 +47,27 @@ class RelationshipManager:
     def get_client_trainers(self, client_id: str, status: str = 'active') -> List[Dict]:
         """Get all trainers for a client"""
         try:
-            result = self.db.table('client_trainer_list').select(
-                '*, trainers!client_trainer_list_trainer_id_fkey(*)'
-            ).eq('client_id', client_id).eq('connection_status', status).execute()
+            # Get relationship records
+            relationships = self.db.table('client_trainer_list').select('*').eq(
+                'client_id', client_id
+            ).eq('connection_status', status).execute()
             
-            return result.data if result.data else []
+            if not relationships.data:
+                return []
+            
+            # Get trainer details for each relationship
+            trainers = []
+            for rel in relationships.data:
+                trainer_result = self.db.table('trainers').select('*').eq(
+                    'trainer_id', rel['trainer_id']
+                ).execute()
+                
+                if trainer_result.data:
+                    trainer_data = trainer_result.data[0]
+                    trainer_data['relationship'] = rel  # Include relationship info
+                    trainers.append(trainer_data)
+            
+            return trainers
             
         except Exception as e:
             log_error(f"Error getting client trainers: {str(e)}")

@@ -58,6 +58,15 @@ class InvitationManager:
                 {'id': f'decline_trainer_{trainer_id}', 'title': '❌ Decline'}
             ]
             
+            # Create initial pending relationship
+            relationship_success, relationship_msg = self.create_relationship(
+                trainer_id, client_id, 'trainer'
+            )
+            
+            if not relationship_success:
+                log_error(f"Failed to create relationship: {relationship_msg}")
+                return False, f"Failed to create relationship: {relationship_msg}"
+            
             self.whatsapp.send_button_message(client_phone, message, buttons)
             
             log_info(f"Sent trainer invitation from {trainer_id} to client {client_id}")
@@ -101,6 +110,15 @@ class InvitationManager:
                 {'id': f'accept_client_{client_id}', 'title': '✅ Accept'},
                 {'id': f'decline_client_{client_id}', 'title': '❌ Decline'}
             ]
+            
+            # Create initial pending relationship
+            relationship_success, relationship_msg = self.create_relationship(
+                trainer_id, client_id, 'client'
+            )
+            
+            if not relationship_success:
+                log_error(f"Failed to create relationship: {relationship_msg}")
+                return False, f"Failed to create relationship: {relationship_msg}"
             
             self.whatsapp.send_button_message(trainer_phone, message, buttons)
             
