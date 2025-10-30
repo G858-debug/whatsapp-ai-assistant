@@ -132,7 +132,7 @@ class RoleManager:
                 auth_service.set_login_status(phone, 'trainer')
                 message = ("✅ You are logged in as *Trainer* now.\n\n"
                           "You can ask me for any trainer related tasks to perform.\n"
-                          "You can also ask to logout and then register as client.")
+                          "You can also ask to logout and then Register as Trainee.")
                 return True, 'trainer', message
             
             elif roles['client'] and not roles['trainer']:

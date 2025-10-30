@@ -49,7 +49,7 @@ def handle_register(phone: str, auth_service, whatsapp) -> Dict:
                 "Would you like to also register as a client?"
             )
             buttons = [
-                {'id': 'register_client', 'title': 'Register as Client'}
+                {'id': 'register_client', 'title': 'Register as Trainee'}
             ]
         elif roles['client'] and not roles['trainer']:
             msg = (
@@ -66,7 +66,7 @@ def handle_register(phone: str, auth_service, whatsapp) -> Dict:
             )
             buttons = [
                 {'id': 'register_trainer', 'title': 'Register as Trainer'},
-                {'id': 'register_client', 'title': 'Register as Client'}
+                {'id': 'register_client', 'title': 'Register as Trainee'}
             ]
         
         whatsapp.send_button_message(phone, msg, buttons)

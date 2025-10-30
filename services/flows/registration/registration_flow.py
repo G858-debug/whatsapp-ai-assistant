@@ -50,7 +50,7 @@ class RegistrationFlowHandler(FlowCoordinator):
             if msg_lower in ['register_trainer', 'register as trainer', 'trainer', '💪 register as trainer']:
                 return self.start_registration(phone, 'trainer')
             
-            elif msg_lower in ['register_client', 'register as client', 'client', '🏃 register as client']:
+            elif msg_lower in ['register_client', 'Register as Trainee', 'client', '🏃 Register as Trainee']:
                 return self.start_registration(phone, 'client')
             
             # First time user - show welcome and options
