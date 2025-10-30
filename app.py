@@ -19,19 +19,18 @@ app.register_blueprint(whatsapp_flow_bp)
 # Setup basic routes
 setup_routes(app)
 
-# Import and register OTHER blueprints (NOT dashboard)
+# Import and register OTHER blueprints (NOT dashboard - already registered in app_core)
 from routes.calendar import calendar_bp
 from routes.payment import payment_bp
 from routes.webhooks import webhooks_bp
-from routes.dashboard import dashboard_bp, init_dashboard_services
+from routes.dashboard import init_dashboard_services
 from routes.flow_webhook import setup_flow_webhook
 from payfast_webhook import payfast_webhook_bp
 
-# Register blueprints (NO dashboard_bp here!)
+# Register blueprints (dashboard_bp already registered in app_core.py)
 app.register_blueprint(calendar_bp, url_prefix='/calendar')
 app.register_blueprint(payment_bp, url_prefix='/payment')
 app.register_blueprint(webhooks_bp)  # NO PREFIX - webhook should be at /webhook
-app.register_blueprint(dashboard_bp)  # Dashboard at /dashboard
 app.register_blueprint(payfast_webhook_bp)  # PayFast at /webhooks/payfast
 
 # Setup flow webhook (requires supabase and whatsapp_service)
@@ -47,8 +46,7 @@ try:
         whatsapp_service = WhatsAppService(Config, supabase, log_info)
         setup_flow_webhook(app, supabase, whatsapp_service)
         
-        # Initialize dashboard services
-        init_dashboard_services(supabase)
+
     else:
         print("Warning: Supabase credentials not found. Flow webhook setup skipped.")
 except Exception as e:

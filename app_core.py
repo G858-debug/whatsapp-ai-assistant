@@ -94,6 +94,10 @@ def setup_app_core(app):
     # Register blueprints
     app.register_blueprint(dashboard_bp)
     
+    # Initialize dashboard services
+    from routes.dashboard import init_dashboard_services
+    init_dashboard_services(supabase)
+    
     # Store services in app context
     app.config['services'] = {
         'whatsapp': whatsapp_service,
