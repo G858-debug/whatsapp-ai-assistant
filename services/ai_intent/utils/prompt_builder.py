@@ -91,7 +91,7 @@ Available Features (Phase 1):
 Available Features (Phase 2):
 - Search trainers (/search-trainer)
 - Invite trainer (/invite-trainer)
-- View trainers (/view-trainers)
+- View trainers or view trainer (/view-trainers)
 - Remove trainer (/remove-trainer)
 
 Available Features (Phase 3):

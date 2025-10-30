@@ -69,8 +69,8 @@ def handle_view_trainers(phone: str, client_id: str, db, whatsapp) -> Dict:
             # Display in chat
             msg = f"📋 *Your Trainers* ({len(trainers)})\n\n"
             
-            for i, rel in enumerate(trainers, 1):
-                trainer = rel.get('trainers', {})
+            for i, trainer in enumerate(trainers, 1):
+                rel = trainer.get('relationship', {})
                 msg += f"*{i}. {trainer.get('name', 'N/A')}*\n"
                 msg += f"   ID: {trainer.get('trainer_id', 'N/A')}\n"
                 msg += f"   Phone: {trainer.get('whatsapp', 'N/A')}\n"
@@ -102,8 +102,8 @@ def handle_view_trainers(phone: str, client_id: str, db, whatsapp) -> Dict:
             writer.writerow(['Name', 'Trainer ID', 'Phone', 'Email', 'Specialization', 'Experience', 'City', 'Connected Date'])
             
             # Write data
-            for rel in trainers:
-                trainer = rel.get('trainers', {})
+            for trainer in trainers:
+                rel = trainer.get('relationship', {})
                 writer.writerow([
                     trainer.get('name', ''),
                     trainer.get('trainer_id', ''),
