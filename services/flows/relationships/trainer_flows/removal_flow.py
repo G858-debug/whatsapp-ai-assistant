@@ -24,19 +24,32 @@ class RemovalFlow:
             
             if step == 'ask_client_id':
                 # User provided client_id
-                client_id = message.strip().upper()
+                input_value = message.strip()
                 
-                # Verify client in trainer's list
-                if not self.relationship_service.check_relationship_exists(trainer_id, client_id):
+                # Try to find client by ID (case-insensitive)
+                client_result = self.db.table('clients').select('*').ilike(
+                    'client_id', input_value
+                ).execute()
+                
+                if not client_result.data:
                     msg = (
-                        f"❌ Client ID '{client_id}' is not in your client list.\n\n"
-                        f"Type /view-trainees to see your clients, or /stop to cancel."
+                        f"❌ Client with ID '{input_value}' not found.\n\n"
+                        f"Please check the ID and try again, or type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
                     return {'success': True, 'response': msg, 'handler': 'remove_trainee_not_found'}
                 
-                # Get client info
-                client_result = self.db.table('clients').select('*').eq('client_id', client_id).execute()
+                client = client_result.data[0]
+                client_id = client['client_id']  # Use actual client_id from database
+                
+                # Verify client in trainer's list
+                if not self.relationship_service.check_relationship_exists(trainer_id, client_id):
+                    msg = (
+                        f"❌ Client ID '{input_value}' is not in your client list.\n\n"
+                        f"Type /view-trainees to see your clients, or /stop to cancel."
+                    )
+                    self.whatsapp.send_message(phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'remove_trainee_not_found'}
                 
                 if not client_result.data:
                     msg = "❌ Error retrieving client information."
@@ -47,9 +60,10 @@ class RemovalFlow:
                 client = client_result.data[0]
                 
                 # Ask confirmation
+                client_name = client.get('name') or f"{client.get('first_name', '')} {client.get('last_name', '')}".strip() or 'Unknown Client'
                 msg = (
                     f"⚠️ *Confirm Removal*\n\n"
-                    f"*Client:* {client.get('first_name')} {client.get('last_name')}\n"
+                    f"*Client:* {client_name}\n"
                     f"*Client ID:* {client_id}\n\n"
                     f"Are you sure you want to remove this client?\n"
                     f"This will also remove any habit assignments.\n\n"
@@ -60,7 +74,7 @@ class RemovalFlow:
                 # Update task
                 task_data['step'] = 'confirm_removal'
                 task_data['client_id'] = client_id
-                task_data['client_name'] = f"{client.get('first_name')} {client.get('last_name')}"
+                task_data['client_name'] = client_name
                 self.task_service.update_task(task['id'], 'trainer', task_data)
                 
                 return {'success': True, 'response': msg, 'handler': 'remove_trainee_confirm'}
