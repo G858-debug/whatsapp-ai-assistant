@@ -129,7 +129,7 @@ class InvitationService:
             # Store invitation in database with prefilled data
             invitation_data = {
                 'trainer_id': trainer_id,
-                'phone_number': client_phone,
+                'client_phone': client_phone,
                 'prefilled_data': client_data,
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
@@ -137,7 +137,7 @@ class InvitationService:
             
             # Insert or update invitation
             existing = self.db.table('client_invitations').select('id').eq(
-                'phone_number', client_phone
+                'client_phone', client_phone
             ).eq('trainer_id', trainer_id).eq('status', 'pending').execute()
             
             if existing.data:

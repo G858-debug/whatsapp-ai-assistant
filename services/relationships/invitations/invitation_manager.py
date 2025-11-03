@@ -143,19 +143,24 @@ class InvitationManager:
             trainer = trainer_result.data[0]
             trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
             
+            # Generate invitation token
+            invitation_token = self.generate_invitation_token()
+            
             # Store invitation in database with prefilled data
             invitation_data = {
-                'trainer_id': trainer_id,
-                'phone_number': client_phone,
-                'prefilled_data': client_data,
+                'trainer_id': trainer['id'],  # Use UUID from trainer record
+                'client_phone': client_phone,
+                'client_name': client_data.get('name') or client_data.get('full_name'),
+                'client_email': client_data.get('email') if client_data.get('email') and client_data.get('email').lower() not in ['skip', 'none'] else None,
+                'invitation_token': invitation_token,
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
             
             # Insert or update invitation
             existing = self.db.table('client_invitations').select('id').eq(
-                'phone_number', client_phone
-            ).eq('trainer_id', trainer_id).eq('status', 'pending').execute()
+                'client_phone', client_phone
+            ).eq('trainer_id', trainer['id']).eq('status', 'pending').execute()
             
             if existing.data:
                 # Update existing invitation

@@ -176,7 +176,7 @@ class UserManager:
                 self.db.table('client_tasks').delete().eq('client_id', role_id).execute()
                 
                 # Delete client invitations (both sent and received)
-                self.db.table('client_invitations').delete().eq('phone_number', phone).execute()
+                self.db.table('client_invitations').delete().eq('client_phone', phone).execute()
                 
                 # Delete habit-related data if exists
                 try:

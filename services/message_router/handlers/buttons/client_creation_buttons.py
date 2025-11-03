@@ -35,7 +35,7 @@ class ClientCreationButtonHandler:
             
             # Check if there's a pending invitation for this phone and trainer
             invitation_result = self.db.table('client_invitations').select('*').eq(
-                'phone_number', phone
+                'client_phone', phone
             ).eq('trainer_id', trainer_id).eq('status', 'pending').execute()
             
             if not invitation_result.data:
