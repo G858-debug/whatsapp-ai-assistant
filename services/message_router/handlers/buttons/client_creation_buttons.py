@@ -92,6 +92,16 @@ class ClientCreationButtonHandler:
             
             trainer_uuid = trainer_result.data[0]['id']
             
+            # Update invitation status to declined
+            from datetime import datetime
+            import pytz
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+            
+            self.db.table('client_invitations').update({
+                'status': 'declined',
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }).eq('trainer_id', trainer_uuid).eq('client_phone', phone).eq('status', 'pending').execute()
+            
             # Get trainer info and notify
             trainer_info_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
                 'trainer_id', trainer_string_id
@@ -109,6 +119,7 @@ class ClientCreationButtonHandler:
                 trainer_msg = f"ℹ️ The invitation you sent was declined."
                 self.whatsapp.send_message(trainer['whatsapp'], trainer_msg)
                 
+                log_info(f"Client {phone} declined invitation from trainer {trainer_string_id}")
                 return {'success': True, 'response': msg, 'handler': 'reject_new_client'}
             
             return {'success': False, 'response': 'Error processing rejection', 'handler': 'reject_new_client_error'}
@@ -123,11 +134,8 @@ class ClientCreationButtonHandler:
             # Generate client_id
             from services.auth.authentication_service import AuthenticationService
             auth_service = AuthenticationService(self.db)
-            client_id = auth_service.generate_unique_id(
-                prefilled_data.get('first_name', 'Client'),
-                'clients',
-                'client_id'
-            )
+            client_name = prefilled_data.get('name') or prefilled_data.get('full_name') or 'Client'
+            client_id = auth_service.generate_unique_id(client_name, 'client')
             
             # Create client account
             from datetime import datetime
