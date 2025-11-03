@@ -20,7 +20,7 @@ class CreationFlow:
         self.invitation_service = InvitationService(db, whatsapp)
     
     def continue_create_trainee(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
-        """Handle create new client flow with improved UX"""
+        """Handle create new client flow - simplified to only handle new client creation"""
         try:
             task_data = task.get('task_data', {})
             step = task_data.get('step', 'ask_create_or_link')
@@ -31,8 +31,8 @@ class CreationFlow:
                 choice = message.strip()
                 
                 if choice == '1':
-                    # Create new client - load fields
-                    with open('config/client_registration_inputs.json', 'r') as f:
+                    # Create new client - load fields (use trainer_add_client config)
+                    with open('config/trainer_add_client_inputs.json', 'r') as f:
                         config = json.load(f)
                         task_data['fields'] = config['fields']
                         task_data['current_field_index'] = 0
@@ -61,85 +61,22 @@ class CreationFlow:
                     return {'success': True, 'response': first_field['prompt'], 'handler': 'create_trainee_new'}
                 
                 elif choice == '2':
-                    # Link existing client
-                    task_data['step'] = 'ask_client_id'
-                    task_data['mode'] = 'link_existing'
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
-                    
+                    # Redirect to invitation flow instead of duplicating logic
                     msg = (
                         "🔗 *Link Existing Client*\n\n"
-                        "Please provide the *Client ID* or *phone number* of the client you want to link with.\n\n"
-                        "The client must already be registered in the system.\n\n"
-                        "Type /stop to cancel."
+                        "I'll redirect you to the invitation flow to link with an existing client.\n\n"
+                        "Please use the command: */invite-trainee*"
                     )
                     self.whatsapp.send_message(phone, msg)
-                    return {'success': True, 'response': msg, 'handler': 'create_trainee_link'}
+                    self.task_service.complete_task(task['id'], 'trainer')
+                    return {'success': True, 'response': msg, 'handler': 'create_trainee_redirect_invite'}
                 
                 else:
                     msg = "❌ Invalid choice. Please reply with *1* to create new or *2* to link existing."
                     self.whatsapp.send_message(phone, msg)
                     return {'success': True, 'response': msg, 'handler': 'create_trainee_invalid_choice'}
             
-            # Step 2: Handle link existing client
-            if step == 'ask_client_id':
-                input_value = message.strip()
-                
-                # Try to find client by ID first (case-insensitive)
-                client_result = self.db.table('clients').select('client_id, name, whatsapp').ilike(
-                    'client_id', input_value
-                ).execute()
-                
-                # If not found by ID, try by phone number
-                if not client_result.data:
-                    # Clean phone number (remove + and formatting)
-                    clean_phone = input_value.replace('+', '').replace('-', '').replace(' ', '')
-                    client_result = self.db.table('clients').select('client_id, name, whatsapp').eq(
-                        'whatsapp', clean_phone
-                    ).execute()
-                
-                if not client_result.data:
-                    msg = (
-                        f"❌ Client with ID or phone number '{input_value}' not found.\n\n"
-                        f"Please check the ID/phone number and try again, or type /stop to cancel."
-                    )
-                    self.whatsapp.send_message(phone, msg)
-                    return {'success': True, 'response': msg, 'handler': 'create_trainee_invalid_id'}
-                
-                client = client_result.data[0]
-                client_id = client['client_id']  # Use actual client_id from database
-                client_phone = client.get('whatsapp')
-                
-                # Check if already connected
-                if self.relationship_service.check_relationship_exists(trainer_id, client_id):
-                    msg = (
-                        f"ℹ️ You're already connected with {client.get('name')}!\n\n"
-                        f"Type /view-trainees to see all your clients."
-                    )
-                    self.whatsapp.send_message(phone, msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
-                    return {'success': True, 'response': msg, 'handler': 'create_trainee_already_connected'}
-                
-                # Send invitation
-                success, error_msg = self.invitation_service.send_trainer_to_client_invitation(
-                    trainer_id, client_id, client_phone
-                )
-                
-                if success:
-                    msg = (
-                        f"✅ *Invitation Sent!*\n\n"
-                        f"I've sent an invitation to *{client.get('name')}*.\n\n"
-                        f"I'll notify you when they respond. 🔔"
-                    )
-                    self.whatsapp.send_message(phone, msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
-                    return {'success': True, 'response': msg, 'handler': 'create_trainee_link_sent'}
-                else:
-                    msg = f"❌ Failed to send invitation: {error_msg}"
-                    self.whatsapp.send_message(phone, msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
-                    return {'success': False, 'response': msg, 'handler': 'create_trainee_link_failed'}
-            
-            # Step 3: Collect fields for new client
+            # Step 2: Collect fields for new client
             if step == 'collecting':
                 fields = task_data.get('fields', [])
                 current_index = task_data.get('current_field_index', 0)
@@ -193,13 +130,16 @@ class CreationFlow:
                         self.task_service.update_task(task['id'], 'trainer', task_data)
                         return {'success': True, 'response': msg, 'handler': 'create_trainee_exists'}
                     
-                    # Client doesn't exist - send invitation with prefilled data
+                    # Client doesn't exist - map data fields correctly and send invitation
+                    # Map full_name to name for database compatibility
+                    mapped_data = self._map_client_data_fields(collected_data)
+                    
                     success, error_msg = self.invitation_service.send_new_client_invitation(
-                        trainer_id, collected_data, phone_number
+                        trainer_id, mapped_data, phone_number
                     )
                     
                     if success:
-                        client_name = collected_data.get('full_name', 'the client')
+                        client_name = mapped_data.get('name', 'the client')
                         msg = (
                             f"✅ *Invitation Sent!*\n\n"
                             f"I've sent an invitation to *{client_name}* with all the information you provided.\n\n"
@@ -261,8 +201,8 @@ class CreationFlow:
         except Exception as e:
             log_error(f"Error in create trainee flow: {str(e)}")
             
-            # Stop the task
-            self.task_service.stop_task(task['id'], 'trainer')
+            # Complete the task (not stop) to ensure it's properly ended
+            self.task_service.complete_task(task['id'], 'trainer')
             
             # Send error message
             error_msg = (
@@ -273,3 +213,17 @@ class CreationFlow:
             self.whatsapp.send_message(phone, error_msg)
             
             return {'success': False, 'response': error_msg, 'handler': 'create_trainee_error'}
+    
+    def _map_client_data_fields(self, collected_data: Dict) -> Dict:
+        """Map config field names to database column names"""
+        mapped_data = collected_data.copy()
+        
+        # Map full_name to name for database compatibility
+        if 'full_name' in mapped_data:
+            mapped_data['name'] = mapped_data.pop('full_name')
+        
+        # Ensure phone_number is mapped to whatsapp field
+        if 'phone_number' in mapped_data:
+            mapped_data['whatsapp'] = mapped_data['phone_number']
+        
+        return mapped_data

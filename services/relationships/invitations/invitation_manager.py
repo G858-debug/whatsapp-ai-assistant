@@ -167,7 +167,7 @@ class InvitationManager:
                 self.db.table('client_invitations').insert(invitation_data).execute()
             
             # Create invitation message with prefilled data
-            client_name = client_data.get('full_name', 'there')
+            client_name = client_data.get('name') or client_data.get('full_name', 'there')
             
             message = (
                 f"🎯 *Training Invitation*\n\n"

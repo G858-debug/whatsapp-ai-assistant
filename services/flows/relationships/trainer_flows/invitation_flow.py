@@ -86,8 +86,8 @@ class InvitationFlow:
         except Exception as e:
             log_error(f"Error in invite trainee flow: {str(e)}")
             
-            # Stop the task
-            self.task_service.stop_task(task['id'], 'trainer')
+            # Complete the task (consistent with creation flow)
+            self.task_service.complete_task(task['id'], 'trainer')
             
             # Send error message
             error_msg = (
