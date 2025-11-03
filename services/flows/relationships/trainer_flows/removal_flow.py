@@ -37,6 +37,8 @@ class RemovalFlow:
                         f"Please check the ID and try again, or type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
+                    # Complete the task since the client doesn't exist
+                    self.task_service.complete_task(task['id'], 'trainer')
                     return {'success': True, 'response': msg, 'handler': 'remove_trainee_not_found'}
                 
                 client = client_result.data[0]
@@ -49,6 +51,8 @@ class RemovalFlow:
                         f"Type /view-trainees to see your clients, or /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
+                    # Complete the task since the relationship doesn't exist
+                    self.task_service.complete_task(task['id'], 'trainer')
                     return {'success': True, 'response': msg, 'handler': 'remove_trainee_not_found'}
                 
                 if not client_result.data:

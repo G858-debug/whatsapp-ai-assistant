@@ -42,6 +42,8 @@ class InvitationFlow:
                         f"Please check the ID/phone number and try again, or type /stop to cancel."
                     )
                     self.whatsapp.send_message(phone, msg)
+                    # Complete the task since the trainer doesn't exist
+                    self.task_service.complete_task(task['id'], 'client')
                     return {'success': True, 'response': msg, 'handler': 'invite_trainer_invalid_id'}
                 
                 trainer = trainer_result.data[0]
