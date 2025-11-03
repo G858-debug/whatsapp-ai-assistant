@@ -7,7 +7,7 @@ from utils.logger import log_info, log_error
 
 
 def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
-    """Handle /invite-trainer command"""
+    """Handle /invite-trainer command with trainer browse dashboard"""
     try:
         # Create invite_trainer task
         task_id = task_service.create_task(
@@ -22,11 +22,16 @@ def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'invite_trainer_task_error'}
         
-        # Ask for trainer ID or phone number
+        # Generate trainer browse dashboard
+        from services.commands.dashboard import generate_trainer_browse_dashboard
+        dashboard_result = generate_trainer_browse_dashboard(phone, client_id, db, whatsapp)
+        
+        # Send invitation instructions
         msg = (
             "👥 *Invite Trainer*\n\n"
-            "Please provide the trainer ID or phone number you want to invite.\n\n"
-            "Use /search-trainer to find trainers first.\n\n"
+            "Please provide the Trainer ID you want to invite.\n\n"
+            "💡 *Tip:* Use the dashboard link above to browse all available trainers and copy their ID\n\n"
+            "You can also provide a phone number if you know it.\n\n"
             "Type /stop to cancel."
         )
         whatsapp.send_message(phone, msg)

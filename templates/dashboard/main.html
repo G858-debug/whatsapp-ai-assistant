@@ -1,6 +1,6 @@
 {% extends "dashboard/base.html" %}
 
-{% block title %}{{ user.name }} - {{ relationship_type|title }} Dashboard{% endblock %}
+{% block title %}{{ user.name }} - {% if purpose == 'browse_trainers' %}Browse Trainers{% else %}{{ relationship_type|title }}{% endif %} Dashboard{% endblock %}
 
 {% block content %}
 <!-- Header Section -->
@@ -9,7 +9,11 @@
         <div class="col-md-8">
             <h1><i class="bi bi-person-circle"></i> {{ user.name }}</h1>
             <p class="mb-0"><i class="bi bi-telephone"></i> {{ user.phone }} | <i class="bi bi-envelope"></i> {{ user.email }}</p>
+            {% if purpose == 'browse_trainers' %}
+            <p class="mb-0"><i class="bi bi-search"></i> Browse All Trainers</p>
+            {% else %}
             <p class="mb-0"><i class="bi bi-shield-check"></i> {{ role|title }} Dashboard</p>
+            {% endif %}
         </div>
         <!-- <div class="col-md-4 text-end">
             <div class="alert alert-info p-2 mb-0">
@@ -21,12 +25,33 @@
 
 <!-- Stats Section -->
 <div class="row p-4">
+    {% if purpose == 'browse_trainers' %}
+    <div class="col-md-4">
+        <div class="stats-card text-center">
+            <h3 class="text-success">{{ stats.active_count }}</h3>
+            <p class="mb-0">Available Trainers</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stats-card text-center">
+            <h3 class="text-warning">{{ stats.pending_count }}</h3>
+            <p class="mb-0">Already Connected</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stats-card text-center">
+            <h3 class="text-info">{{ stats.total_count }}</h3>
+            <p class="mb-0">Total Trainers</p>
+        </div>
+    </div>
+    {% else %}
     <div class="col-md-12">
         <div class="stats-card text-center">
             <h3 class="text-info">{{ stats.total_count }}</h3>
             <p class="mb-0">Total {{ relationship_type|title }}</p>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- Search and Filter Section -->
@@ -94,9 +119,17 @@
                         <h5 class="mb-3">
                             <i class="bi bi-person-fill text-success"></i> 
                             {{ rel.name }}
-                            <span class="badge bg-{{ 'success' if rel.connection_status == 'active' else 'warning' }} ms-2">
-                                {{ rel.connection_status|title }}
-                            </span>
+                            {% if purpose == 'browse_trainers' %}
+                                {% if rel.is_connected %}
+                                    <span class="badge bg-warning ms-2">Already Connected</span>
+                                {% else %}
+                                    <span class="badge bg-success ms-2">Available</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-{{ 'success' if rel.connection_status == 'active' else 'warning' }} ms-2">
+                                    {{ rel.connection_status|title }}
+                                </span>
+                            {% endif %}
                         </h5>
                         
                         <div class="row">
@@ -176,22 +209,44 @@
                                 {% endif %}
                                 <p class="mb-2">
                                     <i class="bi bi-calendar-check"></i>
-                                    <strong>Connected:</strong> {{ rel.connected_date }}
+                                    {% if purpose == 'browse_trainers' %}
+                                        <strong>Status:</strong> {{ rel.connected_date }}
+                                    {% else %}
+                                        <strong>Connected:</strong> {{ rel.connected_date }}
+                                    {% endif %}
                                 </p>
                             </div>
                         </div>
                         
-                        <!-- Remove Instructions -->
+                        <!-- Action Instructions -->
                         <div class="row mt-3">
                             <div class="col-12">
-                                <div class="alert alert-info p-2 mb-0">
-                                    <small>
-                                        <i class="bi bi-info-circle"></i> 
-                                        To remove: Copy ID above, then use 
-                                        <code>{{ '/remove-trainee' if role == 'trainer' else '/remove-trainer' }}</code> 
-                                        in WhatsApp
-                                    </small>
-                                </div>
+                                {% if purpose == 'browse_trainers' %}
+                                    {% if rel.is_connected %}
+                                        <div class="alert alert-warning p-2 mb-0">
+                                            <small>
+                                                <i class="bi bi-check-circle"></i> 
+                                                You're already connected with this trainer!
+                                            </small>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-success p-2 mb-0">
+                                            <small>
+                                                <i class="bi bi-plus-circle"></i> 
+                                                To invite: Copy ID above, then return to WhatsApp and provide the ID
+                                            </small>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="alert alert-info p-2 mb-0">
+                                        <small>
+                                            <i class="bi bi-info-circle"></i> 
+                                            To remove: Copy ID above, then use 
+                                            <code>{{ '/remove-trainee' if role == 'trainer' else '/remove-trainer' }}</code> 
+                                            in WhatsApp
+                                        </small>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

@@ -48,8 +48,10 @@ class ClientCommandHandler:
         """Handle Phase 2 relationship commands"""
         try:
             if cmd == '/search-trainer':
-                from services.commands import handle_search_trainer
-                return handle_search_trainer(phone, user_id, self.db, self.whatsapp, self.task_service)
+                from services.commands.dashboard import generate_trainer_browse_dashboard
+                return generate_trainer_browse_dashboard(phone, user_id, self.db, self.whatsapp)
+                # from services.commands import handle_search_trainer
+                # return handle_search_trainer(phone, user_id, self.db, self.whatsapp, self.task_service)
             
             elif cmd == '/invite-trainer':
                 from services.commands import handle_invite_trainer

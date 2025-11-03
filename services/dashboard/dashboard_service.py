@@ -140,3 +140,69 @@ class DashboardService:
         except Exception as e:
             log_error(f"Error getting dashboard stats: {str(e)}")
             return {'active_count': 0, 'pending_count': 0, 'total_count': 0}
+    
+    def get_all_trainers(self, client_id: str = None) -> List[Dict]:
+        """Get all trainers on the platform for client browsing/invitation"""
+        try:
+            # Get all trainers from the database
+            all_trainers_result = self.db.table('trainers').select('*').execute()
+            
+            if not all_trainers_result.data:
+                return []
+            
+            # Get client's existing connections to mark them
+            connected_trainer_ids = set()
+            if client_id:
+                try:
+                    existing_relationships = self.relationship_service.get_client_trainers(client_id, 'active')
+                    connected_trainer_ids = {trainer.get('trainer_id') for trainer in existing_relationships}
+                except Exception as e:
+                    log_error(f"Error getting existing relationships: {str(e)}")
+            
+            # Format all trainers for dashboard
+            formatted = []
+            for trainer in all_trainers_result.data:
+                trainer_id = trainer.get('trainer_id')
+                is_connected = trainer_id in connected_trainer_ids
+                
+                # Format JSON arrays to comma-separated text
+                services_text = self._format_array_field(trainer.get('services_offered', []))
+                pricing_flex_text = self._format_array_field(trainer.get('pricing_flexibility', []))
+                available_days_text = self._format_array_field(trainer.get('available_days', []))
+                
+                formatted.append({
+                    'id': trainer_id or 'N/A',
+                    'name': trainer.get('name', 'N/A'),
+                    'first_name': trainer.get('first_name', ''),
+                    'last_name': trainer.get('last_name', ''),
+                    'business_name': trainer.get('business_name', ''),
+                    'status': trainer.get('status', 'N/A'),
+                    'is_connected': is_connected,  # New field to show connection status
+                    'additional_info': {
+                        'pricing_per_session': f"R{trainer.get('pricing_per_session', 0)}" if trainer.get('pricing_per_session') else '',
+                        'city': trainer.get('city', ''),
+                        'location': trainer.get('location', ''),
+                        'experience_years': trainer.get('experience_years', ''),
+                        'years_experience': trainer.get('years_experience', ''),
+                        'available_days': available_days_text,
+                        'preferred_time_slots': self._format_array_field(trainer.get('preferred_time_slots', '')),
+                        'specialization': self._format_array_field(trainer.get('specialization', '')),
+                        'services_offered': services_text,
+                        'pricing_flexibility': pricing_flex_text,
+                        'additional_notes': trainer.get('additional_notes', ''),
+                        'phone': trainer.get('whatsapp', ''),
+                        'email': trainer.get('email', ''),
+                        'bio': trainer.get('bio', ''),
+                        'certifications': self._format_array_field(trainer.get('certifications', '')),
+                        'training_style': trainer.get('training_style', ''),
+                        'languages': self._format_array_field(trainer.get('languages', ''))
+                    },
+                    'connected_date': 'Available' if not is_connected else 'Connected',
+                    'connection_status': 'connected' if is_connected else 'available'
+                })
+            
+            return formatted
+            
+        except Exception as e:
+            log_error(f"Error getting all trainers: {str(e)}")
+            return []

@@ -35,19 +35,31 @@ def dashboard_view(user_id, token):
             return render_template('dashboard/error.html', 
                                  error="User not found"), 404
         
-        # Get relationships and stats
-        relationships = dashboard_service.get_relationships(user_id, token_data['role'])
-        stats = dashboard_service.get_dashboard_stats(user_id, token_data['role'])
+        # Check if this is a special purpose dashboard
+        purpose = token_data.get('purpose', 'relationships')
         
-        # Determine relationship type for display
-        relationship_type = 'clients' if token_data['role'] == 'trainer' else 'trainers'
+        if purpose == 'browse_trainers' and token_data['role'] == 'client':
+            # Special dashboard for browsing ALL trainers on the platform
+            relationships = dashboard_service.get_all_trainers(user_id)
+            stats = {
+                'active_count': len([t for t in relationships if not t['is_connected']]),
+                'pending_count': len([t for t in relationships if t['is_connected']]),
+                'total_count': len(relationships)
+            }
+            relationship_type = 'available_trainers'
+        else:
+            # Regular dashboard showing user's relationships
+            relationships = dashboard_service.get_relationships(user_id, token_data['role'])
+            stats = dashboard_service.get_dashboard_stats(user_id, token_data['role'])
+            relationship_type = 'clients' if token_data['role'] == 'trainer' else 'trainers'
         
         return render_template('dashboard/main.html',
                              user=user_info,
                              relationships=relationships,
                              stats=stats,
                              relationship_type=relationship_type,
-                             role=token_data['role'])
+                             role=token_data['role'],
+                             purpose=purpose)
         
     except Exception as e:
         log_error(f"Dashboard error: {str(e)}")
