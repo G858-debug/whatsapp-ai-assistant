@@ -28,9 +28,11 @@ class TrainerCommandHandler:
                 return habit_result
             
             # Unknown trainer command
+            msg = f"❓ Unknown trainer command: {cmd}\n\nType /help to see available commands."
+            self.whatsapp.send_message(phone, msg)
             return {
                 'success': True,
-                'response': f"❓ Unknown trainer command: {cmd}\n\nType /help to see available commands.",
+                'response': msg,
                 'handler': 'unknown_trainer_command'
             }
             

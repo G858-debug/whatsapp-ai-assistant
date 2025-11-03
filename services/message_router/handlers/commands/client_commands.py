@@ -28,9 +28,11 @@ class ClientCommandHandler:
                 return habit_result
             
             # Unknown client command
+            msg = f"❓ Unknown client command: {cmd}\n\nType /help to see available commands."
+            self.whatsapp.send_message(phone, msg)
             return {
                 'success': True,
-                'response': f"❓ Unknown client command: {cmd}\n\nType /help to see available commands.",
+                'response': msg,
                 'handler': 'unknown_client_command'
             }
             
