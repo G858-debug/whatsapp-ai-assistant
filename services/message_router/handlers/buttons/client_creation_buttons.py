@@ -56,10 +56,21 @@ class ClientCreationButtonHandler:
                 return {'success': False, 'response': msg, 'handler': 'approve_new_client_no_invitation'}
             
             invitation = invitation_result.data[0]
+            
+            # Get complete client data from prefilled_data JSONB column
             prefilled_data = invitation.get('prefilled_data', {})
             
+            # Fallback to individual fields if prefilled_data is empty (for backward compatibility)
+            if not prefilled_data:
+                prefilled_data = {
+                    'name': invitation.get('client_name'),
+                    'email': invitation.get('client_email'),
+                }
+            
+            client_data = prefilled_data
+            
             # Create the client account
-            client_id = self._create_client_account(phone, trainer_string_id, prefilled_data, invitation['id'])
+            client_id = self._create_client_account(phone, trainer_string_id, client_data, invitation['id'])
             
             if client_id:
                 # Send success notifications
@@ -142,16 +153,22 @@ class ClientCreationButtonHandler:
             import pytz
             sa_tz = pytz.timezone('Africa/Johannesburg')
             
+            # Map the prefilled data to database fields with proper fallbacks
+            client_name = (prefilled_data.get('name') or 
+                          prefilled_data.get('full_name') or 
+                          'New Client')  # Ensure name is never null
+            
             client_data = {
                 'client_id': client_id,
                 'whatsapp': phone,
-                'name': prefilled_data.get('name') or prefilled_data.get('full_name'),
-                'email': prefilled_data.get('email'),
-                'fitness_goals': prefilled_data.get('fitness_goals'),
-                'experience_level': prefilled_data.get('experience_level'),
-                'health_conditions': prefilled_data.get('health_conditions'),
-                'availability': prefilled_data.get('availability'),
-                'preferred_training_times': prefilled_data.get('preferred_training_type'),  # Map to correct column
+                'name': client_name,
+                'email': prefilled_data.get('email') if prefilled_data.get('email') and prefilled_data.get('email').lower() not in ['skip', 'none'] else None,
+                'fitness_goals': prefilled_data.get('fitness_goals') or 'To be determined',
+                'experience_level': prefilled_data.get('experience_level') or 'Beginner',
+                'health_conditions': prefilled_data.get('health_conditions') if prefilled_data.get('health_conditions') and prefilled_data.get('health_conditions').lower() not in ['skip', 'none'] else None,
+                'availability': prefilled_data.get('availability') or 'Flexible',
+                'preferred_training_times': prefilled_data.get('preferred_training_type') or 'To be discussed',
+                'status': 'active',
                 'created_at': datetime.now(sa_tz).isoformat(),
                 'updated_at': datetime.now(sa_tz).isoformat()
             }

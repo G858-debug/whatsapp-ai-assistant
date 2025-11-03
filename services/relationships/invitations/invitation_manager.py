@@ -146,13 +146,14 @@ class InvitationManager:
             # Generate invitation token
             invitation_token = self.generate_invitation_token()
             
-            # Store invitation in database with prefilled data
+            # Store invitation in database with complete prefilled data
             invitation_data = {
                 'trainer_id': trainer['id'],  # Use UUID from trainer record
                 'client_phone': client_phone,
                 'client_name': client_data.get('name') or client_data.get('full_name'),
                 'client_email': client_data.get('email') if client_data.get('email') and client_data.get('email').lower() not in ['skip', 'none'] else None,
                 'invitation_token': invitation_token,
+                'prefilled_data': client_data,  # Store complete client data as JSONB
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
