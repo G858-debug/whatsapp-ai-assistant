@@ -59,3 +59,62 @@ class TaskService:
     def stop_all_running_tasks(self, user_id: str, role: str) -> bool:
         """Stop all running tasks for user"""
         return self.task_tracker.stop_all_running_tasks(user_id, role)
+    
+    def emergency_cleanup_all_tasks(self, phone: str, user_id: str = None, role: str = None) -> int:
+        """Emergency cleanup - force complete ALL running tasks for a user (nuclear option)"""
+        try:
+            from datetime import datetime
+            import pytz
+            
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+            now = datetime.now(sa_tz).isoformat()
+            cleaned_count = 0
+            
+            # If we have user_id and role, clean those tasks
+            if user_id and role:
+                table = 'trainer_tasks' if role == 'trainer' else 'client_tasks'
+                id_column = 'trainer_id' if role == 'trainer' else 'client_id'
+                
+                # Get all running tasks
+                running_tasks = self.db.table(table).select('id, task_type').eq(
+                    id_column, user_id
+                ).eq('task_status', 'running').execute()
+                
+                # Force complete them
+                for task in running_tasks.data:
+                    self.db.table(table).update({
+                        'task_status': 'completed',
+                        'completed_at': now,
+                        'updated_at': now
+                    }).eq('id', task['id']).execute()
+                    cleaned_count += 1
+                    log_info(f"Emergency cleanup: completed task {task['id']} ({task.get('task_type')})")
+            
+            # Also clean registration tasks using phone as ID
+            for reg_role in ['trainer', 'client']:
+                try:
+                    table = f'{reg_role}_tasks'
+                    id_column = f'{reg_role}_id'
+                    
+                    reg_tasks = self.db.table(table).select('id, task_type').eq(
+                        id_column, phone
+                    ).eq('task_status', 'running').execute()
+                    
+                    for task in reg_tasks.data:
+                        self.db.table(table).update({
+                            'task_status': 'completed',
+                            'completed_at': now,
+                            'updated_at': now
+                        }).eq('id', task['id']).execute()
+                        cleaned_count += 1
+                        log_info(f"Emergency cleanup: completed registration task {task['id']} for {reg_role}")
+                        
+                except Exception as role_error:
+                    log_error(f"Emergency cleanup error for {reg_role}: {str(role_error)}")
+            
+            log_info(f"Emergency cleanup completed for {phone}: {cleaned_count} tasks cleaned")
+            return cleaned_count
+            
+        except Exception as e:
+            log_error(f"Emergency cleanup failed for {phone}: {str(e)}")
+            return 0

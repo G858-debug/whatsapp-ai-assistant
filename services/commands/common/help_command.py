@@ -18,7 +18,8 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "📚 *Refiloe Help*\n\n"
                 "*Universal Commands:*\n"
                 "• /help - Show this help message\n"
-                "• /register - Start registration\n\n"
+                "• /register - Start registration\n"
+                "• /stop - Cancel any stuck tasks\n\n"
                 "Please register or login to see more commands!"
             )
         elif login_status == 'trainer':
@@ -28,7 +29,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "• /help - Show this help\n"
                 "• /logout - Logout\n"
                 "• /switch-role - Switch to client (if registered)\n"
-                "• /stop - Cancel current task\n\n"
+                "• /stop - Cancel any stuck tasks (enhanced)\n\n"
                 "*Profile Management:*\n"
                 "• /view-profile - View your profile\n"
                 "• /edit-profile - Edit your information\n"
@@ -57,7 +58,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "• /help - Show this help\n"
                 "• /logout - Logout\n"
                 "• /switch-role - Switch to trainer (if registered)\n"
-                "• /stop - Cancel current task\n\n"
+                "• /stop - Cancel any stuck tasks (enhanced)\n\n"
                 "*Profile Management:*\n"
                 "• /view-profile - View your profile\n"
                 "• /edit-profile - Edit your information\n"

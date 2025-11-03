@@ -39,6 +39,14 @@ class UniversalCommandHandler:
                 from services.commands import handle_stop
                 return handle_stop(phone, self.auth_service, self.task_service, self.whatsapp)
             
+            elif cmd == '/emergency-stop':
+                # Emergency version of stop - more aggressive cleanup
+                # for now i want to pass it as it need to detect admin or not and may risk of non admin user useing these to stop other user tasks
+                return None
+
+                # from services.commands import handle_stop
+                # return handle_stop(phone, self.auth_service, self.task_service, self.whatsapp)
+            
             else:
                 # Not a universal command, return None to continue routing
                 return None
