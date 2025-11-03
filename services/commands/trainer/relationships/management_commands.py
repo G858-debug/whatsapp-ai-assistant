@@ -52,35 +52,9 @@ def handle_view_trainees(phone: str, trainer_id: str, db, whatsapp) -> Dict:
 
 
 def handle_remove_trainee(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
-    """Handle /remove-trainee command - Guide to dashboard first"""
+    """Handle /remove-trainee command - Dashboard link with ID request"""
     try:
-        from services.commands.dashboard import generate_dashboard_link
-        
-        # Generate dashboard link for browsing clients
-        dashboard_result = generate_dashboard_link(phone, trainer_id, 'trainer', db, whatsapp, 'remove_client')
-        
-        if dashboard_result['success']:
-            # Add additional instructions for removal
-            additional_msg = (
-                "\n\n🗑️ *To Remove a Client:*\n"
-                "1. Browse your clients using the link above\n"
-                "2. Find the client you want to remove\n"
-                "3. Copy their Client ID\n"
-                "4. Come back to WhatsApp and type: `/remove-trainee [CLIENT_ID]`\n\n"
-                "⚠️ *Warning:* This will remove them from your list and delete all habit assignments.\n\n"
-                "Type /stop to cancel anytime."
-            )
-            
-            # Send the additional instructions
-            whatsapp.send_message(phone, additional_msg)
-            
-            return {
-                'success': True,
-                'response': dashboard_result['response'] + additional_msg,
-                'handler': 'remove_trainee_dashboard_sent'
-            }
-        
-        # Fallback to direct ID request if dashboard fails
+        # Create task for removal flow
         task_id = task_service.create_task(
             user_id=trainer_id,
             role='trainer',
@@ -93,12 +67,20 @@ def handle_remove_trainee(phone: str, trainer_id: str, db, whatsapp, task_servic
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'remove_trainee_task_error'}
         
-        # Ask for client ID directly
+        # Generate dashboard link for browsing clients
+        from services.commands.dashboard import generate_dashboard_link
+        dashboard_result = generate_dashboard_link(phone, trainer_id, 'trainer', db, whatsapp, 'remove_client')
+        
+        # Send dashboard link first
+        if dashboard_result['success']:
+            whatsapp.send_message(phone, dashboard_result['response'])
+        
+        # Then ask for client ID
         msg = (
             "🗑️ *Remove Client*\n\n"
-            "Please provide the client ID you want to remove.\n\n"
-            "💡 *Tip:* Use /view-trainees to see your client list and get their IDs.\n\n"
-            "⚠️ This will remove them from your client list and delete all habit assignments.\n\n"
+            "Please provide the Client ID you want to remove.\n\n"
+            "💡 *Tip:* Use the dashboard link above to browse and copy the Client ID\n\n"
+            "⚠️ *Warning:* This will remove them from your client list and delete all habit assignments.\n\n"
             "Type /stop to cancel."
         )
         whatsapp.send_message(phone, msg)
