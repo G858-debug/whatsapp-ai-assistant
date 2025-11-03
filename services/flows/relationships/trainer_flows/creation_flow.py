@@ -86,16 +86,28 @@ class CreationFlow:
                     prev_field = fields[current_index - 1]
                     field_name = prev_field['name']
                     
-                    # Use registration service for validation
-                    is_valid, error_msg = self.reg_service.validate_field_value(prev_field, message)
-                    
-                    if not is_valid:
-                        error_response = f"❌ {error_msg}\n\n{prev_field['prompt']}"
-                        self.whatsapp.send_message(phone, error_response)
-                        return {'success': True, 'response': error_response, 'handler': 'create_trainee_validation_error'}
-                    
-                    # Parse and store value
-                    parsed_value = self.reg_service.parse_field_value(prev_field, message)
+                    # Use registration service for validation (with fallback)
+                    if self.reg_service:
+                        is_valid, error_msg = self.reg_service.validate_field_value(prev_field, message)
+                        
+                        if not is_valid:
+                            error_response = f"❌ {error_msg}\n\n{prev_field['prompt']}"
+                            self.whatsapp.send_message(phone, error_response)
+                            return {'success': True, 'response': error_response, 'handler': 'create_trainee_validation_error'}
+                        
+                        # Parse and store value
+                        parsed_value = self.reg_service.parse_field_value(prev_field, message)
+                    else:
+                        # Fallback validation when reg_service is not available
+                        is_valid, error_msg = self._validate_field_value(prev_field, message)
+                        
+                        if not is_valid:
+                            error_response = f"❌ {error_msg}\n\n{prev_field['prompt']}"
+                            self.whatsapp.send_message(phone, error_response)
+                            return {'success': True, 'response': error_response, 'handler': 'create_trainee_validation_error'}
+                        
+                        # Parse and store value
+                        parsed_value = self._parse_field_value(prev_field, message)
                     collected_data[field_name] = parsed_value
                     task_data['collected_data'] = collected_data
                 
@@ -106,7 +118,10 @@ class CreationFlow:
                     
                     # Clean phone number (remove +, -, spaces, etc.)
                     if phone_number:
-                        phone_number = self.reg_service.clean_phone_number(phone_number)
+                        if self.reg_service:
+                            phone_number = self.reg_service.clean_phone_number(phone_number)
+                        else:
+                            phone_number = self._clean_phone_number(phone_number)
                         collected_data['phone_number'] = phone_number
                     
                     existing_client = self.db.table('clients').select('client_id, name, whatsapp').eq(
@@ -227,3 +242,95 @@ class CreationFlow:
             mapped_data['whatsapp'] = mapped_data['phone_number']
         
         return mapped_data
+    
+    def _validate_field_value(self, field: Dict, value: str) -> tuple:
+        """Fallback validation when reg_service is not available"""
+        try:
+            field_type = field.get('type', 'text')
+            field_name = field.get('name', 'field')
+            validation = field.get('validation', {})
+            
+            # Basic validation
+            if field.get('required', False) and not value.strip():
+                return False, f"{field_name} is required"
+            
+            # Skip validation
+            if value.lower().strip() in ['skip', 'none'] and not field.get('required', False):
+                return True, ""
+            
+            # Phone validation
+            if field_type == 'phone':
+                clean_phone = value.replace('+', '').replace('-', '').replace(' ', '').replace('(', '').replace(')', '')
+                if not clean_phone.isdigit() or len(clean_phone) < 10:
+                    return False, "Please enter a valid phone number with country code (e.g., 27730564882)"
+            
+            # Email validation
+            elif field_type == 'email':
+                if '@' not in value or '.' not in value.split('@')[-1]:
+                    return False, "Please enter a valid email address"
+            
+            # Length validation
+            if 'min_length' in validation and len(value) < validation['min_length']:
+                return False, f"Must be at least {validation['min_length']} characters"
+            
+            if 'max_length' in validation and len(value) > validation['max_length']:
+                return False, f"Must be no more than {validation['max_length']} characters"
+            
+            return True, ""
+            
+        except Exception as e:
+            log_error(f"Error in fallback validation: {str(e)}")
+            return True, ""  # Allow through if validation fails
+    
+    def _parse_field_value(self, field: Dict, value: str):
+        """Fallback parsing when reg_service is not available"""
+        try:
+            field_type = field.get('type', 'text')
+            
+            # Skip values
+            if value.lower().strip() in ['skip', 'none']:
+                return None
+            
+            # Multi-choice fields
+            if field_type in ['multi_choice', 'choice']:
+                options = field.get('options', [])
+                if field_type == 'multi_choice':
+                    # Parse comma-separated numbers
+                    try:
+                        indices = [int(x.strip()) - 1 for x in value.split(',')]
+                        selected = [options[i] for i in indices if 0 <= i < len(options)]
+                        return ', '.join(selected) if selected else value
+                    except:
+                        return value
+                else:
+                    # Single choice
+                    try:
+                        index = int(value.strip()) - 1
+                        return options[index] if 0 <= index < len(options) else value
+                    except:
+                        return value
+            
+            # Default: return as-is
+            return value.strip()
+            
+        except Exception as e:
+            log_error(f"Error in fallback parsing: {str(e)}")
+            return value
+    
+    def _clean_phone_number(self, phone: str) -> str:
+        """Fallback phone cleaning when reg_service is not available"""
+        try:
+            # Remove all non-digit characters
+            clean = ''.join(filter(str.isdigit, phone))
+            
+            # Add country code if missing (assuming South Africa +27)
+            if len(clean) == 10 and clean.startswith('0'):
+                clean = '27' + clean[1:]
+            elif len(clean) == 9:
+                clean = '27' + clean
+            
+            return clean
+            
+        except Exception as e:
+            log_error(f"Error cleaning phone number: {str(e)}")
+            return phone

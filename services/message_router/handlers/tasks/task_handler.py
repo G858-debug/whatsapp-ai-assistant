@@ -24,7 +24,7 @@ class TaskHandler:
             self.db, self.whatsapp, self.task_service, self.reg_service
         )
         self.relationship_handler = RelationshipTaskHandler(
-            self.db, self.whatsapp, self.task_service
+            self.db, self.whatsapp, self.task_service, self.reg_service
         )
         self.habit_handler = HabitTaskHandler(
             self.db, self.whatsapp, self.task_service

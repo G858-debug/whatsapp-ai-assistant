@@ -9,10 +9,11 @@ from utils.logger import log_error
 class RelationshipTaskHandler:
     """Handles relationship-related tasks"""
     
-    def __init__(self, supabase_client, whatsapp_service, task_service):
+    def __init__(self, supabase_client, whatsapp_service, task_service, reg_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.task_service = task_service
+        self.reg_service = reg_service
     
     def handle_relationship_task(self, phone: str, message: str, user_id: str, task: Dict) -> Dict:
         """Handle relationship tasks"""
@@ -38,7 +39,7 @@ class RelationshipTaskHandler:
         """Handle trainer relationship tasks"""
         try:
             from services.flows import TrainerRelationshipFlows
-            handler = TrainerRelationshipFlows(self.db, self.whatsapp, self.task_service)
+            handler = TrainerRelationshipFlows(self.db, self.whatsapp, self.task_service, self.reg_service)
             
             task_type = task.get('task_type')
             if task_type == 'invite_trainee':
