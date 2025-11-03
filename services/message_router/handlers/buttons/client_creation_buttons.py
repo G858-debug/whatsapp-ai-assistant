@@ -188,7 +188,11 @@ class ClientCreationButtonHandler:
             # Create relationship
             from services.relationships import RelationshipService
             relationship_service = RelationshipService(self.db)
-            relationship_service.create_relationship(trainer_id, client_id)
+            success, error_msg = relationship_service.create_relationship(trainer_id, client_id, 'trainer')
+            
+            if not success:
+                log_error(f"Failed to create relationship: {error_msg}")
+                # Continue anyway - client account is created, relationship can be fixed later
             
             # Update invitation status
             self.db.table('client_invitations').update({
