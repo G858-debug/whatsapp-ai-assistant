@@ -98,12 +98,12 @@ class RemovalFlow:
                     
                     if success:
                         # Get trainer phone to notify
-                        trainer_result = self.db.table('trainers').select('phone_number').eq(
+                        trainer_result = self.db.table('trainers').select('whatsapp').eq(
                             'trainer_id', trainer_id
                         ).execute()
                         
                         if trainer_result.data:
-                            trainer_phone = trainer_result.data[0].get('phone_number')
+                            trainer_phone = trainer_result.data[0].get('whatsapp')
                             
                             # Get client info
                             client_result = self.db.table('clients').select('first_name, last_name').eq(
