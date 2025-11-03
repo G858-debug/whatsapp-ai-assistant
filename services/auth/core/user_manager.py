@@ -124,11 +124,15 @@ class UserManager:
             if not role_id:
                 return False
             
+            # Delete all related data first
+            self._delete_role_related_data(role_id, role, clean_phone)
+            
             # Delete from role table
             table = 'trainers' if role == 'trainer' else 'clients'
             id_column = 'trainer_id' if role == 'trainer' else 'client_id'
             
             self.db.table(table).delete().eq(id_column, role_id).execute()
+            log_info(f"Deleted {role} record for {role_id}")
             
             # Update users table
             update_data = {
@@ -156,3 +160,56 @@ class UserManager:
         except Exception as e:
             log_error(f"Error deleting user role: {str(e)}")
             return False
+    
+    def _delete_role_related_data(self, role_id: str, role: str, phone: str):
+        """Delete all data related to a user role"""
+        try:
+            if role == 'client':
+                # Delete client-related data
+                log_info(f"Deleting client-related data for {role_id}")
+                
+                # Delete from relationship tables
+                self.db.table('client_trainer_list').delete().eq('client_id', role_id).execute()
+                self.db.table('trainer_client_list').delete().eq('client_id', role_id).execute()
+                
+                # Delete client tasks
+                self.db.table('client_tasks').delete().eq('client_id', role_id).execute()
+                
+                # Delete client invitations (both sent and received)
+                self.db.table('client_invitations').delete().eq('phone_number', phone).execute()
+                
+                # Delete habit-related data if exists
+                try:
+                    self.db.table('client_habits').delete().eq('client_id', role_id).execute()
+                    self.db.table('habit_logs').delete().eq('client_id', role_id).execute()
+                except:
+                    pass  # Tables might not exist
+                
+                log_info(f"Deleted all client-related data for {role_id}")
+                
+            elif role == 'trainer':
+                # Delete trainer-related data
+                log_info(f"Deleting trainer-related data for {role_id}")
+                
+                # Delete from relationship tables
+                self.db.table('trainer_client_list').delete().eq('trainer_id', role_id).execute()
+                self.db.table('client_trainer_list').delete().eq('trainer_id', role_id).execute()
+                
+                # Delete trainer tasks
+                self.db.table('trainer_tasks').delete().eq('trainer_id', role_id).execute()
+                
+                # Delete trainer invitations
+                self.db.table('client_invitations').delete().eq('trainer_id', role_id).execute()
+                
+                # Delete habit-related data if exists
+                try:
+                    self.db.table('trainer_habits').delete().eq('trainer_id', role_id).execute()
+                    # Note: Don't delete habit_logs as they belong to clients
+                except:
+                    pass  # Tables might not exist
+                
+                log_info(f"Deleted all trainer-related data for {role_id}")
+                
+        except Exception as e:
+            log_error(f"Error deleting related data for {role} {role_id}: {str(e)}")
+            # Continue with deletion even if some related data fails

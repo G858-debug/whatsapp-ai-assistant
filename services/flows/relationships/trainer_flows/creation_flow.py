@@ -108,8 +108,44 @@ class CreationFlow:
                         
                         # Parse and store value
                         parsed_value = self._parse_field_value(prev_field, message)
+                    
                     collected_data[field_name] = parsed_value
                     task_data['collected_data'] = collected_data
+                    
+                    # Special handling for phone_number field - check if client exists immediately
+                    if field_name == 'phone_number':
+                        # Clean phone number
+                        if self.reg_service:
+                            clean_phone = self.reg_service.clean_phone_number(parsed_value)
+                        else:
+                            clean_phone = self._clean_phone_number(parsed_value)
+                        
+                        # Update the collected data with clean phone
+                        collected_data['phone_number'] = clean_phone
+                        task_data['collected_data'] = collected_data
+                        
+                        # Check if client already exists
+                        existing_client = self.db.table('clients').select('client_id, name, whatsapp').eq(
+                            'whatsapp', clean_phone
+                        ).execute()
+                        
+                        if existing_client.data:
+                            # Client exists - ask to invite instead
+                            client = existing_client.data[0]
+                            msg = (
+                                f"ℹ️ *Client Already Exists!*\n\n"
+                                f"A client with this phone number is already registered:\n\n"
+                                f"*Name:* {client.get('name')}\n"
+                                f"*Client ID:* {client.get('client_id')}\n\n"
+                                f"Would you like to send them an invitation instead?\n\n"
+                                f"Reply *YES* to send invitation, or *NO* to cancel."
+                            )
+                            self.whatsapp.send_message(phone, msg)
+                            task_data['step'] = 'confirm_invite_existing'
+                            task_data['existing_client_id'] = client.get('client_id')
+                            task_data['existing_client_phone'] = client.get('whatsapp')
+                            self.task_service.update_task(task['id'], 'trainer', task_data)
+                            return {'success': True, 'response': msg, 'handler': 'create_trainee_exists_early'}
                 
                 # Check if we have all fields
                 if current_index >= len(fields):
