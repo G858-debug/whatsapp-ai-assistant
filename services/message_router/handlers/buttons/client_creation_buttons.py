@@ -151,7 +151,7 @@ class ClientCreationButtonHandler:
                 'experience_level': prefilled_data.get('experience_level'),
                 'health_conditions': prefilled_data.get('health_conditions'),
                 'availability': prefilled_data.get('availability'),
-                'preferred_training_type': prefilled_data.get('preferred_training_type'),
+                'preferred_training_times': prefilled_data.get('preferred_training_type'),  # Map to correct column
                 'created_at': datetime.now(sa_tz).isoformat(),
                 'updated_at': datetime.now(sa_tz).isoformat()
             }
