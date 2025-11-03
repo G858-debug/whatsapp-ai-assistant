@@ -61,13 +61,18 @@ class CreationFlow:
                     return {'success': True, 'response': first_field['prompt'], 'handler': 'create_trainee_new'}
                 
                 elif choice == '2':
-                    # Redirect to invitation flow instead of duplicating logic
+                    # Redirect to invitation flow with existing command button
                     msg = (
                         "🔗 *Link Existing Client*\n\n"
-                        "I'll redirect you to the invitation flow to link with an existing client.\n\n"
-                        "Please use the command: */invite-trainee*"
+                        "Click the button below to start inviting an existing client:"
                     )
-                    self.whatsapp.send_message(phone, msg)
+                    
+                    # Use existing /invite-trainee command as button
+                    buttons = [
+                        {'id': '/invite-trainee', 'title': 'Invite Client'}
+                    ]
+                    self.whatsapp.send_button_message(phone, msg, buttons)
+                    
                     self.task_service.complete_task(task['id'], 'trainer')
                     return {'success': True, 'response': msg, 'handler': 'create_trainee_redirect_invite'}
                 
