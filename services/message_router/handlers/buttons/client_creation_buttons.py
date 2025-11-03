@@ -185,10 +185,10 @@ class ClientCreationButtonHandler:
             }
             self.db.table('users').insert(user_data).execute()
             
-            # Create relationship
-            from services.relationships import RelationshipService
-            relationship_service = RelationshipService(self.db)
-            success, error_msg = relationship_service.create_relationship(trainer_id, client_id, 'trainer')
+            # Create relationship directly using the invitation manager's method
+            from services.relationships.invitations.invitation_manager import InvitationManager
+            invitation_manager = InvitationManager(self.db, self.whatsapp)
+            success, error_msg = invitation_manager.create_relationship(trainer_id, client_id, 'trainer')
             
             if not success:
                 log_error(f"Failed to create relationship: {error_msg}")
@@ -197,7 +197,8 @@ class ClientCreationButtonHandler:
             # Update invitation status
             self.db.table('client_invitations').update({
                 'status': 'accepted',
-                'accepted_at': datetime.now(sa_tz).isoformat()
+                'accepted_at': datetime.now(sa_tz).isoformat(),  # Track when accepted
+                'updated_at': datetime.now(sa_tz).isoformat()
             }).eq('id', invitation_id).execute()
             
             return client_id
