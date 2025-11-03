@@ -68,18 +68,33 @@ def handle_remove_trainee(phone: str, trainer_id: str, db, whatsapp, task_servic
             return {'success': False, 'response': msg, 'handler': 'remove_trainee_task_error'}
         
         # Generate dashboard link for browsing clients
-        from services.commands.dashboard import generate_dashboard_link
-        dashboard_result = generate_dashboard_link(phone, trainer_id, 'trainer', db, whatsapp, 'remove_client')
+        from services.dashboard import DashboardTokenManager
+        import os
         
-        # Send dashboard link first
-        if dashboard_result['success']:
-            whatsapp.send_message(phone, dashboard_result['response'])
+        token_manager = DashboardTokenManager(db)
+        token = token_manager.generate_token(trainer_id, 'trainer', 'remove_client')
         
-        # Then ask for client ID
+        dashboard_url = ""
+        if token:
+            base_url = os.getenv('BASE_URL', 'https://your-app.railway.app')
+            dashboard_url = f"{base_url}/dashboard/{trainer_id}/{token}"
+        
+        # Ask for client ID with dashboard link
         msg = (
             "🗑️ *Remove Client*\n\n"
             "Please provide the Client ID you want to remove.\n\n"
-            "💡 *Tip:* Use the dashboard link above to browse and copy the Client ID\n\n"
+        )
+        
+        if dashboard_url:
+            msg += (
+                f"💡 *Browse your clients here:*\n"
+                f"🔗 {dashboard_url}\n\n"
+                f"📋 *Steps:* Find the client → Copy their ID → Return here with the ID\n\n"
+            )
+        else:
+            msg += "💡 *Tip:* Use /view-trainees to see your client list first\n\n"
+        
+        msg += (
             "⚠️ *Warning:* This will remove them from your client list and delete all habit assignments.\n\n"
             "Type /stop to cancel."
         )
