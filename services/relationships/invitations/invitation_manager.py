@@ -200,10 +200,11 @@ class InvitationManager:
             
             message += f"\n✅ Do you accept this invitation and want to train with {trainer_name}?"
             
-            # Send with buttons
+            # Send with buttons (use trainer_id string, not UUID)
+            trainer_string_id = trainer.get('trainer_id')
             buttons = [
-                {'id': f'approve_new_client_{trainer_id}', 'title': '✅ Accept'},
-                {'id': f'reject_new_client_{trainer_id}', 'title': '❌ Decline'}
+                {'id': f'approve_new_client_{trainer_string_id}', 'title': '✅ Accept'},
+                {'id': f'reject_new_client_{trainer_string_id}', 'title': '❌ Decline'}
             ]
             
             self.whatsapp.send_button_message(client_phone, message, buttons)

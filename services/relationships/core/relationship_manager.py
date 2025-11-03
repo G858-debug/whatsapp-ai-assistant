@@ -190,11 +190,22 @@ class RelationshipManager:
             
             client_phone = client_result.data[0]['whatsapp']
             
+            # Get trainer UUID from string ID for client_invitations table
+            trainer_result = self.db.table('trainers').select('id').eq(
+                'trainer_id', trainer_id
+            ).execute()
+            
+            if not trainer_result.data:
+                log_error(f"Trainer {trainer_id} not found when updating invitation status")
+                return
+            
+            trainer_uuid = trainer_result.data[0]['id']
+            
             # Update any pending invitations between this trainer and client
             self.db.table('client_invitations').update({
                 'status': status,
                 'updated_at': datetime.now(self.sa_tz).isoformat()
-            }).eq('trainer_id', trainer_id).eq('client_phone', client_phone).eq(
+            }).eq('trainer_id', trainer_uuid).eq('client_phone', client_phone).eq(
                 'status', 'pending'
             ).execute()
             

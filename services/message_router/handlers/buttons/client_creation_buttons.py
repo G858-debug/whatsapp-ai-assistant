@@ -31,12 +31,24 @@ class ClientCreationButtonHandler:
     def _handle_approve_new_client(self, phone: str, button_id: str) -> Dict:
         """New client approving account creation"""
         try:
-            trainer_id = button_id.replace('approve_new_client_', '')
+            trainer_string_id = button_id.replace('approve_new_client_', '')
+            
+            # Get trainer UUID from string ID
+            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
+                'trainer_id', trainer_string_id
+            ).execute()
+            
+            if not trainer_result.data:
+                msg = "❌ Trainer not found. Please ask your trainer to send a new invitation."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'approve_new_client_trainer_not_found'}
+            
+            trainer_uuid = trainer_result.data[0]['id']
             
             # Check if there's a pending invitation for this phone and trainer
             invitation_result = self.db.table('client_invitations').select('*').eq(
                 'client_phone', phone
-            ).eq('trainer_id', trainer_id).eq('status', 'pending').execute()
+            ).eq('trainer_id', trainer_uuid).eq('status', 'pending').execute()
             
             if not invitation_result.data:
                 msg = "❌ Invitation not found or expired. Please ask your trainer to send a new invitation."
@@ -47,11 +59,11 @@ class ClientCreationButtonHandler:
             prefilled_data = invitation.get('prefilled_data', {})
             
             # Create the client account
-            client_id = self._create_client_account(phone, trainer_id, prefilled_data, invitation['id'])
+            client_id = self._create_client_account(phone, trainer_string_id, prefilled_data, invitation['id'])
             
             if client_id:
                 # Send success notifications
-                return self._send_approval_notifications(phone, trainer_id, client_id, prefilled_data)
+                return self._send_approval_notifications(phone, trainer_string_id, client_id, prefilled_data)
             else:
                 msg = "❌ Error creating account. Please try again or contact your trainer."
                 self.whatsapp.send_message(phone, msg)
@@ -66,16 +78,28 @@ class ClientCreationButtonHandler:
     def _handle_reject_new_client(self, phone: str, button_id: str) -> Dict:
         """New client rejecting account creation"""
         try:
-            trainer_id = button_id.replace('reject_new_client_', '')
+            trainer_string_id = button_id.replace('reject_new_client_', '')
             
-            # Get trainer info and notify
-            trainer_result = self.db.table('trainers').select('first_name, last_name, phone_number').eq(
-                'trainer_id', trainer_id
+            # Get trainer UUID from string ID
+            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
+                'trainer_id', trainer_string_id
             ).execute()
             
-            if trainer_result.data:
-                trainer = trainer_result.data[0]
-                trainer_name = f"{trainer.get('first_name')} {trainer.get('last_name')}"
+            if not trainer_result.data:
+                msg = "❌ Trainer not found."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'reject_new_client_trainer_not_found'}
+            
+            trainer_uuid = trainer_result.data[0]['id']
+            
+            # Get trainer info and notify
+            trainer_info_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
+                'trainer_id', trainer_string_id
+            ).execute()
+            
+            if trainer_info_result.data:
+                trainer = trainer_info_result.data[0]
+                trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
                 
                 # Notify user
                 msg = f"You declined the invitation from {trainer_name}."
@@ -83,7 +107,7 @@ class ClientCreationButtonHandler:
                 
                 # Notify trainer
                 trainer_msg = f"ℹ️ The invitation you sent was declined."
-                self.whatsapp.send_message(trainer['phone_number'], trainer_msg)
+                self.whatsapp.send_message(trainer['whatsapp'], trainer_msg)
                 
                 return {'success': True, 'response': msg, 'handler': 'reject_new_client'}
             
@@ -112,15 +136,16 @@ class ClientCreationButtonHandler:
             
             client_data = {
                 'client_id': client_id,
-                'phone_number': phone,
-                'first_name': prefilled_data.get('first_name'),
-                'last_name': prefilled_data.get('last_name'),
+                'whatsapp': phone,
+                'name': prefilled_data.get('name') or prefilled_data.get('full_name'),
                 'email': prefilled_data.get('email'),
                 'fitness_goals': prefilled_data.get('fitness_goals'),
                 'experience_level': prefilled_data.get('experience_level'),
                 'health_conditions': prefilled_data.get('health_conditions'),
-                'preferred_workout_time': prefilled_data.get('preferred_workout_time'),
-                'registration_date': datetime.now(sa_tz).isoformat()
+                'availability': prefilled_data.get('availability'),
+                'preferred_training_type': prefilled_data.get('preferred_training_type'),
+                'created_at': datetime.now(sa_tz).isoformat(),
+                'updated_at': datetime.now(sa_tz).isoformat()
             }
             
             # Insert into clients table
@@ -155,10 +180,13 @@ class ClientCreationButtonHandler:
     def _send_approval_notifications(self, phone: str, trainer_id: str, client_id: str, prefilled_data: dict) -> Dict:
         """Send notifications after successful client account creation"""
         try:
+            # Get client name from prefilled data
+            client_name = prefilled_data.get('name') or prefilled_data.get('full_name') or 'there'
+            
             # Notify new client
             msg = (
                 f"✅ *Account Created Successfully!*\n\n"
-                f"Welcome to Refiloe, {prefilled_data.get('first_name')}!\n\n"
+                f"Welcome to Refiloe, {client_name}!\n\n"
                 f"*Your Client ID:* {client_id}\n\n"
                 f"You're now connected with your trainer.\n"
                 f"Type /help to see what you can do!"
@@ -166,20 +194,20 @@ class ClientCreationButtonHandler:
             self.whatsapp.send_message(phone, msg)
             
             # Notify trainer
-            trainer_result = self.db.table('trainers').select('first_name, last_name, phone_number').eq(
+            trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
                 'trainer_id', trainer_id
             ).execute()
             
             if trainer_result.data:
                 trainer = trainer_result.data[0]
+                trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
                 trainer_msg = (
                     f"✅ *New Client Added!*\n\n"
-                    f"{prefilled_data.get('first_name')} {prefilled_data.get('last_name')} "
-                    f"approved your invitation!\n\n"
+                    f"{client_name} approved your invitation!\n\n"
                     f"*Client ID:* {client_id}\n\n"
                     f"They're now in your client list."
                 )
-                self.whatsapp.send_message(trainer['phone_number'], trainer_msg)
+                self.whatsapp.send_message(trainer['whatsapp'], trainer_msg)
             
             return {'success': True, 'response': msg, 'handler': 'approve_new_client_success'}
             
