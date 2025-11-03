@@ -185,12 +185,22 @@ class ClientCreationButtonHandler:
             }
             self.db.table('users').insert(user_data).execute()
             
-            # Create relationship directly using the invitation manager's method
+            # Create relationship and immediately approve it (since client accepted invitation)
             from services.relationships.invitations.invitation_manager import InvitationManager
+            from services.relationships.core.relationship_manager import RelationshipManager
+            
             invitation_manager = InvitationManager(self.db, self.whatsapp)
+            relationship_manager = RelationshipManager(self.db, self.whatsapp)
+            
+            # Step 1: Create pending relationship
             success, error_msg = invitation_manager.create_relationship(trainer_id, client_id, 'trainer')
             
-            if not success:
+            if success:
+                # Step 2: Immediately approve the relationship (since client accepted)
+                approve_success, approve_error = relationship_manager.approve_relationship(trainer_id, client_id)
+                if not approve_success:
+                    log_error(f"Failed to approve relationship: {approve_error}")
+            else:
                 log_error(f"Failed to create relationship: {error_msg}")
                 # Continue anyway - client account is created, relationship can be fixed later
             
