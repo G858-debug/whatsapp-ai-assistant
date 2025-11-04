@@ -33,8 +33,8 @@ class ClientCreationButtonHandler:
         try:
             trainer_string_id = button_id.replace('approve_new_client_', '')
             
-            # Get trainer UUID from string ID
-            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
+            # Get trainer UUID from string ID (case-insensitive)
+            trainer_result = self.db.table('trainers').select('id, trainer_id').ilike(
                 'trainer_id', trainer_string_id
             ).execute()
             
@@ -91,8 +91,8 @@ class ClientCreationButtonHandler:
         try:
             trainer_string_id = button_id.replace('reject_new_client_', '')
             
-            # Get trainer UUID from string ID
-            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
+            # Get trainer UUID from string ID (case-insensitive)
+            trainer_result = self.db.table('trainers').select('id, trainer_id').ilike(
                 'trainer_id', trainer_string_id
             ).execute()
             
@@ -234,7 +234,7 @@ class ClientCreationButtonHandler:
             self.whatsapp.send_message(phone, msg)
             
             # Notify trainer
-            trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
+            trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').ilike(
                 'trainer_id', trainer_id
             ).execute()
             

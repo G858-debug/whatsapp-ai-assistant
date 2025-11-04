@@ -91,6 +91,15 @@ class RelationshipManager:
     def approve_relationship(self, trainer_id: str, client_id: str) -> Tuple[bool, str]:
         """Approve pending relationship"""
         try:
+            # Check if relationship exists and get exact IDs
+            relationship = self.check_relationship_exists(trainer_id, client_id)
+            if not relationship:
+                return False, "Relationship not found"
+            
+            # Get exact IDs from database
+            actual_trainer_id = relationship.get('trainer_id')
+            actual_client_id = relationship.get('client_id')
+            
             now = datetime.now(self.sa_tz).isoformat()
             
             # Update trainer_client_list
@@ -98,19 +107,19 @@ class RelationshipManager:
                 'connection_status': 'active',
                 'approved_at': now,
                 'updated_at': now
-            }).eq('trainer_id', trainer_id).eq('client_id', client_id).execute()
+            }).eq('trainer_id', actual_trainer_id).eq('client_id', actual_client_id).execute()
             
             # Update client_trainer_list
             self.db.table('client_trainer_list').update({
                 'connection_status': 'active',
                 'approved_at': now,
                 'updated_at': now
-            }).eq('client_id', client_id).eq('trainer_id', trainer_id).execute()
+            }).eq('client_id', actual_client_id).eq('trainer_id', actual_trainer_id).execute()
             
             # Update any pending invitations to accepted status
-            self._update_invitation_status(trainer_id, client_id, 'accepted')
+            self._update_invitation_status(actual_trainer_id, actual_client_id, 'accepted')
             
-            log_info(f"Approved relationship: trainer {trainer_id} <-> client {client_id}")
+            log_info(f"Approved relationship: trainer {actual_trainer_id} <-> client {actual_client_id}")
             return True, "Relationship approved"
             
         except Exception as e:
@@ -120,23 +129,32 @@ class RelationshipManager:
     def decline_relationship(self, trainer_id: str, client_id: str) -> Tuple[bool, str]:
         """Decline pending relationship"""
         try:
+            # Check if relationship exists and get exact IDs
+            relationship = self.check_relationship_exists(trainer_id, client_id)
+            if not relationship:
+                return False, "Relationship not found"
+            
+            # Get exact IDs from database
+            actual_trainer_id = relationship.get('trainer_id')
+            actual_client_id = relationship.get('client_id')
+            
             now = datetime.now(self.sa_tz).isoformat()
             
             # Update both tables to declined
             self.db.table('trainer_client_list').update({
                 'connection_status': 'declined',
                 'updated_at': now
-            }).eq('trainer_id', trainer_id).eq('client_id', client_id).execute()
+            }).eq('trainer_id', actual_trainer_id).eq('client_id', actual_client_id).execute()
             
             self.db.table('client_trainer_list').update({
                 'connection_status': 'declined',
                 'updated_at': now
-            }).eq('client_id', client_id).eq('trainer_id', trainer_id).execute()
+            }).eq('client_id', actual_client_id).eq('trainer_id', actual_trainer_id).execute()
             
             # Update any pending invitations to declined status
-            self._update_invitation_status(trainer_id, client_id, 'declined')
+            self._update_invitation_status(actual_trainer_id, actual_client_id, 'declined')
             
-            log_info(f"Declined relationship: trainer {trainer_id} <-> client {client_id}")
+            log_info(f"Declined relationship: trainer {actual_trainer_id} <-> client {actual_client_id}")
             return True, "Relationship declined"
             
         except Exception as e:
@@ -146,16 +164,25 @@ class RelationshipManager:
     def remove_relationship(self, trainer_id: str, client_id: str) -> Tuple[bool, str]:
         """Remove existing relationship"""
         try:
+            # Check if relationship exists and get exact IDs
+            relationship = self.check_relationship_exists(trainer_id, client_id)
+            if not relationship:
+                return False, "Relationship not found"
+            
+            # Get exact IDs from database
+            actual_trainer_id = relationship.get('trainer_id')
+            actual_client_id = relationship.get('client_id')
+            
             # Delete from both tables
             self.db.table('trainer_client_list').delete().eq(
-                'trainer_id', trainer_id
-            ).eq('client_id', client_id).execute()
+                'trainer_id', actual_trainer_id
+            ).eq('client_id', actual_client_id).execute()
             
             self.db.table('client_trainer_list').delete().eq(
-                'client_id', client_id
-            ).eq('trainer_id', trainer_id).execute()
+                'client_id', actual_client_id
+            ).eq('trainer_id', actual_trainer_id).execute()
             
-            log_info(f"Removed relationship: trainer {trainer_id} <-> client {client_id}")
+            log_info(f"Removed relationship: trainer {actual_trainer_id} <-> client {actual_client_id}")
             return True, "Relationship removed"
             
         except Exception as e:

@@ -145,7 +145,7 @@ class RelationshipButtonHandler:
         try:
             if accepted_role == 'trainer':
                 # Client accepted trainer
-                trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
+                trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').ilike(
                     'trainer_id', trainer_id
                 ).execute()
                 
@@ -185,7 +185,7 @@ class RelationshipButtonHandler:
                     self.whatsapp.send_message(phone, msg)
                     
                     # Notify client
-                    trainer_result = self.db.table('trainers').select('name, first_name, last_name').eq(
+                    trainer_result = self.db.table('trainers').select('name, first_name, last_name').ilike(
                         'trainer_id', trainer_id
                     ).execute()
                     
@@ -208,7 +208,7 @@ class RelationshipButtonHandler:
         try:
             if declined_role == 'trainer':
                 # Client declined trainer
-                trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').eq(
+                trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').ilike(
                     'trainer_id', trainer_id
                 ).execute()
                 
@@ -248,7 +248,7 @@ class RelationshipButtonHandler:
                     self.whatsapp.send_message(phone, msg)
                     
                     # Notify client
-                    trainer_result = self.db.table('trainers').select('name, first_name, last_name').eq(
+                    trainer_result = self.db.table('trainers').select('name, first_name, last_name').ilike(
                         'trainer_id', trainer_id
                     ).execute()
                     
