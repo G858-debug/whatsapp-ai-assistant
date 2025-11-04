@@ -74,11 +74,11 @@ class RelationshipManager:
             return []
     
     def check_relationship_exists(self, trainer_id: str, client_id: str) -> Optional[Dict]:
-        """Check if relationship already exists"""
+        """Check if relationship already exists (case-insensitive)"""
         try:
-            result = self.db.table('trainer_client_list').select('*').eq(
+            result = self.db.table('trainer_client_list').select('*').ilike(
                 'trainer_id', trainer_id
-            ).eq('client_id', client_id).execute()
+            ).ilike('client_id', client_id).execute()
             
             if result.data and len(result.data) > 0:
                 return result.data[0]

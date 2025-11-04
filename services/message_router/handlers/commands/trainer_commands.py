@@ -94,9 +94,13 @@ class TrainerCommandHandler:
                 from services.commands import handle_assign_habit
                 return handle_assign_habit(phone, user_id, self.db, self.whatsapp, self.task_service)
             
+            elif cmd == '/unassign-habit':
+                from services.commands import handle_unassign_habit
+                return handle_unassign_habit(phone, user_id, self.db, self.whatsapp, self.task_service)
+            
             elif cmd == '/view-habits':
-                from services.commands import handle_view_habits
-                return handle_view_habits(phone, user_id, self.db, self.whatsapp)
+                from services.commands.dashboard import generate_trainer_habits_dashboard
+                return generate_trainer_habits_dashboard(phone, user_id, self.db, self.whatsapp)
             
             elif cmd == '/view-trainee-progress':
                 from services.commands import handle_view_trainee_progress

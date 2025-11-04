@@ -44,8 +44,14 @@ Analyze the message and return ONLY valid JSON with:
 Examples:
 - "show me my profile" → {{"intent": "view_profile", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-profile"}}
 - "I want to change my email" → {{"intent": "edit_profile", "confidence": 0.85, "needs_action": true, "suggested_command": "/edit-profile"}}
+- "stop" → {{"intent": "stop", "confidence": 0.95, "needs_action": true, "suggested_command": "/stop"}}
+- "cancel" → {{"intent": "stop", "confidence": 0.9, "needs_action": true, "suggested_command": "/stop"}}
+- "quit" → {{"intent": "stop", "confidence": 0.85, "needs_action": true, "suggested_command": "/stop"}}
 - "show my clients" (trainer) → {{"intent": "view_trainees", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainees"}}
 - "view my trainers" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
+- "assign habit to client" (trainer) → {{"intent": "assign_habit", "confidence": 0.9, "needs_action": true, "suggested_command": "/assign-habit"}}
+- "remove habit from trainee" (trainer) → {{"intent": "unassign_habit", "confidence": 0.9, "needs_action": true, "suggested_command": "/unassign-habit"}}
+- "unassign habit" (trainer) → {{"intent": "unassign_habit", "confidence": 0.9, "needs_action": true, "suggested_command": "/unassign-habit"}}
 - "list my trainees" (trainer) → {{"intent": "view_trainees", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainees"}}
 - "see trainer list" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
 - "view trainer" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
@@ -69,6 +75,7 @@ Available Features (Phase 1):
 - Logout (/logout)
 - Switch role (/switch-role if has both roles)
 - Help (/help)
+- Stop current task (/stop)
 
 Available Features (Phase 2):
 - Invite existing client (/invite-trainee)
@@ -81,6 +88,7 @@ Available Features (Phase 3):
 - Edit habits (/edit-habit)
 - Delete habits (/delete-habit)
 - Assign habits to clients (/assign-habit)
+- Unassign habits from clients (/unassign-habit)
 - View all habits (/view-habits)
 - View client progress (/view-trainee-progress)
 - Generate client reports (/trainee-weekly-report, /trainee-monthly-report)
@@ -94,6 +102,7 @@ Available Features (Phase 1):
 - Logout (/logout)
 - Switch role (/switch-role if has both roles)
 - Help (/help)
+- Stop current task (/stop)
 
 Available Features (Phase 2):
 - Search trainers (/search-trainer)

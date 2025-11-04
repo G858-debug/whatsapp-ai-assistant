@@ -244,15 +244,11 @@ class ReportService:
             Tuple of (success, message, csv_content)
         """
         try:
-            # Verify client is in trainer's list
-            relationship = self.db.table('trainer_client_list')\
-                .select('*')\
-                .eq('trainer_id', trainer_id)\
-                .eq('client_id', client_id)\
-                .eq('connection_status', 'active')\
-                .execute()
+            # Verify client is in trainer's list using relationship service
+            from services.relationships.relationship_service import RelationshipService
+            relationship_service = RelationshipService(self.db)
             
-            if not relationship.data:
+            if not relationship_service.check_relationship_exists(trainer_id, client_id):
                 return False, "Client not found in your list", None
             
             # Get habits assigned by this trainer to this client

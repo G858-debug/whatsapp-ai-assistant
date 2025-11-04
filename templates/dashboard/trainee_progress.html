@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ trainee.name }}'s Progress - {{ user.name }}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      }
+
+      .header h1 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+      }
+
+      .header p {
+        color: #666;
+        font-size: 1.1em;
+      }
+
+      .trainee-info {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .trainee-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+      }
+
+      .detail-item {
+        text-align: center;
+      }
+
+      .detail-label {
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+
+      .detail-value {
+        color: #333;
+        font-weight: bold;
+        font-size: 1.1em;
+      }
+
+      .view-toggle {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      .toggle-buttons {
+        display: inline-flex;
+        background: #f0f0f0;
+        border-radius: 25px;
+        padding: 5px;
+      }
+
+      .toggle-btn {
+        padding: 12px 25px;
+        border: none;
+        background: transparent;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+      }
+
+      .toggle-btn.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .habits-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+      }
+
+      .habit-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 5px solid #667eea;
+      }
+
+      .habit-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+      }
+
+      .habit-name {
+        font-size: 1.4em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 15px;
+      }
+
+      .habit-target {
+        background: #f9f9f9;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+      }
+
+      .target-label {
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+
+      .target-value {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .progress-section {
+        margin-bottom: 15px;
+      }
+
+      .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .progress-label {
+        color: #666;
+        font-weight: 500;
+      }
+
+      .progress-value {
+        font-weight: bold;
+        font-size: 1.1em;
+      }
+
+      .progress-completed {
+        color: #4caf50;
+      }
+
+      .progress-remaining {
+        color: #ff9800;
+      }
+
+      .progress-exceeded {
+        color: #2196f3;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e0e0e0;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: #667eea;
+        transition: width 0.3s ease;
+      }
+
+      .progress-fill.completed {
+        background: #4caf50;
+      }
+
+      .progress-fill.exceeded {
+        background: #2196f3;
+      }
+
+      .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .stat-item {
+        text-align: center;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 8px;
+      }
+
+      .stat-number {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      .stat-label {
+        color: #666;
+        font-size: 0.9em;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .empty-state h3 {
+        color: #666;
+        margin-bottom: 15px;
+        font-size: 1.5em;
+      }
+
+      .empty-state p {
+        color: #999;
+        font-size: 1.1em;
+      }
+
+      @media (max-width: 768px) {
+        .habits-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .trainee-details {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .stats-summary {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📊 {{ trainee.name }}'s Progress</h1>
+        <p>Track habit completion and progress over time</p>
+      </div>
+
+      <div class="trainee-info">
+        <div class="trainee-details">
+          <div class="detail-item">
+            <div class="detail-label">Trainee ID</div>
+            <div class="detail-value">{{ trainee.id }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Total Habits</div>
+            <div class="detail-value">{{ habits|length }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Active Since</div>
+            <div class="detail-value">{{ trainee.connected_date }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Current View</div>
+            <div class="detail-value" id="currentViewLabel">Daily</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view-toggle">
+        <div class="toggle-buttons">
+          <button class="toggle-btn active" onclick="switchView('daily')">
+            Daily View
+          </button>
+          <button class="toggle-btn" onclick="switchView('monthly')">
+            Monthly View
+          </button>
+        </div>
+      </div>
+
+      {% if habits %}
+      <div class="habits-grid" id="habitsGrid">
+        {% for habit in habits %}
+        <div class="habit-card">
+          <div class="habit-name">{{ habit.habit_name }}</div>
+
+          <div class="habit-target">
+            <div class="target-label">
+              Target (<span class="view-period">Daily</span>)
+            </div>
+            <div class="target-value">
+              <span class="daily-target">{{ habit.target_value }}</span>
+              <span class="monthly-target" style="display: none"
+                >{{ habit.monthly_target }}</span
+              >
+              {{ habit.unit }}
+            </div>
+          </div>
+
+          <div class="progress-section">
+            <div class="progress-header">
+              <span class="progress-label">Completed</span>
+              <span class="progress-value progress-completed">
+                <span class="daily-completed">{{ habit.daily_completed }}</span>
+                <span class="monthly-completed" style="display: none"
+                  >{{ habit.monthly_completed }}</span
+                >
+                {{ habit.unit }}
+              </span>
+            </div>
+
+            <div class="progress-header">
+              <span class="progress-label">
+                <span class="remaining-label">Remaining</span>
+                <span class="exceeded-label" style="display: none"
+                  >Exceeded by</span
+                >
+              </span>
+              <span class="progress-value">
+                <span class="daily-remaining progress-remaining"
+                  >{{ habit.daily_remaining }}</span
+                >
+                <span
+                  class="monthly-remaining progress-remaining"
+                  style="display: none"
+                  >{{ habit.monthly_remaining }}</span
+                >
+                <span
+                  class="daily-exceeded progress-exceeded"
+                  style="display: none"
+                  >{{ habit.daily_exceeded }}</span
+                >
+                <span
+                  class="monthly-exceeded progress-exceeded"
+                  style="display: none"
+                  >{{ habit.monthly_exceeded }}</span
+                >
+                {{ habit.unit }}
+              </span>
+            </div>
+
+            <div class="progress-bar">
+              <div
+                class="progress-fill daily-progress"
+                style="width: {{ habit.daily_progress_percent }}%"
+              ></div>
+              <div
+                class="progress-fill monthly-progress"
+                style="width: {{ habit.monthly_progress_percent }}%; display: none;"
+              ></div>
+            </div>
+          </div>
+
+          <div class="stats-summary">
+            <div class="stat-item">
+              <div class="stat-number">
+                <span class="daily-stat">{{ habit.daily_logs_count }}</span>
+                <span class="monthly-stat" style="display: none"
+                  >{{ habit.monthly_logs_count }}</span
+                >
+              </div>
+              <div class="stat-label">Log Entries</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">
+                <span class="daily-stat"
+                  >{{ habit.daily_completion_rate }}%</span
+                >
+                <span class="monthly-stat" style="display: none"
+                  >{{ habit.monthly_completion_rate }}%</span
+                >
+              </div>
+              <div class="stat-label">Completion</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">{{ habit.streak_days }}</div>
+              <div class="stat-label">Streak Days</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <h3>No habits assigned yet</h3>
+        <p>
+          This trainee doesn't have any habits assigned. Use /assign-habit to
+          get started!
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <script>
+      function switchView(view) {
+        // Update toggle buttons
+        document.querySelectorAll(".toggle-btn").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+        event.target.classList.add("active");
+
+        // Update current view label
+        document.getElementById("currentViewLabel").textContent =
+          view === "daily" ? "Daily" : "Monthly";
+
+        // Show/hide appropriate elements
+        const dailyElements = document.querySelectorAll(
+          ".daily-target, .daily-completed, .daily-remaining, .daily-exceeded, .daily-progress, .daily-stat"
+        );
+        const monthlyElements = document.querySelectorAll(
+          ".monthly-target, .monthly-completed, .monthly-remaining, .monthly-exceeded, .monthly-progress, .monthly-stat"
+        );
+        const viewPeriods = document.querySelectorAll(".view-period");
+        const remainingLabels = document.querySelectorAll(".remaining-label");
+        const exceededLabels = document.querySelectorAll(".exceeded-label");
+
+        if (view === "daily") {
+          dailyElements.forEach((el) => (el.style.display = "inline"));
+          monthlyElements.forEach((el) => (el.style.display = "none"));
+          viewPeriods.forEach((el) => (el.textContent = "Daily"));
+
+          // Check if exceeded for each habit
+          document.querySelectorAll(".habit-card").forEach((card) => {
+            const exceededEl = card.querySelector(".daily-exceeded");
+            const remainingEl = card.querySelector(".daily-remaining");
+            const exceededLabel = card.querySelector(".exceeded-label");
+            const remainingLabel = card.querySelector(".remaining-label");
+
+            if (exceededEl && parseFloat(exceededEl.textContent) > 0) {
+              exceededEl.style.display = "inline";
+              remainingEl.style.display = "none";
+              exceededLabel.style.display = "inline";
+              remainingLabel.style.display = "none";
+            } else {
+              exceededEl.style.display = "none";
+              remainingEl.style.display = "inline";
+              exceededLabel.style.display = "none";
+              remainingLabel.style.display = "inline";
+            }
+          });
+        } else {
+          dailyElements.forEach((el) => (el.style.display = "none"));
+          monthlyElements.forEach((el) => (el.style.display = "inline"));
+          viewPeriods.forEach((el) => (el.textContent = "Monthly"));
+
+          // Check if exceeded for each habit
+          document.querySelectorAll(".habit-card").forEach((card) => {
+            const exceededEl = card.querySelector(".monthly-exceeded");
+            const remainingEl = card.querySelector(".monthly-remaining");
+            const exceededLabel = card.querySelector(".exceeded-label");
+            const remainingLabel = card.querySelector(".remaining-label");
+
+            if (exceededEl && parseFloat(exceededEl.textContent) > 0) {
+              exceededEl.style.display = "inline";
+              remainingEl.style.display = "none";
+              exceededLabel.style.display = "inline";
+              remainingLabel.style.display = "none";
+            } else {
+              exceededEl.style.display = "none";
+              remainingEl.style.display = "inline";
+              exceededLabel.style.display = "none";
+              remainingLabel.style.display = "inline";
+            }
+          });
+        }
+      }
+
+      // Initialize view
+      switchView("daily");
+    </script>
+  </body>
+</html>

@@ -27,23 +27,19 @@ class AssignmentFlow:
             step = task_data.get('step', 'ask_habit_id')
             
             if step == 'ask_habit_id':
-                # User provided habit_id
-                habit_id = message.strip().upper()
+                # User provided habit_id (case-insensitive search)
+                habit_id_input = message.strip()
                 
-                # Get habit details
-                success, msg, habit = self.habit_service.get_habit_by_id(habit_id)
+                # Find habit by case-insensitive search
+                habit_result = self.db.table('fitness_habits').select('*').ilike('habit_id', habit_id_input).eq('trainer_id', trainer_id).execute()
                 
-                if not success or not habit:
-                    error_msg = f"❌ Habit ID '{habit_id}' not found. Please check and try again."
+                if not habit_result.data:
+                    error_msg = f"❌ Habit ID '{habit_id_input}' not found. Please check and try again."
                     self.whatsapp.send_message(phone, error_msg)
                     return {'success': True, 'response': error_msg, 'handler': 'assign_habit_not_found'}
                 
-                # Verify ownership
-                if habit.get('trainer_id') != trainer_id:
-                    error_msg = "❌ You don't have permission to assign this habit."
-                    self.whatsapp.send_message(phone, error_msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
-                    return {'success': False, 'response': error_msg, 'handler': 'assign_habit_no_permission'}
+                habit = habit_result.data[0]
+                habit_id = habit.get('habit_id')  # Use the actual habit_id from database
                 
                 # Show habit details
                 info_msg = (
@@ -66,8 +62,8 @@ class AssignmentFlow:
                 return {'success': True, 'response': info_msg, 'handler': 'assign_habit_ask_clients'}
             
             elif step == 'ask_client_ids':
-                # Parse client IDs
-                client_ids_raw = message.strip().upper()
+                # Parse client IDs (preserve original case for case-insensitive lookup)
+                client_ids_raw = message.strip()
                 client_ids = [cid.strip() for cid in client_ids_raw.replace(',', ' ').split()]
                 
                 if not client_ids:

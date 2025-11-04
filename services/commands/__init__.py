@@ -17,6 +17,7 @@ from .common.switch_role_command import handle_switch_role
 # Trainer commands
 from .trainer.habits.creation_commands import handle_create_habit, handle_edit_habit, handle_delete_habit
 from .trainer.habits.assignment_commands import handle_assign_habits, handle_view_client_habits
+from .trainer.habits.unassignment_commands import handle_unassign_habit
 from .trainer.habits.reporting_commands import handle_view_habit_progress, handle_export_habit_data
 from .trainer.relationships.invitation_commands import handle_invite_client, handle_create_client
 from .trainer.relationships.management_commands import handle_view_trainees, handle_remove_trainee

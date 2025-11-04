@@ -44,6 +44,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "• /edit-habit - Edit habit details\n"
                 "• /delete-habit - Delete a habit\n"
                 "• /assign-habit - Assign habit to clients\n"
+                "• /unassign-habit - Unassign habit from client\n"
                 "• /view-habits - View created habits\n\n"
                 "*Client Progress:*\n"
                 "• /view-trainee-progress - View client's progress\n"

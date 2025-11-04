@@ -22,13 +22,26 @@ def handle_view_habit_progress(phone: str, trainer_id: str, db, whatsapp, task_s
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'view_trainee_progress_task_error'}
         
-        # Ask for client ID
+        # Generate trainees dashboard link
+        from services.commands.dashboard import generate_dashboard_link
+        dashboard_result = generate_dashboard_link(phone, trainer_id, 'trainer', db, whatsapp, 'view_clients')
+        
+        # Ask for client ID with dashboard link
         msg = (
-            "📊 *View Client Progress*\n\n"
+            "📊 *View Client Progress - Step 1*\n\n"
             "Please provide the client ID whose progress you want to view.\n\n"
-            "💡 Use /view-trainees to see your clients and their IDs.\n\n"
-            "Type /stop to cancel."
         )
+        
+        if dashboard_result.get('success'):
+            msg += (
+                "💡 *View your clients above* ⬆️ to find the client ID\n\n"
+                "📋 *Steps:* Find the client → Copy their ID → Return here with the ID\n\n"
+            )
+        else:
+            msg += "💡 Use /view-trainees to see your clients and their IDs.\n\n"
+        
+        msg += "Type /stop to cancel."
+        
         whatsapp.send_message(phone, msg)
         
         return {

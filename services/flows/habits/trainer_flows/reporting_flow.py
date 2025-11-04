@@ -30,31 +30,45 @@ class ReportingFlow:
             step = task_data.get('step', 'ask_client_id')
             
             if step == 'ask_client_id':
-                # User provided client_id
-                client_id = message.strip().upper()
+                # User provided client_id (case-insensitive lookup)
+                client_id_input = message.strip()
                 
-                # Verify client is in trainer's list
-                if not self.relationship_service.check_relationship_exists(trainer_id, client_id):
-                    error_msg = f"❌ Client ID '{client_id}' not found in your client list."
+                # Verify client is in trainer's list (this will handle case-insensitive lookup)
+                relationship = self.relationship_service.check_relationship_exists(trainer_id, client_id_input)
+                if not relationship:
+                    error_msg = f"❌ Client ID '{client_id_input}' not found in your client list."
                     self.whatsapp.send_message(phone, error_msg)
                     return {'success': True, 'response': error_msg, 'handler': 'view_trainee_progress_not_found'}
                 
-                # Ask for date
-                date_msg = (
-                    f"📊 *View Client Progress*\n\n"
-                    f"Which date would you like to see?\n\n"
-                    f"*Options:*\n"
-                    f"• Type 'today' for today's progress\n"
-                    f"• Type 'yesterday' for yesterday\n"
-                    f"• Or enter a date (YYYY-MM-DD format)\n\n"
-                    f"Example: 2024-01-15"
-                )
-                self.whatsapp.send_message(phone, date_msg)
+                # Get the actual client_id from the relationship
+                client_id = relationship.get('client_id')
                 
-                task_data['client_id'] = client_id
-                task_data['step'] = 'ask_date'
-                self.task_service.update_task(task['id'], 'trainer', task_data)
-                return {'success': True, 'response': date_msg, 'handler': 'view_trainee_progress_ask_date'}
+                # Generate progress dashboard link
+                from services.commands.dashboard import generate_trainee_progress_dashboard
+                dashboard_result = generate_trainee_progress_dashboard(phone, trainer_id, client_id, self.db, self.whatsapp)
+                
+                # Complete the task since we've sent the dashboard
+                self.task_service.complete_task(task['id'], 'trainer')
+                
+                if dashboard_result.get('success'):
+                    return dashboard_result
+                else:
+                    # Fallback to old flow if dashboard fails
+                    date_msg = (
+                        f"📊 *View Client Progress*\n\n"
+                        f"Which date would you like to see?\n\n"
+                        f"*Options:*\n"
+                        f"• Type 'today' for today's progress\n"
+                        f"• Type 'yesterday' for yesterday\n"
+                        f"• Or enter a date (YYYY-MM-DD format)\n\n"
+                        f"Example: 2024-01-15"
+                    )
+                    self.whatsapp.send_message(phone, date_msg)
+                    
+                    task_data['client_id'] = client_id
+                    task_data['step'] = 'ask_date'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+                    return {'success': True, 'response': date_msg, 'handler': 'view_trainee_progress_ask_date'}
             
             elif step == 'ask_date':
                 # Parse date
@@ -132,14 +146,18 @@ class ReportingFlow:
             report_type = task_data.get('report_type', 'weekly')
             
             if step == 'ask_client_id':
-                # User provided client_id
-                client_id = message.strip().upper()
+                # User provided client_id (case-insensitive lookup)
+                client_id_input = message.strip()
                 
-                # Verify client is in trainer's list
-                if not self.relationship_service.check_relationship_exists(trainer_id, client_id):
-                    error_msg = f"❌ Client ID '{client_id}' not found in your client list."
+                # Verify client is in trainer's list (this will handle case-insensitive lookup)
+                relationship = self.relationship_service.check_relationship_exists(trainer_id, client_id_input)
+                if not relationship:
+                    error_msg = f"❌ Client ID '{client_id_input}' not found in your client list."
                     self.whatsapp.send_message(phone, error_msg)
                     return {'success': True, 'response': error_msg, 'handler': 'trainee_report_not_found'}
+                
+                # Get the actual client_id from the relationship
+                client_id = relationship.get('client_id')
                 
                 # Ask for period
                 if report_type == 'weekly':

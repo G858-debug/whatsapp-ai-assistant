@@ -26,6 +26,7 @@ class TrainerIntentHandler:
             'edit_habit',
             'delete_habit',
             'assign_habit',
+            'unassign_habit',
             'view_habits',
             'view_trainee_progress',
             'trainee_report'
@@ -55,6 +56,8 @@ class TrainerIntentHandler:
                 return self._handle_delete_habit(phone, name, intent, context)
             elif intent_type == 'assign_habit':
                 return self._handle_assign_habit(phone, name, intent, context)
+            elif intent_type == 'unassign_habit':
+                return self._handle_unassign_habit(phone, name, intent, context)
             elif intent_type == 'view_habits':
                 return self._handle_view_habits(phone, name, intent, context)
             elif intent_type == 'view_trainee_progress':
@@ -191,6 +194,21 @@ class TrainerIntentHandler:
             'success': True,
             'response': msg,
             'handler': 'ai_intent_assign_habit'
+        }
+    
+    def _handle_unassign_habit(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
+        """Handle unassign habit intent"""
+        msg = (
+            f"I can help you unassign a habit from a client, {name}!\n\n"
+            f"Click the button below or type /unassign-habit"
+        )
+        buttons = [{'id': '/unassign-habit', 'title': '🗑️ Unassign Habit'}]
+        self.whatsapp.send_button_message(phone, msg, buttons)
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'ai_intent_unassign_habit'
         }
     
     def _handle_view_habits(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:

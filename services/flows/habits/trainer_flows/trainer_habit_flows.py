@@ -7,6 +7,7 @@ from utils.logger import log_info, log_error
 from .creation_flow import CreationFlow
 from .editing_flow import EditingFlow
 from .assignment_flow import AssignmentFlow
+from .unassignment_flow import UnassignmentFlow
 from .reporting_flow import ReportingFlow
 
 
@@ -22,6 +23,7 @@ class TrainerHabitFlows:
         self.creation_flow = CreationFlow(db, whatsapp, task_service)
         self.editing_flow = EditingFlow(db, whatsapp, task_service)
         self.assignment_flow = AssignmentFlow(db, whatsapp, task_service)
+        self.unassignment_flow = UnassignmentFlow(db, whatsapp, task_service)
         self.reporting_flow = ReportingFlow(db, whatsapp, task_service)
     
     def continue_create_habit(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
@@ -43,6 +45,10 @@ class TrainerHabitFlows:
     def continue_view_trainee_progress(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle view trainee progress flow - delegates to ReportingFlow"""
         return self.reporting_flow.continue_view_trainee_progress(phone, message, trainer_id, task)
+    
+    def continue_unassign_habit(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
+        """Handle unassign habit flow - delegates to UnassignmentFlow"""
+        return self.unassignment_flow.continue_unassign_habit(phone, message, trainer_id, task)
     
     def continue_trainee_report(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle trainee report flow - delegates to ReportingFlow"""

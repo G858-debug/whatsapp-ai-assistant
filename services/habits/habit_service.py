@@ -89,9 +89,9 @@ class HabitService:
                 # Add numbers for uniqueness
                 habit_id = f"HAB{name_part}{i}"
             
-            # Check if ID exists
+            # Check if ID exists (case-insensitive)
             try:
-                result = self.db.table('fitness_habits').select('habit_id').eq('habit_id', habit_id).execute()
+                result = self.db.table('fitness_habits').select('habit_id').ilike('habit_id', habit_id).execute()
                 if not result.data:
                     return habit_id
             except Exception as e:
@@ -104,13 +104,13 @@ class HabitService:
     
     def get_habit_by_id(self, habit_id: str) -> Tuple[bool, str, Optional[Dict]]:
         """
-        Get habit by habit_id
+        Get habit by habit_id (case-insensitive)
         
         Returns:
             Tuple of (success, message, habit_data)
         """
         try:
-            result = self.db.table('fitness_habits').select('*').eq('habit_id', habit_id).execute()
+            result = self.db.table('fitness_habits').select('*').ilike('habit_id', habit_id).execute()
             
             if result.data and len(result.data) > 0:
                 return True, "Habit found", result.data[0]
@@ -186,8 +186,8 @@ class HabitService:
             if 'target_value' in update_data:
                 update_data['target_value'] = float(update_data['target_value'])
             
-            # Update in database
-            result = self.db.table('fitness_habits').update(update_data).eq('habit_id', habit_id).execute()
+            # Update in database (use exact habit_id from database)
+            result = self.db.table('fitness_habits').update(update_data).eq('habit_id', habit.get('habit_id')).execute()
             
             if result.data:
                 log_info(f"Habit updated successfully: {habit_id}")
@@ -219,8 +219,8 @@ class HabitService:
             if habit.get('trainer_id') != trainer_id:
                 return False, "You don't have permission to delete this habit"
             
-            # Soft delete
-            result = self.db.table('fitness_habits').update({'is_active': False}).eq('habit_id', habit_id).execute()
+            # Soft delete (use exact habit_id from database)
+            result = self.db.table('fitness_habits').update({'is_active': False}).eq('habit_id', habit.get('habit_id')).execute()
             
             if result.data:
                 log_info(f"Habit deleted successfully: {habit_id}")

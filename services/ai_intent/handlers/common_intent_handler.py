@@ -21,7 +21,8 @@ class CommonIntentHandler:
             'delete_account',
             'logout',
             'switch_role',
-            'help'
+            'help',
+            'stop'
         ]
     
     def handle_intent(self, phone: str, intent_type: str, intent: Dict, context: Dict) -> Dict:
@@ -41,6 +42,8 @@ class CommonIntentHandler:
                 return self._handle_switch_role(phone, name, intent, context)
             elif intent_type == 'help':
                 return self._handle_help(phone, name, intent, context)
+            elif intent_type == 'stop':
+                return self._handle_stop(phone, name, intent, context)
             else:
                 return self._unknown_common_intent(phone, name, intent_type)
                 
@@ -137,6 +140,21 @@ class CommonIntentHandler:
             'success': True,
             'response': msg,
             'handler': 'ai_intent_help'
+        }
+    
+    def _handle_stop(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
+        """Handle stop intent"""
+        msg = (
+            f"I'll stop any current task, {name}.\n\n"
+            f"Click the button below or type /stop"
+        )
+        buttons = [{'id': '/stop', 'title': '🛑 Stop Task'}]
+        self.whatsapp.send_button_message(phone, msg, buttons)
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'ai_intent_stop'
         }
     
     def _unknown_common_intent(self, phone: str, name: str, intent_type: str) -> Dict:

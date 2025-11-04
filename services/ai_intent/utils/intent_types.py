@@ -15,7 +15,8 @@ class IntentTypes:
             'delete_account',
             'logout',
             'switch_role',
-            'help'
+            'help',
+            'stop'
         ]
         
         self.trainer_intents = [
@@ -29,6 +30,7 @@ class IntentTypes:
             'edit_habit',
             'delete_habit',
             'assign_habit',
+            'unassign_habit',
             'view_habits',
             'view_trainee_progress',
             'trainee_report'

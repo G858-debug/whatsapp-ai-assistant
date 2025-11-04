@@ -99,6 +99,249 @@ def api_get_relationships(user_id, token):
 
 
 
+@dashboard_bp.route('/habits/<user_id>/<token>')
+def trainer_habits_view(user_id, token):
+    """Trainer habits dashboard view"""
+    try:
+        # Validate token
+        token_data = token_manager.validate_token(token, user_id)
+        if not token_data or token_data['role'] != 'trainer':
+            return render_template('dashboard/error.html', 
+                                 error="Invalid or expired access token"), 403
+        
+        # Get user info
+        user_info = dashboard_service.get_user_info(user_id, 'trainer')
+        if not user_info:
+            return render_template('dashboard/error.html', 
+                                 error="User not found"), 404
+        
+        # Get trainer habits
+        from services.habits.habit_service import HabitService
+        habit_service = HabitService(dashboard_service.db)
+        
+        success, msg, habits = habit_service.get_trainer_habits(user_id, active_only=True)
+        
+        if not success:
+            habits = []
+        
+        # Add assignment counts to habits
+        for habit in habits:
+            habit['assignment_count'] = habit_service.get_habit_assignment_count(habit['habit_id'])
+        
+        # Calculate stats
+        stats = {
+            'total_habits': len(habits),
+            'active_habits': len([h for h in habits if h.get('is_active', True)]),
+            'assigned_habits': len([h for h in habits if habit_service.get_habit_assignment_count(h['habit_id']) > 0]),
+            'total_assignments': sum(habit_service.get_habit_assignment_count(h['habit_id']) for h in habits)
+        }
+        
+        return render_template('dashboard/trainer_habits.html',
+                             user=user_info,
+                             habits=habits,
+                             stats=stats)
+        
+    except Exception as e:
+        log_error(f"Trainer habits dashboard error: {str(e)}")
+        return render_template('dashboard/error.html', 
+                             error="An error occurred loading the habits dashboard"), 500
+
+
+@dashboard_bp.route('/progress/<user_id>/<token>/<trainee_id>')
+def trainee_progress_view(user_id, token, trainee_id):
+    """Trainee progress dashboard view"""
+    try:
+        # Validate token
+        token_data = token_manager.validate_token(token, user_id)
+        if not token_data or token_data['role'] != 'trainer':
+            return render_template('dashboard/error.html', 
+                                 error="Invalid or expired access token"), 403
+        
+        # Get user info
+        user_info = dashboard_service.get_user_info(user_id, 'trainer')
+        if not user_info:
+            return render_template('dashboard/error.html', 
+                                 error="User not found"), 404
+        
+        # Get trainee info
+        trainee_result = dashboard_service.db.table('clients').select('*').eq('client_id', trainee_id).execute()
+        if not trainee_result.data:
+            return render_template('dashboard/error.html', 
+                                 error="Trainee not found"), 404
+        
+        trainee = trainee_result.data[0]
+        
+        # Get trainee's assigned habits
+        assignments_result = dashboard_service.db.table('trainee_habit_assignments').select(
+            'habit_id'
+        ).eq('client_id', trainee_id).eq('trainer_id', user_id).eq('is_active', True).execute()
+        
+        habit_ids = [a['habit_id'] for a in assignments_result.data] if assignments_result.data else []
+        
+        habits = []
+        if habit_ids:
+            # Get habit details
+            from services.habits.habit_service import HabitService
+            habit_service = HabitService(dashboard_service.db)
+            
+            for habit_id in habit_ids:
+                success, msg, habit = habit_service.get_habit_by_id(habit_id)
+                if success and habit:
+                    # Calculate progress data
+                    habit_progress = calculate_habit_progress(dashboard_service.db, habit_id, trainee_id)
+                    habit.update(habit_progress)
+                    habits.append(habit)
+        
+        return render_template('dashboard/trainee_progress.html',
+                             user=user_info,
+                             trainee=trainee,
+                             habits=habits)
+        
+    except Exception as e:
+        log_error(f"Trainee progress dashboard error: {str(e)}")
+        return render_template('dashboard/error.html', 
+                             error="An error occurred loading the progress dashboard"), 500
+
+
+@dashboard_bp.route('/trainee-habits/<user_id>/<token>/<trainee_id>')
+def trainee_habits_view(user_id, token, trainee_id):
+    """Trainee habits dashboard view - shows only habits assigned by this trainer"""
+    try:
+        # Validate token
+        token_data = token_manager.validate_token(token, user_id)
+        if not token_data or token_data['role'] != 'trainer':
+            return render_template('dashboard/error.html', 
+                                 error="Invalid or expired access token"), 403
+        
+        # Get user info
+        user_info = dashboard_service.get_user_info(user_id, 'trainer')
+        if not user_info:
+            return render_template('dashboard/error.html', 
+                                 error="User not found"), 404
+        
+        # Get trainee info
+        trainee_result = dashboard_service.db.table('clients').select('*').eq('client_id', trainee_id).execute()
+        if not trainee_result.data:
+            return render_template('dashboard/error.html', 
+                                 error="Trainee not found"), 404
+        
+        trainee = trainee_result.data[0]
+        
+        # Get habits assigned by THIS TRAINER ONLY to this trainee
+        from services.habits.assignment_service import AssignmentService
+        assignment_service = AssignmentService(dashboard_service.db)
+        
+        # Get assignments with habit details - only for this trainer
+        assignments_result = dashboard_service.db.table('trainee_habit_assignments').select(
+            '*, fitness_habits(*)'
+        ).eq('client_id', trainee_id).eq('trainer_id', user_id).eq('is_active', True).execute()
+        
+        habits = []
+        if assignments_result.data:
+            for assignment in assignments_result.data:
+                habit_data = assignment.get('fitness_habits')
+                if habit_data:
+                    # Add assignment info to habit data
+                    habit_data['assigned_date'] = assignment.get('assigned_date')
+                    habit_data['assignment_id'] = assignment.get('id')
+                    habits.append(habit_data)
+        
+        # Add connected date to trainee info
+        relationship_result = dashboard_service.db.table('trainer_client_list').select(
+            'approved_at'
+        ).eq('trainer_id', user_id).eq('client_id', trainee_id).execute()
+        
+        connected_date = 'Unknown'
+        if relationship_result.data and relationship_result.data[0].get('approved_at'):
+            connected_date = relationship_result.data[0]['approved_at'][:10]
+        
+        trainee['connected_date'] = connected_date
+        
+        return render_template('dashboard/trainee_habits.html',
+                             user=user_info,
+                             trainee=trainee,
+                             habits=habits)
+        
+    except Exception as e:
+        log_error(f"Trainee habits dashboard error: {str(e)}")
+        return render_template('dashboard/error.html', 
+                             error="An error occurred loading the habits dashboard"), 500
+
+
+def calculate_habit_progress(db, habit_id, client_id):
+    """Calculate habit progress for daily and monthly views"""
+    from datetime import datetime, timedelta
+    import calendar
+    
+    today = datetime.now().date()
+    current_month_start = today.replace(day=1)
+    
+    # Get today's logs
+    daily_logs = db.table('habit_logs').select('completed_value').eq(
+        'habit_id', habit_id
+    ).eq('client_id', client_id).eq('log_date', today.isoformat()).execute()
+    
+    daily_completed = sum(float(log['completed_value']) for log in daily_logs.data) if daily_logs.data else 0
+    
+    # Get this month's logs
+    monthly_logs = db.table('habit_logs').select('completed_value').eq(
+        'habit_id', habit_id
+    ).eq('client_id', client_id).gte('log_date', current_month_start.isoformat()).execute()
+    
+    monthly_completed = sum(float(log['completed_value']) for log in monthly_logs.data) if monthly_logs.data else 0
+    
+    # Get habit target
+    habit_result = db.table('fitness_habits').select('target_value, frequency').eq('habit_id', habit_id).execute()
+    if not habit_result.data:
+        return {}
+    
+    habit_data = habit_result.data[0]
+    daily_target = float(habit_data['target_value'])
+    
+    # Calculate monthly target (days in current month * daily target)
+    days_in_month = calendar.monthrange(today.year, today.month)[1]
+    monthly_target = daily_target * days_in_month
+    
+    # Calculate remaining/exceeded
+    daily_remaining = max(0, daily_target - daily_completed)
+    daily_exceeded = max(0, daily_completed - daily_target)
+    monthly_remaining = max(0, monthly_target - monthly_completed)
+    monthly_exceeded = max(0, monthly_completed - monthly_target)
+    
+    # Calculate progress percentages
+    daily_progress_percent = min(100, (daily_completed / daily_target * 100)) if daily_target > 0 else 0
+    monthly_progress_percent = min(100, (monthly_completed / monthly_target * 100)) if monthly_target > 0 else 0
+    
+    # Calculate completion rates
+    daily_completion_rate = min(100, daily_progress_percent)
+    monthly_completion_rate = min(100, monthly_progress_percent)
+    
+    # Count logs
+    daily_logs_count = len(daily_logs.data) if daily_logs.data else 0
+    monthly_logs_count = len(monthly_logs.data) if monthly_logs.data else 0
+    
+    # Calculate streak (simplified - consecutive days with logs)
+    streak_days = 0  # This would need more complex calculation
+    
+    return {
+        'daily_completed': daily_completed,
+        'monthly_completed': monthly_completed,
+        'daily_target': daily_target,
+        'monthly_target': monthly_target,
+        'daily_remaining': daily_remaining,
+        'daily_exceeded': daily_exceeded,
+        'monthly_remaining': monthly_remaining,
+        'monthly_exceeded': monthly_exceeded,
+        'daily_progress_percent': daily_progress_percent,
+        'monthly_progress_percent': monthly_progress_percent,
+        'daily_completion_rate': daily_completion_rate,
+        'monthly_completion_rate': monthly_completion_rate,
+        'daily_logs_count': daily_logs_count,
+        'monthly_logs_count': monthly_logs_count,
+        'streak_days': streak_days
+    }
+
+
 @dashboard_bp.route('/api/<user_id>/<token>/export')
 def api_export_csv(user_id, token):
     """API endpoint to export relationships as CSV"""

@@ -47,10 +47,10 @@ class AssignmentService:
                 'failed': []
             }
             
-            # Verify habit exists and belongs to trainer
+            # Verify habit exists and belongs to trainer (case-insensitive)
             habit_result = self.db.table('fitness_habits')\
                 .select('*')\
-                .eq('habit_id', habit_id)\
+                .ilike('habit_id', habit_id)\
                 .eq('trainer_id', trainer_id)\
                 .eq('is_active', True)\
                 .execute()
@@ -58,12 +58,15 @@ class AssignmentService:
             if not habit_result.data:
                 return False, "Habit not found or doesn't belong to you", results
             
+            # Get the actual habit_id from database
+            actual_habit_id = habit_result.data[0].get('habit_id')
+            
             # Process each client
             for client_id in client_ids:
                 # Check if already assigned
                 existing = self.db.table('trainee_habit_assignments')\
                     .select('*')\
-                    .eq('habit_id', habit_id)\
+                    .eq('habit_id', actual_habit_id)\
                     .eq('client_id', client_id)\
                     .execute()
                 
@@ -75,7 +78,7 @@ class AssignmentService:
                         # Reactivate assignment
                         update_result = self.db.table('trainee_habit_assignments')\
                             .update({'is_active': True})\
-                            .eq('habit_id', habit_id)\
+                            .eq('habit_id', actual_habit_id)\
                             .eq('client_id', client_id)\
                             .execute()
                         
@@ -86,7 +89,7 @@ class AssignmentService:
                 else:
                     # Create new assignment
                     assignment_data = {
-                        'habit_id': habit_id,
+                        'habit_id': actual_habit_id,
                         'client_id': client_id,
                         'trainer_id': trainer_id,
                         'is_active': True
@@ -158,6 +161,48 @@ class AssignmentService:
                 
         except Exception as e:
             log_error(f"Error getting client habits: {str(e)}")
+            return False, f"Error: {str(e)}", []
+    
+    def get_client_habits_by_trainer(
+        self, 
+        client_id: str, 
+        trainer_id: str,
+        active_only: bool = True
+    ) -> Tuple[bool, str, List[Dict]]:
+        """
+        Get habits assigned to a client by a specific trainer only
+        
+        Returns:
+            Tuple of (success, message, habits_list)
+        """
+        try:
+            # Get assignments by specific trainer only
+            query = self.db.table('trainee_habit_assignments')\
+                .select('*, fitness_habits(*)')\
+                .eq('client_id', client_id)\
+                .eq('trainer_id', trainer_id)
+            
+            if active_only:
+                query = query.eq('is_active', True)
+            
+            result = query.order('assigned_date', desc=True).execute()
+            
+            if result.data:
+                # Flatten the data structure
+                habits = []
+                for assignment in result.data:
+                    if assignment.get('fitness_habits'):
+                        habit_data = assignment['fitness_habits']
+                        habit_data['assigned_date'] = assignment.get('assigned_date')
+                        habit_data['assignment_id'] = assignment.get('id')
+                        habits.append(habit_data)
+                
+                return True, f"Found {len(habits)} habits assigned by this trainer", habits
+            else:
+                return True, "No habits assigned by this trainer", []
+                
+        except Exception as e:
+            log_error(f"Error getting client habits by trainer: {str(e)}")
             return False, f"Error: {str(e)}", []
     
     def get_habit_assignments(

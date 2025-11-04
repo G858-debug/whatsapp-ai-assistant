@@ -20,7 +20,7 @@ class HabitTaskHandler:
             task_type = task.get('task_type')
             
             # Trainer habit tasks
-            if task_type in ['create_habit', 'edit_habit', 'delete_habit', 'assign_habit', 
+            if task_type in ['create_habit', 'edit_habit', 'delete_habit', 'assign_habit', 'unassign_habit',
                             'view_trainee_progress', 'trainee_report']:
                 return self._handle_trainer_habit_task(phone, message, user_id, task)
             
@@ -50,6 +50,8 @@ class HabitTaskHandler:
                 return handler.continue_delete_habit(phone, message, user_id, task)
             elif task_type == 'assign_habit':
                 return handler.continue_assign_habit(phone, message, user_id, task)
+            elif task_type == 'unassign_habit':
+                return handler.continue_unassign_habit(phone, message, user_id, task)
             elif task_type == 'view_trainee_progress':
                 return handler.continue_view_trainee_progress(phone, message, user_id, task)
             elif task_type == 'trainee_report':

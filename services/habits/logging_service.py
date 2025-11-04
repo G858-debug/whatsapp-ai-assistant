@@ -222,10 +222,10 @@ class LoggingService:
         try:
             target_date = log_date if log_date else date.today()
             
-            # Get habit details
+            # Get habit details (case-insensitive)
             habit_result = self.db.table('fitness_habits')\
                 .select('*')\
-                .eq('habit_id', habit_id)\
+                .ilike('habit_id', habit_id)\
                 .execute()
             
             if not habit_result.data:

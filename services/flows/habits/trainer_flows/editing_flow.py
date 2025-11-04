@@ -24,23 +24,19 @@ class EditingFlow:
             step = task_data.get('step', 'ask_habit_id')
             
             if step == 'ask_habit_id':
-                # User provided habit_id
-                habit_id = message.strip().upper()
+                # User provided habit_id (case-insensitive search)
+                habit_id_input = message.strip()
                 
-                # Get habit details
-                success, msg, habit = self.habit_service.get_habit_by_id(habit_id)
+                # Find habit by case-insensitive search
+                habit_result = self.db.table('fitness_habits').select('*').ilike('habit_id', habit_id_input).eq('trainer_id', trainer_id).execute()
                 
-                if not success or not habit:
-                    error_msg = f"❌ Habit ID '{habit_id}' not found. Please check and try again."
+                if not habit_result.data:
+                    error_msg = f"❌ Habit ID '{habit_id_input}' not found. Please check and try again."
                     self.whatsapp.send_message(phone, error_msg)
                     return {'success': True, 'response': error_msg, 'handler': 'edit_habit_not_found'}
                 
-                # Verify ownership
-                if habit.get('trainer_id') != trainer_id:
-                    error_msg = "❌ You don't have permission to edit this habit."
-                    self.whatsapp.send_message(phone, error_msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
-                    return {'success': False, 'response': error_msg, 'handler': 'edit_habit_no_permission'}
+                habit = habit_result.data[0]
+                habit_id = habit.get('habit_id')  # Use the actual habit_id from database
                 
                 # Show current habit info
                 info_msg = (
@@ -165,23 +161,19 @@ class EditingFlow:
             step = task_data.get('step', 'ask_habit_id')
             
             if step == 'ask_habit_id':
-                # User provided habit_id
-                habit_id = message.strip().upper()
+                # User provided habit_id (case-insensitive search)
+                habit_id_input = message.strip()
                 
-                # Get habit details
-                success, msg, habit = self.habit_service.get_habit_by_id(habit_id)
+                # Find habit by case-insensitive search
+                habit_result = self.db.table('fitness_habits').select('*').ilike('habit_id', habit_id_input).eq('trainer_id', trainer_id).execute()
                 
-                if not success or not habit:
-                    error_msg = f"❌ Habit ID '{habit_id}' not found. Please check and try again."
+                if not habit_result.data:
+                    error_msg = f"❌ Habit ID '{habit_id_input}' not found. Please check and try again."
                     self.whatsapp.send_message(phone, error_msg)
                     return {'success': True, 'response': error_msg, 'handler': 'delete_habit_not_found'}
                 
-                # Verify ownership
-                if habit.get('trainer_id') != trainer_id:
-                    error_msg = "❌ You don't have permission to delete this habit."
-                    self.whatsapp.send_message(phone, error_msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
-                    return {'success': False, 'response': error_msg, 'handler': 'delete_habit_no_permission'}
+                habit = habit_result.data[0]
+                habit_id = habit.get('habit_id')  # Use the actual habit_id from database
                 
                 # Get assignment count
                 assignment_count = self.habit_service.get_habit_assignment_count(habit_id)
