@@ -38,7 +38,7 @@ class EditingFlow:
                 habit = habit_result.data[0]
                 habit_id = habit.get('habit_id')  # Use the actual habit_id from database
                 
-                # Show current habit info
+                # Show current habit info and ask what to edit
                 info_msg = (
                     f"✏️ *Edit Habit*\n\n"
                     f"*Current Details:*\n"
@@ -46,25 +46,79 @@ class EditingFlow:
                     f"• Description: {habit.get('description') or 'None'}\n"
                     f"• Target: {habit.get('target_value')} {habit.get('unit')}\n"
                     f"• Frequency: {habit.get('frequency')}\n\n"
-                    f"I'll ask you about each field. Type 'skip' to keep current value.\n\n"
-                    f"Let's start! 👇"
+                    f"What would you like to edit?\n\n"
+                    f"*Options:*\n"
+                    f"1️⃣ *Name* - Change habit name\n"
+                    f"2️⃣ *Description* - Update description\n"
+                    f"3️⃣ *Target* - Change target value\n"
+                    f"4️⃣ *Unit* - Change unit of measurement\n"
+                    f"5️⃣ *Frequency* - Change frequency\n"
+                    f"6️⃣ *All* - Edit all fields\n\n"
+                    f"💡 *Examples:*\n"
+                    f"• Single: `1` (edit name only)\n"
+                    f"• Multiple: `1,3,2` (edit name, target, description)\n"
+                    f"• All: `6` (edit everything)\n\n"
+                    f"Type /stop to cancel."
                 )
                 self.whatsapp.send_message(phone, info_msg)
                 
-                # Load fields and start editing
+                # Load fields for later use
                 with open('config/habit_creation_inputs.json', 'r') as f:
                     config = json.load(f)
                     task_data['fields'] = config['fields']
                 
                 task_data['habit_id'] = habit_id
                 task_data['habit'] = habit
-                task_data['current_field_index'] = 0
                 task_data['updates'] = {}
+                task_data['step'] = 'choose_field'
+                
+                self.task_service.update_task(task['id'], 'trainer', task_data)
+                return {'success': True, 'response': info_msg, 'handler': 'edit_habit_choose_field'}
+            
+            elif step == 'choose_field':
+                # User chose what to edit
+                choice = message.strip()
+                fields = task_data['fields']
+                habit = task_data.get('habit', {})
+                
+                field_map = {
+                    '1': 0,  # Name
+                    '2': 1,  # Description  
+                    '3': 2,  # Target
+                    '4': 3,  # Unit
+                    '5': 4,  # Frequency
+                    '6': [0, 1, 2, 3, 4]  # All
+                }
+                
+                # Handle multiple selections like "1,3,2" or single selection
+                if choice == '6':
+                    # All fields
+                    fields_to_edit = [0, 1, 2, 3, 4]
+                else:
+                    # Parse multiple selections (comma or space separated)
+                    selected_numbers = []
+                    for num in choice.replace(',', ' ').split():
+                        num = num.strip()
+                        if num in ['1', '2', '3', '4', '5']:
+                            selected_numbers.append(num)
+                    
+                    if not selected_numbers:
+                        msg = "❌ Please choose valid options (1-6). You can select multiple like: 1,3,2 or type /stop to cancel."
+                        self.whatsapp.send_message(phone, msg)
+                        return {'success': True, 'response': msg, 'handler': 'edit_habit_invalid_choice'}
+                    
+                    # Convert to field indices and preserve order
+                    fields_to_edit = [field_map[num] for num in selected_numbers]
+                
+                # Set fields to edit
+                task_data['fields_to_edit'] = fields_to_edit
+                task_data['current_field_index'] = 0
                 task_data['step'] = 'editing'
                 
                 # Ask first field
-                first_field = task_data['fields'][0]
-                prompt = f"*{first_field['label']}*\n\nCurrent: {habit.get(first_field['name'])}\n\n{first_field['prompt']}\n\nType 'skip' to keep current value."
+                field_index = task_data['fields_to_edit'][0]
+                current_field = fields[field_index]
+                prompt = f"*{current_field['label']}*\n\nCurrent: {habit.get(current_field['name'])}\n\n{current_field['prompt']}\n\nType 'skip' to keep current value."
                 self.whatsapp.send_message(phone, prompt)
                 
                 self.task_service.update_task(task['id'], 'trainer', task_data)
@@ -72,12 +126,14 @@ class EditingFlow:
             
             elif step == 'editing':
                 fields = task_data['fields']
+                fields_to_edit = task_data.get('fields_to_edit', [])
                 current_index = task_data.get('current_field_index', 0)
                 updates = task_data.get('updates', {})
                 habit = task_data.get('habit', {})
                 
                 # Process current answer
-                current_field = fields[current_index]
+                field_index = fields_to_edit[current_index]
+                current_field = fields[field_index]
                 field_name = current_field['name']
                 
                 if message.strip().lower() != 'skip':
@@ -103,8 +159,8 @@ class EditingFlow:
                 current_index += 1
                 task_data['current_field_index'] = current_index
                 
-                # Check if done
-                if current_index >= len(fields):
+                # Check if done with selected fields
+                if current_index >= len(fields_to_edit):
                     # Apply updates
                     if not updates:
                         msg = "ℹ️ No changes made. Habit remains unchanged."
@@ -130,7 +186,8 @@ class EditingFlow:
                         return {'success': False, 'response': error_msg, 'handler': 'edit_habit_failed'}
                 
                 # Ask next field
-                next_field = fields[current_index]
+                next_field_index = fields_to_edit[current_index]
+                next_field = fields[next_field_index]
                 prompt = f"*{next_field['label']}*\n\nCurrent: {habit.get(next_field['name'])}\n\n{next_field['prompt']}\n\nType 'skip' to keep current value."
                 self.whatsapp.send_message(phone, prompt)
                 self.task_service.update_task(task['id'], 'trainer', task_data)

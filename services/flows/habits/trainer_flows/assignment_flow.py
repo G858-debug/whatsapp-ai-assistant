@@ -41,18 +41,33 @@ class AssignmentFlow:
                 habit = habit_result.data[0]
                 habit_id = habit.get('habit_id')  # Use the actual habit_id from database
                 
-                # Show habit details
+                # Generate client dashboard link
+                from services.commands.dashboard import generate_dashboard_link
+                dashboard_result = generate_dashboard_link(phone, trainer_id, 'trainer', self.db, self.whatsapp, 'view_clients')
+                
+                # Show habit details with client dashboard
                 info_msg = (
-                    f"📌 *Assign Habit*\n\n"
+                    f"📌 *Assign Habit - Step 2*\n\n"
                     f"*Habit:* {habit.get('habit_name')}\n"
                     f"*Target:* {habit.get('target_value')} {habit.get('unit')}\n"
                     f"*Frequency:* {habit.get('frequency')}\n\n"
                     f"Now, provide the client ID(s) to assign this habit.\n\n"
-                    f"💡 You can provide:\n"
-                    f"• Single ID: CLI123\n"
-                    f"• Multiple IDs: CLI123, CLI456, CLI789\n\n"
-                    f"Use /view-trainees to see your clients."
                 )
+                
+                if dashboard_result.get('success'):
+                    info_msg += (
+                        "💡 *View your clients above* ⬆️ to find client IDs\n\n"
+                        "📋 *Steps:* Find the client → Copy their ID → Return here with the ID\n\n"
+                    )
+                else:
+                    info_msg += "💡 Use /view-trainees to see your clients and their IDs.\n\n"
+                
+                info_msg += (
+                    f"You can provide:\n"
+                    f"• Single ID: CLI123\n"
+                    f"• Multiple IDs: CLI123, CLI456, CLI789"
+                )
+                
                 self.whatsapp.send_message(phone, info_msg)
                 
                 task_data['habit_id'] = habit_id

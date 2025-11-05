@@ -21,13 +21,14 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'create_habit_config_error'}
         
-        # Create create_habit task
+        # Create create_habit task (start from index 1 since first question is already asked)
         task_id = task_service.create_task(
             user_id=trainer_id,
             role='trainer',
             task_type='create_habit',
             task_data={
-                'current_field_index': 0,
+                'fields': fields,
+                'current_field_index': 1,
                 'collected_data': {}
             }
         )
@@ -37,22 +38,19 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'create_habit_task_error'}
         
-        # Send intro message
+        # Send intro message with first question
         intro_msg = (
             "🎯 *Create New Habit*\n\n"
             f"I'll ask you {len(fields)} questions to create a fitness habit.\n\n"
             "💡 *Tip:* You can type /stop at any time to cancel.\n\n"
-            "Let's start! 👇"
+            "Let's start! 👇\n\n"
+            f"{fields[0]['prompt']}"
         )
         whatsapp.send_message(phone, intro_msg)
         
-        # Send first field prompt
-        first_field = fields[0]
-        whatsapp.send_message(phone, first_field['prompt'])
-        
         return {
             'success': True,
-            'response': first_field['prompt'],
+            'response': intro_msg,
             'handler': 'create_habit_started'
         }
         
@@ -81,13 +79,26 @@ def handle_edit_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'edit_habit_task_error'}
         
-        # Ask for habit ID
+        # Generate habits dashboard link
+        from services.commands.dashboard import generate_trainer_habits_dashboard
+        dashboard_result = generate_trainer_habits_dashboard(phone, trainer_id, db, whatsapp)
+        
+        # Ask for habit ID with dashboard link
         msg = (
-            "✏️ *Edit Habit*\n\n"
+            "✏️ *Edit Habit - Step 1*\n\n"
             "Please provide the habit ID you want to edit.\n\n"
-            "💡 Use /view-habits to see your habits and their IDs.\n\n"
-            "Type /stop to cancel."
         )
+        
+        if dashboard_result.get('success'):
+            msg += (
+                "💡 *View your habits above* ⬆️ to find the habit ID\n\n"
+                "📋 *Steps:* Find the habit → Copy its ID → Return here with the ID\n\n"
+            )
+        else:
+            msg += "💡 Use /view-habits to see your habits and their IDs.\n\n"
+        
+        msg += "Type /stop to cancel."
+        
         whatsapp.send_message(phone, msg)
         
         return {
