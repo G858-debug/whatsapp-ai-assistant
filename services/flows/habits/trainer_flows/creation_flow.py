@@ -23,39 +23,20 @@ class CreationFlow:
             task_data = task.get('task_data', {})
             collected_data = task_data.get('collected_data', {})
             
-            # Fields should already be loaded from command handler
-            fields = task_data.get('fields', [])
-            current_index = task_data.get('current_field_index', 0)
-            first_question_sent = task_data.get('first_question_sent', False)
-            
-            # If fields are missing, load them (fallback)
-            if not fields:
+            # Load habit creation fields if not loaded
+            if not task_data.get('fields'):
                 with open('config/habit_creation_inputs.json', 'r') as f:
                     config = json.load(f)
-                    fields = config['fields']
-                    task_data['fields'] = fields
+                    task_data['fields'] = config['fields']
+                    task_data['current_field_index'] = 0
             
-            # Debug logging
-            log_info(f"Flow state - current_index: {current_index}, first_question_sent: {first_question_sent}, collected_data: {collected_data}")
+            fields = task_data['fields']
+            current_index = task_data.get('current_field_index', 0)
             
-            # Determine which field we're processing the answer for
-            processing_field_index = None
-            
-            if first_question_sent and current_index == 0:
-                # We sent the first question in the command, now processing its answer
-                processing_field_index = 0
-                task_data['first_question_sent'] = False  # Clear the flag
-            elif current_index > 0:
-                # We're processing an answer to a previously asked question
-                processing_field_index = current_index - 1
-            
-            # Process the user's answer if we have a field to process
-            if processing_field_index is not None:
-                current_field = fields[processing_field_index]
+            # Validate and store current answer (only if we're not on the first question)
+            if current_index > 0:
+                current_field = fields[current_index - 1]
                 field_name = current_field['name']
-                
-                # Debug logging
-                log_info(f"Processing answer for field {processing_field_index}: {field_name} (type: {current_field['type']}) with value: '{message}'")
                 
                 # Handle optional fields
                 if not current_field.get('required') and message.strip().lower() in ['skip', 'no', 'none']:
@@ -102,15 +83,10 @@ class CreationFlow:
                             return {'success': True, 'response': msg, 'handler': 'create_habit_invalid'}
                         collected_data[field_name] = message.strip()
                 
-                # Store the collected data
                 task_data['collected_data'] = collected_data
-                
-                # Move to next field (increment current_index to point to next field to ask)
-                current_index = processing_field_index + 1
+                # Move to next field only after successful validation
+                current_index += 1
                 task_data['current_field_index'] = current_index
-                
-                # Debug logging
-                log_info(f"Stored answer for {field_name}. Next field index will be: {current_index}")
             
             # Check if we have all fields
             if current_index >= len(fields):
@@ -138,9 +114,6 @@ class CreationFlow:
             # Ask next question
             next_field = fields[current_index]
             
-            # Debug logging
-            log_info(f"Asking question for field index {current_index}: {next_field['name']} (type: {next_field['type']})")
-            
             # Send prompt with options if it's a choice field
             if next_field['type'] == 'choice':
                 prompt = next_field['prompt'] + "\n\n"
@@ -151,7 +124,7 @@ class CreationFlow:
                 prompt = next_field['prompt']
             
             self.whatsapp.send_message(phone, prompt)
-            # Update task with current state
+            # Don't increment here - it will be incremented after the user responds
             self.task_service.update_task(task['id'], 'trainer', task_data)
             
             return {'success': True, 'response': prompt, 'handler': 'create_habit_continue'}

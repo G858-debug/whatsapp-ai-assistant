@@ -21,16 +21,14 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'create_habit_config_error'}
         
-        # Create create_habit task with fields loaded and first question ready
+        # Create create_habit task
         task_id = task_service.create_task(
             user_id=trainer_id,
             role='trainer',
             task_type='create_habit',
             task_data={
-                'fields': fields,
                 'current_field_index': 0,
-                'collected_data': {},
-                'first_question_sent': True  # Flag to indicate first question was sent
+                'collected_data': {}
             }
         )
         
@@ -39,16 +37,18 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'create_habit_task_error'}
         
-        # Send intro message with first question
-        first_field = fields[0]
+        # Send intro message
         intro_msg = (
             "🎯 *Create New Habit*\n\n"
             f"I'll ask you {len(fields)} questions to create a fitness habit.\n\n"
             "💡 *Tip:* You can type /stop at any time to cancel.\n\n"
-            "Let's start! 👇\n\n"
-            f"{first_field['prompt']}"
+            "Let's start! 👇"
         )
         whatsapp.send_message(phone, intro_msg)
+        
+        # Send first field prompt
+        first_field = fields[0]
+        whatsapp.send_message(phone, first_field['prompt'])
         
         return {
             'success': True,
