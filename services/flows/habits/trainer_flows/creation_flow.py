@@ -23,19 +23,28 @@ class CreationFlow:
             task_data = task.get('task_data', {})
             collected_data = task_data.get('collected_data', {})
             
-            # Load habit creation fields if not loaded
-            if not task_data.get('fields'):
+            # Fields should already be loaded from command handler
+            fields = task_data.get('fields', [])
+            current_index = task_data.get('current_field_index', 0)
+            first_question_sent = task_data.get('first_question_sent', False)
+            
+            # If fields are missing, load them (fallback)
+            if not fields:
                 with open('config/habit_creation_inputs.json', 'r') as f:
                     config = json.load(f)
-                    task_data['fields'] = config['fields']
-                    task_data['current_field_index'] = 0
+                    fields = config['fields']
+                    task_data['fields'] = fields
             
-            fields = task_data['fields']
-            current_index = task_data.get('current_field_index', 0)
-            
-            # Validate and store current answer (only if we're not on the first question)
-            if current_index > 0:
-                current_field = fields[current_index - 1]
+            # Validate and store current answer
+            # For the first question, we need to process the answer since it was already asked
+            if first_question_sent or current_index > 0:
+                # Get the current field to validate
+                if first_question_sent and current_index == 0:
+                    # We're processing the first question's answer
+                    current_field = fields[0]
+                    task_data['first_question_sent'] = False  # Clear the flag
+                else:
+                    current_field = fields[current_index - 1]
                 field_name = current_field['name']
                 
                 # Handle optional fields
@@ -85,7 +94,11 @@ class CreationFlow:
                 
                 task_data['collected_data'] = collected_data
                 # Move to next field only after successful validation
-                current_index += 1
+                if not (first_question_sent and current_index == 0):
+                    current_index += 1
+                else:
+                    # For first question, we stay at index 0 but move to index 1 next time
+                    current_index = 1
                 task_data['current_field_index'] = current_index
             
             # Check if we have all fields
