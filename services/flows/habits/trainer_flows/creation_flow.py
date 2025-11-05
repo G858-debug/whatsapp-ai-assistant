@@ -33,7 +33,7 @@ class CreationFlow:
             fields = task_data['fields']
             current_index = task_data.get('current_field_index', 0)
             
-            # Validate and store current answer (only if we're not on the first question)
+            # Validate and store current answer
             if current_index > 0:
                 current_field = fields[current_index - 1]
                 field_name = current_field['name']
@@ -84,8 +84,6 @@ class CreationFlow:
                         collected_data[field_name] = message.strip()
                 
                 task_data['collected_data'] = collected_data
-                # Move to next field only after successful validation
-                current_index += 1
                 task_data['current_field_index'] = current_index
             
             # Check if we have all fields
@@ -124,7 +122,7 @@ class CreationFlow:
                 prompt = next_field['prompt']
             
             self.whatsapp.send_message(phone, prompt)
-            # Don't increment here - it will be incremented after the user responds
+            task_data['current_field_index'] = current_index + 1
             self.task_service.update_task(task['id'], 'trainer', task_data)
             
             return {'success': True, 'response': prompt, 'handler': 'create_habit_continue'}
