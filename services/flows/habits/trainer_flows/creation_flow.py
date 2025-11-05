@@ -35,18 +35,25 @@ class CreationFlow:
                     fields = config['fields']
                     task_data['fields'] = fields
             
+            # Debug logging
+            log_info(f"Flow state - current_index: {current_index}, first_question_sent: {first_question_sent}, collected_data: {collected_data}")
+            
             # Process the user's answer if we have a question to answer
             if first_question_sent or current_index > 0:
-                # Determine which field we're processing
+                # Determine which field we're processing based on current_index
                 if first_question_sent and current_index == 0:
-                    # Processing the first question's answer
-                    current_field = fields[0]
+                    # Processing the first question's answer (index 0)
+                    field_index = 0
                     task_data['first_question_sent'] = False  # Clear the flag
                 else:
                     # Processing a subsequent question's answer
-                    current_field = fields[current_index - 1]
+                    field_index = current_index - 1
                 
+                current_field = fields[field_index]
                 field_name = current_field['name']
+                
+                # Debug logging
+                log_info(f"Processing field index {field_index}: {field_name} (type: {current_field['type']}) with value: '{message}'")
                 
                 # Handle optional fields
                 if not current_field.get('required') and message.strip().lower() in ['skip', 'no', 'none']:
@@ -136,8 +143,11 @@ class CreationFlow:
                 prompt = next_field['prompt']
             
             self.whatsapp.send_message(phone, prompt)
-            # Don't increment here - it will be incremented after the user responds
+            # Update task with current state
             self.task_service.update_task(task['id'], 'trainer', task_data)
+            
+            # Debug logging
+            log_info(f"Sent next question for field index {current_index}: {next_field['name']}")
             
             return {'success': True, 'response': prompt, 'handler': 'create_habit_continue'}
             
