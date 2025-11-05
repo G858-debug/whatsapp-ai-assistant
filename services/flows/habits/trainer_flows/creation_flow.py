@@ -35,16 +35,17 @@ class CreationFlow:
                     fields = config['fields']
                     task_data['fields'] = fields
             
-            # Validate and store current answer
-            # For the first question, we need to process the answer since it was already asked
+            # Process the user's answer if we have a question to answer
             if first_question_sent or current_index > 0:
-                # Get the current field to validate
+                # Determine which field we're processing
                 if first_question_sent and current_index == 0:
-                    # We're processing the first question's answer
+                    # Processing the first question's answer
                     current_field = fields[0]
                     task_data['first_question_sent'] = False  # Clear the flag
                 else:
+                    # Processing a subsequent question's answer
                     current_field = fields[current_index - 1]
+                
                 field_name = current_field['name']
                 
                 # Handle optional fields
@@ -92,13 +93,11 @@ class CreationFlow:
                             return {'success': True, 'response': msg, 'handler': 'create_habit_invalid'}
                         collected_data[field_name] = message.strip()
                 
+                # Store the collected data
                 task_data['collected_data'] = collected_data
-                # Move to next field only after successful validation
-                if not (first_question_sent and current_index == 0):
-                    current_index += 1
-                else:
-                    # For first question, we stay at index 0 but move to index 1 next time
-                    current_index = 1
+                
+                # Move to next field index
+                current_index += 1
                 task_data['current_field_index'] = current_index
             
             # Check if we have all fields
