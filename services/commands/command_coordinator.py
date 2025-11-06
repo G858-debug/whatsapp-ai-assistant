@@ -41,6 +41,7 @@ class CommandCoordinator:
         Routes commands to appropriate handlers based on command type and user role.
         """
         try:
+            log_info(f"CommandCoordinator: Processing command '{command}' (length: {len(command)}) from {phone}")
             # Get user's current login status
             login_status = self.auth_service.get_login_status(phone)
             user_id = None
@@ -82,6 +83,7 @@ class CommandCoordinator:
             
             # Route role-specific commands
             elif login_status == 'trainer':
+                log_info(f"Routing trainer command: {command} for user_id: {user_id}")
                 return self._handle_trainer_command(phone, user_id, command)
             
             elif login_status == 'client':
@@ -102,6 +104,7 @@ class CommandCoordinator:
     
     def _handle_trainer_command(self, phone: str, trainer_id: str, command: str) -> Dict:
         """Route trainer-specific commands"""
+        log_info(f"Trainer command received: '{command}' (length: {len(command)})")
         
         # Habit management commands
         if command == '/create-habit':
@@ -136,6 +139,7 @@ class CommandCoordinator:
         
         # Dashboard commands
         elif command == '/trainer-dashboard':
+            log_info(f"Processing trainer-dashboard command for {trainer_id}")
             return self.trainer_handler.handle_trainer_dashboard(phone, trainer_id)
         elif command == '/client-progress':
             return self.trainer_handler.handle_client_progress(phone, trainer_id)

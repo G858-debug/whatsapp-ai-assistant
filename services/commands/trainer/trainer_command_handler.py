@@ -82,7 +82,14 @@ class TrainerCommandHandler:
     
     def handle_trainer_dashboard(self, phone: str, trainer_id: str) -> Dict:
         """Handle /trainer-dashboard command"""
-        return handle_trainer_dashboard(phone, trainer_id, self.db, self.whatsapp)
+        log_info(f"TrainerCommandHandler: handle_trainer_dashboard called for {trainer_id}")
+        try:
+            result = handle_trainer_dashboard(phone, trainer_id, self.db, self.whatsapp)
+            log_info(f"TrainerCommandHandler: handle_trainer_dashboard result: {result}")
+            return result
+        except Exception as e:
+            log_error(f"TrainerCommandHandler: handle_trainer_dashboard error: {str(e)}")
+            raise
     
     def handle_client_progress(self, phone: str, trainer_id: str) -> Dict:
         """Handle /client-progress command"""
