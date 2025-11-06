@@ -61,7 +61,7 @@ class ProgressFlow:
                 # Update task with view type
                 task_data['view_type'] = view_type
                 task_data['step'] = next_step
-                self.task_service.update_task(task['id'], task_data)
+                self.task_service.update_task(task['id'], 'client', task_data)
                 
                 self.whatsapp.send_message(phone, next_msg)
                 return {'success': True, 'response': next_msg, 'handler': 'view_progress_view_type_selected'}
