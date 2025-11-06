@@ -944,13 +944,8 @@ def client_habits_view(user_id, token):
         # Calculate statistics for the selected period
         stats = calculate_habit_statistics(habits, view_type, selected_date, selected_month, selected_year)
         
-        # Get leaderboard data (for selected month if monthly view)
-        if view_type == 'monthly' and selected_month and selected_year:
-            leaderboard = calculate_client_leaderboard_for_month(
-                dashboard_service.db, user_id, selected_year, selected_month
-            )
-        else:
-            leaderboard = calculate_client_leaderboard(dashboard_service.db, user_id)
+        # Calculate proper leaderboard with all users
+        leaderboard = calculate_proper_leaderboard(dashboard_service.db, user_id, view_type, selected_date, selected_month, selected_year)
         
         return render_template('dashboard/client_habits.html',
                              user=user_info,
@@ -1160,3 +1155,156 @@ def calculate_habit_statistics(habits, view_type, selected_date=None, selected_m
             'not_started': 0,
             'trainers': 0
         }
+
+
+def calculate_proper_leaderboard(db, current_user_id, view_type='daily', selected_date=None, selected_month=None, selected_year=None):
+    """Calculate proper leaderboard based on actual habit logs and assignments"""
+    try:
+        from datetime import datetime, date
+        import calendar
+        
+        # Determine date range based on view type
+        if view_type == 'daily':
+            if selected_date:
+                target_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
+            else:
+                target_date = date.today()
+            date_filter = target_date
+            date_range = (target_date, target_date)
+        else:  # monthly
+            if selected_month and selected_year:
+                year_int = int(selected_year)
+                month_int = int(selected_month)
+            else:
+                now = datetime.now()
+                year_int = now.year
+                month_int = now.month
+            
+            # Get first and last day of month
+            first_day = date(year_int, month_int, 1)
+            last_day = date(year_int, month_int, calendar.monthrange(year_int, month_int)[1])
+            date_range = (first_day, last_day)
+        
+        # Get all active habit assignments with client and habit info
+        assignments_query = db.table('trainee_habit_assignments').select(
+            'client_id, habit_id, fitness_habits(habit_name, target_value, unit, frequency)'
+        ).eq('is_active', True).execute()
+        
+        if not assignments_query.data:
+            return []
+        
+        # Get all client names
+        client_ids = list(set(assignment['client_id'] for assignment in assignments_query.data))
+        clients_query = db.table('clients').select('client_id, name').in_('client_id', client_ids).execute()
+        clients_info = {client['client_id']: client['name'] for client in clients_query.data} if clients_query.data else {}
+        
+        # Get habit logs for the date range
+        if view_type == 'daily':
+            logs_query = db.table('habit_logs').select(
+                'client_id, habit_id, completed_value, log_date'
+            ).eq('log_date', date_range[0].isoformat()).execute()
+        else:  # monthly
+            logs_query = db.table('habit_logs').select(
+                'client_id, habit_id, completed_value, log_date'
+            ).gte('log_date', date_range[0].isoformat()).lte('log_date', date_range[1].isoformat()).execute()
+        
+        # Process logs to get latest entry per habit per day (in case of multiple entries)
+        processed_logs = {}
+        for log in logs_query.data if logs_query.data else []:
+            key = f"{log['client_id']}_{log['habit_id']}_{log['log_date']}"
+            if key not in processed_logs:
+                processed_logs[key] = log
+            # Keep the one with higher completed_value if multiple entries same day
+            elif float(log['completed_value']) > float(processed_logs[key]['completed_value']):
+                processed_logs[key] = log
+        
+        # Calculate stats for each client
+        client_stats = {}
+        
+        for assignment in assignments_query.data:
+            client_id = assignment['client_id']
+            habit_id = assignment['habit_id']
+            habit_info = assignment.get('fitness_habits', {})
+            
+            if not habit_info:
+                continue
+                
+            if client_id not in client_stats:
+                client_stats[client_id] = {
+                    'client_id': client_id,
+                    'name': clients_info.get(client_id, 'Unknown'),
+                    'total_progress': 0,
+                    'habit_count': 0,
+                    'total_streak': 0,
+                    'habits_data': []
+                }
+            
+            client_stats[client_id]['habit_count'] += 1
+            
+            # Calculate progress for this habit
+            target_value = float(habit_info.get('target_value', 1))
+            
+            if view_type == 'daily':
+                # For daily view, check if there's a log for the target date
+                log_key = f"{client_id}_{habit_id}_{date_range[0].isoformat()}"
+                if log_key in processed_logs:
+                    completed_value = float(processed_logs[log_key]['completed_value'])
+                    progress_percent = min(100, (completed_value / target_value) * 100)
+                else:
+                    progress_percent = 0
+                    
+                client_stats[client_id]['total_progress'] += progress_percent
+                
+            else:  # monthly
+                # For monthly view, sum all logs in the month
+                total_completed = 0
+                days_in_month = calendar.monthrange(year_int, month_int)[1]
+                
+                for day in range(1, days_in_month + 1):
+                    day_date = date(year_int, month_int, day)
+                    log_key = f"{client_id}_{habit_id}_{day_date.isoformat()}"
+                    if log_key in processed_logs:
+                        total_completed += float(processed_logs[log_key]['completed_value'])
+                
+                # Calculate monthly progress (target * days in month)
+                monthly_target = target_value * days_in_month
+                progress_percent = min(100, (total_completed / monthly_target) * 100) if monthly_target > 0 else 0
+                client_stats[client_id]['total_progress'] += progress_percent
+            
+            # Calculate streak for this habit (simplified - count consecutive days with logs)
+            streak = calculate_habit_streak(db, habit_id, client_id)
+            client_stats[client_id]['total_streak'] += streak
+        
+        # Create leaderboard entries
+        leaderboard = []
+        for client_data in client_stats.values():
+            if client_data['habit_count'] > 0:
+                avg_progress = client_data['total_progress'] / client_data['habit_count']
+                leaderboard.append({
+                    'client_id': client_data['client_id'],
+                    'name': client_data['name'],
+                    'progress': round(avg_progress, 1),
+                    'habit_count': client_data['habit_count'],
+                    'total_streak': client_data['total_streak'],
+                    'is_current_user': client_data['client_id'] == current_user_id
+                })
+        
+        # Sort by progress (descending), then by total_streak (descending)
+        leaderboard.sort(key=lambda x: (x['progress'], x['total_streak']), reverse=True)
+        
+        # Add ranks and limit to top 10 + current user
+        for i, entry in enumerate(leaderboard):
+            entry['rank'] = i + 1
+        
+        # Ensure current user is included even if not in top 10
+        top_10 = leaderboard[:10]
+        current_user_entry = next((entry for entry in leaderboard if entry['is_current_user']), None)
+        
+        if current_user_entry and current_user_entry not in top_10:
+            top_10.append(current_user_entry)
+        
+        return top_10
+        
+    except Exception as e:
+        log_error(f"Error calculating proper leaderboard: {str(e)}")
+        return []
