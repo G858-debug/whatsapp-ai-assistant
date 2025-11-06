@@ -257,7 +257,7 @@ class TrainerIntentHandler:
             f"I can show you client progress, {name}!\n\n"
             f"Click the button below or type /view-trainee-progress"
         )
-        buttons = [{'id': '/view-trainee-progress', 'title': '📊 View Progress'}]
+        buttons = [{'id': '/view-trainee-progress', 'title': '📊 Trainee Progress'}]
         self.whatsapp.send_button_message(phone, msg, buttons)
         
         return {
@@ -307,7 +307,7 @@ class TrainerIntentHandler:
             f"I can show you detailed trainee progress, {name}!\n\n"
             f"Click the button below or type /view-trainee-progress"
         )
-        buttons = [{'id': '/view-trainee-progress', 'title': '📊 View Trainee Progress'}]
+        buttons = [{'id': '/view-trainee-progress', 'title': '📊 Trainee Progress'}]
         self.whatsapp.send_button_message(phone, msg, buttons)
         
         return {
@@ -322,7 +322,7 @@ class TrainerIntentHandler:
             f"Great! I can help you view trainee progress, {name}!\n\n"
             f"Click the button below or type /view-trainee-progress"
         )
-        buttons = [{'id': '/view-trainee-progress', 'title': '📊 View Trainee Progress'}]
+        buttons = [{'id': '/view-trainee-progress', 'title': '📊 Trainee Progress'}]
         self.whatsapp.send_button_message(phone, msg, buttons)
         
         return {

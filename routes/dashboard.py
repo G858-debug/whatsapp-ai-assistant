@@ -158,7 +158,7 @@ def trainee_progress_view(user_id, token, trainee_id):
                                  error="Invalid or expired access token"), 403
         
         # Get trainer info from trainers table
-        trainer_result = dashboard_service.db.table('trainers').select('*').eq('id', user_id).execute()
+        trainer_result = dashboard_service.db.table('trainers').select('*').eq('trainer_id', user_id).execute()
         if not trainer_result.data:
             return render_template('dashboard/error.html', 
                                  error="Trainer not found"), 404
