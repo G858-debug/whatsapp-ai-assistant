@@ -151,8 +151,11 @@ class CommandCoordinator:
         # Habit tracking commands
         if command == '/view-my-habits':
             return self.client_handler.handle_view_my_habits(phone, client_id)
-        elif command == '/log-habits':
-            return self.client_handler.handle_log_habits(phone, client_id)
+        elif command.startswith('/log-habits'):
+            # Extract habit ID if provided
+            parts = command.split()
+            habit_id = parts[1] if len(parts) > 1 else None
+            return self.client_handler.handle_log_habits(phone, client_id, habit_id)
         elif command == '/view-progress':
             return self.client_handler.handle_view_progress(phone, client_id)
         elif command == '/weekly-report':

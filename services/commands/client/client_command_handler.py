@@ -28,9 +28,9 @@ class ClientCommandHandler:
         """Handle /view-my-habits command"""
         return handle_view_my_habits(phone, client_id, self.db, self.whatsapp)
     
-    def handle_log_habits(self, phone: str, client_id: str) -> Dict:
+    def handle_log_habits(self, phone: str, client_id: str, habit_id: str = None) -> Dict:
         """Handle /log-habits command"""
-        return handle_log_habits(phone, client_id, self.db, self.whatsapp, self.task_service)
+        return handle_log_habits(phone, client_id, self.db, self.whatsapp, self.task_service, habit_id)
     
     def handle_view_progress(self, phone: str, client_id: str) -> Dict:
         """Handle /view-progress command"""
