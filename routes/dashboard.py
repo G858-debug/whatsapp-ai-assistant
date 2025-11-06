@@ -149,7 +149,7 @@ def trainer_habits_view(user_id, token):
 
 @dashboard_bp.route('/progress/<user_id>/<token>/<trainee_id>')
 def trainee_progress_view(user_id, token, trainee_id):
-    """Trainee progress dashboard view"""
+    """Trainee progress dashboard view - enhanced version matching client dashboard"""
     try:
         # Validate token
         token_data = token_manager.validate_token(token, user_id)
@@ -157,11 +157,11 @@ def trainee_progress_view(user_id, token, trainee_id):
             return render_template('dashboard/error.html', 
                                  error="Invalid or expired access token"), 403
         
-        # Get user info
-        user_info = dashboard_service.get_user_info(user_id, 'trainer')
-        if not user_info:
+        # Get trainer info
+        trainer_info = dashboard_service.get_user_info(user_id, 'trainer')
+        if not trainer_info:
             return render_template('dashboard/error.html', 
-                                 error="User not found"), 404
+                                 error="Trainer not found"), 404
         
         # Get trainee info
         trainee_result = dashboard_service.db.table('clients').select('*').eq('client_id', trainee_id).execute()
@@ -169,33 +169,69 @@ def trainee_progress_view(user_id, token, trainee_id):
             return render_template('dashboard/error.html', 
                                  error="Trainee not found"), 404
         
-        trainee = trainee_result.data[0]
+        trainee_info = trainee_result.data[0]
         
-        # Get trainee's assigned habits
+        # Get date parameters from query string
+        view_type = request.args.get('view', 'daily')  # daily or monthly
+        selected_date = request.args.get('date')  # YYYY-MM-DD format
+        selected_month = request.args.get('month')  # MM format
+        selected_year = request.args.get('year')  # YYYY format
+        
+        # Get trainee's assigned habits by this trainer
         assignments_result = dashboard_service.db.table('trainee_habit_assignments').select(
-            'habit_id'
+            '*, fitness_habits(*)'
         ).eq('client_id', trainee_id).eq('trainer_id', user_id).eq('is_active', True).execute()
         
-        habit_ids = [a['habit_id'] for a in assignments_result.data] if assignments_result.data else []
-        
         habits = []
-        if habit_ids:
-            # Get habit details
-            from services.habits.habit_service import HabitService
-            habit_service = HabitService(dashboard_service.db)
-            
-            for habit_id in habit_ids:
-                success, msg, habit = habit_service.get_habit_by_id(habit_id)
-                if success and habit:
-                    # Calculate progress data
-                    habit_progress = calculate_habit_progress(dashboard_service.db, habit_id, trainee_id)
-                    habit.update(habit_progress)
-                    habits.append(habit)
+        if assignments_result.data:
+            for assignment in assignments_result.data:
+                habit_data = assignment.get('fitness_habits')
+                if habit_data:
+                    # Add assignment info to habit data
+                    habit_data['assigned_date'] = assignment.get('assigned_date')
+                    habit_data['assignment_id'] = assignment.get('id')
+                    habit_data['trainer_id'] = assignment.get('trainer_id')
+                    habit_data['trainer_name'] = trainer_info.get('name', 'Unknown')
+                    
+                    # Calculate progress data based on selected date/month
+                    if view_type == 'monthly' and selected_month and selected_year:
+                        habit_progress = calculate_habit_progress_for_month(
+                            dashboard_service.db, habit_data['habit_id'], trainee_id, 
+                            selected_year, selected_month
+                        )
+                    elif view_type == 'daily' and selected_date:
+                        habit_progress = calculate_habit_progress_for_date(
+                            dashboard_service.db, habit_data['habit_id'], trainee_id, 
+                            selected_date
+                        )
+                    else:
+                        # Default to current day/month
+                        habit_progress = calculate_habit_progress(dashboard_service.db, habit_data['habit_id'], trainee_id)
+                    
+                    habit_data.update(habit_progress)
+                    
+                    # Calculate streak
+                    streak = calculate_habit_streak(dashboard_service.db, habit_data['habit_id'], trainee_id)
+                    habit_data['streak_days'] = streak
+                    
+                    habits.append(habit_data)
+        
+        # Calculate statistics for the selected period
+        stats = calculate_habit_statistics(habits, view_type, selected_date, selected_month, selected_year)
+        
+        # Calculate leaderboard with this trainee's position among all clients
+        leaderboard = calculate_proper_leaderboard(dashboard_service.db, trainee_id, view_type, selected_date, selected_month, selected_year)
         
         return render_template('dashboard/trainee_progress.html',
-                             user=user_info,
-                             trainee=trainee,
-                             habits=habits)
+                             trainer=trainer_info,
+                             trainee=trainee_info,
+                             habits=habits,
+                             stats=stats,
+                             leaderboard=leaderboard,
+                             view_type=view_type,
+                             selected_date=selected_date,
+                             selected_month=selected_month,
+                             selected_year=selected_year)
         
     except Exception as e:
         log_error(f"Trainee progress dashboard error: {str(e)}")

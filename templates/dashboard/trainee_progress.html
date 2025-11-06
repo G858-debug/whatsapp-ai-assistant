@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ trainee.name }}'s Progress - {{ user.name }}</title>
+    <title>{{ trainee.name }}'s Progress - {{ trainer.name }}</title>
     <style>
       * {
         margin: 0;
@@ -20,7 +20,7 @@
       }
 
       .container {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
       }
 
@@ -43,7 +43,7 @@
         font-size: 1.1em;
       }
 
-      .trainee-info {
+      .date-selector {
         background: white;
         border-radius: 15px;
         padding: 25px;
@@ -51,52 +51,40 @@
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
       }
 
-      .trainee-details {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
+      .date-controls {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: center;
       }
 
-      .detail-item {
-        text-align: center;
+      .month-year-selector {
+        display: flex;
+        gap: 10px;
       }
 
-      .detail-label {
-        color: #666;
-        font-size: 0.9em;
-        margin-bottom: 5px;
-      }
-
-      .detail-value {
-        color: #333;
-        font-weight: bold;
-        font-size: 1.1em;
+      .date-select {
+        padding: 12px 20px;
+        border: 2px solid #e0e0e0;
+        border-radius: 25px;
+        font-size: 16px;
+        background: white;
+        cursor: pointer;
       }
 
       .view-toggle {
-        background: white;
-        border-radius: 15px;
-        padding: 25px;
-        margin-bottom: 30px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        text-align: center;
-      }
-
-      .toggle-buttons {
-        display: inline-flex;
-        background: #f0f0f0;
-        border-radius: 25px;
-        padding: 5px;
+        display: flex;
+        gap: 10px;
       }
 
       .toggle-btn {
-        padding: 12px 25px;
-        border: none;
-        background: transparent;
-        border-radius: 20px;
+        padding: 10px 20px;
+        border: 2px solid #667eea;
+        border-radius: 25px;
+        background: white;
+        color: #667eea;
         cursor: pointer;
         transition: all 0.3s ease;
-        font-weight: 500;
       }
 
       .toggle-btn.active {
@@ -104,7 +92,61 @@
         color: white;
       }
 
-      .habits-grid {
+      .content-tabs {
+        background: white;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .tab-buttons {
+        display: flex;
+        gap: 10px;
+        padding: 20px;
+        background: white;
+      }
+
+      .tab-button {
+        flex: 1;
+        padding: 10px 20px;
+        border: 2px solid #667eea;
+        border-radius: 25px;
+        background: white;
+        color: #667eea;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1em;
+        font-weight: 600;
+      }
+
+      .tab-button.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .tab-button:hover {
+        background: #f0f0f0;
+      }
+
+      .tab-button.active:hover {
+        background: #667eea;
+        color: white;
+      }
+
+      .tab-content {
+        padding: 30px;
+      }
+
+      .tab-panel {
+        display: none;
+      }
+
+      .tab-panel.active {
+        display: block;
+      }
+
+      .habits-section {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
         gap: 25px;
@@ -124,92 +166,59 @@
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
       }
 
+      .habit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+      }
+
       .habit-name {
         font-size: 1.4em;
         font-weight: bold;
         color: #333;
-        margin-bottom: 15px;
-      }
-
-      .habit-target {
-        background: #f9f9f9;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-      }
-
-      .target-label {
-        color: #666;
-        font-size: 0.9em;
         margin-bottom: 5px;
       }
 
-      .target-value {
-        font-size: 1.2em;
-        font-weight: bold;
-        color: #333;
-      }
-
-      .progress-section {
-        margin-bottom: 15px;
-      }
-
-      .progress-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-
-      .progress-label {
+      .habit-id {
+        font-family: "Courier New", monospace;
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 5px;
+        font-size: 0.9em;
         color: #666;
-        font-weight: 500;
-      }
-
-      .progress-value {
-        font-weight: bold;
-        font-size: 1.1em;
-      }
-
-      .progress-completed {
-        color: #4caf50;
-      }
-
-      .progress-remaining {
-        color: #ff9800;
-      }
-
-      .progress-exceeded {
-        color: #2196f3;
+        cursor: pointer;
+        user-select: all;
       }
 
       .progress-bar {
         width: 100%;
-        height: 8px;
-        background: #e0e0e0;
-        border-radius: 4px;
+        height: 20px;
+        background: #f0f0f0;
+        border-radius: 10px;
         overflow: hidden;
+        margin: 10px 0;
       }
 
       .progress-fill {
         height: 100%;
-        background: #667eea;
+        background: linear-gradient(90deg, #4caf50, #45a049);
         transition: width 0.3s ease;
+        border-radius: 10px;
       }
 
-      .progress-fill.completed {
-        background: #4caf50;
+      .progress-text {
+        text-align: center;
+        margin-top: 5px;
+        font-weight: bold;
+        color: #333;
       }
 
-      .progress-fill.exceeded {
-        background: #2196f3;
-      }
-
-      .stats-summary {
+      .habit-stats {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
-        margin-top: 15px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin: 15px 0;
       }
 
       .stat-item {
@@ -219,15 +228,183 @@
         border-radius: 8px;
       }
 
-      .stat-number {
-        font-size: 1.5em;
+      .stat-value {
+        font-size: 1.2em;
         font-weight: bold;
-        color: #667eea;
+        color: #333;
       }
 
       .stat-label {
-        color: #666;
         font-size: 0.9em;
+        color: #666;
+      }
+
+      .trainer-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        padding: 10px;
+        background: #f0f8ff;
+        border-radius: 8px;
+      }
+
+      .trainer-badge {
+        background: #667eea;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+      }
+
+      .leaderboard {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        height: fit-content;
+      }
+
+      .leaderboard h3 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        text-align: center;
+      }
+
+      .leaderboard-item {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+      }
+
+      .leaderboard-item.current-user {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+      }
+
+      .leaderboard-item.current-user .rank {
+        background: white;
+        color: #667eea;
+      }
+
+      .rank {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #667eea;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+      }
+
+      .rank.gold {
+        background: #ffd700;
+        color: #333;
+      }
+      .rank.silver {
+        background: #c0c0c0;
+        color: #333;
+      }
+      .rank.bronze {
+        background: #cd7f32;
+        color: white;
+      }
+
+      .leaderboard-info {
+        flex: 1;
+      }
+
+      .leaderboard-name {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .leaderboard-stats {
+        font-size: 0.9em;
+        opacity: 0.8;
+      }
+
+      .leaderboard-progress {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #4caf50;
+      }
+
+      .leaderboard-item.current-user .leaderboard-progress {
+        color: white;
+      }
+
+      .stats-container {
+        padding: 0;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 20px;
+        margin-bottom: 15px;
+      }
+
+      .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px 15px;
+        text-align: center;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-left: 4px solid #667eea;
+        min-height: 110px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      }
+
+      .stat-card.completed {
+        border-left-color: #4caf50;
+      }
+
+      .stat-card.working {
+        border-left-color: #ff9800;
+      }
+
+      .stat-card.not-started {
+        border-left-color: #f44336;
+      }
+
+      .stat-card.trainers {
+        border-left-color: #9c27b0;
+      }
+
+      .stat-icon {
+        font-size: 1.8em;
+        margin-bottom: 5px;
+      }
+
+      .stat-number {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 3px;
+      }
+
+      .stat-label {
+        font-size: 0.85em;
+        color: #666;
+        font-weight: 600;
+        line-height: 1.2;
       }
 
       .empty-state {
@@ -236,6 +413,7 @@
         background: white;
         border-radius: 15px;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        grid-column: 1 / -1;
       }
 
       .empty-state h3 {
@@ -249,17 +427,71 @@
         font-size: 1.1em;
       }
 
+      .streak-badge {
+        background: #ff6b35;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        margin-left: 10px;
+      }
+
+      @media (max-width: 1024px) {
+        .habits-section {
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+      }
+
       @media (max-width: 768px) {
-        .habits-grid {
+        .habits-section {
           grid-template-columns: 1fr;
         }
 
-        .trainee-details {
+        .date-controls {
+          flex-direction: column;
+        }
+
+        .date-select {
+          width: 100%;
+        }
+
+        .habit-stats {
+          grid-template-columns: 1fr;
+        }
+
+        .tab-buttons {
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .tab-button {
+          border-radius: 25px;
+        }
+
+        .tab-content {
+          padding: 20px;
+        }
+
+        .stats-grid {
           grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
         }
 
-        .stats-summary {
-          grid-template-columns: 1fr;
+        .stat-card {
+          padding: 15px 12px;
+          min-height: 95px;
+        }
+
+        .stat-icon {
+          font-size: 1.5em;
+        }
+
+        .stat-number {
+          font-size: 1.5em;
+        }
+
+        .stat-label {
+          font-size: 0.8em;
         }
       }
     </style>
@@ -268,230 +500,522 @@
     <div class="container">
       <div class="header">
         <h1>📊 {{ trainee.name }}'s Progress</h1>
-        <p>Track habit completion and progress over time</p>
-      </div>
-
-      <div class="trainee-info">
-        <div class="trainee-details">
-          <div class="detail-item">
-            <div class="detail-label">Trainee ID</div>
-            <div class="detail-value">{{ trainee.id }}</div>
+        <p>Track your trainee's habit completion and progress</p>
+        <div
+          style="
+            margin-top: 15px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <div>
+            <strong>Trainee:</strong> {{ trainee.name }} ({{ trainee.client_id
+            }})
           </div>
-          <div class="detail-item">
-            <div class="detail-label">Total Habits</div>
-            <div class="detail-value">{{ habits|length }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Active Since</div>
-            <div class="detail-value">{{ trainee.connected_date }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">Current View</div>
-            <div class="detail-value" id="currentViewLabel">Daily</div>
+          <div>
+            <strong>Trainer:</strong> {{ trainer.name }} ({{ trainer.trainer_id
+            }})
           </div>
         </div>
       </div>
 
-      <div class="view-toggle">
-        <div class="toggle-buttons">
-          <button class="toggle-btn active" onclick="switchView('daily')">
-            Daily View
-          </button>
-          <button class="toggle-btn" onclick="switchView('monthly')">
-            Monthly View
-          </button>
+      <div class="date-selector">
+        <div class="date-controls">
+          <div class="view-toggle">
+            <button class="toggle-btn active" onclick="switchView('daily')">
+              Daily View
+            </button>
+            <button class="toggle-btn" onclick="switchView('monthly')">
+              Monthly View
+            </button>
+          </div>
+          <div
+            class="month-year-selector"
+            id="monthYearSelector"
+            style="display: none; gap: 10px"
+          >
+            <select class="date-select" id="monthSelect">
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+            <select class="date-select" id="yearSelect">
+              <!-- Will be populated by JavaScript -->
+            </select>
+          </div>
+          <input type="date" class="date-select" id="dateSelect" />
         </div>
       </div>
 
       {% if habits %}
-      <div class="habits-grid" id="habitsGrid">
-        {% for habit in habits %}
-        <div class="habit-card">
-          <div class="habit-name">{{ habit.habit_name }}</div>
+      <!-- Statistics Cards (Always Visible) -->
+      <div
+        class="stats-container"
+        style="
+          background: white;
+          border-radius: 15px;
+          padding: 25px;
+          margin-bottom: 30px;
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        "
+      >
+        <h3 style="text-align: center; margin-bottom: 30px; color: #333">
+          📊 Statistics
+        </h3>
 
-          <div class="habit-target">
-            <div class="target-label">
-              Target (<span class="view-period">Daily</span>)
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-number">{{ stats.active_habits }}</div>
+            <div class="stat-label">Active Habits</div>
+          </div>
+
+          <div class="stat-card completed">
+            <div class="stat-icon">✅</div>
+            <div class="stat-number">{{ stats.fully_completed }}</div>
+            <div class="stat-label">Fully Completed</div>
+          </div>
+
+          <div class="stat-card working">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-number">{{ stats.working_habits }}</div>
+            <div class="stat-label">Working On</div>
+          </div>
+
+          <div class="stat-card not-started">
+            <div class="stat-icon">⏸️</div>
+            <div class="stat-number">{{ stats.not_started }}</div>
+            <div class="stat-label">Not Started</div>
+          </div>
+
+          <div class="stat-card trainers">
+            <div class="stat-icon">👨‍🏫</div>
+            <div class="stat-number">{{ stats.trainers }}</div>
+            <div class="stat-label">Trainers</div>
+          </div>
+        </div>
+
+        <div
+          class="stats-period"
+          style="
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 0.9em;
+          "
+        >
+          {% if view_type == 'daily' %} 📅 Statistics for {{ selected_date or
+          'today' }} {% else %} 📈 Statistics for {{ selected_month }}/{{
+          selected_year or 'current month' }} {% endif %}
+        </div>
+      </div>
+
+      <div class="content-tabs">
+        <div class="tab-buttons">
+          <button class="tab-button active" onclick="switchTab('habits')">
+            🎯 Assigned Habits
+          </button>
+          <button class="tab-button" onclick="switchTab('leaderboard')">
+            🏆 Leaderboard
+          </button>
+        </div>
+
+        <div class="tab-content">
+          <!-- Habits Tab -->
+          <div class="tab-panel active" id="habits-panel">
+            <div class="habits-section" id="habitsSection">
+              {% for habit in habits %}
+              <div class="habit-card" data-habit-id="{{ habit.habit_id }}">
+                <div class="habit-header">
+                  <div>
+                    <div class="habit-name">{{ habit.habit_name }}</div>
+                    <div
+                      class="habit-id"
+                      onclick="copyToClipboard('{{ habit.habit_id }}')"
+                    >
+                      {{ habit.habit_id }}
+                    </div>
+                  </div>
+                  {% if habit.streak_days > 0 %}
+                  <div class="streak-badge">
+                    🔥 {{ habit.streak_days }} day streak
+                  </div>
+                  {% endif %}
+                </div>
+
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill daily-progress"
+                    style="width: {{ habit.daily_progress_percent }}%"
+                  ></div>
+                  <div
+                    class="progress-fill monthly-progress"
+                    style="width: {{ habit.monthly_progress_percent }}%; display: none;"
+                  ></div>
+                </div>
+                <div class="progress-text">
+                  <span class="daily-text"
+                    >{{ habit.daily_completed }}/{{ habit.daily_target }} {{
+                    habit.unit }} ({{ habit.daily_progress_percent|round(1)
+                    }}%)</span
+                  >
+                  <span class="monthly-text" style="display: none"
+                    >{{ habit.monthly_completed }}/{{ habit.monthly_target }} {{
+                    habit.unit }} ({{ habit.monthly_progress_percent|round(1)
+                    }}%)</span
+                  >
+                </div>
+
+                <div class="habit-stats">
+                  <!-- <div class="stat-item">
+                    <div class="stat-value daily-stat">
+                      {{ habit.daily_completed }}
+                    </div>
+                    <div class="stat-value monthly-stat" style="display: none">
+                      {{ habit.monthly_completed }}
+                    </div>
+                    <div class="stat-label">Completed</div>
+                  </div> -->
+                  <!-- <div class="stat-item">
+                    <div class="stat-value daily-stat">
+                      {{ habit.daily_target }}
+                    </div>
+                    <div class="stat-value monthly-stat" style="display: none">
+                      {{ habit.monthly_target }}
+                    </div>
+                    <div class="stat-label">Target</div>
+                  </div> -->
+                  <div class="stat-item">
+                    <div class="stat-value">{{ habit.frequency|title }}</div>
+                    <div class="stat-label">Frequency</div>
+                  </div>
+                  <!-- <div class="stat-item">
+                    <div class="stat-value">{{ habit.streak_days }}</div>
+                    <div class="stat-label">Streak Days</div>
+                  </div> -->
+                </div>
+
+                {% if habit.description %}
+                <div
+                  style="
+                    color: #666;
+                    font-style: italic;
+                    margin: 10px 0;
+                    padding: 10px;
+                    background: #f9f9f9;
+                    border-radius: 8px;
+                  "
+                >
+                  {{ habit.description }}
+                </div>
+                {% endif %}
+
+                <div class="trainer-info">
+                  <div style="color: #666; font-size: 0.9em">
+                    Assigned: {{ habit.assigned_date[:10] if habit.assigned_date
+                    else 'Unknown' }}
+                  </div>
+                  <div class="trainer-badge">
+                    {{ habit.trainer_name }} ({{ habit.trainer_id }})
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
             </div>
-            <div class="target-value">
-              <span class="daily-target">{{ habit.target_value }}</span>
-              <span class="monthly-target" style="display: none"
-                >{{ habit.monthly_target }}</span
+          </div>
+
+          <!-- Leaderboard Tab -->
+          <div class="tab-panel" id="leaderboard-panel">
+            <div
+              class="leaderboard"
+              style="background: none; box-shadow: none; padding: 0; margin: 0"
+            >
+              <h3 style="text-align: center; margin-bottom: 20px; color: #333">
+                🏆 Leaderboard
+              </h3>
+              {% for entry in leaderboard %}
+              <div
+                class="leaderboard-item {{ 'current-user' if entry.is_current_user else '' }}"
               >
-              {{ habit.unit }}
-            </div>
-          </div>
-
-          <div class="progress-section">
-            <div class="progress-header">
-              <span class="progress-label">Completed</span>
-              <span class="progress-value progress-completed">
-                <span class="daily-completed">{{ habit.daily_completed }}</span>
-                <span class="monthly-completed" style="display: none"
-                  >{{ habit.monthly_completed }}</span
+                <div
+                  class="rank {{ 'gold' if entry.rank == 1 else ('silver' if entry.rank == 2 else ('bronze' if entry.rank == 3 else '')) }}"
                 >
-                {{ habit.unit }}
-              </span>
-            </div>
-
-            <div class="progress-header">
-              <span class="progress-label">
-                <span class="remaining-label">Remaining</span>
-                <span class="exceeded-label" style="display: none"
-                  >Exceeded by</span
-                >
-              </span>
-              <span class="progress-value">
-                <span class="daily-remaining progress-remaining"
-                  >{{ habit.daily_remaining }}</span
-                >
-                <span
-                  class="monthly-remaining progress-remaining"
-                  style="display: none"
-                  >{{ habit.monthly_remaining }}</span
-                >
-                <span
-                  class="daily-exceeded progress-exceeded"
-                  style="display: none"
-                  >{{ habit.daily_exceeded }}</span
-                >
-                <span
-                  class="monthly-exceeded progress-exceeded"
-                  style="display: none"
-                  >{{ habit.monthly_exceeded }}</span
-                >
-                {{ habit.unit }}
-              </span>
-            </div>
-
-            <div class="progress-bar">
-              <div
-                class="progress-fill daily-progress"
-                style="width: {{ habit.daily_progress_percent }}%"
-              ></div>
-              <div
-                class="progress-fill monthly-progress"
-                style="width: {{ habit.monthly_progress_percent }}%; display: none;"
-              ></div>
-            </div>
-          </div>
-
-          <div class="stats-summary">
-            <div class="stat-item">
-              <div class="stat-number">
-                <span class="daily-stat">{{ habit.daily_logs_count }}</span>
-                <span class="monthly-stat" style="display: none"
-                  >{{ habit.monthly_logs_count }}</span
-                >
+                  {{ entry.rank }}
+                </div>
+                <div class="leaderboard-info">
+                  <div class="leaderboard-name">
+                    {{ entry.name }} {% if entry.is_current_user %}<span
+                      style="font-weight: normal"
+                      >(You)</span
+                    >{% endif %}
+                  </div>
+                  <div class="leaderboard-stats">
+                    {{ entry.habit_count }} habits • {{ entry.total_streak }}
+                    total streak
+                  </div>
+                </div>
+                <div class="leaderboard-progress">{{ entry.progress }}%</div>
               </div>
-              <div class="stat-label">Log Entries</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number">
-                <span class="daily-stat"
-                  >{{ habit.daily_completion_rate }}%</span
-                >
-                <span class="monthly-stat" style="display: none"
-                  >{{ habit.monthly_completion_rate }}%</span
-                >
-              </div>
-              <div class="stat-label">Completion</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number">{{ habit.streak_days }}</div>
-              <div class="stat-label">Streak Days</div>
+              {% endfor %}
             </div>
           </div>
         </div>
-        {% endfor %}
       </div>
       {% else %}
       <div class="empty-state">
         <h3>No habits assigned yet</h3>
         <p>
-          This trainee doesn't have any habits assigned. Use /assign-habit to
-          get started!
+          This trainee doesn't have any habits assigned by you yet. Use
+          /assign-habit to get started!
         </p>
       </div>
       {% endif %}
     </div>
 
     <script>
-      function switchView(view) {
-        // Update toggle buttons
-        document.querySelectorAll(".toggle-btn").forEach((btn) => {
+      let currentView = "daily";
+      let currentTab = "habits";
+
+      function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Habit ID ${text} copied!`, "success");
+        });
+      }
+
+      function switchTab(tabName) {
+        currentTab = tabName;
+
+        // Update tab buttons
+        document.querySelectorAll(".tab-button").forEach((btn) => {
           btn.classList.remove("active");
         });
         event.target.classList.add("active");
 
-        // Update current view label
-        document.getElementById("currentViewLabel").textContent =
-          view === "daily" ? "Daily" : "Monthly";
+        // Update tab panels
+        document.querySelectorAll(".tab-panel").forEach((panel) => {
+          panel.classList.remove("active");
+        });
+        document.getElementById(tabName + "-panel").classList.add("active");
+      }
 
-        // Show/hide appropriate elements
-        const dailyElements = document.querySelectorAll(
-          ".daily-target, .daily-completed, .daily-remaining, .daily-exceeded, .daily-progress, .daily-stat"
-        );
-        const monthlyElements = document.querySelectorAll(
-          ".monthly-target, .monthly-completed, .monthly-remaining, .monthly-exceeded, .monthly-progress, .monthly-stat"
-        );
-        const viewPeriods = document.querySelectorAll(".view-period");
-        const remainingLabels = document.querySelectorAll(".remaining-label");
-        const exceededLabels = document.querySelectorAll(".exceeded-label");
+      function toggleView(view) {
+        currentView = view;
 
-        if (view === "daily") {
-          dailyElements.forEach((el) => (el.style.display = "inline"));
-          monthlyElements.forEach((el) => (el.style.display = "none"));
-          viewPeriods.forEach((el) => (el.textContent = "Daily"));
+        // Update toggle buttons
+        document.querySelectorAll(".toggle-btn").forEach((btn) => {
+          btn.classList.remove("active");
+          if (btn.textContent.toLowerCase().includes(view)) {
+            btn.classList.add("active");
+          }
+        });
 
-          // Check if exceeded for each habit
-          document.querySelectorAll(".habit-card").forEach((card) => {
-            const exceededEl = card.querySelector(".daily-exceeded");
-            const remainingEl = card.querySelector(".daily-remaining");
-            const exceededLabel = card.querySelector(".exceeded-label");
-            const remainingLabel = card.querySelector(".remaining-label");
+        // Show/hide date selectors
+        const monthYearSelector = document.getElementById("monthYearSelector");
+        const dateSelect = document.getElementById("dateSelect");
 
-            if (exceededEl && parseFloat(exceededEl.textContent) > 0) {
-              exceededEl.style.display = "inline";
-              remainingEl.style.display = "none";
-              exceededLabel.style.display = "inline";
-              remainingLabel.style.display = "none";
-            } else {
-              exceededEl.style.display = "none";
-              remainingEl.style.display = "inline";
-              exceededLabel.style.display = "none";
-              remainingLabel.style.display = "inline";
-            }
-          });
+        if (view === "monthly") {
+          monthYearSelector.style.display = "flex";
+          dateSelect.style.display = "none";
         } else {
-          dailyElements.forEach((el) => (el.style.display = "none"));
-          monthlyElements.forEach((el) => (el.style.display = "inline"));
-          viewPeriods.forEach((el) => (el.textContent = "Monthly"));
+          monthYearSelector.style.display = "none";
+          dateSelect.style.display = "block";
+        }
 
-          // Check if exceeded for each habit
-          document.querySelectorAll(".habit-card").forEach((card) => {
-            const exceededEl = card.querySelector(".monthly-exceeded");
-            const remainingEl = card.querySelector(".monthly-remaining");
-            const exceededLabel = card.querySelector(".exceeded-label");
-            const remainingLabel = card.querySelector(".remaining-label");
+        // Update habit cards
+        updateHabitDisplay();
+      }
 
-            if (exceededEl && parseFloat(exceededEl.textContent) > 0) {
-              exceededEl.style.display = "inline";
-              remainingEl.style.display = "none";
-              exceededLabel.style.display = "inline";
-              remainingLabel.style.display = "none";
-            } else {
-              exceededEl.style.display = "none";
-              remainingEl.style.display = "inline";
-              exceededLabel.style.display = "none";
-              remainingLabel.style.display = "inline";
-            }
-          });
+      function updateHabitDisplay() {
+        const cards = document.querySelectorAll(".habit-card");
+
+        cards.forEach((card) => {
+          const dailyElements = card.querySelectorAll(
+            ".daily-progress, .daily-text, .daily-stat"
+          );
+          const monthlyElements = card.querySelectorAll(
+            ".monthly-progress, .monthly-text, .monthly-stat"
+          );
+
+          if (currentView === "daily") {
+            dailyElements.forEach(
+              (el) =>
+                (el.style.display = el.classList.contains("daily-progress")
+                  ? "block"
+                  : "")
+            );
+            monthlyElements.forEach((el) => (el.style.display = "none"));
+          } else {
+            dailyElements.forEach((el) => (el.style.display = "none"));
+            monthlyElements.forEach(
+              (el) =>
+                (el.style.display = el.classList.contains("monthly-progress")
+                  ? "block"
+                  : "")
+            );
+          }
+        });
+      }
+
+      function showToast(message, type) {
+        const toast = document.createElement("div");
+        toast.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${type === "success" ? "#4CAF50" : "#f44336"};
+          color: white;
+          padding: 15px 20px;
+          border-radius: 5px;
+          z-index: 1000;
+          animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+
+      // Add CSS animation
+      const style = document.createElement("style");
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Initialize year dropdown
+      function initializeYearDropdown() {
+        const yearSelect = document.getElementById("yearSelect");
+        const currentYear = new Date().getFullYear();
+
+        // Add years from 2020 to current year + 1
+        for (let year = 2020; year <= currentYear + 1; year++) {
+          const option = document.createElement("option");
+          option.value = year;
+          option.textContent = year;
+          if (year === currentYear) {
+            option.selected = true;
+          }
+          yearSelect.appendChild(option);
         }
       }
 
-      // Initialize view
-      switchView("daily");
+      // Set current month and date
+      function initializeDateSelectors() {
+        const now = new Date();
+        const today = now.toISOString().split("T")[0];
+        const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+        const currentYear = now.getFullYear();
+
+        // Set values from backend or defaults
+        const selectedDate = "{{ selected_date or '' }}";
+        const selectedMonth = "{{ selected_month or '' }}";
+        const selectedYear = "{{ selected_year or '' }}";
+        const viewType = "{{ view_type or 'daily' }}";
+
+        document.getElementById("dateSelect").value = selectedDate || today;
+        document.getElementById("monthSelect").value =
+          selectedMonth || currentMonth;
+
+        // Set year after dropdown is populated
+        setTimeout(() => {
+          document.getElementById("yearSelect").value =
+            selectedYear || currentYear;
+        }, 100);
+
+        // Set initial view
+        if (viewType === "monthly") {
+          toggleView("monthly");
+        } else {
+          toggleView("daily");
+        }
+      }
+
+      // Event listeners for date/month changes
+      document
+        .getElementById("dateSelect")
+        .addEventListener("change", function () {
+          const selectedDate = this.value;
+          if (selectedDate) {
+            const url = new URL(window.location);
+            url.searchParams.set("view", "daily");
+            url.searchParams.set("date", selectedDate);
+            url.searchParams.delete("month");
+            url.searchParams.delete("year");
+            window.location.href = url.toString();
+          }
+        });
+
+      document
+        .getElementById("monthSelect")
+        .addEventListener("change", updateMonthlyView);
+      document
+        .getElementById("yearSelect")
+        .addEventListener("change", updateMonthlyView);
+
+      function updateMonthlyView() {
+        const selectedMonth = document.getElementById("monthSelect").value;
+        const selectedYear = document.getElementById("yearSelect").value;
+
+        if (selectedMonth && selectedYear) {
+          const url = new URL(window.location);
+          url.searchParams.set("view", "monthly");
+          url.searchParams.set("month", selectedMonth);
+          url.searchParams.set("year", selectedYear);
+          url.searchParams.delete("date");
+          window.location.href = url.toString();
+        }
+      }
+
+      function switchView(view) {
+        const url = new URL(window.location);
+        url.searchParams.set("view", view);
+
+        if (view === "daily") {
+          // Use current date or today
+          const currentDate =
+            document.getElementById("dateSelect").value ||
+            new Date().toISOString().split("T")[0];
+          url.searchParams.set("date", currentDate);
+          url.searchParams.delete("month");
+          url.searchParams.delete("year");
+        } else {
+          // Use current month/year
+          const currentMonth =
+            document.getElementById("monthSelect").value ||
+            String(new Date().getMonth() + 1).padStart(2, "0");
+          const currentYear =
+            document.getElementById("yearSelect").value ||
+            new Date().getFullYear();
+          url.searchParams.set("month", currentMonth);
+          url.searchParams.set("year", currentYear);
+          url.searchParams.delete("date");
+        }
+
+        window.location.href = url.toString();
+      }
+
+      // Initialize
+      initializeYearDropdown();
+      initializeDateSelectors();
+      updateHabitDisplay();
     </script>
   </body>
 </html>
