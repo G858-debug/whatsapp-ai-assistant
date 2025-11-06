@@ -56,7 +56,7 @@ class DashboardTokenManager:
             # Find valid token using your current schema
             result = self.db.table('dashboard_tokens').select('*').eq(
                 'token_hash', token_hash
-            ).eq('user_id', user_id).eq('used', False).gt(
+            ).eq('user_id', user_id).gt(
                 'expires_at', datetime.now().isoformat()
             ).execute()
             
@@ -65,9 +65,8 @@ class DashboardTokenManager:
             
             token_data = result.data[0]
             
-            # Mark token as used (one-time use for security)
+            # Update used_at timestamp to track last access (but don't mark as used)
             self.db.table('dashboard_tokens').update({
-                'used': True,
                 'used_at': datetime.now().isoformat()
             }).eq('id', token_data['id']).execute()
             
