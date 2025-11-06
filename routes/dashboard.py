@@ -871,22 +871,32 @@ def client_habits_view(user_id, token):
         selected_month = request.args.get('month')  # MM format
         selected_year = request.args.get('year')  # YYYY format
         
-        # Get client's assigned habits with trainer info
+        # Get client's assigned habits
         assignments_result = dashboard_service.db.table('trainee_habit_assignments').select(
-            '*, fitness_habits(*), trainers(name)'
+            '*, fitness_habits(*)'
         ).eq('client_id', user_id).eq('is_active', True).execute()
         
         habits = []
         if assignments_result.data:
+            # Get unique trainer IDs to fetch trainer info
+            trainer_ids = list(set(assignment.get('trainer_id') for assignment in assignments_result.data if assignment.get('trainer_id')))
+            
+            # Fetch trainer info
+            trainers_info = {}
+            if trainer_ids:
+                trainers_result = dashboard_service.db.table('trainers').select('trainer_id, name').in_('trainer_id', trainer_ids).execute()
+                if trainers_result.data:
+                    trainers_info = {trainer['trainer_id']: trainer['name'] for trainer in trainers_result.data}
+            
             for assignment in assignments_result.data:
                 habit_data = assignment.get('fitness_habits')
-                trainer_data = assignment.get('trainers')
                 if habit_data:
                     # Add assignment and trainer info to habit data
                     habit_data['assigned_date'] = assignment.get('assigned_date')
                     habit_data['assignment_id'] = assignment.get('id')
-                    habit_data['trainer_id'] = assignment.get('trainer_id')
-                    habit_data['trainer_name'] = trainer_data.get('name') if trainer_data else 'Unknown'
+                    trainer_id = assignment.get('trainer_id')
+                    habit_data['trainer_id'] = trainer_id
+                    habit_data['trainer_name'] = trainers_info.get(trainer_id, 'Unknown')
                     
                     # Calculate progress data based on selected date/month
                     if view_type == 'monthly' and selected_month and selected_year:
