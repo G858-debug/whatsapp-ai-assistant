@@ -464,18 +464,28 @@ def calculate_client_leaderboard_for_month(db, client_id, year, month):
     
     # Get all clients with habit assignments
     clients_result = db.table('trainee_habit_assignments').select(
-        'client_id, clients(name)'
+        'client_id'
     ).eq('is_active', True).execute()
     
     if not clients_result.data:
         return []
+    
+    # Get unique client IDs
+    client_ids = list(set(assignment['client_id'] for assignment in clients_result.data))
+    
+    # Get client names separately
+    clients_info = {}
+    if client_ids:
+        clients_names_result = db.table('clients').select('client_id, name').in_('client_id', client_ids).execute()
+        if clients_names_result.data:
+            clients_info = {client['client_id']: client['name'] for client in clients_names_result.data}
     
     client_stats = {}
     
     # Calculate stats for each client
     for assignment in clients_result.data:
         client_id_iter = assignment['client_id']
-        client_name = assignment.get('clients', {}).get('name', 'Unknown') if assignment.get('clients') else 'Unknown'
+        client_name = clients_info.get(client_id_iter, 'Unknown')
         
         if client_id_iter not in client_stats:
             client_stats[client_id_iter] = {
@@ -772,18 +782,28 @@ def calculate_client_leaderboard(db, client_id):
     
     # Get all clients with habit assignments
     clients_result = db.table('trainee_habit_assignments').select(
-        'client_id, clients(name)'
+        'client_id'
     ).eq('is_active', True).execute()
     
     if not clients_result.data:
         return []
+    
+    # Get unique client IDs
+    client_ids = list(set(assignment['client_id'] for assignment in clients_result.data))
+    
+    # Get client names separately
+    clients_info = {}
+    if client_ids:
+        clients_names_result = db.table('clients').select('client_id, name').in_('client_id', client_ids).execute()
+        if clients_names_result.data:
+            clients_info = {client['client_id']: client['name'] for client in clients_names_result.data}
     
     client_stats = {}
     
     # Calculate stats for each client
     for assignment in clients_result.data:
         client_id_iter = assignment['client_id']
-        client_name = assignment.get('clients', {}).get('name', 'Unknown') if assignment.get('clients') else 'Unknown'
+        client_name = clients_info.get(client_id_iter, 'Unknown')
         
         if client_id_iter not in client_stats:
             client_stats[client_id_iter] = {
