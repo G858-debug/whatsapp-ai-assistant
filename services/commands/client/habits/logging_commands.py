@@ -1,42 +1,87 @@
 """
 Client Habit Logging Commands
-Handles logging habit completions
+Handles habit logging and viewing
 """
 from typing import Dict
 from utils.logger import log_info, log_error
 
 
+def handle_view_my_habits(phone: str, client_id: str, db, whatsapp) -> Dict:
+    """Handle /view-my-habits command"""
+    try:
+        from services.habits.assignment_service import AssignmentService
+        
+        assignment_service = AssignmentService(db)
+        success, msg, habits = assignment_service.get_client_habits(client_id, active_only=True)
+        
+        if not success:
+            error_msg = "❌ I couldn't load your habits. Please try again."
+            whatsapp.send_message(phone, error_msg)
+            return {'success': False, 'response': error_msg, 'handler': 'view_my_habits_error'}
+        
+        if not habits:
+            msg = (
+                "🎯 *Your Habits*\n\n"
+                "You don't have any habits assigned yet.\n\n"
+                "Your trainer will assign habits for you to track."
+            )
+            whatsapp.send_message(phone, msg)
+            return {'success': True, 'response': msg, 'handler': 'view_my_habits_empty'}
+            
+        # Always use dashboard for simplicity
+        from services.commands.dashboard import generate_client_habits_dashboard
+        
+        dashboard_result = generate_client_habits_dashboard(phone, client_id, db, whatsapp)
+        
+        if dashboard_result['success']:
+            return dashboard_result
+        
+        # Fallback message if dashboard fails        
+        response_msg = f"🎯 *Your Habits* ({len(habits)})\n\n"
+        
+        for i, habit in enumerate(habits, 1):
+            response_msg += f"*{i}. {habit.get('habit_name')}*\n"
+            response_msg += f"   ID: `{habit.get('habit_id')}`\n"
+            response_msg += f"   Target: {habit.get('target_value')} {habit.get('unit')} per {habit.get('frequency', 'day')}\n"
+            
+            if habit.get('description'):
+                desc = habit['description'][:60] + '...' if len(habit['description']) > 60 else habit['description']
+                response_msg += f"   Description: {desc}\n"
+            
+            assigned_date = habit.get('assigned_date', '')[:10] if habit.get('assigned_date') else 'N/A'
+            response_msg += f"   Assigned: {assigned_date}\n\n"
+        
+        response_msg += "💡 Use /log-habits to log your progress!"
+        
+        whatsapp.send_message(phone, response_msg)
+        return {'success': True, 'response': response_msg, 'handler': 'view_my_habits_success'}
+        
+    except Exception as e:
+        log_error(f"Error viewing client habits: {str(e)}")
+        return {
+            'success': False,
+            'response': "Sorry, I couldn't load your habits. Please try again.",
+            'handler': 'view_my_habits_error'
+        }
+
 def handle_log_habits(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /log-habits command"""
     try:
-        # Get assigned habits
-        assignments = db.table('trainee_habit_assignments')\
-            .select('*, fitness_habits(*)')\
-            .eq('client_id', client_id)\
-            .eq('is_active', True)\
-            .execute()
+        from services.habits.assignment_service import AssignmentService
         
-        if not assignments.data:
-            msg = (
-                "📝 *Log Habits*\n\n"
+        # Check if client has any habits assigned
+        assignment_service = AssignmentService(db)
+        success, msg, habits = assignment_service.get_client_habits(client_id, active_only=True)
+        
+        if not success or not habits:
+            error_msg = (
+                "🎯 *Log Habits*\n\n"
                 "You don't have any habits assigned yet.\n\n"
-                "Ask your trainer to assign some habits first!"
+                "Your trainer will assign habits for you to track."
             )
-            whatsapp.send_message(phone, msg)
-            return {'success': True, 'response': msg, 'handler': 'log_habits_no_habits'}
-        
-        # Prepare habits data for the flow
-        habits = []
-        for assignment in assignments.data:
-            habit = assignment.get('fitness_habits')
-            if habit:
-                habits.append({
-                    'habit_id': habit.get('habit_id'),
-                    'habit_name': habit.get('habit_name'),
-                    'target_value': habit.get('target_value'),
-                    'unit': habit.get('unit')
-                })
-        
+            whatsapp.send_message(phone, error_msg)
+            return {'success': False, 'response': error_msg, 'handler': 'log_habits_no_habits'}
+
         # Create log_habits task with habits data (start from index 1 since first question will be asked)
         task_id = task_service.create_task(
             user_id=client_id,
@@ -45,6 +90,9 @@ def handle_log_habits(phone: str, client_id: str, db, whatsapp, task_service) ->
             task_data={
                 'habits': habits,
                 'current_habit_index': 1,
+                'habits': [{'habit_id': h.get('habit_id'), 'habit_name': h.get('habit_name'), 
+                           'target_value': h.get('target_value'), 'unit': h.get('unit')} 
+                          for h in habits],
                 'logged_values': {}
             }
         )
