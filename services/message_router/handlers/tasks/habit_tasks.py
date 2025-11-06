@@ -21,7 +21,7 @@ class HabitTaskHandler:
             
             # Trainer habit tasks
             if task_type in ['create_habit', 'edit_habit', 'delete_habit', 'assign_habit', 'unassign_habit',
-                            'view_trainee_progress', 'trainee_report']:
+                            'view_trainee_progress', 'trainee_report', 'client_progress']:
                 return self._handle_trainer_habit_task(phone, message, user_id, task)
             
             # Client habit tasks
@@ -56,6 +56,8 @@ class HabitTaskHandler:
                 return handler.continue_view_trainee_progress(phone, message, user_id, task)
             elif task_type == 'trainee_report':
                 return handler.continue_trainee_report(phone, message, user_id, task)
+            elif task_type == 'client_progress':
+                return handler.continue_client_progress(phone, message, user_id, task)
             else:
                 return {'success': False, 'response': 'Unknown trainer habit task', 'handler': 'trainer_habit_task_error'}
                 

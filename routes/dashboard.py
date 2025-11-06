@@ -541,6 +541,229 @@ def calculate_client_leaderboard_for_month(db, client_id, year, month):
     return top_10
 
 
+def get_trainer_trainees_with_progress(db, trainer_id):
+    """Get trainer's trainees with their progress data"""
+    from datetime import datetime
+    
+    # Get trainer's trainees
+    trainees_result = db.table('trainer_client_list').select(
+        'client_id, clients(name, phone, email)'
+    ).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+    
+    if not trainees_result.data:
+        return []
+    
+    trainees = []
+    for trainee_data in trainees_result.data:
+        client_id = trainee_data['client_id']
+        client_info = trainee_data.get('clients', {})
+        
+        if client_info:
+            # Get habit assignments count
+            assignments_result = db.table('trainee_habit_assignments').select(
+                'habit_id'
+            ).eq('client_id', client_id).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+            
+            habit_count = len(assignments_result.data) if assignments_result.data else 0
+            
+            # Calculate overall progress
+            total_progress = 0
+            total_streak = 0
+            
+            if assignments_result.data:
+                for assignment in assignments_result.data:
+                    habit_id = assignment['habit_id']
+                    
+                    # Calculate progress
+                    progress = calculate_habit_progress(db, habit_id, client_id)
+                    total_progress += progress.get('monthly_progress_percent', 0)
+                    
+                    # Calculate streak
+                    streak = calculate_habit_streak(db, habit_id, client_id)
+                    total_streak += streak
+            
+            avg_progress = total_progress / habit_count if habit_count > 0 else 0
+            
+            trainees.append({
+                'client_id': client_id,
+                'name': client_info.get('name', 'Unknown'),
+                'phone': client_info.get('phone', ''),
+                'email': client_info.get('email', ''),
+                'habit_count': habit_count,
+                'avg_progress': round(avg_progress, 1),
+                'total_streak': total_streak,
+                'last_activity': datetime.now().strftime('%Y-%m-%d')  # Placeholder
+            })
+    
+    return trainees
+
+
+def calculate_trainer_stats(db, trainer_id, trainees):
+    """Calculate overall trainer statistics"""
+    total_trainees = len(trainees)
+    total_habits = sum(trainee['habit_count'] for trainee in trainees)
+    avg_progress = sum(trainee['avg_progress'] for trainee in trainees) / total_trainees if total_trainees > 0 else 0
+    total_streaks = sum(trainee['total_streak'] for trainee in trainees)
+    
+    # Active trainees (with progress > 0)
+    active_trainees = len([t for t in trainees if t['avg_progress'] > 0])
+    
+    return {
+        'total_trainees': total_trainees,
+        'active_trainees': active_trainees,
+        'total_habits': total_habits,
+        'avg_progress': round(avg_progress, 1),
+        'total_streaks': total_streaks
+    }
+
+
+def get_trainee_habits_with_progress(db, trainer_id, trainee_id):
+    """Get trainee's habits with detailed progress"""
+    # Get habits assigned by this trainer to this trainee
+    assignments_result = db.table('trainee_habit_assignments').select(
+        '*, fitness_habits(*)'
+    ).eq('client_id', trainee_id).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+    
+    habits = []
+    if assignments_result.data:
+        for assignment in assignments_result.data:
+            habit_data = assignment.get('fitness_habits')
+            if habit_data:
+                # Add assignment info
+                habit_data['assigned_date'] = assignment.get('assigned_date')
+                habit_data['assignment_id'] = assignment.get('id')
+                
+                # Calculate progress
+                habit_progress = calculate_habit_progress(db, habit_data['habit_id'], trainee_id)
+                habit_data.update(habit_progress)
+                
+                # Calculate streak
+                streak = calculate_habit_streak(db, habit_data['habit_id'], trainee_id)
+                habit_data['streak_days'] = streak
+                
+                habits.append(habit_data)
+    
+    return habits
+
+
+def calculate_trainer_leaderboard(db, trainer_id, current_trainee_id):
+    """Calculate leaderboard for trainer's trainees"""
+    # Get all trainees of this trainer
+    trainees_result = db.table('trainer_client_list').select(
+        'client_id, clients(name)'
+    ).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+    
+    if not trainees_result.data:
+        return []
+    
+    leaderboard = []
+    
+    for trainee_data in trainees_result.data:
+        client_id = trainee_data['client_id']
+        client_name = trainee_data.get('clients', {}).get('name', 'Unknown') if trainee_data.get('clients') else 'Unknown'
+        
+        # Get habit assignments for this trainee from this trainer
+        assignments_result = db.table('trainee_habit_assignments').select(
+            'habit_id'
+        ).eq('client_id', client_id).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+        
+        habit_count = len(assignments_result.data) if assignments_result.data else 0
+        total_progress = 0
+        total_streak = 0
+        
+        if assignments_result.data:
+            for assignment in assignments_result.data:
+                habit_id = assignment['habit_id']
+                
+                # Calculate progress
+                progress = calculate_habit_progress(db, habit_id, client_id)
+                total_progress += progress.get('monthly_progress_percent', 0)
+                
+                # Calculate streak
+                streak = calculate_habit_streak(db, habit_id, client_id)
+                total_streak += streak
+        
+        avg_progress = total_progress / habit_count if habit_count > 0 else 0
+        
+        leaderboard.append({
+            'client_id': client_id,
+            'name': client_name,
+            'progress': round(avg_progress, 1),
+            'habit_count': habit_count,
+            'total_streak': total_streak,
+            'is_current_trainee': client_id == current_trainee_id
+        })
+    
+    # Sort by progress (descending)
+    leaderboard.sort(key=lambda x: x['progress'], reverse=True)
+    
+    # Add ranking
+    for i, entry in enumerate(leaderboard):
+        entry['rank'] = i + 1
+    
+    return leaderboard
+
+
+def calculate_trainee_detailed_stats(db, trainer_id, trainee_id):
+    """Calculate detailed statistics for a specific trainee"""
+    from datetime import datetime, timedelta
+    
+    # Get habit assignments
+    assignments_result = db.table('trainee_habit_assignments').select(
+        'habit_id, assigned_date'
+    ).eq('client_id', trainee_id).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+    
+    if not assignments_result.data:
+        return {
+            'total_habits': 0,
+            'completed_today': 0,
+            'completion_rate': 0,
+            'longest_streak': 0,
+            'days_active': 0
+        }
+    
+    total_habits = len(assignments_result.data)
+    completed_today = 0
+    total_progress = 0
+    longest_streak = 0
+    
+    today = datetime.now().date()
+    
+    for assignment in assignments_result.data:
+        habit_id = assignment['habit_id']
+        
+        # Check if completed today
+        today_logs = db.table('habit_logs').select('completed_value').eq(
+            'habit_id', habit_id
+        ).eq('client_id', trainee_id).eq('log_date', today.isoformat()).execute()
+        
+        if today_logs.data and any(float(log['completed_value']) > 0 for log in today_logs.data):
+            completed_today += 1
+        
+        # Calculate progress
+        progress = calculate_habit_progress(db, habit_id, trainee_id)
+        total_progress += progress.get('monthly_progress_percent', 0)
+        
+        # Calculate streak
+        streak = calculate_habit_streak(db, habit_id, trainee_id)
+        longest_streak = max(longest_streak, streak)
+    
+    completion_rate = (total_progress / total_habits) if total_habits > 0 else 0
+    
+    # Calculate days active (days with any habit logs)
+    logs_result = db.table('habit_logs').select('log_date').eq('client_id', trainee_id).execute()
+    unique_dates = set(log['log_date'] for log in logs_result.data) if logs_result.data else set()
+    days_active = len(unique_dates)
+    
+    return {
+        'total_habits': total_habits,
+        'completed_today': completed_today,
+        'completion_rate': round(completion_rate, 1),
+        'longest_streak': longest_streak,
+        'days_active': days_active
+    }
+
+
 def calculate_client_leaderboard(db, client_id):
     """Calculate leaderboard for clients based on habit progress"""
     from datetime import datetime
@@ -709,6 +932,85 @@ def client_habits_view(user_id, token):
         log_error(f"Client habits dashboard error: {str(e)}")
         return render_template('dashboard/error.html', 
                              error="An error occurred loading the habits dashboard"), 500
+
+
+@dashboard_bp.route('/trainer/<user_id>/<token>')
+def trainer_main_dashboard(user_id, token):
+    """Main trainer dashboard with trainee list and management"""
+    try:
+        # Validate token
+        token_data = token_manager.validate_token(token, user_id)
+        if not token_data or token_data['role'] != 'trainer':
+            return render_template('dashboard/error.html', 
+                                 error="Invalid or expired access token"), 403
+        
+        # Get user info
+        user_info = dashboard_service.get_user_info(user_id, 'trainer')
+        if not user_info:
+            return render_template('dashboard/error.html', 
+                                 error="User not found"), 404
+        
+        # Get trainer's trainees with progress data
+        trainees = get_trainer_trainees_with_progress(dashboard_service.db, user_id)
+        
+        # Calculate trainer stats
+        trainer_stats = calculate_trainer_stats(dashboard_service.db, user_id, trainees)
+        
+        return render_template('dashboard/trainer_main.html',
+                             user=user_info,
+                             trainees=trainees,
+                             stats=trainer_stats)
+        
+    except Exception as e:
+        log_error(f"Trainer main dashboard error: {str(e)}")
+        return render_template('dashboard/error.html', 
+                             error="An error occurred loading the trainer dashboard"), 500
+
+
+@dashboard_bp.route('/trainer/<user_id>/<token>/trainee/<trainee_id>')
+def trainer_trainee_detail(user_id, token, trainee_id):
+    """Detailed view of specific trainee's progress"""
+    try:
+        # Validate token
+        token_data = token_manager.validate_token(token, user_id)
+        if not token_data or token_data['role'] != 'trainer':
+            return render_template('dashboard/error.html', 
+                                 error="Invalid or expired access token"), 403
+        
+        # Get user info
+        user_info = dashboard_service.get_user_info(user_id, 'trainer')
+        if not user_info:
+            return render_template('dashboard/error.html', 
+                                 error="User not found"), 404
+        
+        # Get trainee info
+        trainee_result = dashboard_service.db.table('clients').select('*').eq('client_id', trainee_id).execute()
+        if not trainee_result.data:
+            return render_template('dashboard/error.html', 
+                                 error="Trainee not found"), 404
+        
+        trainee = trainee_result.data[0]
+        
+        # Get trainee's habits assigned by this trainer
+        trainee_habits = get_trainee_habits_with_progress(dashboard_service.db, user_id, trainee_id)
+        
+        # Get leaderboard for this trainer's trainees
+        leaderboard = calculate_trainer_leaderboard(dashboard_service.db, user_id, trainee_id)
+        
+        # Calculate trainee detailed stats
+        trainee_stats = calculate_trainee_detailed_stats(dashboard_service.db, user_id, trainee_id)
+        
+        return render_template('dashboard/trainer_trainee_detail.html',
+                             user=user_info,
+                             trainee=trainee,
+                             habits=trainee_habits,
+                             leaderboard=leaderboard,
+                             stats=trainee_stats)
+        
+    except Exception as e:
+        log_error(f"Trainer trainee detail error: {str(e)}")
+        return render_template('dashboard/error.html', 
+                             error="An error occurred loading the trainee details"), 500
 
 
 @dashboard_bp.route('/api/<user_id>/<token>/export')

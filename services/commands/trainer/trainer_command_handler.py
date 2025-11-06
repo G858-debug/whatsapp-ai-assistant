@@ -9,6 +9,7 @@ from utils.logger import log_info, log_error
 from .habits.creation_commands import handle_create_habit, handle_edit_habit, handle_delete_habit
 from .habits.assignment_commands import handle_assign_habits, handle_view_client_habits
 from .habits.reporting_commands import handle_view_habit_progress, handle_export_habit_data
+from .dashboard_commands import handle_trainer_dashboard, handle_client_progress_dashboard
 
 # Import relationship commands
 from .relationships.invitation_commands import handle_invite_client, handle_create_client
@@ -78,3 +79,11 @@ class TrainerCommandHandler:
         """Handle /dashboard-clients command"""
         from services.commands.dashboard import generate_dashboard_link
         return generate_dashboard_link(phone, trainer_id, 'trainer', self.db, self.whatsapp)
+    
+    def handle_trainer_dashboard(self, phone: str, trainer_id: str) -> Dict:
+        """Handle /trainer-dashboard command"""
+        return handle_trainer_dashboard(phone, trainer_id, self.db, self.whatsapp)
+    
+    def handle_client_progress(self, phone: str, trainer_id: str) -> Dict:
+        """Handle /client-progress command"""
+        return handle_client_progress_dashboard(phone, trainer_id, self.db, self.whatsapp, self.task_service)

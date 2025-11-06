@@ -57,6 +57,12 @@ Examples:
 - "view trainer" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
 - "view trainers" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
 - "show trainers" (client) → {{"intent": "view_trainers", "confidence": 0.9, "needs_action": true, "suggested_command": "/view-trainers"}}
+- "show my dashboard" (trainer) → {{"intent": "view_dashboard", "confidence": 0.9, "needs_action": true, "suggested_command": "/trainer-dashboard"}}
+- "trainer dashboard" (trainer) → {{"intent": "view_dashboard", "confidence": 0.9, "needs_action": true, "suggested_command": "/trainer-dashboard"}}
+- "dashboard" (trainer) → {{"intent": "view_dashboard", "confidence": 0.85, "needs_action": true, "suggested_command": "/trainer-dashboard"}}
+- "client progress dashboard" (trainer) → {{"intent": "view_client_progress", "confidence": 0.9, "needs_action": true, "suggested_command": "/client-progress"}}
+- "view client progress" (trainer) → {{"intent": "view_client_progress", "confidence": 0.9, "needs_action": true, "suggested_command": "/client-progress"}}
+- "show trainee progress" (trainer) → {{"intent": "view_client_progress", "confidence": 0.9, "needs_action": true, "suggested_command": "/client-progress"}}
 - "how do I add clients?" → {{"intent": "general_conversation", "confidence": 0.8, "needs_action": false, "is_asking_about_phase2": true}}
 - "hi" → {{"intent": "general_conversation", "confidence": 0.9, "needs_action": false}}
 
@@ -91,7 +97,12 @@ Available Features (Phase 3):
 - Unassign habits from clients (/unassign-habit)
 - View all habits (/view-habits)
 - View client progress (/view-trainee-progress)
+- Client progress dashboard (/client-progress)
 - Generate client reports (/trainee-weekly-report, /trainee-monthly-report)
+
+Available Features (Dashboard):
+- Main trainer dashboard (/trainer-dashboard)
+- Client progress dashboard (/client-progress)
 """
         else:
             return """

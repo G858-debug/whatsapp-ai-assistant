@@ -33,7 +33,10 @@ class IntentTypes:
             'unassign_habit',
             'view_habits',
             'view_trainee_progress',
-            'trainee_report'
+            'trainee_report',
+            # Dashboard intents
+            'view_dashboard',
+            'view_client_progress'
         ]
         
         self.client_intents = [

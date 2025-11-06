@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ trainee.name }}'s Progress - {{ user.name }}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header-content h1 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+      }
+
+      .header-content p {
+        color: #666;
+        font-size: 1.1em;
+      }
+
+      .back-button {
+        background: #667eea;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 25px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .back-button:hover {
+        background: #5a6fd8;
+      }
+
+      .trainee-info {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .trainee-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+      }
+
+      .detail-item {
+        text-align: center;
+      }
+
+      .detail-label {
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+
+      .detail-value {
+        color: #333;
+        font-weight: bold;
+        font-size: 1.1em;
+      }
+
+      .main-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+      }
+
+      .habits-section {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .section-title {
+        font-size: 1.8em;
+        color: #333;
+        margin-bottom: 25px;
+      }
+
+      .habits-grid {
+        display: grid;
+        gap: 20px;
+      }
+
+      .habit-card {
+        border: 2px solid #f0f0f0;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+      }
+
+      .habit-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+      }
+
+      .habit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+      }
+
+      .habit-name {
+        font-size: 1.3em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+      }
+
+      .habit-id {
+        font-family: "Courier New", monospace;
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 5px;
+        font-size: 0.9em;
+        color: #666;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 20px;
+        background: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 10px 0;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #45a049);
+        transition: width 0.3s ease;
+        border-radius: 10px;
+      }
+
+      .progress-text {
+        text-align: center;
+        margin-top: 5px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .habit-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin: 15px 0;
+      }
+
+      .stat-item {
+        text-align: center;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 8px;
+      }
+
+      .stat-value {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .stat-label {
+        font-size: 0.9em;
+        color: #666;
+      }
+
+      .streak-badge {
+        background: #ff6b35;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+      }
+
+      .sidebar {
+        display: grid;
+        gap: 30px;
+      }
+
+      .leaderboard {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .leaderboard h3 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        text-align: center;
+      }
+
+      .leaderboard-item {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+      }
+
+      .leaderboard-item.current-trainee {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+      }
+
+      .leaderboard-item.current-trainee .rank {
+        background: white;
+        color: #667eea;
+      }
+
+      .rank {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #667eea;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+      }
+
+      .rank.gold {
+        background: #ffd700;
+        color: #333;
+      }
+      .rank.silver {
+        background: #c0c0c0;
+        color: #333;
+      }
+      .rank.bronze {
+        background: #cd7f32;
+        color: white;
+      }
+
+      .leaderboard-info {
+        flex: 1;
+      }
+
+      .leaderboard-name {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .leaderboard-stats {
+        font-size: 0.9em;
+        opacity: 0.8;
+      }
+
+      .leaderboard-progress {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #4caf50;
+      }
+
+      .leaderboard-item.current-trainee .leaderboard-progress {
+        color: white;
+      }
+
+      .stats-summary {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .stats-summary h3 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        text-align: center;
+      }
+
+      .summary-grid {
+        display: grid;
+        gap: 15px;
+      }
+
+      .summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: #f9f9f9;
+        border-radius: 8px;
+      }
+
+      .summary-label {
+        color: #666;
+      }
+
+      .summary-value {
+        font-weight: bold;
+        color: #333;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+      }
+
+      .empty-state h3 {
+        margin-bottom: 15px;
+        font-size: 1.5em;
+      }
+
+      @media (max-width: 1024px) {
+        .main-content {
+          grid-template-columns: 1fr;
+        }
+
+        .header {
+          flex-direction: column;
+          gap: 20px;
+          text-align: center;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .trainee-details {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .habit-stats {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-content">
+          <h1>📊 {{ trainee.name }}'s Progress</h1>
+          <p>Detailed habit tracking and performance analysis</p>
+        </div>
+        <a href="javascript:history.back()" class="back-button"
+          >← Back to Dashboard</a
+        >
+      </div>
+
+      <div class="trainee-info">
+        <div class="trainee-details">
+          <div class="detail-item">
+            <div class="detail-label">Trainee ID</div>
+            <div class="detail-value">{{ trainee.client_id }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Total Habits</div>
+            <div class="detail-value">{{ stats.total_habits }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Completed Today</div>
+            <div class="detail-value">{{ stats.completed_today }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Completion Rate</div>
+            <div class="detail-value">{{ stats.completion_rate }}%</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Longest Streak</div>
+            <div class="detail-value">{{ stats.longest_streak }} days</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Days Active</div>
+            <div class="detail-value">{{ stats.days_active }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <div class="habits-section">
+          <h2 class="section-title">Assigned Habits ({{ habits|length }})</h2>
+
+          {% if habits %}
+          <div class="habits-grid">
+            {% for habit in habits %}
+            <div class="habit-card">
+              <div class="habit-header">
+                <div>
+                  <div class="habit-name">{{ habit.habit_name }}</div>
+                  <div class="habit-id">{{ habit.habit_id }}</div>
+                </div>
+                {% if habit.streak_days > 0 %}
+                <div class="streak-badge">
+                  🔥 {{ habit.streak_days }} day streak
+                </div>
+                {% endif %}
+              </div>
+
+              <div class="progress-bar">
+                <div
+                  class="progress-fill"
+                  style="width: {{ habit.monthly_progress_percent }}%"
+                ></div>
+              </div>
+              <div class="progress-text">
+                {{ habit.monthly_completed }}/{{ habit.monthly_target }} {{
+                habit.unit }} ({{ habit.monthly_progress_percent|round(1) }}%)
+              </div>
+
+              <div class="habit-stats">
+                <div class="stat-item">
+                  <div class="stat-value">{{ habit.monthly_completed }}</div>
+                  <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-value">{{ habit.monthly_target }}</div>
+                  <div class="stat-label">Target</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-value">{{ habit.frequency|title }}</div>
+                  <div class="stat-label">Frequency</div>
+                </div>
+              </div>
+
+              {% if habit.description %}
+              <div
+                style="
+                  color: #666;
+                  font-style: italic;
+                  margin: 10px 0;
+                  padding: 10px;
+                  background: #f9f9f9;
+                  border-radius: 8px;
+                "
+              >
+                {{ habit.description }}
+              </div>
+              {% endif %}
+
+              <div style="color: #666; font-size: 0.9em; margin-top: 10px">
+                Assigned: {{ habit.assigned_date[:10] if habit.assigned_date
+                else 'Unknown' }}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <h3>No habits assigned yet</h3>
+            <p>
+              Assign habits to this trainee to start tracking their progress!
+            </p>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="sidebar">
+          <div class="stats-summary">
+            <h3>📈 Quick Stats</h3>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <span class="summary-label">Total Habits</span>
+                <span class="summary-value">{{ stats.total_habits }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Completed Today</span>
+                <span class="summary-value"
+                  >{{ stats.completed_today }}/{{ stats.total_habits }}</span
+                >
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Completion Rate</span>
+                <span class="summary-value">{{ stats.completion_rate }}%</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Longest Streak</span>
+                <span class="summary-value"
+                  >{{ stats.longest_streak }} days</span
+                >
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Days Active</span>
+                <span class="summary-value">{{ stats.days_active }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="leaderboard">
+            <h3>🏆 Your Trainees Leaderboard</h3>
+            {% for entry in leaderboard %}
+            <div
+              class="leaderboard-item {{ 'current-trainee' if entry.is_current_trainee else '' }}"
+            >
+              <div
+                class="rank {{ 'gold' if entry.rank == 1 else ('silver' if entry.rank == 2 else ('bronze' if entry.rank == 3 else '')) }}"
+              >
+                {{ entry.rank }}
+              </div>
+              <div class="leaderboard-info">
+                <div class="leaderboard-name">
+                  {{ entry.name }} {% if entry.is_current_trainee %}<span
+                    style="font-weight: normal"
+                    >(Current)</span
+                  >{% endif %}
+                </div>
+                <div class="leaderboard-stats">
+                  {{ entry.habit_count }} habits • {{ entry.total_streak }}
+                  total streak
+                </div>
+              </div>
+              <div class="leaderboard-progress">{{ entry.progress }}%</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -29,7 +29,10 @@ class TrainerIntentHandler:
             'unassign_habit',
             'view_habits',
             'view_trainee_progress',
-            'trainee_report'
+            'trainee_report',
+            # Dashboard intents
+            'view_dashboard',
+            'view_client_progress'
         ]
     
     def handle_intent(self, phone: str, intent_type: str, intent: Dict, context: Dict) -> Dict:
@@ -64,6 +67,12 @@ class TrainerIntentHandler:
                 return self._handle_view_trainee_progress(phone, name, intent, context)
             elif intent_type == 'trainee_report':
                 return self._handle_trainee_report(phone, name, intent, context)
+            
+            # Dashboard intents
+            elif intent_type == 'view_dashboard':
+                return self._handle_view_dashboard(phone, name, intent, context)
+            elif intent_type == 'view_client_progress':
+                return self._handle_view_client_progress(phone, name, intent, context)
             
             else:
                 return self._unknown_trainer_intent(phone, name, intent_type)
@@ -257,6 +266,38 @@ class TrainerIntentHandler:
             'success': True,
             'response': msg,
             'handler': 'ai_intent_trainee_report'
+        }
+    
+    # Dashboard Intent Handlers
+    
+    def _handle_view_dashboard(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
+        """Handle view dashboard intent"""
+        msg = (
+            f"Here's your trainer dashboard, {name}!\n\n"
+            f"Click the button below or type /trainer-dashboard"
+        )
+        buttons = [{'id': '/trainer-dashboard', 'title': '🎯 Trainer Dashboard'}]
+        self.whatsapp.send_button_message(phone, msg, buttons)
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'ai_intent_view_dashboard'
+        }
+    
+    def _handle_view_client_progress(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
+        """Handle view client progress intent"""
+        msg = (
+            f"I can show you detailed client progress, {name}!\n\n"
+            f"Click the button below or type /client-progress"
+        )
+        buttons = [{'id': '/client-progress', 'title': '📊 Client Progress'}]
+        self.whatsapp.send_button_message(phone, msg, buttons)
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'ai_intent_view_client_progress'
         }
     
     def _unknown_trainer_intent(self, phone: str, name: str, intent_type: str) -> Dict:

@@ -48,8 +48,12 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "• /view-habits - View created habits\n\n"
                 "*Client Progress:*\n"
                 "• /view-trainee-progress - View client's progress\n"
+                "• /client-progress - Client progress dashboard\n"
                 "• /trainee-weekly-report - Get weekly report\n"
                 "• /trainee-monthly-report - Get monthly report\n\n"
+                
+                "*Dashboard:*\n"
+                "• /trainer-dashboard - Main trainer dashboard\n\n"
                 "💡 *Tip:* You can also just tell me what you want to do!"
             )
         else:  # client

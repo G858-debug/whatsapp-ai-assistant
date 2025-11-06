@@ -309,6 +309,64 @@ def generate_client_habits_dashboard(phone: str, client_id: str, db, whatsapp) -
         }
 
 
+def generate_trainer_main_dashboard(phone: str, trainer_id: str, db, whatsapp) -> Dict:
+    """Generate main trainer dashboard link"""
+    try:
+        # Generate secure token for trainer dashboard
+        token_manager = DashboardTokenManager(db)
+        token = token_manager.generate_token(trainer_id, 'trainer', 'main_dashboard')
+        
+        if not token:
+            return {
+                'success': False,
+                'response': "❌ Could not generate trainer dashboard. Please try again.",
+                'handler': 'trainer_dashboard_error'
+            }
+        
+        # Get base URL from environment or use default
+        base_url = os.getenv('BASE_URL', 'https://your-app.railway.app')
+        dashboard_url = f"{base_url}/dashboard/trainer/{trainer_id}/{token}"
+        
+        msg = (
+            f"🎯 *Trainer Dashboard*\n\n"
+            f"Your comprehensive training management hub:\n\n"
+            f"🔗 {dashboard_url}\n\n"
+            f"✨ *Features:*\n"
+            f"• View all your trainees\n"
+            f"• Track individual progress\n"
+            f"• Leaderboard comparisons\n"
+            f"• Habit assignment management\n"
+            f"• Performance analytics\n"
+            f"• Mobile-friendly interface\n\n"
+            f"📊 *Coming Soon:*\n"
+            f"• Booking management\n"
+            f"• Earnings tracking\n"
+            f"• Engagement metrics\n"
+            f"• Trend analysis\n"
+            f"• Client insights\n\n"
+            f"🔒 *Security:* Link expires in 1 hour"
+        )
+        
+        whatsapp.send_message(phone, msg)
+        
+        log_info(f"Trainer main dashboard sent to {trainer_id}")
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'trainer_dashboard_sent',
+            'dashboard_url': dashboard_url
+        }
+        
+    except Exception as e:
+        log_error(f"Error generating trainer main dashboard: {str(e)}")
+        return {
+            'success': False,
+            'response': "❌ Could not generate trainer dashboard. Please try again.",
+            'handler': 'trainer_dashboard_error'
+        }
+
+
 def generate_trainee_habits_dashboard(phone: str, trainer_id: str, trainee_id: str, db, whatsapp) -> Dict:
     """Generate dashboard link for trainee's habits assigned by this trainer"""
     try:

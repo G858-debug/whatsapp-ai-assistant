@@ -117,7 +117,8 @@ class CommandCoordinator:
         
         # Client progress commands
         elif command == '/view-trainee-progress':
-            return self.trainer_handler.handle_view_trainee_progress(phone, trainer_id)
+            return self.trainer_handler.handle_client_progress(phone, trainer_id)
+            # return self.trainer_handler.handle_view_trainee_progress(phone, trainer_id)
         elif command == '/trainee-weekly-report':
             return self.trainer_handler.handle_trainee_weekly_report(phone, trainer_id)
         elif command == '/trainee-monthly-report':
@@ -132,6 +133,12 @@ class CommandCoordinator:
             return self.trainer_handler.handle_view_trainees(phone, trainer_id)
         elif command == '/remove-trainee':
             return self.trainer_handler.handle_remove_trainee(phone, trainer_id)
+        
+        # Dashboard commands
+        elif command == '/trainer-dashboard':
+            return self.trainer_handler.handle_trainer_dashboard(phone, trainer_id)
+        elif command == '/client-progress':
+            return self.trainer_handler.handle_client_progress(phone, trainer_id)
         
         else:
             msg = f"Unknown trainer command: {command}\n\nType /help to see available commands."

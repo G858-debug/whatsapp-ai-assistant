@@ -53,3 +53,7 @@ class TrainerHabitFlows:
     def continue_trainee_report(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
         """Handle trainee report flow - delegates to ReportingFlow"""
         return self.reporting_flow.continue_trainee_report(phone, message, trainer_id, task)
+    
+    def continue_client_progress(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
+        """Handle client progress dashboard flow - delegates to ReportingFlow"""
+        return self.reporting_flow.continue_client_progress(phone, message, trainer_id, task)

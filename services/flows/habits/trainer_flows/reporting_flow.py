@@ -302,3 +302,110 @@ class ReportingFlow:
             self.whatsapp.send_message(phone, error_msg)
             
             return {'success': False, 'response': error_msg, 'handler': 'trainee_report_error'}
+    
+    def continue_client_progress(self, phone: str, message: str, trainer_id: str, task: Dict) -> Dict:
+        """Handle client progress dashboard flow"""
+        try:
+            task_data = task.get('task_data', {})
+            step = task_data.get('step', 'ask_client_id')
+            
+            if step == 'ask_client_id':
+                # User provided client_id (case-insensitive lookup)
+                client_id_input = message.strip()
+                
+                # Verify client is in trainer's list
+                relationship = self.relationship_service.check_relationship_exists(trainer_id, client_id_input)
+                if not relationship:
+                    error_msg = f"❌ Client ID '{client_id_input}' not found in your client list."
+                    self.whatsapp.send_message(phone, error_msg)
+                    return {'success': True, 'response': error_msg, 'handler': 'client_progress_not_found'}
+                
+                # Get the actual client_id from the relationship
+                client_id = relationship.get('client_id')
+                
+                # Generate client progress dashboard link with trainer context
+                dashboard_result = self._generate_client_progress_dashboard(phone, trainer_id, client_id)
+                
+                # Complete the task since we've sent the dashboard
+                self.task_service.complete_task(task['id'], 'trainer')
+                
+                return dashboard_result
+            
+            return {'success': True, 'response': 'Processing...', 'handler': 'client_progress'}
+            
+        except Exception as e:
+            log_error(f"Error in client progress flow: {str(e)}")
+            
+            # Stop the task
+            self.task_service.stop_task(task['id'], 'trainer')
+            
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while generating the progress dashboard.\n\n"
+                "The task has been cancelled. Please try again with /client-progress"
+            )
+            self.whatsapp.send_message(phone, error_msg)
+            
+            return {'success': False, 'response': error_msg, 'handler': 'client_progress_error'}
+    
+    def _generate_client_progress_dashboard(self, phone: str, trainer_id: str, client_id: str) -> Dict:
+        """Generate client progress dashboard link for trainer view"""
+        try:
+            from services.dashboard import DashboardTokenManager
+            import os
+            
+            # Generate secure token for trainer viewing client progress
+            token_manager = DashboardTokenManager(self.db)
+            token = token_manager.generate_token(trainer_id, 'trainer', 'view_client_progress')
+            
+            if not token:
+                return {
+                    'success': False,
+                    'response': "❌ Could not generate progress dashboard. Please try again.",
+                    'handler': 'client_progress_dashboard_error'
+                }
+            
+            # Get client name
+            client_result = self.db.table('clients').select('name').eq('client_id', client_id).execute()
+            client_name = client_result.data[0]['name'] if client_result.data else client_id
+            
+            # Get base URL from environment or use default
+            base_url = os.getenv('BASE_URL', 'https://your-app.railway.app')
+            dashboard_url = f"{base_url}/dashboard/trainer/{trainer_id}/{token}/trainee/{client_id}"
+            
+            msg = (
+                f"📊 *{client_name}'s Progress Dashboard*\n\n"
+                f"Comprehensive progress tracking and analysis:\n\n"
+                f"🔗 {dashboard_url}\n\n"
+                f"✨ *Features:*\n"
+                f"• Detailed habit progress tracking\n"
+                f"• Individual habit performance\n"
+                f"• Progress streaks and achievements\n"
+                f"• Leaderboard with your other trainees\n"
+                f"• Completion statistics\n"
+                f"• Mobile-friendly interface\n\n"
+                f"🎯 *Perfect for:*\n"
+                f"• Monitoring client progress\n"
+                f"• Identifying improvement areas\n"
+                f"• Celebrating achievements\n"
+                f"• Comparing performance\n\n"
+                f"🔒 *Security:* Link expires in 1 hour"
+            )
+            
+            self.whatsapp.send_message(phone, msg)
+            
+            return {
+                'success': True,
+                'response': msg,
+                'handler': 'client_progress_dashboard_sent',
+                'dashboard_url': dashboard_url
+            }
+            
+        except Exception as e:
+            log_error(f"Error generating client progress dashboard: {str(e)}")
+            return {
+                'success': False,
+                'response': "❌ Could not generate progress dashboard. Please try again.",
+                'handler': 'client_progress_dashboard_error'
+            }
