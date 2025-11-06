@@ -8,6 +8,7 @@ from utils.logger import log_info, log_error
 # Import habit commands
 from .habits.logging_commands import handle_log_habits, handle_view_my_habits
 from .habits.progress_commands import handle_view_progress, handle_weekly_report, handle_monthly_report
+from .habits.reminder_commands import handle_reminder_settings, handle_test_reminder
 
 # Import relationship commands
 from .relationships.search_commands import handle_search_trainers, handle_view_trainers
@@ -42,6 +43,14 @@ class ClientCommandHandler:
     def handle_monthly_report(self, phone: str, client_id: str) -> Dict:
         """Handle /monthly-report command"""
         return handle_monthly_report(phone, client_id, self.db, self.whatsapp, self.task_service)
+    
+    def handle_reminder_settings(self, phone: str, client_id: str) -> Dict:
+        """Handle /reminder-settings command"""
+        return handle_reminder_settings(phone, client_id, self.db, self.whatsapp, self.task_service)
+    
+    def handle_test_reminder(self, phone: str, client_id: str) -> Dict:
+        """Handle /test-reminder command"""
+        return handle_test_reminder(phone, client_id, self.db, self.whatsapp)
     
     # Relationship Management Commands
     def handle_search_trainer(self, phone: str, client_id: str) -> Dict:

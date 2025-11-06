@@ -80,6 +80,10 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "*Progress Reports:*\n"
                 "• /weekly-report - Get weekly report\n"
                 "• /monthly-report - Get monthly report\n\n"
+                
+                "*Reminders:*\n"
+                "• /reminder-settings - Configure reminders\n"
+                "• /test-reminder - Test reminder message\n\n"
                 "💡 *Tip:* You can also just tell me what you want to do!"
             )
         

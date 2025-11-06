@@ -10,6 +10,7 @@ from services.refiloe import RefiloeService
 from services.whatsapp_flow_handler import WhatsAppFlowHandler
 from services.ai_intent_handler import AIIntentHandler
 from services.scheduler import SchedulerService
+from services.scheduler.reminder_scheduler import ReminderScheduler
 from services.assessment import EnhancedAssessmentService
 from services.habits import HabitTrackingService
 from services.workout import WorkoutService
@@ -37,6 +38,7 @@ def setup_app_core(app):
     logger = setup_logger()
     whatsapp_service = WhatsAppService(Config, supabase, logger)
     scheduler_service = SchedulerService(supabase, whatsapp_service)
+    reminder_scheduler = ReminderScheduler(supabase, whatsapp_service)
     assessment_service = EnhancedAssessmentService(supabase)
     habit_service = HabitTrackingService(supabase)
     workout_service = WorkoutService(Config, supabase)
@@ -91,6 +93,10 @@ def setup_app_core(app):
     scheduler.start()
     log_info("Background scheduler started")
     
+    # Start habit reminder scheduler
+    reminder_scheduler.start()
+    log_info("Habit reminder scheduler started")
+    
     # Register blueprints
     app.register_blueprint(dashboard_bp)
     
@@ -113,7 +119,8 @@ def setup_app_core(app):
         'rate_limiter': rate_limiter,
         'input_sanitizer': input_sanitizer,
         'calendar': calendar_service,
-        'refiloe': refiloe_service
+        'refiloe': refiloe_service,
+        'reminder_scheduler': reminder_scheduler
     }
     
     app.config['models'] = {

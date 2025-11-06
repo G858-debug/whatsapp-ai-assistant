@@ -63,6 +63,12 @@ Examples:
 - "client progress dashboard" (trainer) → {{"intent": "view_client_progress", "confidence": 0.9, "needs_action": true, "suggested_command": "/client-progress"}}
 - "view client progress" (trainer) → {{"intent": "view_client_progress", "confidence": 0.9, "needs_action": true, "suggested_command": "/client-progress"}}
 - "show trainee progress" (trainer) → {{"intent": "view_client_progress", "confidence": 0.9, "needs_action": true, "suggested_command": "/client-progress"}}
+- "set up reminders" (client) → {{"intent": "reminder_settings", "confidence": 0.9, "needs_action": true, "suggested_command": "/reminder-settings"}}
+- "change reminder time" (client) → {{"intent": "reminder_settings", "confidence": 0.9, "needs_action": true, "suggested_command": "/reminder-settings"}}
+- "disable reminders" (client) → {{"intent": "reminder_settings", "confidence": 0.9, "needs_action": true, "suggested_command": "/reminder-settings"}}
+- "reminder settings" (client) → {{"intent": "reminder_settings", "confidence": 0.9, "needs_action": true, "suggested_command": "/reminder-settings"}}
+- "test my reminder" (client) → {{"intent": "test_reminder", "confidence": 0.9, "needs_action": true, "suggested_command": "/test-reminder"}}
+- "send test reminder" (client) → {{"intent": "test_reminder", "confidence": 0.9, "needs_action": true, "suggested_command": "/test-reminder"}}
 - "how do I add clients?" → {{"intent": "general_conversation", "confidence": 0.8, "needs_action": false, "is_asking_about_phase2": true}}
 - "hi" → {{"intent": "general_conversation", "confidence": 0.9, "needs_action": false}}
 
@@ -126,4 +132,8 @@ Available Features (Phase 3):
 - Log habits (/log-habits)
 - View progress (/view-progress)
 - Generate reports (/weekly-report, /monthly-report)
+
+Available Features (Reminders):
+- Configure reminder settings (/reminder-settings)
+- Test reminder message (/test-reminder)
 """

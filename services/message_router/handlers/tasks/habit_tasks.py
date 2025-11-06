@@ -25,7 +25,7 @@ class HabitTaskHandler:
                 return self._handle_trainer_habit_task(phone, message, user_id, task)
             
             # Client habit tasks
-            elif task_type in ['log_habits', 'view_progress', 'weekly_report', 'monthly_report']:
+            elif task_type in ['log_habits', 'view_progress', 'weekly_report', 'monthly_report', 'reminder_settings']:
                 return self._handle_client_habit_task(phone, message, user_id, task)
             
             else:
@@ -80,6 +80,8 @@ class HabitTaskHandler:
                 return handler.continue_weekly_report(phone, message, user_id, task)
             elif task_type == 'monthly_report':
                 return handler.continue_monthly_report(phone, message, user_id, task)
+            elif task_type == 'reminder_settings':
+                return handler.continue_reminder_settings(phone, message, user_id, task)
             else:
                 return {'success': False, 'response': 'Unknown client habit task', 'handler': 'client_habit_task_error'}
                 

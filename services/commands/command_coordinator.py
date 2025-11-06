@@ -159,6 +159,10 @@ class CommandCoordinator:
             return self.client_handler.handle_weekly_report(phone, client_id)
         elif command == '/monthly-report':
             return self.client_handler.handle_monthly_report(phone, client_id)
+        elif command == '/reminder-settings':
+            return self.client_handler.handle_reminder_settings(phone, client_id)
+        elif command == '/test-reminder':
+            return self.client_handler.handle_test_reminder(phone, client_id)
         
         # Relationship management commands
         elif command == '/search-trainer':

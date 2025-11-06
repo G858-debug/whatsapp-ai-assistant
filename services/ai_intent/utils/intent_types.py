@@ -50,7 +50,10 @@ class IntentTypes:
             'log_habits',
             'view_progress',
             'weekly_report',
-            'monthly_report'
+            'monthly_report',
+            # Reminder intents
+            'reminder_settings',
+            'test_reminder'
         ]
         
         self.universal_intents = [

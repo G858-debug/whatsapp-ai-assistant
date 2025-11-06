@@ -26,7 +26,10 @@ class ClientIntentHandler:
             'log_habits',
             'view_progress',
             'weekly_report',
-            'monthly_report'
+            'monthly_report',
+            # Reminder intents
+            'reminder_settings',
+            'test_reminder'
         ]
     
     def handle_intent(self, phone: str, intent_type: str, intent: Dict, context: Dict) -> Dict:
@@ -55,6 +58,12 @@ class ClientIntentHandler:
                 return self._handle_weekly_report(phone, name, intent, context)
             elif intent_type == 'monthly_report':
                 return self._handle_monthly_report(phone, name, intent, context)
+            
+            # Reminder intents
+            elif intent_type == 'reminder_settings':
+                return self._handle_reminder_settings(phone, name, intent, context)
+            elif intent_type == 'test_reminder':
+                return self._handle_test_reminder(phone, name, intent, context)
             
             else:
                 return self._unknown_client_intent(phone, name, intent_type)
@@ -200,6 +209,38 @@ class ClientIntentHandler:
             'success': True,
             'response': msg,
             'handler': 'ai_intent_monthly_report'
+        }
+    
+    # Reminder Intent Handlers
+    
+    def _handle_reminder_settings(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
+        """Handle reminder settings intent"""
+        msg = (
+            f"I can help you configure your habit reminders, {name}!\n\n"
+            f"Click the button below or type /reminder-settings"
+        )
+        buttons = [{'id': '/reminder-settings', 'title': '⚙️ Reminder Settings'}]
+        self.whatsapp.send_button_message(phone, msg, buttons)
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'ai_intent_reminder_settings'
+        }
+    
+    def _handle_test_reminder(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
+        """Handle test reminder intent"""
+        msg = (
+            f"I can send you a test reminder, {name}!\n\n"
+            f"Click the button below or type /test-reminder"
+        )
+        buttons = [{'id': '/test-reminder', 'title': '🧪 Test Reminder'}]
+        self.whatsapp.send_button_message(phone, msg, buttons)
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'ai_intent_test_reminder'
         }
     
     def _unknown_client_intent(self, phone: str, name: str, intent_type: str) -> Dict:
