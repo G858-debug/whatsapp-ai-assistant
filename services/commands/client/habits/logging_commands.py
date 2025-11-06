@@ -64,8 +64,8 @@ def handle_view_my_habits(phone: str, client_id: str, db, whatsapp) -> Dict:
             'handler': 'view_my_habits_error'
         }
 
-def handle_log_habits(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
-    """Handle /log-habits command"""
+def handle_log_habits(phone: str, client_id: str, db, whatsapp, task_service, habit_id: str = None) -> Dict:
+    """Handle /log-habits command with optional habit ID"""
     try:
         from services.habits.assignment_service import AssignmentService
         
