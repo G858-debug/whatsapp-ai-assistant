@@ -92,11 +92,57 @@
         color: white;
       }
 
-      .dashboard-grid {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 30px;
+      .content-tabs {
+        background: white;
+        border-radius: 15px;
         margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .tab-buttons {
+        display: flex;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .tab-button {
+        flex: 1;
+        padding: 20px;
+        background: none;
+        border: none;
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-bottom: 3px solid transparent;
+      }
+
+      .tab-button.active {
+        color: #667eea;
+        background: white;
+        border-bottom-color: #667eea;
+      }
+
+      .tab-button:hover {
+        background: #f0f0f0;
+      }
+
+      .tab-button.active:hover {
+        background: white;
+      }
+
+      .tab-content {
+        padding: 30px;
+      }
+
+      .tab-panel {
+        display: none;
+      }
+
+      .tab-panel.active {
+        display: block;
       }
 
       .habits-section {
@@ -325,10 +371,6 @@
       }
 
       @media (max-width: 1024px) {
-        .dashboard-grid {
-          grid-template-columns: 1fr;
-        }
-
         .habits-section {
           grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         }
@@ -349,6 +391,24 @@
 
         .habit-stats {
           grid-template-columns: 1fr;
+        }
+
+        .tab-buttons {
+          flex-direction: column;
+        }
+
+        .tab-button {
+          border-bottom: 1px solid #e0e0e0;
+          border-right: none;
+        }
+
+        .tab-button.active {
+          border-bottom: 1px solid #e0e0e0;
+          border-left: 3px solid #667eea;
+        }
+
+        .tab-content {
+          padding: 20px;
         }
       }
     </style>
@@ -398,133 +458,150 @@
       </div>
 
       {% if habits %}
-      <div class="dashboard-grid">
-        <div class="habits-section" id="habitsSection">
-          {% for habit in habits %}
-          <div class="habit-card" data-habit-id="{{ habit.habit_id }}">
-            <div class="habit-header">
-              <div>
-                <div class="habit-name">{{ habit.habit_name }}</div>
-                <div
-                  class="habit-id"
-                  onclick="copyToClipboard('{{ habit.habit_id }}')"
-                >
-                  {{ habit.habit_id }}
-                </div>
-              </div>
-              {% if habit.streak_days > 0 %}
-              <div class="streak-badge">
-                🔥 {{ habit.streak_days }} day streak
-              </div>
-              {% endif %}
-            </div>
-
-            <div class="progress-bar">
-              <div
-                class="progress-fill daily-progress"
-                style="width: {{ habit.daily_progress_percent }}%"
-              ></div>
-              <div
-                class="progress-fill monthly-progress"
-                style="width: {{ habit.monthly_progress_percent }}%; display: none;"
-              ></div>
-            </div>
-            <div class="progress-text">
-              <span class="daily-text"
-                >{{ habit.daily_completed }}/{{ habit.daily_target }} {{
-                habit.unit }} ({{ habit.daily_progress_percent|round(1)
-                }}%)</span
-              >
-              <span class="monthly-text" style="display: none"
-                >{{ habit.monthly_completed }}/{{ habit.monthly_target }} {{
-                habit.unit }} ({{ habit.monthly_progress_percent|round(1)
-                }}%)</span
-              >
-            </div>
-
-            <div class="habit-stats">
-              <div class="stat-item">
-                <div class="stat-value daily-stat">
-                  {{ habit.daily_completed }}
-                </div>
-                <div class="stat-value monthly-stat" style="display: none">
-                  {{ habit.monthly_completed }}
-                </div>
-                <div class="stat-label">Completed</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value daily-stat">
-                  {{ habit.daily_target }}
-                </div>
-                <div class="stat-value monthly-stat" style="display: none">
-                  {{ habit.monthly_target }}
-                </div>
-                <div class="stat-label">Target</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ habit.frequency|title }}</div>
-                <div class="stat-label">Frequency</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ habit.streak_days }}</div>
-                <div class="stat-label">Streak Days</div>
-              </div>
-            </div>
-
-            {% if habit.description %}
-            <div
-              style="
-                color: #666;
-                font-style: italic;
-                margin: 10px 0;
-                padding: 10px;
-                background: #f9f9f9;
-                border-radius: 8px;
-              "
-            >
-              {{ habit.description }}
-            </div>
-            {% endif %}
-
-            <div class="trainer-info">
-              <div style="color: #666; font-size: 0.9em">
-                Assigned: {{ habit.assigned_date[:10] if habit.assigned_date
-                else 'Unknown' }}
-              </div>
-              <div class="trainer-badge">
-                {{ habit.trainer_name }} ({{ habit.trainer_id }})
-              </div>
-            </div>
-          </div>
-          {% endfor %}
+      <div class="content-tabs">
+        <div class="tab-buttons">
+          <button class="tab-button active" onclick="switchTab('habits')">
+            🎯 My Habits
+          </button>
+          <button class="tab-button" onclick="switchTab('leaderboard')"></button>
+            🏆 Leaderboard
+          </button>
         </div>
+        
+        <div class="tab-content">
+          <!-- Habits Tab -->
+          <div class="tab-panel active" id="habits-panel">
+            <div class="habits-section" id="habitsSection">
+              {% for habit in habits %}
+              <div class="habit-card" data-habit-id="{{ habit.habit_id }}">
+                <div class="habit-header">
+                  <div>
+                    <div class="habit-name">{{ habit.habit_name }}</div>
+                    <div
+                      class="habit-id"
+                      onclick="copyToClipboard('{{ habit.habit_id }}')"
+                    >
+                      {{ habit.habit_id }}
+                    </div>
+                  </div>
+                  {% if habit.streak_days > 0 %}
+                  <div class="streak-badge">
+                    🔥 {{ habit.streak_days }} day streak
+                  </div>
+                  {% endif %}
+                </div>
 
-        <div class="leaderboard">
-          <h3>🏆 Leaderboard</h3>
-          {% for entry in leaderboard %}
-          <div
-            class="leaderboard-item {{ 'current-user' if entry.is_current_user else '' }}"
-          >
-            <div
-              class="rank {{ 'gold' if entry.rank == 1 else ('silver' if entry.rank == 2 else ('bronze' if entry.rank == 3 else '')) }}"
-            >
-              {{ entry.rank }}
-            </div>
-            <div class="leaderboard-info">
-              <div class="leaderboard-name">
-                {{ entry.name }} {% if entry.is_current_user %}<span
-                  style="font-weight: normal"
-                  >(You)</span
-                >{% endif %}
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill daily-progress"
+                    style="width: {{ habit.daily_progress_percent }}%"
+                  ></div>
+                  <div
+                    class="progress-fill monthly-progress"
+                    style="width: {{ habit.monthly_progress_percent }}%; display: none;"
+                  ></div>
+                </div>
+                <div class="progress-text">
+                  <span class="daily-text"
+                    >{{ habit.daily_completed }}/{{ habit.daily_target }} {{
+                    habit.unit }} ({{ habit.daily_progress_percent|round(1)
+                    }}%)</span
+                  >
+                  <span class="monthly-text" style="display: none"
+                    >{{ habit.monthly_completed }}/{{ habit.monthly_target }} {{
+                    habit.unit }} ({{ habit.monthly_progress_percent|round(1)
+                    }}%)</span
+                  >
+                </div>
+
+                <div class="habit-stats">
+                  <div class="stat-item">
+                    <div class="stat-value daily-stat">
+                      {{ habit.daily_completed }}
+                    </div>
+                    <div class="stat-value monthly-stat" style="display: none">
+                      {{ habit.monthly_completed }}
+                    </div>
+                    <div class="stat-label">Completed</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-value daily-stat">
+                      {{ habit.daily_target }}
+                    </div>
+                    <div class="stat-value monthly-stat" style="display: none">
+                      {{ habit.monthly_target }}
+                    </div>
+                    <div class="stat-label">Target</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-value">{{ habit.frequency|title }}</div>
+                    <div class="stat-label">Frequency</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-value">{{ habit.streak_days }}</div>
+                    <div class="stat-label">Streak Days</div>
+                  </div>
+                </div>
+
+                {% if habit.description %}
+                <div
+                  style="
+                    color: #666;
+                    font-style: italic;
+                    margin: 10px 0;
+                    padding: 10px;
+                    background: #f9f9f9;
+                    border-radius: 8px;
+                  "
+                >
+                  {{ habit.description }}
+                </div>
+                {% endif %}
+
+                <div class="trainer-info">
+                  <div style="color: #666; font-size: 0.9em">
+                    Assigned: {{ habit.assigned_date[:10] if habit.assigned_date
+                    else 'Unknown' }}
+                  </div>
+                  <div class="trainer-badge">
+                    {{ habit.trainer_name }} ({{ habit.trainer_id }})
+                  </div>
+                </div>
               </div>
-              <div class="leaderboard-stats">
-                {{ entry.habit_count }} habits • {{ entry.total_streak }} total
-                streak
-              </div>
+              {% endfor %}
             </div>
-            <div class="leaderboard-progress">{{ entry.progress }}%</div>
           </div>
-          {% endfor %}
+
+          <!-- Leaderboard Tab -->
+          <div class="tab-panel" id="leaderboard-panel">
+            <div class="leaderboard" style="background: none; box-shadow: none; padding: 0;">
+              <h3>🏆 Leaderboard</h3>
+              {% for entry in leaderboard %}
+              <div
+                class="leaderboard-item {{ 'current-user' if entry.is_current_user else '' }}"
+              >
+                <div
+                  class="rank {{ 'gold' if entry.rank == 1 else ('silver' if entry.rank == 2 else ('bronze' if entry.rank == 3 else '')) }}"
+                >
+                  {{ entry.rank }}
+                </div>
+                <div class="leaderboard-info">
+                  <div class="leaderboard-name">
+                    {{ entry.name }} {% if entry.is_current_user %}<span
+                      style="font-weight: normal"
+                      >(You)</span
+                    >{% endif %}
+                  </div>
+                  <div class="leaderboard-stats">
+                    {{ entry.habit_count }} habits • {{ entry.total_streak }} total
+                    streak
+                  </div>
+                </div>
+                <div class="leaderboard-progress">{{ entry.progress }}%</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
         </div>
       </div>
       {% else %}
@@ -540,11 +617,28 @@
 
     <script>
       let currentView = "daily";
+      let currentTab = "habits";
 
       function copyToClipboard(text) {
         navigator.clipboard.writeText(text).then(() => {
           showToast(`Habit ID ${text} copied!`, "success");
         });
+      }
+
+      function switchTab(tabName) {
+        currentTab = tabName;
+        
+        // Update tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Update tab panels
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+          panel.classList.remove('active');
+        });
+        document.getElementById(tabName + '-panel').classList.add('active');
       }
 
       function toggleView(view) {
