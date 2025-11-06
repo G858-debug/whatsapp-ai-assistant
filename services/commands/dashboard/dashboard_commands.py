@@ -256,6 +256,59 @@ def generate_trainee_progress_dashboard(phone: str, trainer_id: str, trainee_id:
         }
 
 
+def generate_client_habits_dashboard(phone: str, client_id: str, db, whatsapp) -> Dict:
+    """Generate dashboard link for client's assigned habits"""
+    try:
+        # Generate secure token for habits view
+        token_manager = DashboardTokenManager(db)
+        token = token_manager.generate_token(client_id, 'client', 'view_my_habits')
+        
+        if not token:
+            return {
+                'success': False,
+                'response': "❌ Could not generate habits dashboard. Please try again.",
+                'handler': 'client_habits_dashboard_error'
+            }
+        
+        # Get base URL from environment or use default
+        base_url = os.getenv('BASE_URL', 'https://your-app.railway.app')
+        dashboard_url = f"{base_url}/dashboard/client-habits/{client_id}/{token}"
+        
+        msg = (
+            f"🎯 *My Habits Dashboard*\n\n"
+            f"View and manage your assigned habits:\n\n"
+            f"🔗 {dashboard_url}\n\n"
+            f"✨ *Features:*\n"
+            f"• View all your assigned habits\n"
+            f"• Search and filter habits\n"
+            f"• Copy Habit IDs for logging\n"
+            f"• See progress and targets\n"
+            f"• Sort by name, frequency, progress\n"
+            f"• Mobile-friendly interface\n\n"
+            f"💡 *Perfect for:* Finding habit IDs for /log-habits command\n\n"
+            f"🔒 *Security:* Link expires in 1 hour"
+        )
+        
+        whatsapp.send_message(phone, msg)
+        
+        log_info(f"Client habits dashboard sent to {client_id}")
+        
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'client_habits_dashboard_sent',
+            'dashboard_url': dashboard_url
+        }
+        
+    except Exception as e:
+        log_error(f"Error generating client habits dashboard: {str(e)}")
+        return {
+            'success': False,
+            'response': "❌ Could not generate habits dashboard. Please try again.",
+            'handler': 'client_habits_dashboard_error'
+        }
+
+
 def generate_trainee_habits_dashboard(phone: str, trainer_id: str, trainee_id: str, db, whatsapp) -> Dict:
     """Generate dashboard link for trainee's habits assigned by this trainer"""
     try:

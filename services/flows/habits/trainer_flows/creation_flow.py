@@ -70,6 +70,19 @@ class CreationFlow:
                             return {'success': True, 'response': msg, 'handler': 'create_habit_invalid'}
                         collected_data[field_name] = message.strip().lower()
                     
+                    elif current_field['type'] == 'number_choice':
+                        # Handle number choice field (like frequency)
+                        choice_number = message.strip()
+                        option_map = {opt['number']: opt['value'] for opt in current_field.get('options', [])}
+                        
+                        if choice_number not in option_map:
+                            valid_numbers = ', '.join(option_map.keys())
+                            msg = f"❌ Please choose a valid number: {valid_numbers}"
+                            self.whatsapp.send_message(phone, msg)
+                            return {'success': True, 'response': msg, 'handler': 'create_habit_invalid'}
+                        
+                        collected_data[field_name] = option_map[choice_number]
+                    
                     else:
                         # Text field
                         validation = current_field.get('validation', {})

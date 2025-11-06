@@ -46,20 +46,23 @@
     {
       "name": "frequency",
       "label": "Frequency",
-      "prompt": "How often should this habit be tracked?\n\nPlease choose:",
-      "type": "choice",
+      "prompt": "How often should this habit be tracked?\n\n*Options:*\n1️⃣ *Daily* - Track this habit every day\n2️⃣ *Weekly* - Track this habit weekly\n3️⃣ *Monthly* - Track this habit monthly\n\nPlease choose a number (1-3):",
+      "type": "number_choice",
       "options": [
         {
+          "number": "1",
           "value": "daily",
           "label": "Daily",
           "description": "Track this habit every day"
         },
         {
+          "number": "2",
           "value": "weekly",
           "label": "Weekly",
           "description": "Track this habit weekly"
         },
         {
+          "number": "3",
           "value": "monthly",
           "label": "Monthly",
           "description": "Track this habit monthly"
