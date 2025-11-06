@@ -139,72 +139,83 @@ class ProgressFlow:
     def _generate_progress_dashboard(self, phone: str, client_id: str, view_type: str, date=None, month=None, year=None) -> Dict:
         """Generate progress dashboard link with parameters"""
         try:
-            from services.commands.dashboard import generate_client_habits_dashboard
+            from services.dashboard.token_manager import DashboardTokenManager
+            import os
             
-            # Generate base dashboard link
-            dashboard_result = generate_client_habits_dashboard(phone, client_id, self.db, self.whatsapp)
+            # Generate secure token for habits view (without sending message)
+            token_manager = DashboardTokenManager(self.db)
+            token = token_manager.generate_token(client_id, 'client', 'view_my_habits')
             
-            if dashboard_result['success']:
-                # Get the dashboard URL and add parameters
-                base_url = dashboard_result['dashboard_url']
-                
-                # Add view parameters to URL
-                if '?' in base_url:
-                    url_params = '&'
-                else:
-                    url_params = '?'
-                
-                url_params += f'view={view_type}'
-                
-                if view_type == 'daily' and date:
-                    url_params += f'&date={date}'
-                elif view_type == 'monthly' and month and year:
-                    url_params += f'&month={month}&year={year}'
-                
-                dashboard_url = base_url + url_params
-                
-                # Create custom message with parameters
-                if view_type == 'daily':
-                    date_str = datetime.strptime(date, '%Y-%m-%d').strftime('%A, %B %d, %Y')
-                    msg = (
-                        f"📊 *Your Daily Progress Dashboard*\n\n"
-                        f"📅 *Date:* {date_str}\n\n"
-                        f"View your detailed habit progress:\n\n"
-                        f"🔗 {dashboard_url}\n\n"
-                        f"✨ *Features:*\n"
-                        f"• Daily progress tracking\n"
-                        f"• Target vs completed comparison\n"
-                        f"• Habit streaks and achievements\n"
-                        f"• Leaderboard with other trainees\n"
-                        f"• Trainer assignment details\n\n"
-                        f"🔒 *Security:* Link expires in 1 hour"
-                    )
-                else:  # monthly
-                    month_name = datetime.strptime(f"{year}-{month}-01", '%Y-%m-%d').strftime('%B %Y')
-                    msg = (
-                        f"📈 *Your Monthly Progress Dashboard*\n\n"
-                        f"📅 *Month:* {month_name}\n\n"
-                        f"View your detailed habit progress:\n\n"
-                        f"🔗 {dashboard_url}\n\n"
-                        f"✨ *Features:*\n"
-                        f"• Monthly progress tracking\n"
-                        f"• Target vs completed comparison\n"
-                        f"• Habit streaks and achievements\n"
-                        f"• Leaderboard with other trainees\n"
-                        f"• Trainer assignment details\n\n"
-                        f"🔒 *Security:* Link expires in 1 hour"
-                    )
-                
-                self.whatsapp.send_message(phone, msg)
-                
+            if not token:
                 return {
-                    'success': True,
-                    'response': msg,
-                    'handler': 'view_progress_dashboard_sent',
-                    'dashboard_url': dashboard_url
+                    'success': False,
+                    'response': "❌ Could not generate progress dashboard. Please try again.",
+                    'handler': 'view_progress_dashboard_error'
                 }
+            
+            # Generate base dashboard URL
+            base_url = os.getenv('BASE_URL', 'https://your-app.railway.app')
+            base_dashboard_url = f"{base_url}/dashboard/client-habits/{client_id}/{token}"
+                
+            # Add view parameters to URL
+            if '?' in base_dashboard_url:
+                url_params = '&'
             else:
-                return dashboard_result
+                url_params = '?'
+            
+            url_params += f'view={view_type}'
+            
+            if view_type == 'daily' and date:
+                url_params += f'&date={date}'
+            elif view_type == 'monthly' and month and year:
+                url_params += f'&month={month}&year={year}'
+            
+            dashboard_url = base_dashboard_url + url_params
+                
+            # Create custom message with parameters
+            from datetime import datetime
+            
+            if view_type == 'daily':
+                date_str = datetime.strptime(date, '%Y-%m-%d').strftime('%A, %B %d, %Y')
+                msg = (
+                    f"📊 *Your Daily Progress Dashboard*\n\n"
+                    f"📅 *Date:* {date_str}\n\n"
+                    f"View your detailed habit progress:\n\n"
+                    f"🔗 {dashboard_url}\n\n"
+                    f"✨ *Features:*\n"
+                    f"• Daily progress tracking\n"
+                    f"• Target vs completed comparison\n"
+                    f"• Habit streaks and achievements\n"
+                    f"• Statistics cards with real-time data\n"
+                    f"• Leaderboard with other trainees\n"
+                    f"• Trainer assignment details\n\n"
+                    f"🔒 *Security:* Link expires in 1 hour"
+                )
+            else:  # monthly
+                month_name = datetime.strptime(f"{year}-{month}-01", '%Y-%m-%d').strftime('%B %Y')
+                msg = (
+                    f"📈 *Your Monthly Progress Dashboard*\n\n"
+                    f"📅 *Month:* {month_name}\n\n"
+                    f"View your detailed habit progress:\n\n"
+                    f"🔗 {dashboard_url}\n\n"
+                    f"✨ *Features:*\n"
+                    f"• Monthly progress tracking\n"
+                    f"• Target vs completed comparison\n"
+                    f"• Habit streaks and achievements\n"
+                    f"• Statistics cards with real-time data\n"
+                    f"• Leaderboard with other trainees\n"
+                    f"• Trainer assignment details\n\n"
+                    f"🔒 *Security:* Link expires in 1 hour"
+                )
+            
+            self.whatsapp.send_message(phone, msg)
+            
+            return {
+                'success': True,
+                'response': msg,
+                'handler': 'view_progress_dashboard_sent',
+                'dashboard_url': dashboard_url
+            }
                 
         except Exception as e:
             log_error(f"Error generating progress dashboard: {str(e)}")
