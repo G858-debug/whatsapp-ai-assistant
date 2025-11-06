@@ -9,7 +9,7 @@ from services.whatsapp import WhatsAppService
 from services.refiloe import RefiloeService
 from services.whatsapp_flow_handler import WhatsAppFlowHandler
 from services.ai_intent_handler import AIIntentHandler
-from services.scheduler import SchedulerService
+import services.scheduler as scheduler_module
 from services.scheduler.reminder_scheduler import ReminderScheduler
 from services.assessment import EnhancedAssessmentService
 from services.habits import HabitTrackingService
@@ -37,7 +37,7 @@ def setup_app_core(app):
     from utils.logger import setup_logger
     logger = setup_logger()
     whatsapp_service = WhatsAppService(Config, supabase, logger)
-    scheduler_service = SchedulerService(supabase, whatsapp_service)
+    scheduler_service = scheduler_module.SchedulerService(supabase, whatsapp_service)
     reminder_scheduler = ReminderScheduler(supabase, whatsapp_service)
     assessment_service = EnhancedAssessmentService(supabase)
     habit_service = HabitTrackingService(supabase)
