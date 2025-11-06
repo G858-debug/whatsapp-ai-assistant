@@ -208,7 +208,7 @@ class HabitService:
         trainer_id: str
     ) -> Tuple[bool, str]:
         """
-        Soft delete a habit (set is_active = False)
+        Soft delete a habit (set is_active = False) and delete (set is_active = False) related habit_logs
         
         Returns:
             Tuple of (success, message)
@@ -221,6 +221,9 @@ class HabitService:
             
             if habit.get('trainer_id') != trainer_id:
                 return False, "You don't have permission to delete this habit"
+            
+            # Delete habit_logs entries for this habit
+            self.db.table('habit_logs').update({'is_active': False}).eq('habit_id', habit_id).execute()
             
             # Soft delete (use exact habit_id from database)
             result = self.db.table('fitness_habits').update({'is_active': False}).eq('habit_id', habit.get('habit_id')).execute()

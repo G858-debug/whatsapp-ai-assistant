@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Habits Dashboard - {{ user.name }}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .header {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      }
+
+      .header h1 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+      }
+
+      .header p {
+        color: #666;
+        font-size: 1.1em;
+      }
+
+      .date-selector {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .date-controls {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .month-year-selector {
+        display: flex;
+        gap: 10px;
+      }
+
+      .date-select {
+        padding: 12px 20px;
+        border: 2px solid #e0e0e0;
+        border-radius: 25px;
+        font-size: 16px;
+        background: white;
+        cursor: pointer;
+      }
+
+      .view-toggle {
+        display: flex;
+        gap: 10px;
+      }
+
+      .toggle-btn {
+        padding: 10px 20px;
+        border: 2px solid #667eea;
+        border-radius: 25px;
+        background: white;
+        color: #667eea;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .toggle-btn.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .habits-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+      }
+
+      .habit-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 5px solid #667eea;
+      }
+
+      .habit-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+      }
+
+      .habit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+      }
+
+      .habit-name {
+        font-size: 1.4em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+      }
+
+      .habit-id {
+        font-family: "Courier New", monospace;
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 5px;
+        font-size: 0.9em;
+        color: #666;
+        cursor: pointer;
+        user-select: all;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 20px;
+        background: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 10px 0;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #45a049);
+        transition: width 0.3s ease;
+        border-radius: 10px;
+      }
+
+      .progress-text {
+        text-align: center;
+        margin-top: 5px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .habit-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin: 15px 0;
+      }
+
+      .stat-item {
+        text-align: center;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 8px;
+      }
+
+      .stat-value {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .stat-label {
+        font-size: 0.9em;
+        color: #666;
+      }
+
+      .trainer-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        padding: 10px;
+        background: #f0f8ff;
+        border-radius: 8px;
+      }
+
+      .trainer-badge {
+        background: #667eea;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+      }
+
+      .leaderboard {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        height: fit-content;
+      }
+
+      .leaderboard h3 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+        text-align: center;
+      }
+
+      .leaderboard-item {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+      }
+
+      .leaderboard-item.current-user {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+      }
+
+      .leaderboard-item.current-user .rank {
+        background: white;
+        color: #667eea;
+      }
+
+      .rank {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #667eea;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+      }
+
+      .rank.gold {
+        background: #ffd700;
+        color: #333;
+      }
+      .rank.silver {
+        background: #c0c0c0;
+        color: #333;
+      }
+      .rank.bronze {
+        background: #cd7f32;
+        color: white;
+      }
+
+      .leaderboard-info {
+        flex: 1;
+      }
+
+      .leaderboard-name {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .leaderboard-stats {
+        font-size: 0.9em;
+        opacity: 0.8;
+      }
+
+      .leaderboard-progress {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #4caf50;
+      }
+
+      .leaderboard-item.current-user .leaderboard-progress {
+        color: white;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        grid-column: 1 / -1;
+      }
+
+      .empty-state h3 {
+        color: #666;
+        margin-bottom: 15px;
+        font-size: 1.5em;
+      }
+
+      .empty-state p {
+        color: #999;
+        font-size: 1.1em;
+      }
+
+      .streak-badge {
+        background: #ff6b35;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        margin-left: 10px;
+      }
+
+      @media (max-width: 1024px) {
+        .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .habits-section {
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+      }
+
+      @media (max-width: 768px) {
+        .habits-section {
+          grid-template-columns: 1fr;
+        }
+
+        .date-controls {
+          flex-direction: column;
+        }
+
+        .date-select {
+          width: 100%;
+        }
+
+        .habit-stats {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎯 My Habits Dashboard</h1>
+        <p>Track your progress and compete with other trainees</p>
+      </div>
+
+      <div class="date-selector">
+        <div class="date-controls">
+          <div class="view-toggle">
+            <button class="toggle-btn active" onclick="switchView('daily')">
+              Daily View
+            </button>
+            <button class="toggle-btn" onclick="switchView('monthly')">
+              Monthly View
+            </button>
+          </div>
+          <div
+            class="month-year-selector"
+            id="monthYearSelector"
+            style="display: none; gap: 10px"
+          >
+            <select class="date-select" id="monthSelect">
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+            <select class="date-select" id="yearSelect">
+              <!-- Will be populated by JavaScript -->
+            </select>
+          </div>
+          <input type="date" class="date-select" id="dateSelect" />
+        </div>
+      </div>
+
+      {% if habits %}
+      <div class="dashboard-grid">
+        <div class="habits-section" id="habitsSection">
+          {% for habit in habits %}
+          <div class="habit-card" data-habit-id="{{ habit.habit_id }}">
+            <div class="habit-header">
+              <div>
+                <div class="habit-name">{{ habit.habit_name }}</div>
+                <div
+                  class="habit-id"
+                  onclick="copyToClipboard('{{ habit.habit_id }}')"
+                >
+                  {{ habit.habit_id }}
+                </div>
+              </div>
+              {% if habit.streak_days > 0 %}
+              <div class="streak-badge">
+                🔥 {{ habit.streak_days }} day streak
+              </div>
+              {% endif %}
+            </div>
+
+            <div class="progress-bar">
+              <div
+                class="progress-fill daily-progress"
+                style="width: {{ habit.daily_progress_percent }}%"
+              ></div>
+              <div
+                class="progress-fill monthly-progress"
+                style="width: {{ habit.monthly_progress_percent }}%; display: none;"
+              ></div>
+            </div>
+            <div class="progress-text">
+              <span class="daily-text"
+                >{{ habit.daily_completed }}/{{ habit.daily_target }} {{
+                habit.unit }} ({{ habit.daily_progress_percent|round(1)
+                }}%)</span
+              >
+              <span class="monthly-text" style="display: none"
+                >{{ habit.monthly_completed }}/{{ habit.monthly_target }} {{
+                habit.unit }} ({{ habit.monthly_progress_percent|round(1)
+                }}%)</span
+              >
+            </div>
+
+            <div class="habit-stats">
+              <div class="stat-item">
+                <div class="stat-value daily-stat">
+                  {{ habit.daily_completed }}
+                </div>
+                <div class="stat-value monthly-stat" style="display: none">
+                  {{ habit.monthly_completed }}
+                </div>
+                <div class="stat-label">Completed</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value daily-stat">
+                  {{ habit.daily_target }}
+                </div>
+                <div class="stat-value monthly-stat" style="display: none">
+                  {{ habit.monthly_target }}
+                </div>
+                <div class="stat-label">Target</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{{ habit.frequency|title }}</div>
+                <div class="stat-label">Frequency</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{{ habit.streak_days }}</div>
+                <div class="stat-label">Streak Days</div>
+              </div>
+            </div>
+
+            {% if habit.description %}
+            <div
+              style="
+                color: #666;
+                font-style: italic;
+                margin: 10px 0;
+                padding: 10px;
+                background: #f9f9f9;
+                border-radius: 8px;
+              "
+            >
+              {{ habit.description }}
+            </div>
+            {% endif %}
+
+            <div class="trainer-info">
+              <div style="color: #666; font-size: 0.9em">
+                Assigned: {{ habit.assigned_date[:10] if habit.assigned_date
+                else 'Unknown' }}
+              </div>
+              <div class="trainer-badge">
+                {{ habit.trainer_name }} ({{ habit.trainer_id }})
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="leaderboard">
+          <h3>🏆 Leaderboard</h3>
+          {% for entry in leaderboard %}
+          <div
+            class="leaderboard-item {{ 'current-user' if entry.is_current_user else '' }}"
+          >
+            <div
+              class="rank {{ 'gold' if entry.rank == 1 else ('silver' if entry.rank == 2 else ('bronze' if entry.rank == 3 else '')) }}"
+            >
+              {{ entry.rank }}
+            </div>
+            <div class="leaderboard-info">
+              <div class="leaderboard-name">
+                {{ entry.name }} {% if entry.is_current_user %}<span
+                  style="font-weight: normal"
+                  >(You)</span
+                >{% endif %}
+              </div>
+              <div class="leaderboard-stats">
+                {{ entry.habit_count }} habits • {{ entry.total_streak }} total
+                streak
+              </div>
+            </div>
+            <div class="leaderboard-progress">{{ entry.progress }}%</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <h3>No habits assigned yet</h3>
+        <p>
+          You don't have any habits assigned by your trainers yet. Contact your
+          trainer to get started with your fitness journey!
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <script>
+      let currentView = "daily";
+
+      function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Habit ID ${text} copied!`, "success");
+        });
+      }
+
+      function toggleView(view) {
+        currentView = view;
+
+        // Update toggle buttons
+        document.querySelectorAll(".toggle-btn").forEach((btn) => {
+          btn.classList.remove("active");
+          if (btn.textContent.toLowerCase().includes(view)) {
+            btn.classList.add("active");
+          }
+        });
+
+        // Show/hide date selectors
+        const monthYearSelector = document.getElementById("monthYearSelector");
+        const dateSelect = document.getElementById("dateSelect");
+
+        if (view === "monthly") {
+          monthYearSelector.style.display = "flex";
+          dateSelect.style.display = "none";
+        } else {
+          monthYearSelector.style.display = "none";
+          dateSelect.style.display = "block";
+        }
+
+        // Update habit cards
+        updateHabitDisplay();
+      }
+
+      function updateHabitDisplay() {
+        const cards = document.querySelectorAll(".habit-card");
+
+        cards.forEach((card) => {
+          const dailyElements = card.querySelectorAll(
+            ".daily-progress, .daily-text, .daily-stat"
+          );
+          const monthlyElements = card.querySelectorAll(
+            ".monthly-progress, .monthly-text, .monthly-stat"
+          );
+
+          if (currentView === "daily") {
+            dailyElements.forEach(
+              (el) =>
+                (el.style.display = el.classList.contains("daily-progress")
+                  ? "block"
+                  : "")
+            );
+            monthlyElements.forEach((el) => (el.style.display = "none"));
+          } else {
+            dailyElements.forEach((el) => (el.style.display = "none"));
+            monthlyElements.forEach(
+              (el) =>
+                (el.style.display = el.classList.contains("monthly-progress")
+                  ? "block"
+                  : "")
+            );
+          }
+        });
+      }
+
+      function showToast(message, type) {
+        const toast = document.createElement("div");
+        toast.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${type === "success" ? "#4CAF50" : "#f44336"};
+          color: white;
+          padding: 15px 20px;
+          border-radius: 5px;
+          z-index: 1000;
+          animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+
+      // Add CSS animation
+      const style = document.createElement("style");
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Initialize year dropdown
+      function initializeYearDropdown() {
+        const yearSelect = document.getElementById("yearSelect");
+        const currentYear = new Date().getFullYear();
+
+        // Add years from 2020 to current year + 1
+        for (let year = 2020; year <= currentYear + 1; year++) {
+          const option = document.createElement("option");
+          option.value = year;
+          option.textContent = year;
+          if (year === currentYear) {
+            option.selected = true;
+          }
+          yearSelect.appendChild(option);
+        }
+      }
+
+      // Set current month and date
+      function initializeDateSelectors() {
+        const now = new Date();
+        const today = now.toISOString().split("T")[0];
+        const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+        const currentYear = now.getFullYear();
+
+        // Set values from backend or defaults
+        const selectedDate = "{{ selected_date or '' }}";
+        const selectedMonth = "{{ selected_month or '' }}";
+        const selectedYear = "{{ selected_year or '' }}";
+        const viewType = "{{ view_type or 'daily' }}";
+
+        document.getElementById("dateSelect").value = selectedDate || today;
+        document.getElementById("monthSelect").value =
+          selectedMonth || currentMonth;
+
+        // Set year after dropdown is populated
+        setTimeout(() => {
+          document.getElementById("yearSelect").value =
+            selectedYear || currentYear;
+        }, 100);
+
+        // Set initial view
+        if (viewType === "monthly") {
+          toggleView("monthly");
+        } else {
+          toggleView("daily");
+        }
+      }
+
+      // Event listeners for date/month changes
+      document
+        .getElementById("dateSelect")
+        .addEventListener("change", function () {
+          const selectedDate = this.value;
+          if (selectedDate) {
+            const url = new URL(window.location);
+            url.searchParams.set("view", "daily");
+            url.searchParams.set("date", selectedDate);
+            url.searchParams.delete("month");
+            url.searchParams.delete("year");
+            window.location.href = url.toString();
+          }
+        });
+
+      document
+        .getElementById("monthSelect")
+        .addEventListener("change", updateMonthlyView);
+      document
+        .getElementById("yearSelect")
+        .addEventListener("change", updateMonthlyView);
+
+      function updateMonthlyView() {
+        const selectedMonth = document.getElementById("monthSelect").value;
+        const selectedYear = document.getElementById("yearSelect").value;
+
+        if (selectedMonth && selectedYear) {
+          const url = new URL(window.location);
+          url.searchParams.set("view", "monthly");
+          url.searchParams.set("month", selectedMonth);
+          url.searchParams.set("year", selectedYear);
+          url.searchParams.delete("date");
+          window.location.href = url.toString();
+        }
+      }
+
+      function switchView(view) {
+        const url = new URL(window.location);
+        url.searchParams.set("view", view);
+
+        if (view === "daily") {
+          // Use current date or today
+          const currentDate =
+            document.getElementById("dateSelect").value ||
+            new Date().toISOString().split("T")[0];
+          url.searchParams.set("date", currentDate);
+          url.searchParams.delete("month");
+          url.searchParams.delete("year");
+        } else {
+          // Use current month/year
+          const currentMonth =
+            document.getElementById("monthSelect").value ||
+            String(new Date().getMonth() + 1).padStart(2, "0");
+          const currentYear =
+            document.getElementById("yearSelect").value ||
+            new Date().getFullYear();
+          url.searchParams.set("month", currentMonth);
+          url.searchParams.set("year", currentYear);
+          url.searchParams.delete("date");
+        }
+
+        window.location.href = url.toString();
+      }
+
+      // Initialize
+      initializeYearDropdown();
+      initializeDateSelectors();
+      updateHabitDisplay();
+    </script>
+  </body>
+</html>

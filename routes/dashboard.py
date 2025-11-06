@@ -320,9 +320,6 @@ def calculate_habit_progress(db, habit_id, client_id):
     daily_logs_count = len(daily_logs.data) if daily_logs.data else 0
     monthly_logs_count = len(monthly_logs.data) if monthly_logs.data else 0
     
-    # Calculate streak (simplified - consecutive days with logs)
-    streak_days = 0  # This would need more complex calculation
-    
     return {
         'daily_completed': daily_completed,
         'monthly_completed': monthly_completed,
@@ -337,9 +334,381 @@ def calculate_habit_progress(db, habit_id, client_id):
         'daily_completion_rate': daily_completion_rate,
         'monthly_completion_rate': monthly_completion_rate,
         'daily_logs_count': daily_logs_count,
-        'monthly_logs_count': monthly_logs_count,
-        'streak_days': streak_days
+        'monthly_logs_count': monthly_logs_count
     }
+
+
+def calculate_habit_streak(db, habit_id, client_id):
+    """Calculate current habit streak (consecutive days with logs)"""
+    from datetime import datetime, timedelta
+    
+    today = datetime.now().date()
+    streak = 0
+    current_date = today
+    
+    # Check backwards from today to find consecutive days with logs
+    for i in range(365):  # Check up to 1 year back
+        logs = db.table('habit_logs').select('id').eq(
+            'habit_id', habit_id
+        ).eq('client_id', client_id).eq('log_date', current_date.isoformat()).execute()
+        
+        if logs.data:
+            streak += 1
+            current_date -= timedelta(days=1)
+        else:
+            break
+    
+    return streak
+
+
+def calculate_habit_progress_for_date(db, habit_id, client_id, target_date):
+    """Calculate habit progress for a specific date"""
+    from datetime import datetime
+    
+    # Get logs for the specific date
+    daily_logs = db.table('habit_logs').select('completed_value').eq(
+        'habit_id', habit_id
+    ).eq('client_id', client_id).eq('log_date', target_date).execute()
+    
+    daily_completed = sum(float(log['completed_value']) for log in daily_logs.data) if daily_logs.data else 0
+    
+    # Get habit target
+    habit_result = db.table('fitness_habits').select('target_value, frequency').eq('habit_id', habit_id).execute()
+    if not habit_result.data:
+        return {}
+    
+    habit_data = habit_result.data[0]
+    daily_target = float(habit_data['target_value'])
+    
+    # Calculate progress
+    daily_progress_percent = min(100, (daily_completed / daily_target * 100)) if daily_target > 0 else 0
+    daily_remaining = max(0, daily_target - daily_completed)
+    daily_exceeded = max(0, daily_completed - daily_target)
+    
+    return {
+        'daily_completed': daily_completed,
+        'daily_target': daily_target,
+        'daily_remaining': daily_remaining,
+        'daily_exceeded': daily_exceeded,
+        'daily_progress_percent': daily_progress_percent,
+        'daily_completion_rate': min(100, daily_progress_percent),
+        'daily_logs_count': len(daily_logs.data) if daily_logs.data else 0,
+        'monthly_completed': 0,  # Not applicable for daily view
+        'monthly_target': 0,
+        'monthly_progress_percent': 0,
+        'monthly_completion_rate': 0,
+        'monthly_logs_count': 0
+    }
+
+
+def calculate_habit_progress_for_month(db, habit_id, client_id, year, month):
+    """Calculate habit progress for a specific month"""
+    from datetime import datetime
+    import calendar
+    
+    # Create date range for the month
+    year_int = int(year)
+    month_int = int(month)
+    month_start = f"{year}-{month.zfill(2)}-01"
+    days_in_month = calendar.monthrange(year_int, month_int)[1]
+    month_end = f"{year}-{month.zfill(2)}-{days_in_month:02d}"
+    
+    # Get logs for the specific month
+    monthly_logs = db.table('habit_logs').select('completed_value').eq(
+        'habit_id', habit_id
+    ).eq('client_id', client_id).gte('log_date', month_start).lte('log_date', month_end).execute()
+    
+    monthly_completed = sum(float(log['completed_value']) for log in monthly_logs.data) if monthly_logs.data else 0
+    
+    # Get habit target
+    habit_result = db.table('fitness_habits').select('target_value, frequency').eq('habit_id', habit_id).execute()
+    if not habit_result.data:
+        return {}
+    
+    habit_data = habit_result.data[0]
+    daily_target = float(habit_data['target_value'])
+    monthly_target = daily_target * days_in_month
+    
+    # Calculate progress
+    monthly_progress_percent = min(100, (monthly_completed / monthly_target * 100)) if monthly_target > 0 else 0
+    monthly_remaining = max(0, monthly_target - monthly_completed)
+    monthly_exceeded = max(0, monthly_completed - monthly_target)
+    
+    return {
+        'monthly_completed': monthly_completed,
+        'monthly_target': monthly_target,
+        'monthly_remaining': monthly_remaining,
+        'monthly_exceeded': monthly_exceeded,
+        'monthly_progress_percent': monthly_progress_percent,
+        'monthly_completion_rate': min(100, monthly_progress_percent),
+        'monthly_logs_count': len(monthly_logs.data) if monthly_logs.data else 0,
+        'daily_completed': 0,  # Not applicable for monthly view
+        'daily_target': daily_target,  # Keep for reference
+        'daily_progress_percent': 0,
+        'daily_completion_rate': 0,
+        'daily_logs_count': 0
+    }
+
+
+def calculate_client_leaderboard_for_month(db, client_id, year, month):
+    """Calculate leaderboard for clients based on habit progress for a specific month"""
+    from datetime import datetime
+    import calendar
+    
+    # Create date range for the month
+    year_int = int(year)
+    month_int = int(month)
+    month_start = f"{year}-{month.zfill(2)}-01"
+    days_in_month = calendar.monthrange(year_int, month_int)[1]
+    month_end = f"{year}-{month.zfill(2)}-{days_in_month:02d}"
+    
+    # Get all clients with habit assignments
+    clients_result = db.table('trainee_habit_assignments').select(
+        'client_id, clients(name)'
+    ).eq('is_active', True).execute()
+    
+    if not clients_result.data:
+        return []
+    
+    client_stats = {}
+    
+    # Calculate stats for each client
+    for assignment in clients_result.data:
+        client_id_iter = assignment['client_id']
+        client_name = assignment.get('clients', {}).get('name', 'Unknown') if assignment.get('clients') else 'Unknown'
+        
+        if client_id_iter not in client_stats:
+            client_stats[client_id_iter] = {
+                'client_id': client_id_iter,
+                'name': client_name,
+                'total_progress': 0,
+                'habit_count': 0,
+                'total_streak': 0,
+                'trainer_ids': set()
+            }
+        
+        # Get habit assignments for this client
+        habit_assignments = db.table('trainee_habit_assignments').select(
+            'habit_id, trainer_id'
+        ).eq('client_id', client_id_iter).eq('is_active', True).execute()
+        
+        for habit_assignment in habit_assignments.data:
+            habit_id = habit_assignment['habit_id']
+            trainer_id = habit_assignment['trainer_id']
+            
+            client_stats[client_id_iter]['trainer_ids'].add(trainer_id)
+            client_stats[client_id_iter]['habit_count'] += 1
+            
+            # Calculate progress for this habit for the specific month
+            progress = calculate_habit_progress_for_month(db, habit_id, client_id_iter, year, month)
+            client_stats[client_id_iter]['total_progress'] += progress.get('monthly_progress_percent', 0)
+            
+            # Calculate streak for this habit
+            streak = calculate_habit_streak(db, habit_id, client_id_iter)
+            client_stats[client_id_iter]['total_streak'] += streak
+    
+    # Calculate average progress and prepare leaderboard
+    leaderboard = []
+    for client_data in client_stats.values():
+        if client_data['habit_count'] > 0:
+            avg_progress = client_data['total_progress'] / client_data['habit_count']
+            trainer_ids = list(client_data['trainer_ids'])
+            
+            leaderboard.append({
+                'client_id': client_data['client_id'],
+                'name': client_data['name'],
+                'progress': round(avg_progress, 1),
+                'habit_count': client_data['habit_count'],
+                'total_streak': client_data['total_streak'],
+                'trainer_ids': trainer_ids,
+                'is_current_user': client_data['client_id'] == client_id
+            })
+    
+    # Sort by progress (descending)
+    leaderboard.sort(key=lambda x: x['progress'], reverse=True)
+    
+    # Add ranking
+    for i, entry in enumerate(leaderboard):
+        entry['rank'] = i + 1
+    
+    # Ensure current user is in top 10 or add them
+    current_user_entry = next((entry for entry in leaderboard if entry['is_current_user']), None)
+    top_10 = leaderboard[:10]
+    
+    if current_user_entry and current_user_entry not in top_10:
+        top_10.append(current_user_entry)
+    
+    return top_10
+
+
+def calculate_client_leaderboard(db, client_id):
+    """Calculate leaderboard for clients based on habit progress"""
+    from datetime import datetime
+    
+    current_month = datetime.now().strftime('%Y-%m')
+    
+    # Get all clients with habit assignments
+    clients_result = db.table('trainee_habit_assignments').select(
+        'client_id, clients(name)'
+    ).eq('is_active', True).execute()
+    
+    if not clients_result.data:
+        return []
+    
+    client_stats = {}
+    
+    # Calculate stats for each client
+    for assignment in clients_result.data:
+        client_id_iter = assignment['client_id']
+        client_name = assignment.get('clients', {}).get('name', 'Unknown') if assignment.get('clients') else 'Unknown'
+        
+        if client_id_iter not in client_stats:
+            client_stats[client_id_iter] = {
+                'client_id': client_id_iter,
+                'name': client_name,
+                'total_progress': 0,
+                'habit_count': 0,
+                'total_streak': 0,
+                'trainer_ids': set()
+            }
+        
+        # Get habit assignments for this client
+        habit_assignments = db.table('trainee_habit_assignments').select(
+            'habit_id, trainer_id'
+        ).eq('client_id', client_id_iter).eq('is_active', True).execute()
+        
+        for habit_assignment in habit_assignments.data:
+            habit_id = habit_assignment['habit_id']
+            trainer_id = habit_assignment['trainer_id']
+            
+            client_stats[client_id_iter]['trainer_ids'].add(trainer_id)
+            client_stats[client_id_iter]['habit_count'] += 1
+            
+            # Calculate progress for this habit this month
+            progress = calculate_habit_progress(db, habit_id, client_id_iter)
+            client_stats[client_id_iter]['total_progress'] += progress.get('monthly_progress_percent', 0)
+            
+            # Calculate streak for this habit
+            streak = calculate_habit_streak(db, habit_id, client_id_iter)
+            client_stats[client_id_iter]['total_streak'] += streak
+    
+    # Calculate average progress and prepare leaderboard
+    leaderboard = []
+    for client_data in client_stats.values():
+        if client_data['habit_count'] > 0:
+            avg_progress = client_data['total_progress'] / client_data['habit_count']
+            trainer_ids = list(client_data['trainer_ids'])
+            
+            leaderboard.append({
+                'client_id': client_data['client_id'],
+                'name': client_data['name'],
+                'progress': round(avg_progress, 1),
+                'habit_count': client_data['habit_count'],
+                'total_streak': client_data['total_streak'],
+                'trainer_ids': trainer_ids,
+                'is_current_user': client_data['client_id'] == client_id
+            })
+    
+    # Sort by progress (descending)
+    leaderboard.sort(key=lambda x: x['progress'], reverse=True)
+    
+    # Add ranking
+    for i, entry in enumerate(leaderboard):
+        entry['rank'] = i + 1
+    
+    # Ensure current user is in top 10 or add them
+    current_user_entry = next((entry for entry in leaderboard if entry['is_current_user']), None)
+    top_10 = leaderboard[:10]
+    
+    if current_user_entry and current_user_entry not in top_10:
+        top_10.append(current_user_entry)
+    
+    return top_10
+
+
+@dashboard_bp.route('/client-habits/<user_id>/<token>')
+def client_habits_view(user_id, token):
+    """Client habits dashboard view with progress tracking and leaderboard"""
+    try:
+        # Validate token
+        token_data = token_manager.validate_token(token, user_id)
+        if not token_data or token_data['role'] != 'client':
+            return render_template('dashboard/error.html', 
+                                 error="Invalid or expired access token"), 403
+        
+        # Get user info
+        user_info = dashboard_service.get_user_info(user_id, 'client')
+        if not user_info:
+            return render_template('dashboard/error.html', 
+                                 error="User not found"), 404
+        
+        # Get date parameters from query string
+        view_type = request.args.get('view', 'daily')  # daily or monthly
+        selected_date = request.args.get('date')  # YYYY-MM-DD format
+        selected_month = request.args.get('month')  # MM format
+        selected_year = request.args.get('year')  # YYYY format
+        
+        # Get client's assigned habits with trainer info
+        assignments_result = dashboard_service.db.table('trainee_habit_assignments').select(
+            '*, fitness_habits(*), trainers(name)'
+        ).eq('client_id', user_id).eq('is_active', True).execute()
+        
+        habits = []
+        if assignments_result.data:
+            for assignment in assignments_result.data:
+                habit_data = assignment.get('fitness_habits')
+                trainer_data = assignment.get('trainers')
+                if habit_data:
+                    # Add assignment and trainer info to habit data
+                    habit_data['assigned_date'] = assignment.get('assigned_date')
+                    habit_data['assignment_id'] = assignment.get('id')
+                    habit_data['trainer_id'] = assignment.get('trainer_id')
+                    habit_data['trainer_name'] = trainer_data.get('name') if trainer_data else 'Unknown'
+                    
+                    # Calculate progress data based on selected date/month
+                    if view_type == 'monthly' and selected_month and selected_year:
+                        habit_progress = calculate_habit_progress_for_month(
+                            dashboard_service.db, habit_data['habit_id'], user_id, 
+                            selected_year, selected_month
+                        )
+                    elif view_type == 'daily' and selected_date:
+                        habit_progress = calculate_habit_progress_for_date(
+                            dashboard_service.db, habit_data['habit_id'], user_id, 
+                            selected_date
+                        )
+                    else:
+                        # Default to current day/month
+                        habit_progress = calculate_habit_progress(dashboard_service.db, habit_data['habit_id'], user_id)
+                    
+                    habit_data.update(habit_progress)
+                    
+                    # Calculate streak
+                    streak = calculate_habit_streak(dashboard_service.db, habit_data['habit_id'], user_id)
+                    habit_data['streak_days'] = streak
+                    
+                    habits.append(habit_data)
+        
+        # Get leaderboard data (for selected month if monthly view)
+        if view_type == 'monthly' and selected_month and selected_year:
+            leaderboard = calculate_client_leaderboard_for_month(
+                dashboard_service.db, user_id, selected_year, selected_month
+            )
+        else:
+            leaderboard = calculate_client_leaderboard(dashboard_service.db, user_id)
+        
+        return render_template('dashboard/client_habits.html',
+                             user=user_info,
+                             habits=habits,
+                             leaderboard=leaderboard,
+                             view_type=view_type,
+                             selected_date=selected_date,
+                             selected_month=selected_month,
+                             selected_year=selected_year)
+        
+    except Exception as e:
+        log_error(f"Client habits dashboard error: {str(e)}")
+        return render_template('dashboard/error.html', 
+                             error="An error occurred loading the habits dashboard"), 500
 
 
 @dashboard_bp.route('/api/<user_id>/<token>/export')

@@ -14,7 +14,7 @@ def handle_view_progress(phone: str, client_id: str, db, whatsapp, task_service)
             user_id=client_id,
             role='client',
             task_type='view_progress',
-            task_data={'step': 'ask_date'}
+            task_data={'step': 'ask_view_type'}
         )
         
         if not task_id:
@@ -22,15 +22,15 @@ def handle_view_progress(phone: str, client_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'view_progress_task_error'}
         
-        # Ask for date
+        # Ask for view type first
         msg = (
             "📊 *View Your Progress*\n\n"
-            "Which date would you like to see?\n\n"
-            "*Options:*\n"
-            "• Type 'today' for today's progress\n"
-            "• Type 'yesterday' for yesterday\n"
-            "• Or enter a date (YYYY-MM-DD format)\n\n"
-            "Example: 2024-01-15\n\n"
+            "How would you like to view your progress?\n\n"
+            "*Choose View Type:*\n"
+            "• Type '1' or 'daily' for Daily Progress\n"
+            "• Type '2' or 'monthly' for Monthly Progress\n\n"
+            "📅 *Daily View:* See progress for a specific date\n"
+            "📈 *Monthly View:* See progress for an entire month\n\n"
             "Type /stop to cancel."
         )
         whatsapp.send_message(phone, msg)
