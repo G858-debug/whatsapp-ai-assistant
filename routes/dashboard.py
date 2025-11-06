@@ -941,6 +941,9 @@ def client_habits_view(user_id, token):
                     
                     habits.append(habit_data)
         
+        # Calculate statistics for the selected period
+        stats = calculate_habit_statistics(habits, view_type, selected_date, selected_month, selected_year)
+        
         # Get leaderboard data (for selected month if monthly view)
         if view_type == 'monthly' and selected_month and selected_year:
             leaderboard = calculate_client_leaderboard_for_month(
@@ -952,6 +955,7 @@ def client_habits_view(user_id, token):
         return render_template('dashboard/client_habits.html',
                              user=user_info,
                              habits=habits,
+                             stats=stats,
                              leaderboard=leaderboard,
                              view_type=view_type,
                              selected_date=selected_date,
@@ -1108,3 +1112,51 @@ def api_export_csv(user_id, token):
     except Exception as e:
         log_error(f"Export CSV error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+def calculate_habit_statistics(habits, view_type, selected_date=None, selected_month=None, selected_year=None):
+    """Calculate habit statistics for the selected period"""
+    try:
+        stats = {
+            'active_habits': 0,
+            'fully_completed': 0,
+            'working_habits': 0,
+            'not_started': 0,
+            'trainers': set()
+        }
+        
+        for habit in habits:
+            # Count active habits
+            stats['active_habits'] += 1
+            
+            # Count unique trainers
+            if habit.get('trainer_id'):
+                stats['trainers'].add(habit.get('trainer_id'))
+            
+            # Determine progress status based on view type
+            if view_type == 'daily':
+                progress_percent = habit.get('daily_progress_percent', 0)
+            else:  # monthly
+                progress_percent = habit.get('monthly_progress_percent', 0)
+            
+            # Categorize habits based on progress
+            if progress_percent >= 100:
+                stats['fully_completed'] += 1
+            elif progress_percent > 0:
+                stats['working_habits'] += 1
+            else:
+                stats['not_started'] += 1
+        
+        # Convert trainers set to count
+        stats['trainers'] = len(stats['trainers'])
+        
+        return stats
+        
+    except Exception as e:
+        log_error(f"Error calculating habit statistics: {str(e)}")
+        return {
+            'active_habits': 0,
+            'fully_completed': 0,
+            'working_habits': 0,
+            'not_started': 0,
+            'trainers': 0
+        }

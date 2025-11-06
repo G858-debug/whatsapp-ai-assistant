@@ -342,6 +342,66 @@
         color: white;
       }
 
+      .stats-container {
+        padding: 0;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 5px solid #667eea;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+      }
+
+      .stat-card.completed {
+        border-left-color: #4caf50;
+      }
+
+      .stat-card.working {
+        border-left-color: #ff9800;
+      }
+
+      .stat-card.not-started {
+        border-left-color: #f44336;
+      }
+
+      .stat-card.trainers {
+        border-left-color: #9c27b0;
+      }
+
+      .stat-icon {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+      }
+
+      .stat-label {
+        font-size: 1.1em;
+        color: #666;
+        font-weight: 600;
+      }
+
       .empty-state {
         text-align: center;
         padding: 60px 20px;
@@ -406,6 +466,27 @@
         .tab-content {
           padding: 20px;
         }
+
+        .stats-grid {
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 15px;
+        }
+
+        .stat-card {
+          padding: 20px;
+        }
+
+        .stat-icon {
+          font-size: 2em;
+        }
+
+        .stat-number {
+          font-size: 2em;
+        }
+
+        .stat-label {
+          font-size: 1em;
+        }
       }
     </style>
   </head>
@@ -454,6 +535,68 @@
       </div>
 
       {% if habits %}
+      <!-- Statistics Cards (Always Visible) -->
+      <div
+        class="stats-container"
+        style="
+          background: white;
+          border-radius: 15px;
+          padding: 25px;
+          margin-bottom: 30px;
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        "
+      >
+        <h3 style="text-align: center; margin-bottom: 30px; color: #333">
+          📊 Statistics
+        </h3>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-number">{{ stats.active_habits }}</div>
+            <div class="stat-label">Active Habits</div>
+          </div>
+
+          <div class="stat-card completed">
+            <div class="stat-icon">✅</div>
+            <div class="stat-number">{{ stats.fully_completed }}</div>
+            <div class="stat-label">Fully Completed</div>
+          </div>
+
+          <div class="stat-card working">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-number">{{ stats.working_habits }}</div>
+            <div class="stat-label">Working On</div>
+          </div>
+
+          <div class="stat-card not-started">
+            <div class="stat-icon">⏸️</div>
+            <div class="stat-number">{{ stats.not_started }}</div>
+            <div class="stat-label">Not Started</div>
+          </div>
+
+          <div class="stat-card trainers">
+            <div class="stat-icon">👨‍🏫</div>
+            <div class="stat-number">{{ stats.trainers }}</div>
+            <div class="stat-label">Trainers</div>
+          </div>
+        </div>
+
+        <div
+          class="stats-period"
+          style="
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 0.9em;
+          "
+        >
+          {% if view_type == 'daily' %} 📅 Statistics for {{ selected_date or
+          'today' }} {% else %} 📈 Statistics for {{ selected_month }}/{{
+          selected_year or 'current month' }} {% endif %}
+        </div>
+      </div>
+
       <div class="content-tabs">
         <div class="tab-buttons">
           <button class="tab-button active" onclick="switchTab('habits')">
