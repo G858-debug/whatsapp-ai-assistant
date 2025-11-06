@@ -147,6 +147,18 @@ class TrainerIntentHandler:
     
     def _handle_create_habit(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
         """Handle create habit intent"""
+        # Check if user already has a running create_habit task
+        user_id = context.get('user_id')
+        if user_id:
+            running_task = self.task_service.get_running_task(user_id, 'trainer')
+            if running_task and running_task.get('task_type') == 'create_habit':
+                # Don't send another create habit message if already in progress
+                return {
+                    'success': True,
+                    'response': "You already have a habit creation in progress. Please complete it or type /stop to cancel.",
+                    'handler': 'ai_intent_create_habit_already_running'
+                }
+        
         msg = (
             f"Great idea, {name}! I can help you create a new habit.\n\n"
             f"Click the button below or type /create-habit"
