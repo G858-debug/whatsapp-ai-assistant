@@ -12,12 +12,12 @@ from ..handlers.common_intent_handler import CommonIntentHandler
 class ResponseGenerator:
     """Generates responses based on intent"""
     
-    def __init__(self, supabase_client, whatsapp_service):
+    def __init__(self, supabase_client, whatsapp_service, task_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         
         # Initialize intent handlers
-        self.trainer_handler = TrainerIntentHandler(self.db, self.whatsapp)
+        self.trainer_handler = TrainerIntentHandler(self.db, self.whatsapp, task_service)
         self.client_handler = ClientIntentHandler(self.db, self.whatsapp)
         self.common_handler = CommonIntentHandler(self.db, self.whatsapp)
     

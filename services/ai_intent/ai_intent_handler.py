@@ -16,25 +16,28 @@ from .utils.fallback_responses import FallbackResponseHandler
 class AIIntentHandler:
     """Main AI Intent Handler - coordinates all AI intent processing"""
     
-    def __init__(self, db_or_config, whatsapp_or_supabase=None, services_dict=None):
+    def __init__(self, db_or_config, whatsapp_or_supabase=None, services_dict_or_task_service=None):
         """
         Initialize AIIntentHandler with flexible parameters for backward compatibility
         
         Can be called as:
         - AIIntentHandler(db, whatsapp) - Phase 1-3 style
+        - AIIntentHandler(db, whatsapp, task_service) - message_router style
         - AIIntentHandler(Config, supabase, services_dict) - app_core.py style
         """
         # Handle different calling conventions (preserve existing API)
-        if services_dict is not None:
+        if isinstance(services_dict_or_task_service, dict):
             # Called from app_core.py: (Config, supabase, services_dict)
             self.config = db_or_config
             self.db = whatsapp_or_supabase
-            self.whatsapp = services_dict.get('whatsapp') if services_dict else None
-            self.services = services_dict
+            self.whatsapp = services_dict_or_task_service.get('whatsapp') if services_dict_or_task_service else None
+            self.services = services_dict_or_task_service
+            self.task_service = services_dict_or_task_service.get('task_service') if services_dict_or_task_service else None
         else:
-            # Called from message_router: (db, whatsapp)
+            # Called from message_router: (db, whatsapp, task_service)
             self.db = db_or_config
             self.whatsapp = whatsapp_or_supabase
+            self.task_service = services_dict_or_task_service
             self.config = None
             self.services = None
         
@@ -43,7 +46,7 @@ class AIIntentHandler:
         # Initialize components
         self.context_builder = ContextBuilder(self.db)
         self.intent_detector = IntentDetector()
-        self.response_generator = ResponseGenerator(self.db, self.whatsapp)
+        self.response_generator = ResponseGenerator(self.db, self.whatsapp, self.task_service)
         self.fallback_handler = FallbackResponseHandler()
         
         log_info("AI Intent Handler (Phases 1-3) initialized with modular structure")

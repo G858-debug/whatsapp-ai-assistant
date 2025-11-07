@@ -9,9 +9,10 @@ from utils.logger import log_error
 class TrainerIntentHandler:
     """Handles trainer-specific intents"""
     
-    def __init__(self, supabase_client, whatsapp_service):
+    def __init__(self, supabase_client, whatsapp_service, task_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
+        self.task_service = task_service
     
     def get_supported_intents(self) -> List[str]:
         """Get list of supported trainer intents"""
