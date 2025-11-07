@@ -603,7 +603,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
     
     # Get trainer's trainees
     trainees_result = db.table('trainer_client_list').select(
-        'client_id, clients(name, phone, whatsapp, email)'
+        'client_id'
     ).eq('trainer_id', trainer_id).eq('connection_status', 'active').execute()
     
     if not trainees_result.data:
@@ -612,7 +612,10 @@ def get_trainer_trainees_with_progress(db, trainer_id):
     trainees = []
     for trainee_data in trainees_result.data:
         client_id = trainee_data['client_id']
-        client_info = trainee_data.get('clients', {})
+        
+        # Get client info separately
+        client_result = db.table('clients').select('name, whatsapp, email').eq('client_id', client_id).execute()
+        client_info = client_result.data[0] if client_result.data else {}
         
         if client_info:
             # Get habit assignments count
