@@ -9,7 +9,7 @@ from utils.logger import log_info, log_error
 from .habits.creation_commands import handle_create_habit, handle_edit_habit, handle_delete_habit
 from .habits.assignment_commands import handle_assign_habits, handle_view_client_habits
 from .habits.reporting_commands import handle_view_habit_progress, handle_export_habit_data
-from .dashboard_commands import handle_trainer_dashboard, handle_client_progress_dashboard
+from .dashboard_commands import handle_trainer_main_dashboard, handle_client_progress_dashboard
 
 # Import relationship commands
 from .relationships.invitation_commands import handle_invite_client, handle_create_client
@@ -82,18 +82,7 @@ class TrainerCommandHandler:
     
     def handle_trainer_dashboard(self, phone: str, trainer_id: str) -> Dict:
         """Handle /trainer-dashboard command"""
-        try:
-            from services.commands.trainer.dashboard_commands import handle_trainer_dashboard as trainer_dashboard_func
-            return trainer_dashboard_func(phone, trainer_id, self.db, self.whatsapp)
-        except Exception as e:
-            log_error(f"Error in handle_trainer_dashboard: {str(e)}")
-            msg = f"❌ Error generating trainer dashboard: {str(e)}"
-            self.whatsapp.send_message(phone, msg)
-            return {
-                'success': False,
-                'response': msg,
-                'handler': 'trainer_dashboard_error'
-            }
+        return handle_trainer_main_dashboard(phone, trainer_id, self.db, self.whatsapp)
     
     def handle_client_progress(self, phone: str, trainer_id: str) -> Dict:
         """Handle /client-progress command"""

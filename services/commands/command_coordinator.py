@@ -136,13 +136,7 @@ class CommandCoordinator:
         
         # Dashboard commands
         elif command == '/trainer-dashboard':
-            try:
-                return self.trainer_handler.handle_trainer_dashboard(phone, trainer_id)
-            except Exception as e:
-                log_error(f"Error in trainer-dashboard command: {str(e)}")
-                msg = f"❌ Error processing trainer dashboard command: {str(e)}"
-                self.whatsapp.send_message(phone, msg)
-                return {'success': False, 'response': msg, 'handler': 'trainer_dashboard_error'}
+            return self.trainer_handler.handle_trainer_dashboard(phone, trainer_id)
         elif command == '/client-progress':
             return self.trainer_handler.handle_client_progress(phone, trainer_id)
         

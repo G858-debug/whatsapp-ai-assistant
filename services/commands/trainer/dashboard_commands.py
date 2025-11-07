@@ -6,7 +6,7 @@ from typing import Dict
 from utils.logger import log_info, log_error
 
 
-def handle_trainer_dashboard(phone: str, trainer_id: str, db, whatsapp) -> Dict:
+def handle_trainer_main_dashboard(phone: str, trainer_id: str, db, whatsapp) -> Dict:
     """Handle /trainer-dashboard command"""
     try:
         # Generate trainer dashboard link
