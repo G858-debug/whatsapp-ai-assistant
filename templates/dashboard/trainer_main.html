@@ -101,15 +101,37 @@
 
       .leaderboard-table th,
       .leaderboard-table td {
-        padding: 12px;
+        padding: 8px;
         text-align: left;
         border-bottom: 1px solid #eee;
+        vertical-align: top;
       }
 
       .leaderboard-table th {
         background: #f8f9ff;
         font-weight: bold;
         color: #333;
+        font-size: 0.9em;
+      }
+
+      .leaderboard-table td {
+        font-size: 0.85em;
+      }
+
+      .client-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .client-name {
+        font-weight: bold;
+        color: #333;
+      }
+
+      .client-details {
+        color: #666;
+        font-size: 0.8em;
       }
 
       .rank-badge {
@@ -442,50 +464,64 @@
         </div>
       </div>
 
-      <!-- Daily Progress -->
+      <!-- Today's Progress by Trainee -->
       <div class="stats-section">
-        <h3 class="section-title">📅 Today's Progress</h3>
-        <div class="mini-stats-grid">
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.daily_target_met }}</div>
-            <div class="mini-stat-label">Target Met</div>
+        <h3 class="section-title">📅 Today's Progress by Trainee</h3>
+        {% if stats.trainee_daily_progress %}
+        <div class="client-breakdown">
+          {% for trainee in stats.trainee_daily_progress %}
+          <div class="client-item">
+            <div style="display: flex; align-items: center">
+              <span
+                class="status-indicator {% if trainee.progress > 0 %}status-active{% else %}status-inactive{% endif %}"
+              ></span>
+              <strong>{{ trainee.name }}</strong>
+            </div>
+            <div style="text-align: right">
+              <div>
+                {{ trainee.target_met }}/{{ trainee.total_habits }} targets met
+              </div>
+              <div style="color: #666; font-size: 0.9em">
+                {{ trainee.completed }} completed • {{ trainee.partial }}
+                partial • {{ trainee.not_started }} not started
+              </div>
+            </div>
           </div>
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.daily_completed }}</div>
-            <div class="mini-stat-label">Completed</div>
-          </div>
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.daily_partial }}</div>
-            <div class="mini-stat-label">Partial</div>
-          </div>
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.daily_not_started }}</div>
-            <div class="mini-stat-label">Not Started</div>
-          </div>
+          {% endfor %}
         </div>
+        {% else %}
+        <p>No daily progress data available.</p>
+        {% endif %}
       </div>
 
-      <!-- Monthly Progress -->
+      <!-- Monthly Progress by Trainee -->
       <div class="stats-section">
-        <h3 class="section-title">📊 This Month's Progress</h3>
-        <div class="mini-stats-grid">
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.monthly_target_met }}</div>
-            <div class="mini-stat-label">Target Met</div>
+        <h3 class="section-title">📊 This Month's Progress by Trainee</h3>
+        {% if stats.trainee_monthly_progress %}
+        <div class="client-breakdown">
+          {% for trainee in stats.trainee_monthly_progress %}
+          <div class="client-item">
+            <div style="display: flex; align-items: center">
+              <span
+                class="status-indicator {% if trainee.progress > 0 %}status-active{% else %}status-inactive{% endif %}"
+              ></span>
+              <strong>{{ trainee.name }}</strong>
+            </div>
+            <div style="text-align: right">
+              <div>
+                {{ trainee.target_met }}/{{ trainee.total_habits }} targets met
+              </div>
+              <div style="color: #666; font-size: 0.9em">
+                {{ trainee.completed }} completed • {{ trainee.partial }}
+                partial • {{ trainee.not_started }} not started
+              </div>
+            </div>
           </div>
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.monthly_completed }}</div>
-            <div class="mini-stat-label">Completed</div>
-          </div>
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.monthly_partial }}</div>
-            <div class="mini-stat-label">Partial</div>
-          </div>
-          <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.monthly_not_started }}</div>
-            <div class="mini-stat-label">Not Started</div>
-          </div>
+          {% endfor %}
         </div>
+        {% else %}
+        <p>No monthly progress data available.</p>
+        {% endif %}
       </div>
 
       <!-- Client Leaderboard -->
@@ -507,11 +543,16 @@
             <tr>
               <td><span class="rank-badge">{{ client.rank }}</span></td>
               <td>
-                <div style="display: flex; align-items: center">
-                  <span
-                    class="status-indicator {% if client.progress > 0 %}status-active{% else %}status-inactive{% endif %}"
-                  ></span>
-                  {{ client.name }}
+                <div class="client-info">
+                  <div class="client-name">
+                    <span
+                      class="status-indicator {% if client.progress > 0 %}status-active{% else %}status-inactive{% endif %}"
+                    ></span>
+                    {{ client.name }}
+                  </div>
+                  <div class="client-details">
+                    {{ client.habit_count }} habits assigned
+                  </div>
                 </div>
               </td>
               <td>
@@ -521,10 +562,19 @@
                     style="width: {{ client.progress }}%"
                   ></div>
                 </div>
-                {{ client.progress }}%
+                <div style="font-size: 0.8em; margin-top: 2px">
+                  {{ "%.1f"|format(client.progress) }}%
+                </div>
               </td>
-              <td>{{ client.streak }} days</td>
-              <td>{{ client.habit_count }}</td>
+              <td>
+                <div style="font-weight: bold; color: #667eea">
+                  {{ client.streak }}
+                </div>
+                <div style="font-size: 0.8em; color: #666">days</div>
+              </td>
+              <td style="text-align: center; font-weight: bold">
+                {{ client.habit_count }}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -574,8 +624,10 @@
             <div class="mini-stat-label">Avg Client Progress</div>
           </div>
           <div class="mini-stat-card">
-            <div class="mini-stat-value">{{ stats.total_streaks }}</div>
-            <div class="mini-stat-label">Total Streaks</div>
+            <div class="mini-stat-value">
+              {{ "%.1f"|format(stats.avg_streak) }}
+            </div>
+            <div class="mini-stat-label">Avg Streak (days)</div>
           </div>
           <div class="mini-stat-card">
             <div class="mini-stat-value">{{ stats.active_assignments }}</div>

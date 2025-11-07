@@ -379,20 +379,28 @@ def calculate_habit_streak(db, habit_id, client_id):
     """Calculate current habit streak (consecutive days with logs)"""
     from datetime import datetime, timedelta
     
+    if not habit_id or not client_id:
+        return 0
+    
     today = datetime.now().date()
     streak = 0
     current_date = today
     
     # Check backwards from today to find consecutive days with logs
     for i in range(365):  # Check up to 1 year back
-        logs = db.table('habit_logs').select('id').eq(
-            'habit_id', habit_id
-        ).eq('client_id', client_id).eq('log_date', current_date.isoformat()).execute()
-        
-        if logs.data:
-            streak += 1
-            current_date -= timedelta(days=1)
-        else:
+        try:
+            logs = db.table('habit_logs').select('id, completed_value').eq(
+                'habit_id', str(habit_id)
+            ).eq('client_id', str(client_id)).eq('log_date', current_date.isoformat()).execute()
+            
+            # Only count as streak if there's a log with completed_value > 0
+            if logs.data and any(float(log.get('completed_value', 0)) > 0 for log in logs.data):
+                streak += 1
+                current_date -= timedelta(days=1)
+            else:
+                break
+        except Exception as e:
+            log_error(f"Error calculating streak for habit {habit_id}, client {client_id}: {str(e)}")
             break
     
     return streak
@@ -622,15 +630,19 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             
             if assignments_result.data:
                 for assignment in assignments_result.data:
-                    habit_id = assignment['habit_id']
-                    
+                    habit_id = assignment.get('habit_id')
+                    if not habit_id:
+                        continue
+                        
                     # Calculate progress
                     progress = calculate_habit_progress(db, habit_id, client_id)
-                    total_progress += progress.get('monthly_progress_percent', 0)
+                    if progress:
+                        total_progress += progress.get('monthly_progress_percent', 0)
                     
                     # Calculate streak
                     streak = calculate_habit_streak(db, habit_id, client_id)
-                    total_streak += streak
+                    if streak > 0:
+                        total_streak += streak
             
             avg_progress = total_progress / habit_count if habit_count > 0 else 0
             
@@ -688,9 +700,41 @@ def calculate_trainer_stats(db, trainer_id, trainees):
         monthly_logs_result = db.table('habit_logs').select('*').gte('log_date', str(month_start)).lte('log_date', str(today)).in_('habit_id', trainer_habit_ids).execute()
         monthly_logs = monthly_logs_result.data if monthly_logs_result.data else []
     
-    # Calculate completion statistics
-    daily_stats = calculate_completion_stats(daily_logs, assignments_result.data if assignments_result.data else [], db)
-    monthly_stats = calculate_completion_stats(monthly_logs, assignments_result.data if assignments_result.data else [], db)
+    # Calculate per-trainee progress statistics
+    trainee_daily_progress = []
+    trainee_monthly_progress = []
+    
+    for trainee in trainees:
+        client_id = trainee.get('client_id')
+        client_assignments = [a for a in (assignments_result.data or []) if a.get('client_id') == client_id and a.get('is_active', False)]
+        
+        # Daily progress for this trainee
+        client_daily_logs = [log for log in daily_logs if log.get('client_id') == client_id]
+        daily_stats = calculate_completion_stats(client_daily_logs, client_assignments, db)
+        
+        trainee_daily_progress.append({
+            'name': trainee.get('name', 'Unknown'),
+            'progress': trainee.get('avg_progress', 0),
+            'total_habits': len(client_assignments),
+            'target_met': daily_stats['target_met'],
+            'completed': daily_stats['completed'],
+            'partial': daily_stats['partial'],
+            'not_started': daily_stats['not_started']
+        })
+        
+        # Monthly progress for this trainee
+        client_monthly_logs = [log for log in monthly_logs if log.get('client_id') == client_id]
+        monthly_stats = calculate_completion_stats(client_monthly_logs, client_assignments, db)
+        
+        trainee_monthly_progress.append({
+            'name': trainee.get('name', 'Unknown'),
+            'progress': trainee.get('avg_progress', 0),
+            'total_habits': len(client_assignments),
+            'target_met': monthly_stats['target_met'],
+            'completed': monthly_stats['completed'],
+            'partial': monthly_stats['partial'],
+            'not_started': monthly_stats['not_started']
+        })
     
     # Client-by-client habit assignments
     client_habit_breakdown = {}
@@ -722,6 +766,10 @@ def calculate_trainer_stats(db, trainer_id, trainees):
     for i, client in enumerate(leaderboard_data):
         client['rank'] = i + 1
     
+    # Calculate average streak for active clients
+    active_streaks = [t.get('total_streak', 0) for t in trainees if t.get('avg_progress', 0) > 0]
+    avg_streak = sum(active_streaks) / len(active_streaks) if active_streaks else 0
+    
     return {
         # Client Statistics
         'total_clients': total_clients,
@@ -734,17 +782,9 @@ def calculate_trainer_stats(db, trainer_id, trainees):
         'active_assignments': active_assignments,
         'unassigned_habits': max(0, unassigned_habits),
         
-        # Daily Statistics
-        'daily_completed': daily_stats['completed'],
-        'daily_partial': daily_stats['partial'],
-        'daily_not_started': daily_stats['not_started'],
-        'daily_target_met': daily_stats['target_met'],
-        
-        # Monthly Statistics  
-        'monthly_completed': monthly_stats['completed'],
-        'monthly_partial': monthly_stats['partial'],
-        'monthly_not_started': monthly_stats['not_started'],
-        'monthly_target_met': monthly_stats['target_met'],
+        # Per-Trainee Progress
+        'trainee_daily_progress': trainee_daily_progress,
+        'trainee_monthly_progress': trainee_monthly_progress,
         
         # Client Breakdown
         'client_habit_breakdown': client_habit_breakdown,
@@ -754,7 +794,8 @@ def calculate_trainer_stats(db, trainer_id, trainees):
         
         # Overall Metrics
         'avg_progress': sum(t.get('avg_progress', 0) for t in trainees) / total_clients if total_clients > 0 else 0,
-        'total_streaks': sum(t.get('total_streak', 0) for t in trainees)
+        'total_streaks': sum(t.get('total_streak', 0) for t in trainees),
+        'avg_streak': avg_streak
     }
 
 
