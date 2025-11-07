@@ -597,6 +597,27 @@ def calculate_client_leaderboard_for_month(db, client_id, year, month):
     return top_10
 
 
+def get_client_last_activity(db, client_id):
+    """Get the most recent activity date for a client"""
+    from datetime import datetime
+    
+    # Get the most recent habit log for this client
+    recent_log = db.table('habit_logs').select('log_date').eq(
+        'client_id', client_id
+    ).order('log_date', desc=True).limit(1).execute()
+    
+    if recent_log.data:
+        log_date = recent_log.data[0]['log_date']
+        # Convert to readable format
+        try:
+            date_obj = datetime.strptime(log_date, '%Y-%m-%d')
+            return date_obj.strftime('%b %d')  # e.g., "Nov 06"
+        except:
+            return log_date
+    
+    return "No activity"
+
+
 def get_trainer_trainees_with_progress(db, trainer_id):
     """Get trainer's trainees with their progress data"""
     from datetime import datetime
@@ -652,7 +673,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
                 'habit_count': habit_count,
                 'avg_progress': round(avg_progress, 1),
                 'total_streak': total_streak,
-                'last_activity': datetime.now().strftime('%Y-%m-%d')  # Placeholder
+                'last_activity': get_client_last_activity(db, client_id)
             })
     
     return trainees
