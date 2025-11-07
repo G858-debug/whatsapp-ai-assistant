@@ -609,10 +609,10 @@ def get_trainer_trainees_with_progress(db, trainer_id):
         client_info = client_result.data[0] if client_result.data else {}
         
         if client_info:
-            # Get habit assignments count (same as client dashboard - no trainer filter)
+            # Get habit assignments count
             assignments_result = db.table('trainee_habit_assignments').select(
-                'habit_id, trainer_id'
-            ).eq('client_id', client_id).eq('is_active', True).execute()
+                'habit_id'
+            ).eq('client_id', client_id).eq('trainer_id', trainer_id).eq('is_active', True).execute()
             
             habit_count = len(assignments_result.data) if assignments_result.data else 0
             
@@ -622,18 +622,15 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             
             if assignments_result.data:
                 for assignment in assignments_result.data:
-                    habit_id = assignment.get('habit_id')
-                    if not habit_id:
-                        continue
-                        
+                    habit_id = assignment['habit_id']
+                    
                     # Calculate progress
                     progress = calculate_habit_progress(db, habit_id, client_id)
-                    if progress:
-                        total_progress += progress.get('monthly_progress_percent', 0)
+                    total_progress += progress.get('monthly_progress_percent', 0)
                     
-                    # Calculate streak - use the same logic as client dashboard
+                    # Calculate streak
                     streak = calculate_habit_streak(db, habit_id, client_id)
-                    total_streak += streak  # Add all streaks, even if 0
+                    total_streak += streak
             
             avg_progress = total_progress / habit_count if habit_count > 0 else 0
             
@@ -649,8 +646,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             })
     
     return trainees
-
-
+    
 def calculate_trainer_stats(db, trainer_id, trainees):
     """Calculate comprehensive trainer statistics"""
     from datetime import datetime, timedelta
