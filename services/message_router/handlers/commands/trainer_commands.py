@@ -106,6 +106,10 @@ class TrainerCommandHandler:
                 from services.commands import handle_view_trainee_progress
                 return handle_view_trainee_progress(phone, user_id, self.db, self.whatsapp, self.task_service)
             
+            elif cmd == '/trainer-dashboard':
+                from services.commands.dashboard import generate_trainer_main_dashboard
+                return generate_trainer_main_dashboard(phone, user_id, self.db, self.whatsapp)
+            
             elif cmd == '/trainee-weekly-report':
                 from services.commands import handle_trainee_report
                 return handle_trainee_report(phone, user_id, self.db, self.whatsapp, self.task_service, 'weekly')
