@@ -379,28 +379,20 @@ def calculate_habit_streak(db, habit_id, client_id):
     """Calculate current habit streak (consecutive days with logs)"""
     from datetime import datetime, timedelta
     
-    if not habit_id or not client_id:
-        return 0
-    
     today = datetime.now().date()
     streak = 0
     current_date = today
     
     # Check backwards from today to find consecutive days with logs
     for i in range(365):  # Check up to 1 year back
-        try:
-            logs = db.table('habit_logs').select('id, completed_value').eq(
-                'habit_id', str(habit_id)
-            ).eq('client_id', str(client_id)).eq('log_date', current_date.isoformat()).execute()
-            
-            # Only count as streak if there's a log with completed_value > 0
-            if logs.data and any(float(log.get('completed_value', 0)) > 0 for log in logs.data):
-                streak += 1
-                current_date -= timedelta(days=1)
-            else:
-                break
-        except Exception as e:
-            log_error(f"Error calculating streak for habit {habit_id}, client {client_id}: {str(e)}")
+        logs = db.table('habit_logs').select('id').eq(
+            'habit_id', habit_id
+        ).eq('client_id', client_id).eq('log_date', current_date.isoformat()).execute()
+        
+        if logs.data:
+            streak += 1
+            current_date -= timedelta(days=1)
+        else:
             break
     
     return streak
@@ -617,10 +609,10 @@ def get_trainer_trainees_with_progress(db, trainer_id):
         client_info = client_result.data[0] if client_result.data else {}
         
         if client_info:
-            # Get habit assignments count
+            # Get habit assignments count (same as client dashboard - no trainer filter)
             assignments_result = db.table('trainee_habit_assignments').select(
-                'habit_id'
-            ).eq('client_id', client_id).eq('trainer_id', trainer_id).eq('is_active', True).execute()
+                'habit_id, trainer_id'
+            ).eq('client_id', client_id).eq('is_active', True).execute()
             
             habit_count = len(assignments_result.data) if assignments_result.data else 0
             
@@ -639,10 +631,9 @@ def get_trainer_trainees_with_progress(db, trainer_id):
                     if progress:
                         total_progress += progress.get('monthly_progress_percent', 0)
                     
-                    # Calculate streak
+                    # Calculate streak - use the same logic as client dashboard
                     streak = calculate_habit_streak(db, habit_id, client_id)
-                    if streak > 0:
-                        total_streak += streak
+                    total_streak += streak  # Add all streaks, even if 0
             
             avg_progress = total_progress / habit_count if habit_count > 0 else 0
             
@@ -706,7 +697,9 @@ def calculate_trainer_stats(db, trainer_id, trainees):
     
     for trainee in trainees:
         client_id = trainee.get('client_id')
-        client_assignments = [a for a in (assignments_result.data or []) if a.get('client_id') == client_id and a.get('is_active', False)]
+        # Get assignments for this specific client (same as in get_trainer_trainees_with_progress)
+        client_assignments_result = db.table('trainee_habit_assignments').select('*').eq('client_id', client_id).eq('is_active', True).execute()
+        client_assignments = client_assignments_result.data if client_assignments_result.data else []
         
         # Daily progress for this trainee
         client_daily_logs = [log for log in daily_logs if log.get('client_id') == client_id]
@@ -740,7 +733,9 @@ def calculate_trainer_stats(db, trainer_id, trainees):
     client_habit_breakdown = {}
     for trainee in trainees:
         client_id = trainee.get('client_id')
-        client_assignments = [a for a in (assignments_result.data or []) if a.get('client_id') == client_id and a.get('is_active', False)]
+        # Get assignments for this specific client
+        client_assignments_result = db.table('trainee_habit_assignments').select('*').eq('client_id', client_id).eq('is_active', True).execute()
+        client_assignments = client_assignments_result.data if client_assignments_result.data else []
         client_habit_breakdown[client_id] = {
             'name': trainee.get('name', 'Unknown'),
             'assigned_habits': len(client_assignments),
