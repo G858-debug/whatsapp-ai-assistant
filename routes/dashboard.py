@@ -379,11 +379,20 @@ def calculate_habit_streak(db, habit_id, client_id):
     """Calculate current habit streak (consecutive days with logs)"""
     from datetime import datetime, timedelta
     
-    today = datetime.now().date()
-    streak = 0
-    current_date = today
+    # Get the most recent log date for this habit and client
+    recent_log = db.table('habit_logs').select('log_date').eq(
+        'habit_id', habit_id
+    ).eq('client_id', client_id).order('log_date', desc=True).limit(1).execute()
     
-    # Check backwards from today to find consecutive days with logs
+    if not recent_log.data:
+        return 0
+    
+    # Start from the most recent log date
+    most_recent_date = datetime.strptime(recent_log.data[0]['log_date'], '%Y-%m-%d').date()
+    streak = 0
+    current_date = most_recent_date
+    
+    # Check backwards from most recent log date to find consecutive days with logs
     for i in range(365):  # Check up to 1 year back
         logs = db.table('habit_logs').select('id').eq(
             'habit_id', habit_id
