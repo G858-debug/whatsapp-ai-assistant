@@ -646,7 +646,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             trainees.append({
                 'client_id': client_id,
                 'name': client_info.get('name', 'Unknown'),
-                'phone': client_info.get('phone', ''),
+                'phone': client_info.get('whatsapp', ''),
                 'whatsapp': client_info.get('whatsapp', ''),
                 'email': client_info.get('email', ''),
                 'habit_count': habit_count,
