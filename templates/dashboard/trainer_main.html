@@ -45,9 +45,129 @@
 
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
         margin-bottom: 30px;
+      }
+
+      .stats-section {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .section-title {
+        font-size: 1.5em;
+        color: #333;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+      }
+
+      .mini-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .mini-stat-card {
+        background: #f8f9ff;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        border-left: 4px solid #667eea;
+      }
+
+      .mini-stat-value {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 5px;
+      }
+
+      .mini-stat-label {
+        color: #666;
+        font-size: 0.9em;
+      }
+
+      .leaderboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+
+      .leaderboard-table th,
+      .leaderboard-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+      }
+
+      .leaderboard-table th {
+        background: #f8f9ff;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .rank-badge {
+        background: #667eea;
+        color: white;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9em;
+        font-weight: bold;
+      }
+
+      .progress-bar {
+        background: #e0e0e0;
+        border-radius: 10px;
+        height: 8px;
+        overflow: hidden;
+        margin: 5px 0;
+      }
+
+      .progress-fill {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.3s ease;
+      }
+
+      .client-breakdown {
+        display: grid;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .client-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background: #f8f9ff;
+        border-radius: 8px;
+        border-left: 3px solid #667eea;
+      }
+
+      .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .status-active {
+        background: #4caf50;
+      }
+      .status-inactive {
+        background: #f44336;
       }
 
       .stat-card {
@@ -279,131 +399,222 @@
       <div class="header">
         <h1>🎯 Trainer Dashboard</h1>
         <p>
-          Welcome back, {{ user.name }}! Manage your trainees and track their
-          progress.
+          Welcome back, {{ user.name }}! Comprehensive training management and
+          analytics.
         </p>
       </div>
 
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.total_trainees }}</div>
-          <div class="stat-label">Total Trainees</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.active_trainees }}</div>
-          <div class="stat-label">Active Trainees</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.total_habits }}</div>
-          <div class="stat-label">Total Habits</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.avg_progress }}%</div>
-          <div class="stat-label">Avg Progress</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ stats.total_streaks }}</div>
-          <div class="stat-label">Total Streaks</div>
+      <!-- Client Statistics -->
+      <div class="stats-section">
+        <h3 class="section-title">👥 Client Overview</h3>
+        <div class="mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.total_clients }}</div>
+            <div class="mini-stat-label">Total Clients</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.active_clients }}</div>
+            <div class="mini-stat-label">Active Clients</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.inactive_clients }}</div>
+            <div class="mini-stat-label">Inactive Clients</div>
+          </div>
         </div>
       </div>
 
-      <div class="main-content">
-        <div class="trainees-section">
-          <div class="section-header">
-            <h2 class="section-title">Your Trainees ({{ trainees|length }})</h2>
-            <input
-              type="text"
-              class="search-box"
-              placeholder="🔍 Search trainees..."
-              id="searchInput"
-            />
+      <!-- Habit Statistics -->
+      <div class="stats-section">
+        <h3 class="section-title">🎯 Habit Management</h3>
+        <div class="mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.total_habits_created }}</div>
+            <div class="mini-stat-label">Habits Created</div>
           </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.active_assignments }}</div>
+            <div class="mini-stat-label">Assigned Habits</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.unassigned_habits }}</div>
+            <div class="mini-stat-label">Unassigned Habits</div>
+          </div>
+        </div>
+      </div>
 
-          {% if trainees %}
-          <div class="trainees-grid" id="traineesGrid">
-            {% for trainee in trainees %}
-            <div
-              class="trainee-card"
-              data-name="{{ trainee.name|lower }}"
-              onclick="viewTraineeDetails('{{ trainee.client_id }}')"
-            >
-              <div class="trainee-header">
-                <div>
-                  <div class="trainee-name">{{ trainee.name }}</div>
-                  <div class="trainee-contact">
-                    📱 {{ trainee.phone }}<br />
-                    📧 {{ trainee.email }}
-                  </div>
+      <!-- Daily Progress -->
+      <div class="stats-section">
+        <h3 class="section-title">📅 Today's Progress</h3>
+        <div class="mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.daily_target_met }}</div>
+            <div class="mini-stat-label">Target Met</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.daily_completed }}</div>
+            <div class="mini-stat-label">Completed</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.daily_partial }}</div>
+            <div class="mini-stat-label">Partial</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.daily_not_started }}</div>
+            <div class="mini-stat-label">Not Started</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Progress -->
+      <div class="stats-section">
+        <h3 class="section-title">📊 This Month's Progress</h3>
+        <div class="mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.monthly_target_met }}</div>
+            <div class="mini-stat-label">Target Met</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.monthly_completed }}</div>
+            <div class="mini-stat-label">Completed</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.monthly_partial }}</div>
+            <div class="mini-stat-label">Partial</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.monthly_not_started }}</div>
+            <div class="mini-stat-label">Not Started</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Client Leaderboard -->
+      <div class="stats-section">
+        <h3 class="section-title">🏆 Client Leaderboard</h3>
+        {% if stats.leaderboard %}
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Client</th>
+              <th>Progress</th>
+              <th>Streak</th>
+              <th>Habits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for client in stats.leaderboard %}
+            <tr>
+              <td><span class="rank-badge">{{ client.rank }}</span></td>
+              <td>
+                <div style="display: flex; align-items: center">
+                  <span
+                    class="status-indicator {% if client.progress > 0 %}status-active{% else %}status-inactive{% endif %}"
+                  ></span>
+                  {{ client.name }}
                 </div>
-                <div class="progress-indicator">
+              </td>
+              <td>
+                <div class="progress-bar">
                   <div
-                    class="progress-circle"
-                    style="--progress: {{ trainee.avg_progress * 3.6 }}deg"
-                  >
-                    {{ trainee.avg_progress }}%
-                  </div>
+                    class="progress-fill"
+                    style="width: {{ client.progress }}%"
+                  ></div>
                 </div>
-              </div>
+                {{ client.progress }}%
+              </td>
+              <td>{{ client.streak }} days</td>
+              <td>{{ client.habit_count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p>No client data available yet.</p>
+        {% endif %}
+      </div>
 
-              <div class="trainee-stats">
-                <div class="trainee-stat">
-                  <div class="trainee-stat-value">
-                    {{ trainee.habit_count }}
-                  </div>
-                  <div class="trainee-stat-label">Habits</div>
-                </div>
-                <div class="trainee-stat">
-                  <div class="trainee-stat-value">
-                    {{ trainee.total_streak }}
-                  </div>
-                  <div class="trainee-stat-label">Total Streak</div>
-                </div>
-                <div class="trainee-stat">
-                  <div class="trainee-stat-value">
-                    {{ trainee.last_activity }}
-                  </div>
-                  <div class="trainee-stat-label">Last Active</div>
-                </div>
+      <!-- Client Habit Breakdown -->
+      <div class="stats-section">
+        <h3 class="section-title">📋 Client Habit Assignments</h3>
+        {% if stats.client_habit_breakdown %}
+        <div class="client-breakdown">
+          {% for client_id, client_data in stats.client_habit_breakdown.items()
+          %}
+          <div class="client-item">
+            <div style="display: flex; align-items: center">
+              <span
+                class="status-indicator {% if client_data.progress > 0 %}status-active{% else %}status-inactive{% endif %}"
+              ></span>
+              <strong>{{ client_data.name }}</strong>
+            </div>
+            <div style="text-align: right">
+              <div>{{ client_data.assigned_habits }} habits assigned</div>
+              <div style="color: #666; font-size: 0.9em">
+                {{ client_data.progress }}% progress • {{ client_data.streak }}
+                day streak
               </div>
             </div>
-            {% endfor %}
           </div>
-          {% else %}
-          <div class="empty-state">
-            <h3>No trainees yet</h3>
-            <p>
-              Start building your client base by inviting trainees to join your
-              training program!
-            </p>
-          </div>
-          {% endif %}
+          {% endfor %}
         </div>
+        {% else %}
+        <p>No client assignments yet.</p>
+        {% endif %}
+      </div>
 
-        <div class="coming-soon">
-          <h3>🚀 Coming Soon</h3>
-          <ul class="feature-list">
-            <li class="feature-item">
-              <span class="feature-icon">📅</span>
-              Booking Management
-            </li>
-            <li class="feature-item">
-              <span class="feature-icon">💰</span>
-              Earnings Tracking
-            </li>
-            <li class="feature-item">
-              <span class="feature-icon">📊</span>
-              Engagement Metrics
-            </li>
-            <li class="feature-item">
-              <span class="feature-icon">📈</span>
-              Trend Analysis
-            </li>
-            <li class="feature-item">
-              <span class="feature-icon">🔍</span>
-              Client Insights
-            </li>
-          </ul>
+      <!-- Peclass="co Summary -->
+      <div class="stats-section">
+        <h3 class="section-title">📈 Performance Summary</h3>
+        <div class="mini-stats-grid">
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">
+              {{ "%.1f"|format(stats.avg_progress) }}%
+            </div>
+            <div class="mini-stat-label">Avg Client Progress</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.total_streaks }}</div>
+            <div class="mini-stat-label">Total Streaks</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">{{ stats.active_assignments }}</div>
+            <div class="mini-stat-label">Active Assignments</div>
+          </div>
+          <div class="mini-stat-card">
+            <div class="mini-stat-value">
+              {{ "%.0f"|format((stats.active_clients / stats.total_clients *
+              100) if stats.total_clients > 0 else 0) }}%
+            </div>
+            <div class="mini-stat-label">Client Retention</div>
+          </div>
         </div>
+      </div>
+
+      <div class="coming-soon">
+        <h3>🚀 Coming Soon</h3>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">📅</span>
+            Booking Management
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">💰</span>
+            Earnings Tracking
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">📊</span>
+            Engagement Metrics
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">📈</span>
+            Trend Analysis
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">🔍</span>
+            Client Insights
+          </li>
+        </ul>
       </div>
     </div>
 

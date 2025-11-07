@@ -637,7 +637,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             trainees.append({
                 'client_id': client_id,
                 'name': client_info.get('name', 'Unknown'),
-                'phone': client_info.get('phone', ''),
+                'whatsapp': client_info.get('whatsapp', ''),
                 'email': client_info.get('email', ''),
                 'habit_count': habit_count,
                 'avg_progress': round(avg_progress, 1),
@@ -649,21 +649,159 @@ def get_trainer_trainees_with_progress(db, trainer_id):
 
 
 def calculate_trainer_stats(db, trainer_id, trainees):
-    """Calculate overall trainer statistics"""
-    total_trainees = len(trainees)
-    total_habits = sum(trainee['habit_count'] for trainee in trainees)
-    avg_progress = sum(trainee['avg_progress'] for trainee in trainees) / total_trainees if total_trainees > 0 else 0
-    total_streaks = sum(trainee['total_streak'] for trainee in trainees)
+    """Calculate comprehensive trainer statistics"""
+    from datetime import datetime, timedelta
     
-    # Active trainees (with progress > 0)
-    active_trainees = len([t for t in trainees if t['avg_progress'] > 0])
+    # Client Statistics
+    total_clients = len(trainees)
+    active_clients = len([t for t in trainees if t.get('avg_progress', 0) > 0])
+    inactive_clients = total_clients - active_clients
+    
+    # Get all trainer's fitness habits
+    trainer_habits_result = db.table('fitness_habits').select('*').eq('trainer_id', trainer_id).execute()
+    total_habits_created = len(trainer_habits_result.data) if trainer_habits_result.data else 0
+    
+    # Get habit assignments
+    assignments_result = db.table('trainee_habit_assignments').select('*').eq('trainer_id', trainer_id).execute()
+    total_assignments = len(assignments_result.data) if assignments_result.data else 0
+    active_assignments = len([a for a in assignments_result.data if a.get('is_active', False)]) if assignments_result.data else 0
+    
+    # Calculate unassigned habits
+    unassigned_habits = total_habits_created - active_assignments
+    
+    # Get habit logs for today and this month
+    today = datetime.now().date()
+    month_start = today.replace(day=1)
+    
+    # Get habit IDs for this trainer's assignments
+    trainer_habit_ids = [a.get('habit_id') for a in (assignments_result.data or []) if a.get('is_active', False)]
+    
+    # Daily habit log statistics (only for trainer's assigned habits)
+    daily_logs = []
+    if trainer_habit_ids:
+        daily_logs_result = db.table('habit_logs').select('*').eq('log_date', str(today)).in_('habit_id', trainer_habit_ids).execute()
+        daily_logs = daily_logs_result.data if daily_logs_result.data else []
+    
+    # Monthly habit log statistics (only for trainer's assigned habits)
+    monthly_logs = []
+    if trainer_habit_ids:
+        monthly_logs_result = db.table('habit_logs').select('*').gte('log_date', str(month_start)).lte('log_date', str(today)).in_('habit_id', trainer_habit_ids).execute()
+        monthly_logs = monthly_logs_result.data if monthly_logs_result.data else []
+    
+    # Calculate completion statistics
+    daily_stats = calculate_completion_stats(daily_logs, assignments_result.data if assignments_result.data else [], db)
+    monthly_stats = calculate_completion_stats(monthly_logs, assignments_result.data if assignments_result.data else [], db)
+    
+    # Client-by-client habit assignments
+    client_habit_breakdown = {}
+    for trainee in trainees:
+        client_id = trainee.get('client_id')
+        client_assignments = [a for a in (assignments_result.data or []) if a.get('client_id') == client_id and a.get('is_active', False)]
+        client_habit_breakdown[client_id] = {
+            'name': trainee.get('name', 'Unknown'),
+            'assigned_habits': len(client_assignments),
+            'progress': trainee.get('avg_progress', 0),
+            'streak': trainee.get('total_streak', 0)
+        }
+    
+    # Global leaderboard ranking (simplified - can be enhanced)
+    leaderboard_data = []
+    for trainee in trainees:
+        leaderboard_data.append({
+            'client_id': trainee.get('client_id'),
+            'name': trainee.get('name', 'Unknown'),
+            'progress': trainee.get('avg_progress', 0),
+            'streak': trainee.get('total_streak', 0),
+            'habit_count': trainee.get('habit_count', 0)
+        })
+    
+    # Sort by progress and streak
+    leaderboard_data.sort(key=lambda x: (x['progress'], x['streak']), reverse=True)
+    
+    # Add rankings
+    for i, client in enumerate(leaderboard_data):
+        client['rank'] = i + 1
     
     return {
-        'total_trainees': total_trainees,
-        'active_trainees': active_trainees,
-        'total_habits': total_habits,
-        'avg_progress': round(avg_progress, 1),
-        'total_streaks': total_streaks
+        # Client Statistics
+        'total_clients': total_clients,
+        'active_clients': active_clients,
+        'inactive_clients': inactive_clients,
+        
+        # Habit Statistics
+        'total_habits_created': total_habits_created,
+        'total_assignments': total_assignments,
+        'active_assignments': active_assignments,
+        'unassigned_habits': max(0, unassigned_habits),
+        
+        # Daily Statistics
+        'daily_completed': daily_stats['completed'],
+        'daily_partial': daily_stats['partial'],
+        'daily_not_started': daily_stats['not_started'],
+        'daily_target_met': daily_stats['target_met'],
+        
+        # Monthly Statistics  
+        'monthly_completed': monthly_stats['completed'],
+        'monthly_partial': monthly_stats['partial'],
+        'monthly_not_started': monthly_stats['not_started'],
+        'monthly_target_met': monthly_stats['target_met'],
+        
+        # Client Breakdown
+        'client_habit_breakdown': client_habit_breakdown,
+        
+        # Leaderboard
+        'leaderboard': leaderboard_data[:10],  # Top 10
+        
+        # Overall Metrics
+        'avg_progress': sum(t.get('avg_progress', 0) for t in trainees) / total_clients if total_clients > 0 else 0,
+        'total_streaks': sum(t.get('total_streak', 0) for t in trainees)
+    }
+
+
+def calculate_completion_stats(logs, assignments, db):
+    """Calculate habit completion statistics based on actual target values"""
+    if not assignments:
+        return {'completed': 0, 'partial': 0, 'not_started': 0, 'target_met': 0}
+    
+    # Get habit IDs from assignments
+    habit_ids = [a.get('habit_id') for a in assignments if a.get('is_active', False)]
+    
+    completed = 0
+    partial = 0
+    not_started = 0
+    target_met = 0
+    
+    for habit_id in habit_ids:
+        habit_logs = [log for log in logs if log.get('habit_id') == habit_id]
+        
+        if not habit_logs:
+            not_started += 1
+        else:
+            # Get the habit's target value from fitness_habits table
+            habit_result = db.table('fitness_habits').select('target_value, unit').eq('habit_id', habit_id).execute()
+            
+            if habit_result.data:
+                target_value = float(habit_result.data[0].get('target_value', 0))
+                max_completed = max((float(log.get('completed_value', 0)) for log in habit_logs), default=0)
+                
+                if max_completed == 0:
+                    not_started += 1
+                elif max_completed >= target_value:
+                    # Target met or exceeded
+                    completed += 1
+                    target_met += 1
+                else:
+                    # Some progress but target not met
+                    partial += 1
+            else:
+                # Habit not found, treat as not started
+                not_started += 1
+    
+    return {
+        'completed': completed,
+        'partial': partial, 
+        'not_started': not_started,
+        'target_met': target_met
     }
 
 
