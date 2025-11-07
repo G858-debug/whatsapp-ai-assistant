@@ -594,7 +594,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
     
     # Get trainer's trainees
     trainees_result = db.table('trainer_client_list').select(
-        'client_id'
+        'client_id, clients(name, phone, whatsapp, email)'
     ).eq('trainer_id', trainer_id).eq('connection_status', 'active').execute()
     
     if not trainees_result.data:
@@ -603,10 +603,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
     trainees = []
     for trainee_data in trainees_result.data:
         client_id = trainee_data['client_id']
-        
-        # Get client info separately
-        client_result = db.table('clients').select('name, whatsapp, email').eq('client_id', client_id).execute()
-        client_info = client_result.data[0] if client_result.data else {}
+        client_info = trainee_data.get('clients', {})
         
         if client_info:
             # Get habit assignments count
@@ -637,6 +634,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             trainees.append({
                 'client_id': client_id,
                 'name': client_info.get('name', 'Unknown'),
+                'phone': client_info.get('phone', ''),
                 'whatsapp': client_info.get('whatsapp', ''),
                 'email': client_info.get('email', ''),
                 'habit_count': habit_count,
@@ -646,7 +644,7 @@ def get_trainer_trainees_with_progress(db, trainer_id):
             })
     
     return trainees
-    
+
 def calculate_trainer_stats(db, trainer_id, trainees):
     """Calculate comprehensive trainer statistics"""
     from datetime import datetime, timedelta
