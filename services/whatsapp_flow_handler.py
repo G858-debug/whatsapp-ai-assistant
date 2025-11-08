@@ -180,7 +180,7 @@ class WhatsAppFlowHandler:
             log_info(f"Flow name: {flow_name}, Flow token: {flow_token}")
             
             # Route to appropriate handler based on flow type
-            if flow_name == 'trainer_onboarding_flow':
+            if flow_name in ['trainer_onboarding_flow', 'flow']:
                 return self._handle_trainer_onboarding_response(flow_response, phone_number, flow_token)
             elif flow_name == 'trainer_profile_edit_flow':
                 return self._handle_trainer_profile_edit_response(flow_response, phone_number, flow_token)
