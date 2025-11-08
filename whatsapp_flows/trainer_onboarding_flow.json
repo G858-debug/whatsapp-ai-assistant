@@ -197,10 +197,19 @@
                 "type": "Footer",
                 "label": "Continue",
                 "on-click-action": {
-                  "name": "navigate",
+                  "name": "data_exchange",
+                  "payload": {
+                    "business_name": "${form.business_name}",
+                    "specializations": "${form.specializations}",
+                    "experience_years": "${form.experience_years}",
+                    "pricing_per_session": "${form.pricing_per_session}"
+                  },
                   "next": {
-                    "type": "screen",
-                    "name": "availability"
+                    "name": "navigate",
+                    "next": {
+                      "type": "screen",
+                      "name": "availability_summary"
+                    }
                   }
                 }
               }
