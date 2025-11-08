@@ -7,8 +7,9 @@ from datetime import datetime
 import pytz
 from utils.logger import log_info, log_error
 
-# Import the invitation manager
+# Import the managers
 from .invitation_manager import InvitationManager
+from ..core.relationship_manager import RelationshipManager
 
 
 class InvitationService:
@@ -19,8 +20,9 @@ class InvitationService:
         self.whatsapp = whatsapp_service
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
         
-        # Initialize invitation manager
-        self.invitation_manager = InvitationManager(supabase_client, whatsapp_service)
+        # Initialize managers
+        self.relationship_manager = RelationshipManager(supabase_client)
+        self.invitation_manager = InvitationManager(supabase_client, whatsapp_service, self.relationship_manager)
     
     # Delegate all operations to InvitationManager
     def generate_invitation_token(self) -> str:

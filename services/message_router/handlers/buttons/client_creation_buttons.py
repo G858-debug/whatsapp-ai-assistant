@@ -189,8 +189,8 @@ class ClientCreationButtonHandler:
             from services.relationships.invitations.invitation_manager import InvitationManager
             from services.relationships.core.relationship_manager import RelationshipManager
             
-            invitation_manager = InvitationManager(self.db, self.whatsapp)
             relationship_manager = RelationshipManager(self.db)
+            invitation_manager = InvitationManager(self.db, self.whatsapp, relationship_manager)
             
             # Step 1: Create pending relationship
             success, error_msg = invitation_manager.create_relationship(trainer_id, client_id, 'trainer')

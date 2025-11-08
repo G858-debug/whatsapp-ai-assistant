@@ -74,7 +74,24 @@ class RelationshipManager:
             return []
     
     def check_relationship_exists(self, trainer_id: str, client_id: str) -> Optional[Dict]:
-        """Check if relationship already exists (case-insensitive)"""
+        """Check if active or pending relationship already exists (case-insensitive)"""
+        try:
+            result = self.db.table('trainer_client_list').select('*').ilike(
+                'trainer_id', trainer_id
+            ).ilike('client_id', client_id).in_(
+                'connection_status', ['active', 'pending']
+            ).execute()
+            
+            if result.data and len(result.data) > 0:
+                return result.data[0]
+            return None
+            
+        except Exception as e:
+            log_error(f"Error checking relationship: {str(e)}")
+            return None
+    
+    def check_any_relationship(self, trainer_id: str, client_id: str) -> Optional[Dict]:
+        """Check if any relationship exists regardless of status (case-insensitive)"""
         try:
             result = self.db.table('trainer_client_list').select('*').ilike(
                 'trainer_id', trainer_id

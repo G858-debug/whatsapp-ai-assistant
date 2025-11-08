@@ -12,9 +12,10 @@ from utils.logger import log_info, log_error
 class InvitationManager:
     """Manages invitation operations"""
     
-    def __init__(self, supabase_client, whatsapp_service):
+    def __init__(self, supabase_client, whatsapp_service, relationship_manager=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
+        self.relationship_manager = relationship_manager
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
     
     def generate_invitation_token(self) -> str:
@@ -219,41 +220,58 @@ class InvitationManager:
    
     def create_relationship(self, trainer_id: str, client_id: str, 
                           invited_by: str, invitation_token: str = None) -> Tuple[bool, str]:
-        """Create bidirectional trainer-client relationship"""
+        """Create or update bidirectional trainer-client relationship"""
         try:
             now = datetime.now(self.sa_tz).isoformat()
             
-            # Add to trainer_client_list
-            trainer_list_data = {
-                'trainer_id': trainer_id,
-                'client_id': client_id,
+            # Check if any relationship already exists (including declined ones)
+            existing = None
+            if self.relationship_manager:
+                existing = self.relationship_manager.check_any_relationship(trainer_id, client_id)
+            
+            relationship_data = {
                 'connection_status': 'pending',
                 'invited_by': invited_by,
                 'invitation_token': invitation_token,
                 'invited_at': now,
-                'created_at': now,
                 'updated_at': now
             }
             
-            self.db.table('trainer_client_list').insert(trainer_list_data).execute()
-            
-            # Add to client_trainer_list
-            client_list_data = {
-                'client_id': client_id,
-                'trainer_id': trainer_id,
-                'connection_status': 'pending',
-                'invited_by': invited_by,
-                'invitation_token': invitation_token,
-                'invited_at': now,
-                'created_at': now,
-                'updated_at': now
-            }
-            
-            self.db.table('client_trainer_list').insert(client_list_data).execute()
-            
-            log_info(f"Created relationship: trainer {trainer_id} <-> client {client_id}")
-            return True, "Relationship created successfully"
+            if existing:
+                # Update existing relationship
+                self.db.table('trainer_client_list').update(relationship_data).eq(
+                    'trainer_id', trainer_id
+                ).eq('client_id', client_id).execute()
+                
+                self.db.table('client_trainer_list').update(relationship_data).eq(
+                    'client_id', client_id
+                ).eq('trainer_id', trainer_id).execute()
+                
+                log_info(f"Updated existing relationship: trainer {trainer_id} <-> client {client_id}")
+                return True, "Relationship updated successfully"
+            else:
+                # Create new relationship
+                trainer_list_data = {
+                    'trainer_id': trainer_id,
+                    'client_id': client_id,
+                    'created_at': now,
+                    **relationship_data
+                }
+                
+                self.db.table('trainer_client_list').insert(trainer_list_data).execute()
+                
+                client_list_data = {
+                    'client_id': client_id,
+                    'trainer_id': trainer_id,
+                    'created_at': now,
+                    **relationship_data
+                }
+                
+                self.db.table('client_trainer_list').insert(client_list_data).execute()
+                
+                log_info(f"Created new relationship: trainer {trainer_id} <-> client {client_id}")
+                return True, "Relationship created successfully"
             
         except Exception as e:
-            log_error(f"Error creating relationship: {str(e)}")
+            log_error(f"Error creating/updating relationship: {str(e)}")
             return False, str(e)

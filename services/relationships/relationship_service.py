@@ -40,6 +40,10 @@ class RelationshipService:
         """Check if relationship already exists"""
         return self.core_relationship_service.check_relationship_exists(trainer_id, client_id)
     
+    def check_any_relationship(self, trainer_id: str, client_id: str) -> Optional[Dict]:
+        """Check if any relationship exists regardless of status"""
+        return self.core_relationship_service.check_any_relationship(trainer_id, client_id)
+    
     def approve_relationship(self, trainer_id: str, client_id: str) -> Tuple[bool, str]:
         """Approve pending relationship"""
         return self.core_relationship_service.approve_relationship(trainer_id, client_id)
