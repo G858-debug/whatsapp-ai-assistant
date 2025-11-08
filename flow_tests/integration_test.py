@@ -22,14 +22,19 @@ import requests
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
+# Load environment variables from .env file FIRST
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Loaded .env file")
+except ImportError:
+    print("⚠️  python-dotenv not installed, trying to continue with existing environment variables")
+
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Now import config after .env is loaded
 from config import Config
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 
 class WhatsAppIntegrationTest:
