@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from utils.logger import log_info, log_error, log_warning
 from datetime import datetime, timedelta
+import json
 
 webhooks_bp = Blueprint('webhooks', __name__)
 
@@ -71,24 +72,64 @@ def whatsapp_webhook():
                                         text = list_reply.get('title', '')
                                         button_id = list_reply.get('id', '')
                                         log_info(f"List selected - ID: {button_id}, Title: {text}")
-                                    elif interactive_type == 'flow':
-                                        # Flow response - handle via flow webhook
-                                        flow_response = interactive.get('flow_response', {})
-                                        if flow_response:
-                                            log_info(f"Flow response received from {phone}")
-                                            # Process flow response via flow handler
+                                    elif interactive_type == 'nfm_reply':
+                                        # WhatsApp Flow response (NFM = New Flow Message)
+                                        nfm_reply = interactive.get('nfm_reply', {})
+                                        flow_name = nfm_reply.get('name', '')
+                                        response_json = nfm_reply.get('response_json', '')
+
+                                        log_info(f"Flow response received from {phone} - Flow: {flow_name}")
+
+                                        # Check if this is the trainer onboarding flow
+                                        if flow_name == 'trainer_onboarding_flow' and response_json:
                                             try:
+                                                # Parse the response JSON string
+                                                flow_data = json.loads(response_json)
+
+                                                log_info(f"Parsed flow data keys: {list(flow_data.keys())}")
+
+                                                # Process through WhatsAppFlowHandler
                                                 from app import app
                                                 flow_handler = app.config['services'].get('flow_handler')
+
                                                 if flow_handler:
-                                                    result = flow_handler.handle_flow_response(flow_response)
+                                                    # Prepare flow response data in the format expected by handler
+                                                    flow_response_data = {
+                                                        'phone_number': phone,
+                                                        'message_id': message_id,
+                                                        'timestamp': timestamp,
+                                                        'flow_response': {
+                                                            'name': flow_name,
+                                                            'flow_token': nfm_reply.get('flow_token', ''),
+                                                            'data': flow_data  # The actual form data
+                                                        }
+                                                    }
+
+                                                    # Process the flow response
+                                                    result = flow_handler.handle_flow_response(flow_response_data)
+
                                                     if result.get('success'):
-                                                        log_info(f"Flow processed successfully: {result.get('message')}")
+                                                        log_info(f"Trainer onboarding flow processed successfully: {result.get('message')}")
                                                     else:
                                                         log_error(f"Flow processing failed: {result.get('error')}")
+                                                        # Send error message to user
+                                                        whatsapp_service = app.config['services']['whatsapp']
+                                                        whatsapp_service.send_message(
+                                                            phone,
+                                                            "Sorry, there was an issue processing your registration. Please try again or contact support."
+                                                        )
+                                                else:
+                                                    log_error("Flow handler not available in app config")
+
+                                            except json.JSONDecodeError as e:
+                                                log_error(f"Failed to parse flow response JSON: {str(e)}")
                                             except Exception as e:
                                                 log_error(f"Error processing flow response: {str(e)}")
-                                            continue  # Skip normal message processing for flows
+                                        else:
+                                            log_warning(f"Unknown or unsupported flow: {flow_name}")
+
+                                        # Skip normal message processing for flow responses
+                                        continue
                                 
                                 elif message_type == 'button':
                                     # Legacy button format
