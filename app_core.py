@@ -120,7 +120,9 @@ def setup_app_core(app):
         'input_sanitizer': input_sanitizer,
         'calendar': calendar_service,
         'refiloe': refiloe_service,
-        'reminder_scheduler': reminder_scheduler
+        'reminder_scheduler': reminder_scheduler,
+        'flow_handler': flow_handler,
+        'trainer_registration': trainer_registration_handler
     }
     
     app.config['models'] = {
