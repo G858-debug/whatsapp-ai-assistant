@@ -272,11 +272,12 @@ def handle_whatsapp_flow():
                 if action.lower() == 'complete':
                     log_info(f"Flow complete action detected for token: {flow_token}")
 
-                    # Log all keys received in decrypted_data for debugging
-                    log_info(f"All keys in decrypted_data: {list(decrypted_data.keys())}")
+                    # Log all keys received in decrypted_data for comprehensive debugging
+                    log_info(f"Flow completion - All fields received: {list(decrypted_data.keys())}")
+                    log_info(f"Complete decrypted data: {json.dumps(decrypted_data, indent=2)}")
 
                     # Extract ALL form fields (exclude system fields)
-                    system_fields = {'action', 'screen', 'flow_token'}
+                    system_fields = {'action', 'screen', 'flow_token', 'version'}
                     collected_data = {
                         key: value
                         for key, value in decrypted_data.items()
@@ -284,17 +285,18 @@ def handle_whatsapp_flow():
                     }
 
                     # Log what we extracted
-                    log_info(f"Extracted {len(collected_data)} form fields: {list(collected_data.keys())}")
-                    log_info(f"Complete form data collected: {json.dumps(collected_data, indent=2)}")
+                    log_info(f"Extracted {len(collected_data)} form fields from flow: {list(collected_data.keys())}")
+                    log_info(f"Trainer registration data collected: {json.dumps(collected_data, indent=2)}")
 
-                    # Add collected data to response
-                    if collected_data:
-                        if 'data' not in response_data:
-                            response_data['data'] = {}
-                        response_data['data'].update(collected_data)
-                        log_info(f"Flow complete, returning {len(collected_data)} fields in response")
-                    else:
-                        log_info(f"No form data found in decrypted_data (only system fields present)")
+                    # Return all collected data in the response
+                    # This ensures WhatsApp Flow gets the data back
+                    response_data = {
+                        "version": "3.0",
+                        "screen": "SUCCESS",
+                        "data": collected_data
+                    }
+                    log_info(f"Flow complete response prepared with {len(collected_data)} fields")
+                    log_info(f"Response data: {json.dumps(response_data, indent=2)}")
 
                 # Use response_data as the response to encrypt
                 response = response_data
