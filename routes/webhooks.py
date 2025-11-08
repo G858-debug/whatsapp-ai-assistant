@@ -79,14 +79,33 @@ def whatsapp_webhook():
                                         response_json = nfm_reply.get('response_json', '')
 
                                         log_info(f"Flow response received from {phone} - Flow: {flow_name}")
+                                        log_info(f"Raw response_json: {response_json}")
 
                                         # Check if this is the trainer onboarding flow
-                                        if flow_name == 'trainer_onboarding_flow' and response_json:
+                                        # Accept both 'trainer_onboarding_flow' and 'flow' as valid flow names
+                                        # (Meta sometimes sends 'flow' as the default name)
+                                        if flow_name in ['trainer_onboarding_flow', 'flow'] and response_json:
                                             try:
                                                 # Parse the response JSON string
                                                 flow_data = json.loads(response_json)
 
+                                                # Log detailed information about the flow response
                                                 log_info(f"Parsed flow data keys: {list(flow_data.keys())}")
+                                                log_info(f"Complete flow_data dictionary: {flow_data}")
+
+                                                # Check if we have actual form data (not just flow_token and success)
+                                                has_form_data = any(key not in ['flow_token', 'success'] for key in flow_data.keys())
+                                                log_info(f"Has form data beyond flow_token/success: {has_form_data}")
+
+                                                # If no form data received, log detailed error
+                                                if not has_form_data:
+                                                    log_error(
+                                                        f"Flow completed but NO FORM DATA received! "
+                                                        f"Only got: {flow_data}. "
+                                                        f"This indicates the WhatsApp Flow JSON in Meta Business Manager "
+                                                        f"may not be configured to send form field data in the response. "
+                                                        f"Please check the flow's data exchange endpoint configuration."
+                                                    )
 
                                                 # Process through WhatsAppFlowHandler
                                                 from app import app
@@ -105,13 +124,26 @@ def whatsapp_webhook():
                                                         }
                                                     }
 
-                                                    # Process the flow response
-                                                    result = flow_handler.handle_flow_response(flow_response_data)
+                                                    log_info(f"Calling flow_handler.handle_flow_response with data: {flow_response_data}")
 
-                                                    if result.get('success'):
-                                                        log_info(f"Trainer onboarding flow processed successfully: {result.get('message')}")
-                                                    else:
-                                                        log_error(f"Flow processing failed: {result.get('error')}")
+                                                    # Process the flow response (with error handling)
+                                                    try:
+                                                        result = flow_handler.handle_flow_response(flow_response_data)
+                                                        log_info(f"Flow handler result: {result}")
+
+                                                        if result.get('success'):
+                                                            log_info(f"Trainer onboarding flow processed successfully: {result.get('message')}")
+                                                        else:
+                                                            log_error(f"Flow processing failed: {result.get('error')}")
+                                                            # Send error message to user
+                                                            whatsapp_service = app.config['services']['whatsapp']
+                                                            whatsapp_service.send_message(
+                                                                phone,
+                                                                "Sorry, there was an issue processing your registration. Please try again or contact support."
+                                                            )
+                                                    except Exception as handler_error:
+                                                        log_error(f"Exception in flow_handler.handle_flow_response: {str(handler_error)}")
+                                                        log_error(f"Handler error traceback:", exc_info=True)
                                                         # Send error message to user
                                                         whatsapp_service = app.config['services']['whatsapp']
                                                         whatsapp_service.send_message(
@@ -120,6 +152,7 @@ def whatsapp_webhook():
                                                         )
                                                 else:
                                                     log_error("Flow handler not available in app config")
+                                                    log_error(f"Available services: {list(app.config.get('services', {}).keys())}")
 
                                             except json.JSONDecodeError as e:
                                                 log_error(f"Failed to parse flow response JSON: {str(e)}")
