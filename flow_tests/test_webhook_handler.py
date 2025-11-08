@@ -1,328 +1,472 @@
 #!/usr/bin/env python3
 """
-WhatsApp Flow Webhook Handler Test
-Tests webhook handling for WhatsApp Flows without affecting the main codebase.
+WhatsApp Flow Test Webhook Handler
+Creates a test Flask route to process WhatsApp Flow webhook data for trainer onboarding.
 
-This test simulates webhook processing for:
-- Flow completion events
-- Flow data exchange
-- Error handling
-- Response validation
+This is a TESTING ONLY handler that:
+- Receives WhatsApp Flow webhook data
+- Extracts trainer onboarding form fields
+- Logs all data to test_flow_responses.json
+- Does NOT interact with the database
+- Returns appropriate responses to WhatsApp
+
+Flow ID: 775047838492907 (trainer_onboarding_flow)
 """
 
 import os
 import sys
 import json
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, Any, Optional
+from flask import Flask, request, jsonify
 
 # Add parent directory to path to import from main codebase
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.logger import log_info, log_error, log_warning
 
+# Constants
+FLOW_ID = "775047838492907"
+FLOW_NAME = "trainer_onboarding_flow"
+LOG_FILE = os.path.join(os.path.dirname(__file__), "test_flow_responses.json")
 
-class FlowWebhookHandlerTest:
-    """Test class for flow webhook handling"""
+# Create Flask app for testing
+app = Flask(__name__)
 
-    def __init__(self, test_mode: bool = True):
+
+class TrainerOnboardingWebhookHandler:
+    """Handler for trainer onboarding flow webhook testing"""
+
+    def __init__(self, log_file: str = LOG_FILE):
         """
-        Initialize the test class
+        Initialize the webhook handler
 
         Args:
-            test_mode: If True, doesn't make actual database calls
+            log_file: Path to the JSON file for logging responses
         """
-        self.test_mode = test_mode
-        self.test_results = []
+        self.log_file = log_file
+        self.required_fields = [
+            'full_name',
+            'email',
+            'phone',
+            'city',
+            'specialization',
+            'experience_years',
+            'pricing_per_session',
+            'terms_accepted'
+        ]
 
-    def test_webhook_verification(self) -> bool:
-        """Test webhook verification challenge"""
+    def extract_flow_data(self, webhook_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Extract trainer onboarding data from WhatsApp webhook payload
+
+        Args:
+            webhook_data: The webhook payload from WhatsApp
+
+        Returns:
+            Extracted flow data or None if extraction fails
+        """
         try:
-            # Simulate webhook verification request
-            mock_challenge = {
-                "hub.mode": "subscribe",
-                "hub.verify_token": "test_verify_token",
-                "hub.challenge": "test_challenge_1234567890"
-            }
+            log_info("Starting flow data extraction...")
 
-            # Verify the challenge response
-            if "hub.challenge" in mock_challenge:
-                challenge = mock_challenge["hub.challenge"]
-                self._add_result("Webhook Verification", True, f"Challenge verified: {challenge}")
-                return True
-            else:
-                self._add_result("Webhook Verification", False, "No challenge in request")
-                return False
+            # Navigate through WhatsApp webhook structure
+            entries = webhook_data.get('entry', [])
 
-        except Exception as e:
-            self._add_result("Webhook Verification", False, f"Error: {str(e)}")
-            return False
+            if not entries:
+                log_warning("No entries found in webhook data")
+                return None
 
-    def test_flow_completion_webhook(self) -> bool:
-        """Test flow completion webhook processing"""
-        try:
-            # Simulate a flow completion webhook payload
-            mock_webhook = {
-                "object": "whatsapp_business_account",
-                "entry": [{
-                    "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
-                    "changes": [{
-                        "value": {
-                            "messaging_product": "whatsapp",
-                            "metadata": {
-                                "display_phone_number": "27123456789",
-                                "phone_number_id": "PHONE_NUMBER_ID"
-                            },
-                            "contacts": [{
-                                "profile": {"name": "Test User"},
-                                "wa_id": "27987654321"
-                            }],
-                            "messages": [{
-                                "from": "27987654321",
-                                "id": "wamid.test123",
-                                "timestamp": str(int(datetime.now().timestamp())),
-                                "type": "interactive",
-                                "interactive": {
-                                    "type": "nfm_reply",
-                                    "nfm_reply": {
-                                        "response_json": json.dumps({
-                                            "full_name": "Test Trainer",
-                                            "email": "test@trainer.com",
-                                            "phone": "27987654321",
-                                            "specialization": "Fitness"
-                                        }),
-                                        "body": "flow_completed",
-                                        "name": "flow"
+            for entry in entries:
+                changes = entry.get('changes', [])
+
+                for change in changes:
+                    value = change.get('value', {})
+                    messages = value.get('messages', [])
+
+                    for message in messages:
+                        message_type = message.get('type')
+
+                        # Look for interactive flow messages
+                        if message_type == 'interactive':
+                            interactive = message.get('interactive', {})
+
+                            # Check if it's an nfm_reply (flow completion)
+                            if interactive.get('type') == 'nfm_reply':
+                                nfm_reply = interactive.get('nfm_reply', {})
+
+                                # Extract response JSON
+                                response_json = nfm_reply.get('response_json', '')
+
+                                if response_json:
+                                    # Parse the JSON string
+                                    flow_data = json.loads(response_json)
+
+                                    # Add metadata
+                                    flow_data['_metadata'] = {
+                                        'phone_number': message.get('from'),
+                                        'message_id': message.get('id'),
+                                        'timestamp': message.get('timestamp'),
+                                        'flow_id': FLOW_ID,
+                                        'flow_name': FLOW_NAME,
+                                        'extracted_at': datetime.now().isoformat()
                                     }
-                                }
-                            }]
-                        },
-                        "field": "messages"
-                    }]
-                }]
-            }
 
-            # Validate webhook structure
-            if (mock_webhook.get("object") == "whatsapp_business_account" and
-                "entry" in mock_webhook and len(mock_webhook["entry"]) > 0):
-                self._add_result("Flow Completion Webhook", True, "Webhook structure is valid")
-                return True
-            else:
-                self._add_result("Flow Completion Webhook", False, "Invalid webhook structure")
-                return False
+                                    log_info(f"Successfully extracted flow data from {flow_data['_metadata']['phone_number']}")
+                                    return flow_data
 
-        except Exception as e:
-            self._add_result("Flow Completion Webhook", False, f"Error: {str(e)}")
-            return False
-
-    def test_flow_data_extraction(self) -> bool:
-        """Test extracting flow data from webhook"""
-        try:
-            # Simulate flow response data
-            mock_nfm_reply = {
-                "response_json": json.dumps({
-                    "full_name": "John Doe",
-                    "email": "john@example.com",
-                    "phone": "27123456789",
-                    "specialization": "Nutrition",
-                    "experience_years": "3"
-                }),
-                "body": "flow_completed",
-                "name": "flow"
-            }
-
-            # Extract and parse response JSON
-            response_data = json.loads(mock_nfm_reply["response_json"])
-
-            # Validate extracted data
-            required_fields = ["full_name", "email", "phone"]
-            missing_fields = [field for field in required_fields if field not in response_data]
-
-            if not missing_fields:
-                self._add_result("Flow Data Extraction", True,
-                               f"Successfully extracted data for: {response_data['full_name']}")
-                return True
-            else:
-                self._add_result("Flow Data Extraction", False,
-                               f"Missing required fields: {', '.join(missing_fields)}")
-                return False
+            log_warning("No flow data found in webhook payload")
+            return None
 
         except json.JSONDecodeError as e:
-            self._add_result("Flow Data Extraction", False, f"JSON decode error: {str(e)}")
-            return False
+            log_error(f"JSON decode error: {str(e)}")
+            return None
         except Exception as e:
-            self._add_result("Flow Data Extraction", False, f"Error: {str(e)}")
+            log_error(f"Error extracting flow data: {str(e)}")
+            return None
+
+    def validate_flow_data(self, flow_data: Dict[str, Any]) -> tuple[bool, list[str]]:
+        """
+        Validate that all required fields are present
+
+        Args:
+            flow_data: The extracted flow data
+
+        Returns:
+            Tuple of (is_valid, missing_fields)
+        """
+        missing_fields = []
+
+        for field in self.required_fields:
+            if field not in flow_data:
+                missing_fields.append(field)
+
+        is_valid = len(missing_fields) == 0
+
+        if is_valid:
+            log_info("All required fields present in flow data")
+        else:
+            log_warning(f"Missing required fields: {', '.join(missing_fields)}")
+
+        return is_valid, missing_fields
+
+    def format_phone_number(self, phone: str) -> str:
+        """
+        Format phone number to South African format
+
+        Args:
+            phone: Raw phone number
+
+        Returns:
+            Formatted phone number
+        """
+        # Remove any non-digit characters
+        phone = ''.join(filter(str.isdigit, phone))
+
+        # Ensure it starts with 27 (South Africa)
+        if not phone.startswith('27'):
+            if phone.startswith('0'):
+                phone = '27' + phone[1:]
+            else:
+                phone = '27' + phone
+
+        return phone
+
+    def log_response(self, flow_data: Dict[str, Any], webhook_data: Dict[str, Any]) -> bool:
+        """
+        Log the flow response to JSON file
+
+        Args:
+            flow_data: The extracted and validated flow data
+            webhook_data: The original webhook payload
+
+        Returns:
+            True if logging successful, False otherwise
+        """
+        try:
+            # Load existing responses
+            responses = []
+            if os.path.exists(self.log_file):
+                with open(self.log_file, 'r', encoding='utf-8') as f:
+                    try:
+                        responses = json.load(f)
+                    except json.JSONDecodeError:
+                        log_warning("Existing log file was empty or invalid, starting fresh")
+                        responses = []
+
+            # Create log entry
+            log_entry = {
+                'timestamp': datetime.now().isoformat(),
+                'flow_id': FLOW_ID,
+                'flow_name': FLOW_NAME,
+                'extracted_data': {
+                    'full_name': flow_data.get('full_name'),
+                    'email': flow_data.get('email'),
+                    'phone': self.format_phone_number(flow_data.get('phone', '')),
+                    'city': flow_data.get('city'),
+                    'specialization': flow_data.get('specialization'),
+                    'experience_years': flow_data.get('experience_years'),
+                    'pricing_per_session': flow_data.get('pricing_per_session'),
+                    'terms_accepted': flow_data.get('terms_accepted')
+                },
+                'metadata': flow_data.get('_metadata', {}),
+                'raw_webhook': webhook_data
+            }
+
+            # Add to responses
+            responses.append(log_entry)
+
+            # Save to file
+            with open(self.log_file, 'w', encoding='utf-8') as f:
+                json.dump(responses, f, indent=2, ensure_ascii=False)
+
+            log_info(f"Logged flow response to {self.log_file}")
+            log_info(f"Total responses logged: {len(responses)}")
+
+            return True
+
+        except Exception as e:
+            log_error(f"Error logging response: {str(e)}")
             return False
 
-    def test_error_handling(self) -> bool:
-        """Test webhook error handling"""
+    def process_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process the webhook data and return response
+
+        Args:
+            webhook_data: The webhook payload from WhatsApp
+
+        Returns:
+            Response dictionary
+        """
         try:
-            # Test cases for various error scenarios
-            test_cases = [
-                {
-                    "name": "Empty Payload",
-                    "payload": {},
-                    "expected_error": "Missing required fields"
-                },
-                {
-                    "name": "Invalid Message Type",
-                    "payload": {"type": "unknown"},
-                    "expected_error": "Unsupported message type"
-                },
-                {
-                    "name": "Missing Response Data",
-                    "payload": {"type": "interactive", "interactive": {}},
-                    "expected_error": "Missing nfm_reply"
+            log_info("=" * 60)
+            log_info("Processing trainer onboarding flow webhook")
+            log_info("=" * 60)
+
+            # Extract flow data
+            flow_data = self.extract_flow_data(webhook_data)
+
+            if not flow_data:
+                return {
+                    'status': 'error',
+                    'message': 'Could not extract flow data from webhook',
+                    'code': 'EXTRACTION_FAILED'
                 }
-            ]
 
-            errors_handled = 0
-            for test_case in test_cases:
-                try:
-                    # Simulate error detection
-                    payload = test_case["payload"]
-                    if not payload or len(payload) == 0:
-                        errors_handled += 1
-                    elif "type" in payload and payload["type"] not in ["interactive", "text"]:
-                        errors_handled += 1
-                    elif "interactive" in payload and "nfm_reply" not in payload["interactive"]:
-                        errors_handled += 1
-                except Exception:
-                    errors_handled += 1
+            # Validate flow data
+            is_valid, missing_fields = self.validate_flow_data(flow_data)
 
-            if errors_handled == len(test_cases):
-                self._add_result("Error Handling", True,
-                               f"All {len(test_cases)} error cases handled correctly")
-                return True
-            else:
-                self._add_result("Error Handling", False,
-                               f"Only {errors_handled}/{len(test_cases)} errors handled")
-                return False
+            if not is_valid:
+                return {
+                    'status': 'error',
+                    'message': f'Missing required fields: {", ".join(missing_fields)}',
+                    'code': 'VALIDATION_FAILED',
+                    'missing_fields': missing_fields
+                }
 
-        except Exception as e:
-            self._add_result("Error Handling", False, f"Error: {str(e)}")
-            return False
+            # Log the response
+            logged = self.log_response(flow_data, webhook_data)
 
-    def test_flow_token_validation(self) -> bool:
-        """Test flow token validation"""
-        try:
-            # Test valid and invalid tokens
-            valid_token = f"trainer_onboarding_27123456789_{int(datetime.now().timestamp())}"
-            invalid_tokens = [
-                "",
-                "invalid",
-                "trainer_only",
-                "27123456789"
-            ]
+            if not logged:
+                log_warning("Failed to log response, but continuing...")
 
-            # Validate token format
-            is_valid = (
-                valid_token.startswith("trainer_onboarding_") and
-                len(valid_token.split("_")) >= 3
-            )
+            # Create success response
+            phone = self.format_phone_number(flow_data.get('phone', ''))
+            name = flow_data.get('full_name', 'Trainer')
 
-            if is_valid:
-                self._add_result("Flow Token Validation", True, "Token validation working correctly")
-                return True
-            else:
-                self._add_result("Flow Token Validation", False, "Token validation failed")
-                return False
+            log_info(f"Successfully processed onboarding for {name} ({phone})")
+            log_info("=" * 60)
 
-        except Exception as e:
-            self._add_result("Flow Token Validation", False, f"Error: {str(e)}")
-            return False
-
-    def test_response_formatting(self) -> bool:
-        """Test webhook response formatting"""
-        try:
-            # Simulate formatting a success response
-            success_response = {
-                "version": "3.0",
-                "screen": "SUCCESS",
-                "data": {
-                    "message": "Registration successful!",
-                    "next_steps": "We'll contact you shortly."
+            return {
+                'status': 'success',
+                'message': 'Trainer onboarding data received and logged',
+                'data': {
+                    'name': name,
+                    'phone': phone,
+                    'email': flow_data.get('email'),
+                    'logged': logged
                 }
             }
 
-            # Validate response structure
-            if all(key in success_response for key in ["version", "screen", "data"]):
-                self._add_result("Response Formatting", True, "Response format is correct")
-                return True
-            else:
-                self._add_result("Response Formatting", False, "Invalid response format")
-                return False
-
         except Exception as e:
-            self._add_result("Response Formatting", False, f"Error: {str(e)}")
-            return False
+            log_error(f"Error processing webhook: {str(e)}")
+            return {
+                'status': 'error',
+                'message': f'Internal error: {str(e)}',
+                'code': 'INTERNAL_ERROR'
+            }
 
-    def _add_result(self, test_name: str, passed: bool, message: str):
-        """Add a test result to the results list"""
-        result = {
-            "test": test_name,
-            "passed": passed,
-            "message": message,
-            "timestamp": datetime.now().isoformat()
-        }
-        self.test_results.append(result)
 
-        status = "✅" if passed else "❌"
-        print(f"{status} {test_name}: {message}")
+# Initialize handler
+webhook_handler = TrainerOnboardingWebhookHandler()
 
-    def run_all_tests(self) -> Dict[str, Any]:
-        """Run all tests and return results"""
-        print("🧪 Starting Flow Webhook Handler Tests")
-        print("=" * 60)
 
-        # Run tests
-        self.test_webhook_verification()
-        self.test_flow_completion_webhook()
-        self.test_flow_data_extraction()
-        self.test_error_handling()
-        self.test_flow_token_validation()
-        self.test_response_formatting()
+@app.route('/test/flow/trainer-onboarding', methods=['POST'])
+def test_trainer_onboarding_webhook():
+    """
+    Test webhook endpoint for trainer onboarding flow
 
-        # Calculate summary
-        total_tests = len(self.test_results)
-        passed_tests = sum(1 for r in self.test_results if r["passed"])
-        failed_tests = total_tests - passed_tests
+    This endpoint:
+    1. Receives WhatsApp Flow webhook data
+    2. Extracts trainer onboarding fields
+    3. Logs data to test_flow_responses.json
+    4. Returns success response to WhatsApp
+    """
+    try:
+        # Get webhook data
+        webhook_data = request.get_json()
 
-        print("\n" + "=" * 60)
-        print(f"📊 Test Summary:")
-        print(f"   Total: {total_tests}")
-        print(f"   Passed: {passed_tests}")
-        print(f"   Failed: {failed_tests}")
-        print(f"   Success Rate: {(passed_tests/total_tests*100):.1f}%")
+        if not webhook_data:
+            log_warning("Empty webhook data received")
+            return jsonify({
+                'status': 'error',
+                'message': 'No data received'
+            }), 400
 
-        return {
-            "summary": {
-                "total": total_tests,
-                "passed": passed_tests,
-                "failed": failed_tests,
-                "success_rate": passed_tests/total_tests if total_tests > 0 else 0
+        log_info(f"Received webhook data: {json.dumps(webhook_data, indent=2)}")
+
+        # Process the webhook
+        result = webhook_handler.process_webhook(webhook_data)
+
+        # Determine HTTP status code
+        status_code = 200 if result['status'] == 'success' else 400
+
+        # Return response
+        return jsonify(result), status_code
+
+    except Exception as e:
+        log_error(f"Error in webhook endpoint: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Unexpected error: {str(e)}'
+        }), 500
+
+
+@app.route('/test/flow/trainer-onboarding', methods=['GET'])
+def test_trainer_onboarding_info():
+    """
+    Get information about the test webhook endpoint
+    """
+    return jsonify({
+        'endpoint': '/test/flow/trainer-onboarding',
+        'method': 'POST',
+        'flow_id': FLOW_ID,
+        'flow_name': FLOW_NAME,
+        'required_fields': webhook_handler.required_fields,
+        'log_file': LOG_FILE,
+        'description': 'Test webhook handler for trainer onboarding flow',
+        'note': 'This is for TESTING ONLY - no database interaction'
+    })
+
+
+@app.route('/test/flow/responses', methods=['GET'])
+def get_test_responses():
+    """
+    Get all logged test responses
+    """
+    try:
+        if not os.path.exists(LOG_FILE):
+            return jsonify({
+                'status': 'success',
+                'responses': [],
+                'count': 0,
+                'message': 'No responses logged yet'
+            })
+
+        with open(LOG_FILE, 'r', encoding='utf-8') as f:
+            responses = json.load(f)
+
+        return jsonify({
+            'status': 'success',
+            'responses': responses,
+            'count': len(responses)
+        })
+
+    except Exception as e:
+        log_error(f"Error reading responses: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/test/flow/clear', methods=['POST'])
+def clear_test_responses():
+    """
+    Clear all logged test responses
+    """
+    try:
+        if os.path.exists(LOG_FILE):
+            os.remove(LOG_FILE)
+            log_info("Test responses cleared")
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Test responses cleared'
+        })
+
+    except Exception as e:
+        log_error(f"Error clearing responses: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/test/flow', methods=['GET'])
+def test_flow_home():
+    """
+    Test flow webhook home - shows available endpoints
+    """
+    return jsonify({
+        'service': 'WhatsApp Flow Test Webhook Handler',
+        'endpoints': {
+            'webhook': {
+                'url': '/test/flow/trainer-onboarding',
+                'methods': ['GET', 'POST'],
+                'description': 'Main webhook endpoint for trainer onboarding flow'
             },
-            "results": self.test_results
+            'responses': {
+                'url': '/test/flow/responses',
+                'methods': ['GET'],
+                'description': 'View all logged responses'
+            },
+            'clear': {
+                'url': '/test/flow/clear',
+                'methods': ['POST'],
+                'description': 'Clear all logged responses'
+            }
+        },
+        'flow_info': {
+            'id': FLOW_ID,
+            'name': FLOW_NAME
         }
+    })
 
 
 def main():
-    """Main test function"""
-    tester = FlowWebhookHandlerTest(test_mode=True)
-    results = tester.run_all_tests()
+    """
+    Main function to run the test webhook handler
+    """
+    print("=" * 60)
+    print("WhatsApp Flow Test Webhook Handler")
+    print("=" * 60)
+    print(f"Flow ID: {FLOW_ID}")
+    print(f"Flow Name: {FLOW_NAME}")
+    print(f"Log File: {LOG_FILE}")
+    print()
+    print("Available endpoints:")
+    print("  POST /test/flow/trainer-onboarding  - Main webhook")
+    print("  GET  /test/flow/trainer-onboarding  - Endpoint info")
+    print("  GET  /test/flow/responses            - View logged responses")
+    print("  POST /test/flow/clear                - Clear responses")
+    print("  GET  /test/flow                      - Service info")
+    print("=" * 60)
+    print()
 
-    # Save results to file
-    results_file = os.path.join(os.path.dirname(__file__), "webhook_test_results.json")
-    with open(results_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=2)
-    print(f"\n📁 Results saved to: {results_file}")
-
-    # Exit with error code if tests failed
-    if results["summary"]["failed"] > 0:
-        sys.exit(1)
-    else:
-        print("\n🎉 All tests passed!")
-        sys.exit(0)
+    # Run the Flask app
+    port = int(os.environ.get('TEST_PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)
 
 
 if __name__ == "__main__":

@@ -73,6 +73,65 @@ The script provides detailed troubleshooting instructions for each failure type:
 - Structure validation failures → Review flow JSON files
 - Encryption failures → Generate and configure private key
 
+### `test_webhook_handler.py`
+**Live Flask webhook handler** for testing trainer onboarding flow webhooks from WhatsApp.
+
+This creates a test Flask server with real webhook endpoints that:
+- Receives actual WhatsApp Flow webhook data
+- Extracts all trainer onboarding fields
+- Logs responses to `test_flow_responses.json`
+- Does NOT interact with the database (testing only)
+- Returns proper responses to WhatsApp
+
+**Quick Start:**
+```bash
+# Run the test webhook server
+python3 flow_tests/test_webhook_handler.py
+
+# Server starts on http://0.0.0.0:5001
+# Main webhook endpoint: POST /test/flow/trainer-onboarding
+```
+
+**Available Endpoints:**
+- `POST /test/flow/trainer-onboarding` - Main webhook endpoint
+- `GET /test/flow/trainer-onboarding` - Get endpoint info
+- `GET /test/flow/responses` - View all logged responses
+- `POST /test/flow/clear` - Clear logged responses
+- `GET /test/flow` - Service information
+
+**Testing with cURL:**
+```bash
+# Test with sample payload
+curl -X POST http://localhost:5001/test/flow/trainer-onboarding \
+  -H "Content-Type: application/json" \
+  -d @flow_tests/sample_webhook_payload.json
+
+# View logged responses
+curl http://localhost:5001/test/flow/responses
+
+# Clear responses
+curl -X POST http://localhost:5001/test/flow/clear
+```
+
+**Extracted Fields:**
+- ✅ `full_name` - Trainer's full name
+- ✅ `email` - Email address
+- ✅ `phone` - Phone number (formatted to South African format)
+- ✅ `city` - City location
+- ✅ `specialization` - Training specialization
+- ✅ `experience_years` - Years of experience
+- ✅ `pricing_per_session` - Session pricing in Rand
+- ✅ `terms_accepted` - Terms acceptance status
+
+**Features:**
+- 🚀 Live Flask server for real webhook testing
+- 📝 Detailed logging to console and JSON file
+- ✅ Field validation and error handling
+- 🇿🇦 South African phone number formatting
+- 📊 Complete webhook payload logging
+- 🔍 Metadata extraction (phone, message ID, timestamp)
+- 🛡️ No database interaction (safe for testing)
+- 📁 Saves all responses to `test_flow_responses.json`
 ### `trainer_onboarding_test.py`
 **What it does**: Tests the trainer onboarding flow structure and validation
 
