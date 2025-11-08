@@ -157,8 +157,7 @@
                 "type": "DatePicker",
                 "name": "birthdate",
                 "label": "Date of Birth",
-                "required": true,
-                "default-value": "1991-10-16"
+                "required": true
               },
               {
                 "type": "Footer",
@@ -379,7 +378,7 @@
                 "name": "monday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.monday_preset == 'custom' || form.monday_preset == null || form.monday_preset == ''}",
+                "enabled": "${data.monday_preset == 'custom' || data.monday_preset == null || data.monday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
@@ -550,7 +549,7 @@
                 "name": "tuesday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.tuesday_preset == 'custom' || form.tuesday_preset == null || form.tuesday_preset == ''}",
+                "enabled": "${data.tuesday_preset == 'custom' || data.tuesday_preset == null || data.tuesday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
@@ -721,7 +720,7 @@
                 "name": "wednesday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.wednesday_preset == 'custom' || form.wednesday_preset == null || form.wednesday_preset == ''}",
+                "enabled": "${data.wednesday_preset == 'custom' || data.wednesday_preset == null || data.wednesday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
@@ -892,7 +891,7 @@
                 "name": "thursday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.thursday_preset == 'custom' || form.thursday_preset == null || form.thursday_preset == ''}",
+                "enabled": "${data.thursday_preset == 'custom' || data.thursday_preset == null || data.thursday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
@@ -1063,7 +1062,7 @@
                 "name": "friday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.friday_preset == 'custom' || form.friday_preset == null || form.friday_preset == ''}",
+                "enabled": "${data.friday_preset == 'custom' || data.friday_preset == null || data.friday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
@@ -1234,7 +1233,7 @@
                 "name": "saturday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.saturday_preset == 'custom' || form.saturday_preset == null || form.saturday_preset == ''}",
+                "enabled": "${data.saturday_preset == 'custom' || data.saturday_preset == null || data.saturday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
@@ -1405,7 +1404,7 @@
                 "name": "sunday_hours",
                 "label": "Or Select Specific Hours",
                 "required": false,
-                "enabled": "${form.sunday_preset == 'custom' || form.sunday_preset == null || form.sunday_preset == ''}",
+                "enabled": "${data.sunday_preset == 'custom' || data.sunday_preset == null || data.sunday_preset == ''}",
                 "data-source": [
                   {
                     "id": "00-01",
