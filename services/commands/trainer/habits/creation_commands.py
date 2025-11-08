@@ -132,14 +132,28 @@ def handle_delete_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'delete_habit_task_error'}
         
-        # Ask for habit ID
-        msg = (
-            "🗑️ *Delete Habit*\n\n"
-            "Please provide the habit ID you want to delete.\n\n"
-            "⚠️ *Warning:* This will remove the habit from all assigned clients.\n\n"
-            "💡 Use /view-habits to see your habits and their IDs.\n\n"
-            "Type /stop to cancel."
-        )
+        # Show habits dashboard first
+        from services.commands.dashboard import generate_trainer_habits_dashboard
+        
+        dashboard_result = generate_trainer_habits_dashboard(phone, trainer_id, db, whatsapp)
+        
+        if dashboard_result.get('success'):
+            msg = (
+                "🗑️ *Delete Habit*\n\n"
+                "💡 *View your habits above* ⬆️ to find the habit ID\n\n"
+                "📋 *Steps:* Find the habit → Copy its ID → Return here with the ID\n\n"
+                "⚠️ *Warning:* This will remove the habit from all assigned clients.\n\n"
+                "Type /stop to cancel."
+            )
+        else:
+            msg = (
+                "🗑️ *Delete Habit*\n\n"
+                "Please provide the habit ID you want to delete.\n\n"
+                "⚠️ *Warning:* This will remove the habit from all assigned clients.\n\n"
+                "💡 Use /view-habits to see your habits and their IDs.\n\n"
+                "Type /stop to cancel."
+            )
+        
         whatsapp.send_message(phone, msg)
         
         return {
