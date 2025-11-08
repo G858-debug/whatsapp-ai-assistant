@@ -554,7 +554,7 @@ class WhatsAppFlowHandler:
             
             # Availability (from availability screen)
             # Transform weekday availability data into expected format
-            available_days, preferred_time_slots = self._transform_availability_data(form_data)
+            available_days, preferred_time_slots, working_hours = self._transform_availability_data(form_data)
             
             # Preferences (from preferences screen)
             subscription_plan = form_data.get('subscription_plan', 'free')
@@ -621,6 +621,7 @@ class WhatsAppFlowHandler:
                 'pricing_per_session': pricing,  # For new fields
                 'available_days': available_days,
                 'preferred_time_slots': preferred_time_slots,
+                'working_hours': working_hours,  # JSONB structure with detailed availability
                 'services_offered': processed_services,
                 'pricing_flexibility': processed_pricing_flexibility,
                 'subscription_plan': subscription_plan,
@@ -647,24 +648,36 @@ class WhatsAppFlowHandler:
         Transform weekday availability data from flow format to expected format.
 
         Flow sends: monday_preset, monday_hours, tuesday_preset, tuesday_hours, etc.
-        Expected: available_days (list) and preferred_time_slots (string)
+        Expected: available_days (list), preferred_time_slots (string), and working_hours (dict)
 
         Returns:
-            tuple: (available_days: list, preferred_time_slots: str)
+            tuple: (available_days: list, preferred_time_slots: str, working_hours: dict)
         """
         try:
             weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
             # Preset to time slot mapping
             preset_mapping = {
-                'full_day': '00:00-24:00',
-                'business': '08:00-17:00',
-                'morning': '05:00-12:00',
-                'evening': '17:00-21:00'
+                'full_day': {'start': '00:00', 'end': '24:00'},
+                'business': {'start': '08:00', 'end': '17:00'},
+                'morning': {'start': '05:00', 'end': '12:00'},
+                'evening': {'start': '17:00', 'end': '21:00'}
+            }
+
+            # Day abbreviations for short summary
+            day_abbrev = {
+                'monday': 'M',
+                'tuesday': 'T',
+                'wednesday': 'W',
+                'thursday': 'Th',
+                'friday': 'F',
+                'saturday': 'Sa',
+                'sunday': 'Su'
             }
 
             available_days = []
-            time_slots = []
+            short_slots = []
+            working_hours = {}
 
             for day in weekdays:
                 preset_key = f'{day}_preset'
@@ -673,49 +686,75 @@ class WhatsAppFlowHandler:
                 preset = form_data.get(preset_key, 'not_available')
                 hours = form_data.get(hours_key, [])
 
-                # Skip if not available
+                # Handle not available case
                 if preset == 'not_available':
+                    working_hours[day] = {'available': False}
                     continue
 
                 # Add day to available days (capitalize first letter for consistency)
                 available_days.append(day.capitalize())
 
-                # Get time slot based on preset
+                # Build working_hours entry for this day
                 if preset == 'custom' and hours:
-                    # Custom hours - join the array
-                    # Expected format: ['07-08', '08-09'] → '07:00-09:00'
+                    # Custom hours - use the array of hour slots
                     if isinstance(hours, list) and len(hours) > 0:
-                        # Extract start and end times from the array
                         try:
                             # Get first hour's start and last hour's end
                             first_hour = hours[0].split('-')[0]
                             last_hour = hours[-1].split('-')[1]
-                            time_slot = f'{first_hour}:00-{last_hour}:00'
-                            time_slots.append(f'{day.capitalize()}: {time_slot}')
-                        except (IndexError, AttributeError):
-                            # If parsing fails, use a default
-                            time_slots.append(f'{day.capitalize()}: Custom hours')
+
+                            # Create working_hours entry with slots
+                            working_hours[day] = {
+                                'start': f'{first_hour}:00',
+                                'end': f'{last_hour}:00',
+                                'available': True,
+                                'slots': hours  # Keep the original slots array
+                            }
+
+                            # Create short summary
+                            short_slots.append(f'{day_abbrev[day]}:{first_hour}-{last_hour}')
+                        except (IndexError, AttributeError) as e:
+                            log_warning(f"Error parsing custom hours for {day}: {str(e)}")
+                            working_hours[day] = {'available': True}
+                            short_slots.append(f'{day_abbrev[day]}:Custom')
                     else:
-                        time_slots.append(f'{day.capitalize()}: Custom hours')
+                        working_hours[day] = {'available': True}
+                        short_slots.append(f'{day_abbrev[day]}:Custom')
+
                 elif preset in preset_mapping:
                     # Use preset mapping
-                    time_slot = preset_mapping[preset]
-                    time_slots.append(f'{day.capitalize()}: {time_slot}')
+                    times = preset_mapping[preset]
+                    working_hours[day] = {
+                        'start': times['start'],
+                        'end': times['end'],
+                        'available': True
+                    }
+
+                    # Create short summary
+                    if preset == 'full_day':
+                        short_slots.append(f'{day_abbrev[day]}:Full')
+                    else:
+                        # Extract just the hours without :00
+                        start_hour = times['start'].split(':')[0]
+                        end_hour = times['end'].split(':')[0]
+                        short_slots.append(f'{day_abbrev[day]}:{start_hour}-{end_hour}')
                 else:
                     # Fallback for unknown presets
-                    time_slots.append(f'{day.capitalize()}: Available')
+                    working_hours[day] = {'available': True}
+                    short_slots.append(f'{day_abbrev[day]}:Avail')
 
-            # Create combined time slots string
-            preferred_time_slots = ', '.join(time_slots) if time_slots else 'Flexible'
+            # Create short summary (under 50 chars)
+            preferred_time_slots = ','.join(short_slots) if short_slots else 'Flexible'
 
             log_info(f"Transformed availability: days={available_days}, slots={preferred_time_slots}")
+            log_info(f"Working hours: {json.dumps(working_hours)}")
 
-            return available_days, preferred_time_slots
+            return available_days, preferred_time_slots, working_hours
 
         except Exception as e:
             log_error(f"Error transforming availability data: {str(e)}")
             # Return defaults on error
-            return [], 'Flexible'
+            return [], 'Flexible', {}
 
     def _process_specializations(self, single_spec: str, multi_specs: list) -> str:
         """Convert specialization IDs to readable text and handle multiple specializations"""
