@@ -268,19 +268,47 @@ def handle_whatsapp_flow():
                 response_data = handle_flow_data_exchange(decrypted_data, flow_token)
                 log_info(f"Handler returned response: {json.dumps(response_data, indent=2)}")
 
-                # Handle "complete" action - return all collected data
+                # Handle "complete" action - extract and return all form data
                 if action.lower() == 'complete':
                     log_info(f"Flow complete action detected for token: {flow_token}")
-                    collected_data = get_collected_data(flow_token)
 
-                    if collected_data:
-                        # Add collected data to response
-                        if 'data' not in response_data:
-                            response_data['data'] = {}
-                        response_data['data'].update(collected_data)
-                        log_info(f"Flow complete, returning collected data: {json.dumps(collected_data, indent=2)}")
-                    else:
-                        log_info(f"No collected data found for token: {flow_token}")
+                    # Log all keys received for debugging
+                    all_keys = list(decrypted_data.keys())
+                    log_info(f"All keys received in decrypted_data: {all_keys}")
+                    log_info(f"Total number of keys: {len(all_keys)}")
+
+                    # Define system fields to exclude from form data
+                    system_fields = {'action', 'screen', 'flow_token'}
+
+                    # Extract ALL form fields (everything except system fields)
+                    form_data = {}
+                    for key, value in decrypted_data.items():
+                        if key not in system_fields:
+                            form_data[key] = value
+                            log_info(f"Extracted form field - {key}: {value}")
+
+                    log_info(f"Total form fields extracted: {len(form_data)}")
+                    log_info(f"Form field names: {list(form_data.keys())}")
+                    log_info(f"Complete form data: {json.dumps(form_data, indent=2)}")
+
+                    # Add form data to response
+                    if 'data' not in response_data:
+                        response_data['data'] = {}
+                    response_data['data']['collected_data'] = form_data
+
+                    log_info(f"Flow complete, returning {len(form_data)} form fields in collected_data")
+
+                    # Also try to get any previously collected data and merge it
+                    try:
+                        previously_collected = get_collected_data(flow_token)
+                        if previously_collected:
+                            log_info(f"Also found previously collected data: {json.dumps(previously_collected, indent=2)}")
+                            # Merge with current form data (current data takes precedence)
+                            merged_data = {**previously_collected, **form_data}
+                            response_data['data']['collected_data'] = merged_data
+                            log_info(f"Merged data: {len(merged_data)} total fields")
+                    except Exception as merge_error:
+                        log_info(f"No previously collected data or error merging: {str(merge_error)}")
 
                 # Use response_data as the response to encrypt
                 response = response_data
