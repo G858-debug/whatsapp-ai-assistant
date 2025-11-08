@@ -9,6 +9,7 @@ import os
 from cryptography.hazmat.primitives.asymmetric.padding import OAEP, MGF1, hashes
 from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from handlers.flow_data_exchange import handle_flow_data_exchange, get_collected_data
 
 whatsapp_flow_bp = Blueprint('whatsapp_flow', __name__)
 
@@ -252,79 +253,37 @@ def handle_whatsapp_flow():
                     data['initial_vector']
                 )
                 
-                log_info(f"Decrypted flow data: action={decrypted_data.get('action')}, screen={decrypted_data.get('screen')}")
-                
-                # Process the decrypted data
-                action = decrypted_data.get('action')
-                screen = decrypted_data.get('screen')
-                flow_token = decrypted_data.get('flow_token')
-                flow_data = decrypted_data.get('data', {})
-                version = decrypted_data.get('version', '3.0')
-                
-                # Handle different flow actions
-                if action == 'ping':
-                    # Health check request
-                    response = {"data": {"status": "active"}}
-                
-                elif action == 'INIT':
-                    # Initial flow request - return first screen
-                    response = {
-                        "screen": "welcome",
-                        "data": {
-                            "welcome_message": "Welcome to Refiloe! Let's get you set up as a trainer.",
-                            "flow_token": flow_token
-                        }
-                    }
-                
-                elif action == 'data_exchange':
-                    # Handle form submission based on current screen
-                    if screen == 'terms_agreement':
-                        # Final screen - complete registration
-                        result = process_trainer_registration(flow_data, flow_token)
-                        if result.get('success'):
-                            response = {
-                                "screen": "SUCCESS",
-                                "data": {
-                                    "extension_message_response": {
-                                        "params": {
-                                            "flow_token": flow_token,
-                                            "registration_status": "completed",
-                                            "trainer_id": str(result.get('trainer_id', ''))
-                                        }
-                                    }
-                                }
-                            }
-                        else:
-                            response = {
-                                "screen": screen,
-                                "data": {
-                                    "error_message": result.get('error', 'Registration failed. Please try again.')
-                                }
-                            }
+                # Extract key values from decrypted data
+                action = decrypted_data.get('action', '')
+                flow_token = decrypted_data.get('flow_token', '')
+                screen = decrypted_data.get('screen', '')
+
+                # Log extracted values for debugging
+                log_info(f"Flow request - action: {action}, flow_token: {flow_token}, screen: {screen}")
+                log_info(f"Decrypted flow data keys: {list(decrypted_data.keys())}")
+                log_info(f"Full decrypted data: {json.dumps(decrypted_data, indent=2)}")
+
+                # Call the flow data exchange handler
+                log_info(f"Calling handle_flow_data_exchange for action: {action}")
+                response_data = handle_flow_data_exchange(decrypted_data, flow_token)
+                log_info(f"Handler returned response: {json.dumps(response_data, indent=2)}")
+
+                # Handle "complete" action - return all collected data
+                if action.lower() == 'complete':
+                    log_info(f"Flow complete action detected for token: {flow_token}")
+                    collected_data = get_collected_data(flow_token)
+
+                    if collected_data:
+                        # Add collected data to response
+                        if 'data' not in response_data:
+                            response_data['data'] = {}
+                        response_data['data'].update(collected_data)
+                        log_info(f"Flow complete, returning collected data: {json.dumps(collected_data, indent=2)}")
                     else:
-                        # Navigate to next screen
-                        next_screen = get_next_screen(screen, flow_data)
-                        response = {
-                            "screen": next_screen,
-                            "data": get_screen_data(next_screen, flow_data)
-                        }
-                
-                elif action == 'BACK':
-                    # Handle back button press
-                    prev_screen = get_previous_screen(screen)
-                    response = {
-                        "screen": prev_screen,
-                        "data": get_screen_data(prev_screen, flow_data)
-                    }
-                
-                else:
-                    # Default response for unknown actions
-                    response = {
-                        "screen": "welcome",
-                        "data": {
-                            "welcome_message": "Welcome to Refiloe! Let's get you set up as a trainer."
-                        }
-                    }
+                        log_info(f"No collected data found for token: {flow_token}")
+
+                # Use response_data as the response to encrypt
+                response = response_data
                 
                 # Encrypt and return response as Base64 string
                 encrypted_response = encrypt_response(response, aes_key, iv)
