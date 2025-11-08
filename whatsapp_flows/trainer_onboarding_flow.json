@@ -83,10 +83,21 @@
                 "type": "Footer",
                 "label": "Continue",
                 "on-click-action": {
-                  "name": "navigate",
+                  "name": "data_exchange",
+                  "payload": {
+                    "first_name": "${form.first_name}",
+                    "surname": "${form.surname}",
+                    "email": "${form.email}",
+                    "city": "${form.city}",
+                    "sex": "${form.sex}",
+                    "birthdate": "${form.birthdate}"
+                  },
                   "next": {
-                    "type": "screen",
-                    "name": "business_details"
+                    "name": "navigate",
+                    "next": {
+                      "type": "screen",
+                      "name": "business_details"
+                    }
                   }
                 }
               }
