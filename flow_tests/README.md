@@ -21,6 +21,58 @@ The test files are kept in their own `flow_tests/` folder to ensure:
 
 ## Files
 
+### `integration_test.py`
+Comprehensive integration test that validates the complete WhatsApp Business API setup including:
+- Connection to Meta's WhatsApp Business API
+- Flow verification (confirms flow ID 775047838492907 exists)
+- Webhook endpoint accessibility and configuration
+- Flow JSON data structure validation
+- Encryption setup verification
+
+**Usage:**
+```bash
+python3 flow_tests/integration_test.py
+```
+
+**Features:**
+- ✅ API connection testing with detailed error messages
+- ✅ Flow existence and status verification
+- ✅ Webhook endpoint testing (GET and POST)
+- ✅ Flow JSON structure validation
+- ✅ Private key and encryption setup verification
+- ✅ Comprehensive troubleshooting guide
+- ✅ Detailed configuration validation
+- ✅ Warning system for potential issues
+- 📁 Saves detailed results to `integration_test_results.json`
+
+**What it tests:**
+1. **API Connection**: Validates ACCESS_TOKEN and connects to Meta's Graph API
+2. **Flow Verification**: Checks if flow 775047838492907 exists and is published
+3. **Webhook Endpoint**: Tests if your webhook at `/webhooks/whatsapp-flow` is accessible
+4. **Flow Structure**: Validates all flow JSON files match Meta's requirements
+5. **Encryption**: Verifies WHATSAPP_FLOW_PRIVATE_KEY is properly configured
+
+**Required Environment Variables:**
+- `ACCESS_TOKEN`: Your WhatsApp Business API access token
+- `WHATSAPP_BUSINESS_ACCOUNT_ID`: Your Business Account ID
+- `PHONE_NUMBER_ID`: Your WhatsApp phone number ID
+- `BASE_URL`: Your deployed application URL
+- `WHATSAPP_FLOW_PRIVATE_KEY`: Private key for flow encryption (optional but recommended)
+
+**When to use:**
+- Before deploying changes to production
+- After updating flow configurations
+- When troubleshooting flow issues
+- To verify your setup is complete
+
+**What to do if tests fail:**
+The script provides detailed troubleshooting instructions for each failure type:
+- API Connection failures → Check token validity and permissions
+- Flow verification failures → Verify flow ID and access permissions
+- Webhook failures → Check server deployment and BASE_URL
+- Structure validation failures → Review flow JSON files
+- Encryption failures → Generate and configure private key
+
 ### `trainer_onboarding_test.py`
 **What it does**: Tests the trainer onboarding flow structure and validation
 
@@ -50,6 +102,12 @@ The test files are kept in their own `flow_tests/` folder to ensure:
 
 ---
 
+```bash
+# Integration test (validates complete setup)
+python3 flow_tests/integration_test.py
+
+# Test trainer onboarding flow
+python3 flow_tests/trainer_onboarding_test.py
 ### `__init__.py`
 **What it does**: Makes `flow_tests/` a proper Python package so tests can import code from the main system.
 
@@ -61,12 +119,36 @@ The test files are kept in their own `flow_tests/` folder to ensure:
 
 Before running tests, make sure you're in the main project directory:
 ```bash
+# Run all test files
+python3 flow_tests/integration_test.py && \
+python3 flow_tests/trainer_onboarding_test.py && \
+python3 flow_tests/test_webhook_handler.py
 cd /home/user/whatsapp-ai-assistant
 ```
 
 ### 1. Test the Flow Structure
 Tests the trainer onboarding flow JSON and message creation:
 ```bash
+# From project root
+python3 -m flow_tests.integration_test
+python3 -m flow_tests.trainer_onboarding_test
+python3 -m flow_tests.test_webhook_handler
+```
+
+### Recommended Testing Workflow
+
+1. **Start with Integration Test**: Run `integration_test.py` first to validate your complete setup
+2. **Fix any issues**: Follow the troubleshooting guide if any tests fail
+3. **Run specific tests**: Use individual test files to test specific components
+4. **Before deployment**: Always run the integration test to ensure everything is ready
+
+## Test Output
+
+Tests provide colorful emoji-based output:
+- ✅ Green checkmark for passed tests
+- ❌ Red X for failed tests
+- 📊 Summary statistics
+- 🎉 Success celebration
 python flow_tests/trainer_onboarding_test.py
 ```
 
