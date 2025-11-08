@@ -1,0 +1,273 @@
+"""
+WhatsApp Flow Data Exchange Handler
+
+This module handles WhatsApp Flow data exchange requests for progressive form data collection.
+It manages flow sessions, stores data as the user progresses through the flow, and provides
+utilities to retrieve collected data.
+
+Note: This handler does NOT handle encryption/decryption - that is done in the webhook route.
+"""
+
+import json
+import logging
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# In-memory storage for flow sessions
+# In production, consider using Redis or another persistent store
+flow_sessions: Dict[str, Dict[str, Any]] = {}  # Stores data by flow_token
+session_timestamps: Dict[str, datetime] = {}  # Track when sessions were created
+
+
+def cleanup_old_sessions(max_age_hours: int = 2) -> int:
+    """
+    Remove sessions older than the specified age.
+
+    Args:
+        max_age_hours: Maximum age of sessions in hours (default: 2)
+
+    Returns:
+        Number of sessions cleaned up
+    """
+    try:
+        current_time = datetime.now()
+        cutoff_time = current_time - timedelta(hours=max_age_hours)
+
+        # Find expired sessions
+        expired_tokens = [
+            token for token, timestamp in session_timestamps.items()
+            if timestamp < cutoff_time
+        ]
+
+        # Remove expired sessions
+        cleanup_count = 0
+        for token in expired_tokens:
+            if token in flow_sessions:
+                del flow_sessions[token]
+                cleanup_count += 1
+            if token in session_timestamps:
+                del session_timestamps[token]
+
+        if cleanup_count > 0:
+            logger.info(f"Cleaned up {cleanup_count} expired flow sessions (older than {max_age_hours} hours)")
+
+        return cleanup_count
+
+    except Exception as e:
+        logger.error(f"Error during session cleanup: {str(e)}")
+        return 0
+
+
+def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -> Dict[str, Any]:
+    """
+    Handle WhatsApp Flow data exchange requests.
+
+    This function processes different flow actions and manages session data.
+    The decrypted_data should already be decrypted by the webhook route.
+
+    Args:
+        decrypted_data: The decrypted flow request data
+        flow_token: Unique token identifying this flow session
+
+    Returns:
+        Response dictionary to be encrypted and sent back to WhatsApp
+
+    Actions handled:
+        - ping: Health check
+        - INIT: Initialize new flow session
+        - data_exchange: Store and process form data
+        - navigate: Store data and handle navigation
+        - Any other action: Treated as data_exchange
+    """
+    try:
+        # Cleanup old sessions at the start of each request
+        cleanup_old_sessions()
+
+        # Extract action from decrypted data
+        action = decrypted_data.get('action', '').lower()
+        screen = decrypted_data.get('screen', '')
+        flow_data = decrypted_data.get('data', {})
+        version = decrypted_data.get('version', '3.0')
+
+        logger.info(f"Processing flow action: {action}, screen: {screen}, token: {flow_token}")
+
+        # Handle different actions
+        if action == 'ping':
+            # Health check - return active status
+            logger.info("Received ping request")
+            return {
+                "version": version,
+                "data": {
+                    "status": "active"
+                }
+            }
+
+        elif action == 'init':
+            # Initialize new flow session
+            flow_sessions[flow_token] = {}
+            session_timestamps[flow_token] = datetime.now()
+            logger.info(f"Initialized flow session: {flow_token}")
+
+            return {
+                "version": version,
+                "data": {}
+            }
+
+        elif action == 'data_exchange':
+            # Get existing session or create new one
+            if flow_token not in flow_sessions:
+                flow_sessions[flow_token] = {}
+                session_timestamps[flow_token] = datetime.now()
+                logger.info(f"Created new session during data_exchange: {flow_token}")
+
+            # Update session with incoming data
+            if flow_data:
+                # Merge incoming data with existing session data
+                flow_sessions[flow_token].update(flow_data)
+
+                # Log what data was received
+                logger.info(f"Received data for session {flow_token}: {json.dumps(flow_data, indent=2)}")
+                logger.info(f"Current session data: {json.dumps(flow_sessions[flow_token], indent=2)}")
+            else:
+                logger.info(f"No data in data_exchange request for session {flow_token}")
+
+            # Update timestamp
+            session_timestamps[flow_token] = datetime.now()
+
+            return {
+                "version": version,
+                "data": {}
+            }
+
+        else:
+            # Any other action (like "navigate", "BACK", etc.)
+            # Treat as data_exchange - store any data that came with it
+            if flow_token not in flow_sessions:
+                flow_sessions[flow_token] = {}
+                session_timestamps[flow_token] = datetime.now()
+                logger.info(f"Created new session during action '{action}': {flow_token}")
+
+            # Store any data that came with the request
+            if flow_data:
+                flow_sessions[flow_token].update(flow_data)
+                logger.info(f"Stored data for action '{action}' in session {flow_token}: {json.dumps(flow_data, indent=2)}")
+
+            # Update timestamp
+            session_timestamps[flow_token] = datetime.now()
+
+            logger.info(f"Processed action '{action}' for session {flow_token}")
+
+            return {
+                "version": version,
+                "data": {}
+            }
+
+    except Exception as e:
+        logger.error(f"Error handling flow data exchange: {str(e)}", exc_info=True)
+        # Return error response
+        return {
+            "version": "3.0",
+            "data": {
+                "error": "Internal server error"
+            }
+        }
+
+
+def get_collected_data(flow_token: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve all data collected for a specific flow session.
+
+    Args:
+        flow_token: The unique token identifying the flow session
+
+    Returns:
+        Dictionary containing all collected data, or None if session doesn't exist
+    """
+    try:
+        if flow_token not in flow_sessions:
+            logger.warning(f"Attempted to retrieve data for non-existent session: {flow_token}")
+            return None
+
+        data = flow_sessions[flow_token]
+        logger.info(f"Retrieved data for session {flow_token}: {len(data)} fields")
+        return data
+
+    except Exception as e:
+        logger.error(f"Error retrieving collected data for {flow_token}: {str(e)}")
+        return None
+
+
+def get_session_info(flow_token: str) -> Optional[Dict[str, Any]]:
+    """
+    Get session metadata and information.
+
+    Args:
+        flow_token: The unique token identifying the flow session
+
+    Returns:
+        Dictionary containing session info, or None if session doesn't exist
+    """
+    try:
+        if flow_token not in flow_sessions:
+            return None
+
+        return {
+            'flow_token': flow_token,
+            'created_at': session_timestamps.get(flow_token),
+            'data_fields': list(flow_sessions[flow_token].keys()),
+            'field_count': len(flow_sessions[flow_token])
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving session info for {flow_token}: {str(e)}")
+        return None
+
+
+def delete_session(flow_token: str) -> bool:
+    """
+    Delete a flow session and all its data.
+
+    Args:
+        flow_token: The unique token identifying the flow session
+
+    Returns:
+        True if session was deleted, False if it didn't exist
+    """
+    try:
+        if flow_token not in flow_sessions:
+            logger.warning(f"Attempted to delete non-existent session: {flow_token}")
+            return False
+
+        del flow_sessions[flow_token]
+        if flow_token in session_timestamps:
+            del session_timestamps[flow_token]
+
+        logger.info(f"Deleted flow session: {flow_token}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error deleting session {flow_token}: {str(e)}")
+        return False
+
+
+def get_all_sessions() -> Dict[str, Dict[str, Any]]:
+    """
+    Get information about all active sessions.
+
+    Returns:
+        Dictionary mapping flow_tokens to session info
+    """
+    try:
+        all_sessions = {}
+        for token in flow_sessions.keys():
+            all_sessions[token] = get_session_info(token)
+
+        logger.info(f"Retrieved info for {len(all_sessions)} active sessions")
+        return all_sessions
+
+    except Exception as e:
+        logger.error(f"Error retrieving all sessions: {str(e)}")
+        return {}
