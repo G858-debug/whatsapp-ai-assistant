@@ -268,19 +268,33 @@ def handle_whatsapp_flow():
                 response_data = handle_flow_data_exchange(decrypted_data, flow_token)
                 log_info(f"Handler returned response: {json.dumps(response_data, indent=2)}")
 
-                # Handle "complete" action - return all collected data
+                # Handle "complete" action - extract and return all form data
                 if action.lower() == 'complete':
                     log_info(f"Flow complete action detected for token: {flow_token}")
-                    collected_data = get_collected_data(flow_token)
 
+                    # Log all keys received in decrypted_data for debugging
+                    log_info(f"All keys in decrypted_data: {list(decrypted_data.keys())}")
+
+                    # Extract ALL form fields (exclude system fields)
+                    system_fields = {'action', 'screen', 'flow_token'}
+                    collected_data = {
+                        key: value
+                        for key, value in decrypted_data.items()
+                        if key not in system_fields
+                    }
+
+                    # Log what we extracted
+                    log_info(f"Extracted {len(collected_data)} form fields: {list(collected_data.keys())}")
+                    log_info(f"Complete form data collected: {json.dumps(collected_data, indent=2)}")
+
+                    # Add collected data to response
                     if collected_data:
-                        # Add collected data to response
                         if 'data' not in response_data:
                             response_data['data'] = {}
                         response_data['data'].update(collected_data)
-                        log_info(f"Flow complete, returning collected data: {json.dumps(collected_data, indent=2)}")
+                        log_info(f"Flow complete, returning {len(collected_data)} fields in response")
                     else:
-                        log_info(f"No collected data found for token: {flow_token}")
+                        log_info(f"No form data found in decrypted_data (only system fields present)")
 
                 # Use response_data as the response to encrypt
                 response = response_data
