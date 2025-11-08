@@ -553,8 +553,8 @@ class WhatsAppFlowHandler:
             pricing_per_session = form_data.get('pricing_per_session', 500)
             
             # Availability (from availability screen)
-            available_days = form_data.get('available_days', [])  # CheckboxGroup
-            preferred_time_slots = form_data.get('preferred_time_slots', '')  # Dropdown
+            # Transform weekday availability data into expected format
+            available_days, preferred_time_slots = self._transform_availability_data(form_data)
             
             # Preferences (from preferences screen)
             subscription_plan = form_data.get('subscription_plan', 'free')
@@ -641,7 +641,82 @@ class WhatsAppFlowHandler:
         except Exception as e:
             log_error(f"Error extracting trainer data from flow response: {str(e)}")
             return {}
-    
+
+    def _transform_availability_data(self, form_data: Dict) -> tuple:
+        """
+        Transform weekday availability data from flow format to expected format.
+
+        Flow sends: monday_preset, monday_hours, tuesday_preset, tuesday_hours, etc.
+        Expected: available_days (list) and preferred_time_slots (string)
+
+        Returns:
+            tuple: (available_days: list, preferred_time_slots: str)
+        """
+        try:
+            weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+            # Preset to time slot mapping
+            preset_mapping = {
+                'full_day': '00:00-24:00',
+                'business': '08:00-17:00',
+                'morning': '05:00-12:00',
+                'evening': '17:00-21:00'
+            }
+
+            available_days = []
+            time_slots = []
+
+            for day in weekdays:
+                preset_key = f'{day}_preset'
+                hours_key = f'{day}_hours'
+
+                preset = form_data.get(preset_key, 'not_available')
+                hours = form_data.get(hours_key, [])
+
+                # Skip if not available
+                if preset == 'not_available':
+                    continue
+
+                # Add day to available days (capitalize first letter for consistency)
+                available_days.append(day.capitalize())
+
+                # Get time slot based on preset
+                if preset == 'custom' and hours:
+                    # Custom hours - join the array
+                    # Expected format: ['07-08', '08-09'] → '07:00-09:00'
+                    if isinstance(hours, list) and len(hours) > 0:
+                        # Extract start and end times from the array
+                        try:
+                            # Get first hour's start and last hour's end
+                            first_hour = hours[0].split('-')[0]
+                            last_hour = hours[-1].split('-')[1]
+                            time_slot = f'{first_hour}:00-{last_hour}:00'
+                            time_slots.append(f'{day.capitalize()}: {time_slot}')
+                        except (IndexError, AttributeError):
+                            # If parsing fails, use a default
+                            time_slots.append(f'{day.capitalize()}: Custom hours')
+                    else:
+                        time_slots.append(f'{day.capitalize()}: Custom hours')
+                elif preset in preset_mapping:
+                    # Use preset mapping
+                    time_slot = preset_mapping[preset]
+                    time_slots.append(f'{day.capitalize()}: {time_slot}')
+                else:
+                    # Fallback for unknown presets
+                    time_slots.append(f'{day.capitalize()}: Available')
+
+            # Create combined time slots string
+            preferred_time_slots = ', '.join(time_slots) if time_slots else 'Flexible'
+
+            log_info(f"Transformed availability: days={available_days}, slots={preferred_time_slots}")
+
+            return available_days, preferred_time_slots
+
+        except Exception as e:
+            log_error(f"Error transforming availability data: {str(e)}")
+            # Return defaults on error
+            return [], 'Flexible'
+
     def _process_specializations(self, single_spec: str, multi_specs: list) -> str:
         """Convert specialization IDs to readable text and handle multiple specializations"""
         try:
