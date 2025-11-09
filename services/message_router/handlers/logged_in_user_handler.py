@@ -34,9 +34,36 @@ class LoggedInUserHandler:
     def handle_logged_in_user(self, phone: str, message: str, role: str) -> Dict:
         """Handle messages from logged-in users"""
         try:
-            # Get user ID for this role
+            # Check for role-specific commands first (these need user_id)
+            if message.startswith('/'):
+                user_id = self.auth_service.get_user_id_by_role(phone, role)
+                if not user_id:
+                    log_error(f"User ID not found for {phone} with role {role}")
+                    return {
+                        'success': False,
+                        'response': "Sorry, there was an error with your account. Please try logging in again.",
+                        'handler': 'user_id_error'
+                    }
+                return self.role_command_handler.handle_role_command(phone, message, role, user_id)
+
+            # Check for running task directly with phone number (no UUID lookup needed)
+            running_task = self.task_service.get_running_task(phone, role)
+
+            if running_task and running_task.get('task_status') == 'running':
+                # Get user_id only when needed for continuing the task
+                user_id = self.auth_service.get_user_id_by_role(phone, role)
+                if not user_id:
+                    log_error(f"User ID not found for {phone} with role {role}")
+                    return {
+                        'success': False,
+                        'response': "Sorry, there was an error with your account. Please try logging in again.",
+                        'handler': 'user_id_error'
+                    }
+                # Continue with the running task
+                return self.task_handler.continue_task(phone, message, role, user_id, running_task)
+
+            # No running task - get user_id for AI intent handling
             user_id = self.auth_service.get_user_id_by_role(phone, role)
-            
             if not user_id:
                 log_error(f"User ID not found for {phone} with role {role}")
                 return {
@@ -44,19 +71,6 @@ class LoggedInUserHandler:
                     'response': "Sorry, there was an error with your account. Please try logging in again.",
                     'handler': 'user_id_error'
                 }
-            
-            # Check for role-specific commands
-            if message.startswith('/'):
-                return self.role_command_handler.handle_role_command(phone, message, role, user_id)
-            
-            # Check for running task
-            running_task = self.task_service.get_running_task(user_id, role)
-            
-            if running_task and running_task.get('task_status') == 'running':
-                # Continue with the running task
-                return self.task_handler.continue_task(phone, message, role, user_id, running_task)
-            
-            # No running task - use AI to determine intent
             return self.ai_intent_handler.handle_ai_intent(phone, message, role, user_id)
             
         except Exception as e:
