@@ -65,8 +65,7 @@ class WhatsAppFlowHandler:
                             "flow_cta": "Start Setup",
                             "flow_action": "navigate",
                             "flow_action_payload": {
-                                "screen": "welcome",
-                                "data": {}
+                                "screen": "welcome"
                             }
                         }
                     }
