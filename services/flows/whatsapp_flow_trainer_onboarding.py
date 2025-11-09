@@ -297,7 +297,7 @@ class WhatsAppFlowTrainerOnboarding:
                 'flow_token': flow_token,
                 'phone_number': phone_number,
                 'flow_type': 'trainer_onboarding',
-                'status': 'sent',
+                'status': 'active',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
 
