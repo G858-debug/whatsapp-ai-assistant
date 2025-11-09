@@ -1838,19 +1838,19 @@ class RefiloeService:
             except Exception as e:
                 debug_info.append(f"✗ Registration session error: {str(e)[:50]}")
             
-            # Delete registration state
+            # Delete registration states (note: plural, and use phone_number column)
             try:
-                result = self.db.table('registration_state').delete().eq('phone', phone).execute()
+                result = self.db.table('registration_states').delete().eq('phone_number', phone).execute()
                 if result.data:
-                    debug_info.append(f"✓ Deleted registration state")
+                    debug_info.append(f"✓ Deleted {len(result.data)} registration state(s)")
                 else:
-                    debug_info.append("• No registration state found")
+                    debug_info.append("• No registration states found")
             except Exception as e:
-                debug_info.append(f"✗ Registration state error: {str(e)[:50]}")
-            
-            # Delete registration analytics
+                debug_info.append(f"✗ Registration states error: {str(e)[:50]}")
+
+            # Delete registration analytics (use phone_number column)
             try:
-                result = self.db.table('registration_analytics').delete().eq('phone', phone).execute()
+                result = self.db.table('registration_analytics').delete().eq('phone_number', phone).execute()
                 if result.data:
                     debug_info.append(f"✓ Deleted {len(result.data)} analytics record(s)")
                 else:
