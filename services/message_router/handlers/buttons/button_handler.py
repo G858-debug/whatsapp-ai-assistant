@@ -35,7 +35,12 @@ class ButtonHandler:
         """Handle button responses by delegating to appropriate handler"""
         try:
             log_info(f"Handling button response: {button_id} from {phone}")
-            
+
+            # Handle special trainer action buttons
+            if button_id == 'add_client':
+                # Treat as /create-trainee command
+                button_id = '/create-trainee'
+
             # Check if button_id is a command (starts with /)
             if button_id.startswith('/'):
                 log_info(f"Button is a command: {button_id} - routing through command processing")
