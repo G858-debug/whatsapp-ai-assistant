@@ -28,7 +28,7 @@ class InvitationManager:
         try:
             # Get trainer info
             trainer_result = self.db.table('trainers').select('*').eq(
-                'trainer_id', trainer_id
+                'id', trainer_id
             ).execute()
             
             if not trainer_result.data:
@@ -135,7 +135,7 @@ class InvitationManager:
         try:
             # Get trainer info
             trainer_result = self.db.table('trainers').select('*').eq(
-                'trainer_id', trainer_id
+                'id', trainer_id
             ).execute()
             
             if not trainer_result.data:
