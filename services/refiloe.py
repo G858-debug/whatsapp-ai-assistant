@@ -1763,7 +1763,7 @@ class RefiloeService:
             log_error(f"Error storing profile edit flow token: {str(e)}")
     
     def _handle_reset_command(self, phone: str) -> Dict:
-        """Handle /reset_me command to completely reset user data from all 7 core tables"""
+        """Handle /reset_me command to completely reset user data from all 9 core tables"""
         try:
             from app import app
             whatsapp_service = app.config['services']['whatsapp']
@@ -1877,7 +1877,27 @@ class RefiloeService:
                     debug_info.append("• No processed messages found")
             except Exception as e:
                 debug_info.append(f"✗ Processed messages error: {str(e)[:50]}")
-            
+
+            # Delete trainer tasks
+            try:
+                result = self.db.table('trainer_tasks').delete().eq('trainer_id', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted {len(result.data)} trainer task(s)")
+                else:
+                    debug_info.append("• No trainer tasks found")
+            except Exception as e:
+                debug_info.append(f"✗ Trainer tasks error: {str(e)[:50]}")
+
+            # Delete client tasks
+            try:
+                result = self.db.table('client_tasks').delete().eq('client_id', phone).execute()
+                if result.data:
+                    debug_info.append(f"✓ Deleted {len(result.data)} client task(s)")
+                else:
+                    debug_info.append("• No client tasks found")
+            except Exception as e:
+                debug_info.append(f"✗ Client tasks error: {str(e)[:50]}")
+
             log_info(f"Reset for {phone} - Results: {debug_info}")
             
             # Count successful deletions
@@ -1888,7 +1908,7 @@ class RefiloeService:
                 "🔧 *Complete Account Reset Results:*\n\n" +
                 "\n".join(debug_info) +
                 f"\n\n📊 *Summary:*\n"
-                f"• Tables processed: 7 core tables\n"
+                f"• Tables processed: 9 core tables\n"
                 f"• Successful operations: {successful_deletions}\n"
                 f"• Total records deleted: {deleted_count}\n\n"
                 "✨ Your account has been completely reset!\n"
