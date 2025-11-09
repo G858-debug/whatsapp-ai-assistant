@@ -11,7 +11,7 @@ def handle_assign_habits(phone: str, trainer_id: str, db, whatsapp, task_service
     try:
         # Create assign_habit task (use phone for task identification)
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='assign_habit',
             task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}

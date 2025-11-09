@@ -11,7 +11,7 @@ def handle_view_progress(phone: str, client_id: str, db, whatsapp, task_service)
     try:
         # Create view_progress task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='view_progress',
             task_data={
@@ -58,7 +58,7 @@ def handle_weekly_report(phone: str, client_id: str, db, whatsapp, task_service)
     try:
         # Create weekly_report task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='weekly_report',
             task_data={
@@ -105,7 +105,7 @@ def handle_monthly_report(phone: str, client_id: str, db, whatsapp, task_service
     try:
         # Create monthly_report task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='monthly_report',
             task_data={

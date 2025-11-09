@@ -27,9 +27,9 @@ class TaskService:
         self.task_tracker = TaskTracker(supabase_client)
     
     # Delegate to TaskManager
-    def create_task(self, user_id: str, role: str, task_type: str, task_data: Dict = None) -> Optional[str]:
+    def create_task(self, phone: str, role: str, task_type: str, task_data: Dict = None) -> Optional[str]:
         """Create a new task"""
-        return self.task_manager.create_task(user_id, role, task_type, task_data)
+        return self.task_manager.create_task(phone, role, task_type, task_data)
     
     def get_running_task(self, user_id: str, role: str) -> Optional[Dict]:
         """Get currently running task for user"""

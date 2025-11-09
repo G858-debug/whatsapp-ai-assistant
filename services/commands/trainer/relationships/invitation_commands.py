@@ -11,7 +11,7 @@ def handle_invite_client(phone: str, trainer_id: str, db, whatsapp, task_service
     try:
         # Create invite_trainee task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='invite_trainee',
             task_data={
@@ -54,7 +54,7 @@ def handle_create_client(phone: str, trainer_id: str, db, whatsapp, reg_service,
     try:
         # Create task to ask for choice - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='create_trainee',
             task_data={

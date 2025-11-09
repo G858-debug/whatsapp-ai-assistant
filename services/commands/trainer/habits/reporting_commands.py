@@ -11,7 +11,7 @@ def handle_view_habit_progress(phone: str, trainer_id: str, db, whatsapp, task_s
     try:
         # Create view_trainee_progress task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='view_trainee_progress',
             task_data={
@@ -71,7 +71,7 @@ def handle_export_habit_data(phone: str, trainer_id: str, db, whatsapp, task_ser
         
         # Create trainee_report task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='trainee_report',
             task_data={

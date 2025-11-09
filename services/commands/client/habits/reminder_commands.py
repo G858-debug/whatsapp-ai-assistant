@@ -11,7 +11,7 @@ def handle_reminder_settings(phone: str, client_id: str, db, whatsapp, task_serv
     try:
         # Create reminder_settings task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='reminder_settings',
             task_data={

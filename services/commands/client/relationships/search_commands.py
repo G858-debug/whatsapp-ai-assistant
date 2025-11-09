@@ -11,7 +11,7 @@ def handle_search_trainers(phone: str, client_id: str, db, whatsapp, task_servic
     try:
         # Create search_trainer task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='search_trainer',
             task_data={
