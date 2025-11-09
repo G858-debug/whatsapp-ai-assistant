@@ -111,8 +111,10 @@ def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -
             session_timestamps[flow_token] = datetime.now()
             logger.info(f"Initialized flow session: {flow_token}")
 
+            # Return screen routing information for the flow
             return {
                 "version": version,
+                "screen": "welcome",
                 "data": {}
             }
 
