@@ -1708,8 +1708,7 @@ class RefiloeService:
                             "flow_cta": "Edit Profile",
                             "flow_action": "navigate",
                             "flow_action_payload": {
-                                "screen": "welcome",
-                                "data": {}
+                                "screen": "welcome"
                             }
                         }
                     }
