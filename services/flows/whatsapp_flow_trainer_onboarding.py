@@ -65,10 +65,7 @@ class WhatsAppFlowTrainerOnboarding:
                             "flow_token": flow_token,
                             "flow_id": self.flow_id,
                             "flow_cta": "Get Started",
-                            "flow_action": "data_exchange",
-                            "flow_action_payload": {
-                                "screen": "welcome"
-                            }
+                            "flow_action": "data_exchange"
                         }
                     }
                 }

@@ -56,10 +56,7 @@ class WhatsAppFlowHandler:
                             "flow_token": flow_token,
                             "flow_id": "775047838492907",
                             "flow_cta": "Get Started",
-                            "flow_action": "data_exchange",
-                            "flow_action_payload": {
-                                "screen": "welcome"
-                            }
+                            "flow_action": "data_exchange"
                         }
                     }
                 }
