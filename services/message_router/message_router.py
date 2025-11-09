@@ -51,7 +51,20 @@ class MessageRouter:
             # Step 0: Check for button responses (Phase 2 invitations)
             if button_id:
                 return self.button_handler.handle_button_response(phone, button_id)
-            
+
+            # Step 0.5: Check for /reset_me command (highest priority - works in any state)
+            if message.strip().lower() == '/reset_me':
+                try:
+                    from services.refiloe import RefiloeService
+                    refiloe = RefiloeService(self.db)
+                    return refiloe._handle_reset_command(phone)
+                except Exception as e:
+                    log_error(f"Error handling reset command: {str(e)}")
+                    return {
+                        'success': False,
+                        'response': "❌ Reset failed. Please try again or contact support."
+                    }
+
             # Step 1: Check for universal commands (work regardless of state)
             if message.startswith('/'):
                 universal_result = self.universal_command_handler.handle_universal_command(phone, message)
