@@ -46,24 +46,17 @@ class WhatsAppFlowHandler:
                 "type": "interactive",
                 "interactive": {
                     "type": "flow",
-                    "header": {
-                        "type": "text",
-                        "text": "🚀 Trainer Onboarding"
-                    },
                     "body": {
-                        "text": "Welcome to Refiloe! Let's get you set up as a trainer. This will take about 2 minutes."
-                    },
-                    "footer": {
-                        "text": "Complete your profile setup"
+                        "text": "Let's set up your trainer profile! 💪"
                     },
                     "action": {
                         "name": "flow",
                         "parameters": {
                             "flow_message_version": "3",
                             "flow_token": flow_token,
-                            "flow_name": "trainer_onboarding_flow",
-                            "flow_cta": "Start Setup",
-                            "flow_action": "navigate",
+                            "flow_id": "775047838492907",
+                            "flow_cta": "Get Started",
+                            "flow_action": "data_exchange",
                             "flow_action_payload": {
                                 "screen": "welcome"
                             }
