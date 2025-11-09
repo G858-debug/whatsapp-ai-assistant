@@ -195,8 +195,8 @@ class WhatsAppFlowTrainerOnboarding:
                 'city': city if city else None,
                 'location': city if city else None,  # Alias for backward compatibility
                 'specialization': specialization if specialization else None,
-                'experience_years': str(experience_years) if experience_years else None,
-                'years_experience': str(experience_years) if experience_years else None,  # Alias
+                'experience_years': self._parse_experience_years(experience_years or '0'),
+                'years_experience': self._parse_experience_years(experience_years or '0'),  # Alias
                 'pricing_per_session': float(pricing_per_session) if pricing_per_session else None,
                 'status': 'active',
                 'onboarding_method': 'flow',
@@ -366,3 +366,37 @@ class WhatsAppFlowTrainerOnboarding:
         except Exception as e:
             log_error(f"Error getting trainer by email: {str(e)}")
             return None
+
+    def _parse_experience_years(self, experience_str: str) -> int:
+        """
+        Convert experience years string to integer.
+
+        Examples:
+            "0-1" -> 0
+            "2-3" -> 2
+            "4-5" -> 4
+            "6-10" -> 6
+            "10+" -> 10
+
+        Args:
+            experience_str: Experience range string from flow
+
+        Returns:
+            Integer representing years of experience (lower bound of range)
+        """
+        try:
+            # Handle "10+" case
+            if '+' in experience_str:
+                return int(experience_str.replace('+', '').strip())
+
+            # Handle range like "2-3"
+            if '-' in experience_str:
+                # Take the lower bound of the range
+                return int(experience_str.split('-')[0].strip())
+
+            # Handle single number
+            return int(experience_str)
+
+        except (ValueError, AttributeError):
+            log_warning(f"Could not parse experience years: {experience_str}, defaulting to 0")
+            return 0
