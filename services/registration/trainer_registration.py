@@ -395,7 +395,9 @@ class TrainerRegistrationHandler:
                 'status': 'active',
                 'registration_method': data.get('registration_method', 'text'),
                 'onboarding_method': data.get('onboarding_method', 'chat'),
-                'created_at': datetime.now(self.sa_tz).isoformat()
+                'created_at': datetime.now(self.sa_tz).isoformat(),
+                'working_hours': {},  # Default empty JSONB object
+                'preferred_time_slots': ''  # Default empty string
             }
             
             # Add flow-specific fields if available
@@ -403,6 +405,8 @@ class TrainerRegistrationHandler:
                 trainer_data['available_days'] = data['available_days'] if isinstance(data['available_days'], list) else json.loads(data['available_days'])
             if data.get('preferred_time_slots'):
                 trainer_data['preferred_time_slots'] = data['preferred_time_slots']
+            if data.get('working_hours'):
+                trainer_data['working_hours'] = data['working_hours'] if isinstance(data['working_hours'], dict) else json.loads(data['working_hours'])
             if data.get('services_offered'):
                 trainer_data['services_offered'] = data['services_offered'] if isinstance(data['services_offered'], list) else json.loads(data['services_offered'])
             if data.get('pricing_flexibility'):
