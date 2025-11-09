@@ -1,0 +1,10 @@
+{
+  "trainer_onboarding": {
+    "flow_id": "775047838492907",
+    "flow_name": "trainer_onboarding_flow",
+    "version": "3.0",
+    "enabled": true,
+    "fallback_to_text": true,
+    "description": "WhatsApp Flow for trainer registration and profile setup"
+  }
+}
