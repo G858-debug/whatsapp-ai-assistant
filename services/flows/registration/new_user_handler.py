@@ -32,7 +32,7 @@ class NewUserHandler:
             
             # Send message with buttons
             buttons = [
-                {'id': 'register_trainer', 'title': 'I'm a Trainer'},
+                {'id': 'register_trainer', 'title': 'I\'m a Trainer'},
                 {'id': 'register_client', 'title': 'I need a Trainer'}
             ]
             
