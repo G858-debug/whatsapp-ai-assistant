@@ -11,7 +11,7 @@ def handle_unassign_habit(phone: str, trainer_id: str, db, whatsapp, task_servic
     try:
         # Create unassign_habit task (use phone for task identification)
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='unassign_habit',
             task_data={'step': 'ask_client_id', 'trainer_id': trainer_id}

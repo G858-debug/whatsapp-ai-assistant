@@ -53,21 +53,21 @@ class TaskTracker:
         """Mark task as stopped"""
         return self.update_task(task_id, role, status='stopped')
     
-    def stop_all_running_tasks(self, user_id: str, role: str) -> bool:
-        """Stop all running tasks for user"""
+    def stop_all_running_tasks(self, phone: str, role: str) -> bool:
+        """Stop all running tasks for user using phone number"""
         try:
             table = 'trainer_tasks' if role == 'trainer' else 'client_tasks'
-            id_column = 'trainer_id' if role == 'trainer' else 'client_id'
-            
+            phone_column = 'trainer_phone' if role == 'trainer' else 'client_phone'
+
             result = self.db.table(table).update({
                 'task_status': 'stopped',
                 'stopped_at': datetime.now(self.sa_tz).isoformat(),
                 'updated_at': datetime.now(self.sa_tz).isoformat()
-            }).eq(id_column, user_id).eq('task_status', 'running').execute()
-            
-            log_info(f"Stopped all running tasks for {role} {user_id}")
+            }).eq(phone_column, phone).eq('task_status', 'running').execute()
+
+            log_info(f"Stopped all running tasks for {role} {phone}")
             return True
-            
+
         except Exception as e:
             log_error(f"Error stopping tasks: {str(e)}")
             return False

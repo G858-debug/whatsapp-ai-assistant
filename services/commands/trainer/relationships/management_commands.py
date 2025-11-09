@@ -56,7 +56,7 @@ def handle_remove_trainee(phone: str, trainer_id: str, db, whatsapp, task_servic
     try:
         # Create task for removal flow - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='remove_trainee',
             task_data={

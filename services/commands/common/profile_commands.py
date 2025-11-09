@@ -221,7 +221,7 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
         
         # Create edit_profile task with field selection step - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role=role,
             task_type='edit_profile',
             task_data={
@@ -262,7 +262,7 @@ def handle_delete_account(phone: str, role: str, user_id: str, db, whatsapp, aut
     try:
         # Create delete_account task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role=role,
             task_type='delete_account',
             task_data={

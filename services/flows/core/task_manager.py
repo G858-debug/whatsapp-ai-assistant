@@ -12,12 +12,12 @@ class FlowTaskManager:
     def __init__(self, task_service):
         self.task_service = task_service
     
-    def create_flow_task(self, user_id: str, role: str, task_type: str, 
+    def create_flow_task(self, phone: str, role: str, task_type: str,
                         initial_data: Dict = None) -> Optional[str]:
-        """Create a new flow task"""
+        """Create a new flow task using phone number"""
         try:
             return self.task_service.create_task(
-                user_id=user_id,
+                phone=phone,
                 role=role,
                 task_type=task_type,
                 task_data=initial_data or {}

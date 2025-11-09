@@ -27,21 +27,21 @@ class TaskService:
         self.task_tracker = TaskTracker(supabase_client)
     
     # Delegate to TaskManager
-    def create_task(self, user_id: str, role: str, task_type: str, task_data: Dict = None) -> Optional[str]:
-        """Create a new task"""
-        return self.task_manager.create_task(user_id, role, task_type, task_data)
+    def create_task(self, phone: str, role: str, task_type: str, task_data: Dict = None) -> Optional[str]:
+        """Create a new task using phone number"""
+        return self.task_manager.create_task(phone, role, task_type, task_data)
     
-    def get_running_task(self, user_id: str, role: str) -> Optional[Dict]:
-        """Get currently running task for user"""
-        return self.task_manager.get_running_task(user_id, role)
+    def get_running_task(self, phone: str, role: str) -> Optional[Dict]:
+        """Get currently running task for user using phone number"""
+        return self.task_manager.get_running_task(phone, role)
     
     def get_task_by_id(self, task_id: str, role: str) -> Optional[Dict]:
         """Get specific task by ID"""
         return self.task_manager.get_task_by_id(task_id, role)
     
-    def get_recent_completed_tasks(self, user_id: str, role: str, limit: int = 5) -> List[Dict]:
-        """Get recent completed tasks for context"""
-        return self.task_manager.get_recent_completed_tasks(user_id, role, limit)
+    def get_recent_completed_tasks(self, phone: str, role: str, limit: int = 5) -> List[Dict]:
+        """Get recent completed tasks for context using phone number"""
+        return self.task_manager.get_recent_completed_tasks(phone, role, limit)
     
     # Delegate to TaskTracker
     def update_task(self, task_id: str, role: str, task_data: Dict = None, status: str = None) -> bool:
@@ -56,9 +56,9 @@ class TaskService:
         """Mark task as stopped"""
         return self.task_tracker.stop_task(task_id, role)
     
-    def stop_all_running_tasks(self, user_id: str, role: str) -> bool:
-        """Stop all running tasks for user"""
-        return self.task_tracker.stop_all_running_tasks(user_id, role)
+    def stop_all_running_tasks(self, phone: str, role: str) -> bool:
+        """Stop all running tasks for user using phone number"""
+        return self.task_tracker.stop_all_running_tasks(phone, role)
     
     def emergency_cleanup_all_tasks(self, phone: str, user_id: str = None, role: str = None) -> int:
         """Emergency cleanup - force complete ALL running tasks for a user (nuclear option)"""

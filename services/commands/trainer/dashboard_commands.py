@@ -29,7 +29,7 @@ def handle_client_progress_dashboard(phone: str, trainer_id: str, db, whatsapp, 
     try:
         # Create client_progress task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='client_progress',
             task_data={

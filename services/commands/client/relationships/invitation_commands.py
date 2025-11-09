@@ -11,7 +11,7 @@ def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service
     try:
         # Create invite_trainer task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='invite_trainer',
             task_data={
@@ -59,7 +59,7 @@ def handle_remove_trainer(phone: str, client_id: str, db, whatsapp, task_service
     try:
         # Create task for removal flow - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='remove_trainer',
             task_data={

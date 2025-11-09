@@ -88,7 +88,7 @@ def handle_log_habits(phone: str, client_id: str, db, whatsapp, task_service, ha
 
         # Create log_habits task waiting for habit ID selection - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='log_habits',
             task_data={
@@ -163,7 +163,7 @@ def handle_single_habit_logging(phone: str, client_id: str, habit_id: str, habit
         
         # Create task for single habit logging - use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='client',
             task_type='log_habits',
             task_data={

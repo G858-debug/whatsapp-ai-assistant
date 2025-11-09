@@ -24,7 +24,7 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
         # Create create_habit task (start from index 1 since first question is already asked)
         # Use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='create_habit',
             task_data={
@@ -70,7 +70,7 @@ def handle_edit_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -
     try:
         # Create edit_habit task (use phone for task identification)
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='edit_habit',
             task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}
@@ -123,7 +123,7 @@ def handle_delete_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
     try:
         # Create delete_habit task (use phone for task identification)
         task_id = task_service.create_task(
-            user_id=phone,
+            phone=phone,
             role='trainer',
             task_type='delete_habit',
             task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}
