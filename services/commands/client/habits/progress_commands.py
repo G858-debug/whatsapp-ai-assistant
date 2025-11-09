@@ -9,12 +9,15 @@ from utils.logger import log_info, log_error
 def handle_view_progress(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /view-progress command"""
     try:
-        # Create view_progress task
+        # Create view_progress task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=client_id,
+            user_id=phone,
             role='client',
             task_type='view_progress',
-            task_data={'step': 'ask_view_type'}
+            task_data={
+                'step': 'ask_view_type',
+                'client_id': client_id
+            }
         )
         
         if not task_id:
@@ -53,12 +56,15 @@ def handle_view_progress(phone: str, client_id: str, db, whatsapp, task_service)
 def handle_weekly_report(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /weekly-report command"""
     try:
-        # Create weekly_report task
+        # Create weekly_report task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=client_id,
+            user_id=phone,
             role='client',
             task_type='weekly_report',
-            task_data={'step': 'ask_week'}
+            task_data={
+                'step': 'ask_week',
+                'client_id': client_id
+            }
         )
         
         if not task_id:
@@ -97,12 +103,15 @@ def handle_weekly_report(phone: str, client_id: str, db, whatsapp, task_service)
 def handle_monthly_report(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /monthly-report command"""
     try:
-        # Create monthly_report task
+        # Create monthly_report task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=client_id,
+            user_id=phone,
             role='client',
             task_type='monthly_report',
-            task_data={'step': 'ask_month'}
+            task_data={
+                'step': 'ask_month',
+                'client_id': client_id
+            }
         )
         
         if not task_id:

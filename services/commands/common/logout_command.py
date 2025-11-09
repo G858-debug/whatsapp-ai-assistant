@@ -23,10 +23,10 @@ def handle_logout(phone: str, auth_service, task_service, whatsapp) -> Dict:
         
         # Get user ID to stop tasks
         user_id = auth_service.get_user_id_by_role(phone, current_status)
-        
+
         if user_id:
-            # Stop all running tasks
-            task_service.stop_all_running_tasks(user_id, current_status)
+            # Stop all running tasks (use phone for task identification)
+            task_service.stop_all_running_tasks(phone, current_status)
         
         # Logout
         success = auth_service.set_login_status(phone, None)

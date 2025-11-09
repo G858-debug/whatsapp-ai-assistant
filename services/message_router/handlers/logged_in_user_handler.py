@@ -71,6 +71,19 @@ class LoggedInUserHandler:
                     'response': "Sorry, there was an error with your account. Please try logging in again.",
                     'handler': 'user_id_error'
                 }
+            
+            # Check for role-specific commands
+            if message.startswith('/'):
+                return self.role_command_handler.handle_role_command(phone, message, role, user_id)
+            
+            # Check for running task (use phone for task identification)
+            running_task = self.task_service.get_running_task(phone, role)
+            
+            if running_task and running_task.get('task_status') == 'running':
+                # Continue with the running task
+                return self.task_handler.continue_task(phone, message, role, user_id, running_task)
+            
+            # No running task - use AI to determine intent
             return self.ai_intent_handler.handle_ai_intent(phone, message, role, user_id)
             
         except Exception as e:

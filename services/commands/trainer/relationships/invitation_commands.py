@@ -9,12 +9,15 @@ from utils.logger import log_info, log_error
 def handle_invite_client(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /invite-trainee command"""
     try:
-        # Create invite_trainee task
+        # Create invite_trainee task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=trainer_id,
+            user_id=phone,
             role='trainer',
             task_type='invite_trainee',
-            task_data={'step': 'ask_client_id'}
+            task_data={
+                'step': 'ask_client_id',
+                'trainer_id': trainer_id
+            }
         )
         
         if not task_id:
@@ -49,9 +52,9 @@ def handle_invite_client(phone: str, trainer_id: str, db, whatsapp, task_service
 def handle_create_client(phone: str, trainer_id: str, db, whatsapp, reg_service, task_service) -> Dict:
     """Handle /create-trainee command - now asks to create or link"""
     try:
-        # Create task to ask for choice
+        # Create task to ask for choice - use phone for task identification
         task_id = task_service.create_task(
-            user_id=trainer_id,
+            user_id=phone,
             role='trainer',
             task_type='create_trainee',
             task_data={
