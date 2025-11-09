@@ -9,12 +9,15 @@ from utils.logger import log_info, log_error
 def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /invite-trainer command with trainer browse dashboard"""
     try:
-        # Create invite_trainer task
+        # Create invite_trainer task - use phone for task identification
         task_id = task_service.create_task(
-            user_id=client_id,
+            user_id=phone,
             role='client',
             task_type='invite_trainer',
-            task_data={'step': 'ask_trainer_id'}
+            task_data={
+                'step': 'ask_trainer_id',
+                'client_id': client_id
+            }
         )
         
         if not task_id:
@@ -54,12 +57,15 @@ def handle_invite_trainer(phone: str, client_id: str, db, whatsapp, task_service
 def handle_remove_trainer(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /remove-trainer command - Dashboard link with ID request"""
     try:
-        # Create task for removal flow
+        # Create task for removal flow - use phone for task identification
         task_id = task_service.create_task(
-            user_id=client_id,
+            user_id=phone,
             role='client',
             task_type='remove_trainer',
-            task_data={'step': 'ask_trainer_id'}
+            task_data={
+                'step': 'ask_trainer_id',
+                'client_id': client_id
+            }
         )
         
         if not task_id:

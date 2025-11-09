@@ -49,8 +49,8 @@ class LoggedInUserHandler:
             if message.startswith('/'):
                 return self.role_command_handler.handle_role_command(phone, message, role, user_id)
             
-            # Check for running task
-            running_task = self.task_service.get_running_task(user_id, role)
+            # Check for running task (use phone for task identification)
+            running_task = self.task_service.get_running_task(phone, role)
             
             if running_task and running_task.get('task_status') == 'running':
                 # Continue with the running task

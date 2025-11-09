@@ -155,7 +155,7 @@ class TrainerIntentHandler:
         # Check if user already has a running create_habit task (only if task_service is available)
         user_id = context.get('user_id')
         if user_id and self.task_service:
-            running_task = self.task_service.get_running_task(user_id, 'trainer')
+            running_task = self.task_service.get_running_task(phone, 'trainer')
             if running_task and running_task.get('task_type') == 'create_habit':
                 # Don't send another create habit message if already in progress
                 return {
