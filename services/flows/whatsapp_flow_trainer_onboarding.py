@@ -57,7 +57,7 @@ class WhatsAppFlowTrainerOnboarding:
                     "type": "flow",
                     "header": {
                         "type": "text",
-                        "text": "🚀 Welcome to Refiloe!"
+                        "text": "🚀 Get Ready!"
                     },
                     "body": {
                         "text": "Let's set up your trainer profile! This takes about 2 minutes and will help clients find you easily. 💪"
