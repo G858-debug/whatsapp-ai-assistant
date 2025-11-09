@@ -180,6 +180,11 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
         flow_name = nfm_reply['name']
         log_info(f"Flow name: {flow_name}")
 
+        # Extract flow_token if present (optional field used for flow identification)
+        flow_token = nfm_reply.get('body', '')
+        if flow_token:
+            log_info(f"Flow token: {flow_token}")
+
         if 'response_json' not in nfm_reply:
             error_msg = "Invalid nfm_reply structure: missing 'response_json' field"
             log_error(f"NFM reply validation failed: {error_msg}")
@@ -210,24 +215,26 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
         # Step 6: Route to appropriate flow handler
         log_info(f"Step 2: Routing flow '{flow_name}' to appropriate handler")
 
-        if flow_name == "trainer_onboarding_flow":
-            log_info("Matched trainer_onboarding_flow - initializing handler")
+        # Check if it's trainer onboarding (handles both specific name and generic "flow")
+        if flow_name == 'trainer_onboarding_flow' or flow_name == 'flow':
+            # If generic "flow" name, check if it's trainer onboarding based on flow_token
+            if flow_name == 'flow':
+                # Check if flow_token indicates trainer onboarding
+                if flow_token and 'trainer_onboarding' in flow_token:
+                    log_info(f"Detected trainer onboarding flow from generic 'flow' name via token: {flow_token}")
+                else:
+                    log_warning(f"Generic 'flow' name without trainer_onboarding token - may not be trainer onboarding")
 
             try:
+                log_info(f"Processing trainer onboarding flow completion for {phone_number}")
+
                 # Initialize the trainer onboarding flow handler
-                flow_handler = WhatsAppFlowTrainerOnboarding(supabase, whatsapp_service)
-                log_info("WhatsAppFlowTrainerOnboarding initialized successfully")
-
-                # Process the flow completion
-                log_info(f"Processing flow completion for phone: {phone_number}")
-                result = flow_handler.process_flow_completion(flow_data, phone_number)
-
-                log_info(f"Flow completion result: {json.dumps(result, indent=2)}")
+                trainer_onboarding_service = WhatsAppFlowTrainerOnboarding(supabase, whatsapp_service)
+                result = trainer_onboarding_service.process_flow_completion(flow_data, phone_number)
 
                 if result.get('success'):
-                    log_info("✅ Flow completed successfully")
+                    log_info(f"✅ Trainer onboarding completed successfully for {phone_number}")
                     log_info(f"Trainer ID: {result.get('trainer_id')}")
-                    log_info(f"Trainer name: {result.get('trainer_name')}")
 
                     return {
                         'success': True,
