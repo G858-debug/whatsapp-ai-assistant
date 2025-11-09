@@ -237,7 +237,37 @@ class WhatsAppFlowTrainerOnboarding:
 
             if result.data and len(result.data) > 0:
                 trainer_id = result.data[0]['id']
+                trainer_whatsapp = result.data[0]['whatsapp']
+
                 log_info(f"✅ Trainer created successfully: {full_name} (ID: {trainer_id})")
+
+                # Create or update users table entry to link phone number to trainer
+                try:
+                    # Check if user entry exists
+                    existing_user = self.db.table('users').select('*').eq(
+                        'phone_number', trainer_whatsapp
+                    ).execute()
+
+                    if existing_user.data:
+                        # Update existing user entry
+                        self.db.table('users').update({
+                            'trainer_id': trainer_id,
+                            'updated_at': datetime.now(self.sa_tz).isoformat()
+                        }).eq('phone_number', trainer_whatsapp).execute()
+                        log_info(f"Updated users table for trainer: {trainer_whatsapp}")
+                    else:
+                        # Create new user entry
+                        self.db.table('users').insert({
+                            'phone_number': trainer_whatsapp,
+                            'trainer_id': trainer_id,
+                            'created_at': datetime.now(self.sa_tz).isoformat(),
+                            'updated_at': datetime.now(self.sa_tz).isoformat()
+                        }).execute()
+                        log_info(f"Created users table entry for trainer: {trainer_whatsapp}")
+
+                except Exception as user_error:
+                    log_error(f"Error creating/updating users table: {str(user_error)}")
+                    # Don't fail the whole registration if users table update fails
 
                 # Send confirmation message
                 confirmation_msg = (
