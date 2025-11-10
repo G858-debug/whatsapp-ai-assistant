@@ -1806,7 +1806,18 @@ class RefiloeService:
                     debug_info.append("• No client records found")
             except Exception as e:
                 debug_info.append(f"✗ Client delete error: {str(e)[:50]}")
-            
+
+            # Delete from users table
+            try:
+                result = self.db.table('users').delete().eq('phone_number', phone).execute()
+                if result.data:
+                    deleted_count += len(result.data)
+                    debug_info.append(f"✓ Deleted {len(result.data)} user record(s)")
+                else:
+                    debug_info.append("• No user records found")
+            except Exception as e:
+                debug_info.append(f"✗ User delete error: {str(e)[:50]}")
+
             # Delete conversation states
             try:
                 result = self.db.table('conversation_states').delete().eq('phone_number', phone).execute()
