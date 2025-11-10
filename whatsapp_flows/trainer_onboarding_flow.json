@@ -190,8 +190,10 @@
               {
                 "type": "TextInput",
                 "name": "pricing_per_session",
-                "label": "Price per session",
-                "required": true
+                "label": "What's your standard price per session? (in Rands)",
+                "helper-text": "e.g., 500 for R500. Leave blank to skip.",
+                "required": false,
+                "input-type": "number"
               },
               {
                 "type": "Footer",

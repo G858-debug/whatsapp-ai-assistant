@@ -231,8 +231,9 @@ class TrainerRegistrationHandler:
         return (
             "Almost done! 🏁\n\n"
             f"📝 *Step {step_num} of 7* (Last one!)\n\n"
-            "What's your standard rate per session?\n"
-            "Just type the amount (e.g., 350)"
+            "What's your standard price per session? (in Rands)\n\n"
+            "Just type the amount (e.g., 500 for R500)\n"
+            "Or type 'skip' to set this later"
         )
     
     def _validate_field(self, field: str, value: str) -> Dict:
@@ -319,18 +320,33 @@ class TrainerRegistrationHandler:
             return {'valid': True, 'value': value}
         
         elif field == 'pricing':
+            # Allow skipping pricing
+            if value.lower() == 'skip':
+                return {'valid': True, 'value': None}
+
             # Use the validator's extract_price method if available
             if hasattr(self.validator, 'extract_price'):
                 price = self.validator.extract_price(value)
             else:
                 price = self._parse_pricing(value)
-            
-            if price and 50 <= price <= 5000:
+
+            # Validate that price is positive if provided
+            if price is not None:
+                if price <= 0:
+                    return {
+                        'valid': False,
+                        'error': "💰 Price must be a positive number\nExample: 500 for R500"
+                    }
+                if price < 50 or price > 5000:
+                    return {
+                        'valid': False,
+                        'error': "💰 Please enter a valid amount between R50 and R5000\nExample: 500"
+                    }
                 return {'valid': True, 'value': price}
             else:
                 return {
                     'valid': False,
-                    'error': "💰 Please enter a valid amount between R50 and R5000\nExample: 350"
+                    'error': "💰 Please enter a valid amount or type 'skip'\nExample: 500 for R500"
                 }
         
         return {'valid': True, 'value': value}
@@ -370,14 +386,14 @@ class TrainerRegistrationHandler:
             first_name = name_parts[0]
             last_name = name_parts[1] if len(name_parts) > 1 else ''
             
-            # Ensure pricing is numeric
-            if hasattr(self.validator, 'extract_price'):
-                pricing = self.validator.extract_price(str(data.get('pricing', 300)))
-            else:
-                pricing = self._parse_pricing(data.get('pricing', 300))
-            
-            if not pricing:
-                pricing = 300
+            # Handle pricing (can be None if trainer skipped)
+            pricing = data.get('pricing')
+            if pricing is not None:
+                if hasattr(self.validator, 'extract_price'):
+                    pricing = self.validator.extract_price(str(pricing))
+                else:
+                    pricing = self._parse_pricing(pricing)
+            # pricing remains None if not provided or if trainer skipped
             
             trainer_data = {
                 'name': full_name,
@@ -391,7 +407,7 @@ class TrainerRegistrationHandler:
                 'experience_years': data.get('experience_years'),  # Flow compatibility
                 'location': data.get('location'),
                 'city': data.get('city', data.get('location')),  # Flow compatibility
-                'pricing_per_session': pricing,  # Always numeric
+                'pricing_per_session': pricing,  # Numeric or None (nullable)
                 'status': 'active',
                 'registration_method': data.get('registration_method', 'text'),
                 'onboarding_method': data.get('onboarding_method', 'chat'),
@@ -466,10 +482,18 @@ class TrainerRegistrationHandler:
                 except Exception as e:
                     log_error(f"Error marking registration complete: {str(e)}")
                 
+                # Build celebration message with pricing if provided
                 celebration = (
                     "🎊 *CONGRATULATIONS!* 🎊\n\n"
                     f"Welcome aboard, {first_name}! You're all set up and ready to grow "
                     "your training business with Refiloe! 🚀\n\n"
+                )
+
+                # Add pricing info if provided
+                if pricing:
+                    celebration += f"💰 Default Price: R{pricing:.0f} per session\n\n"
+
+                celebration += (
                     "🎯 *Your Trainer Dashboard:*\n"
                     "• Type `/profile` - View your complete profile\n"
                     "• Type `/clients` - Manage your clients\n"

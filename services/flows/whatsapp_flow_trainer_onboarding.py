@@ -154,6 +154,15 @@ class WhatsAppFlowTrainerOnboarding:
             if not terms_accepted:
                 validation_errors.append("You must accept the terms and conditions")
 
+            # Validate pricing_per_session if provided (must be positive number)
+            if pricing_per_session:
+                try:
+                    price_value = float(pricing_per_session)
+                    if price_value <= 0:
+                        validation_errors.append("Price per session must be a positive number")
+                except (ValueError, TypeError):
+                    validation_errors.append("Price per session must be a valid number")
+
             if validation_errors:
                 error_msg = "Validation errors: " + ", ".join(validation_errors)
                 log_warning(f"Flow validation failed for {phone_number}: {error_msg}")
@@ -282,6 +291,14 @@ class WhatsAppFlowTrainerOnboarding:
 
                 if specialization:
                     confirmation_msg += f"💪 Specialization: {specialization}\n"
+
+                # Display pricing in R[amount] format if provided
+                if pricing_per_session:
+                    try:
+                        price_value = float(pricing_per_session)
+                        confirmation_msg += f"💰 Default Price: R{price_value:.0f} per session\n"
+                    except (ValueError, TypeError):
+                        pass
 
                 confirmation_msg += (
                     f"\n"
