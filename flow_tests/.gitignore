@@ -1,9 +1,0 @@
-# Test logs and results
-logs/
-*.log
-*_results.json
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
