@@ -363,15 +363,270 @@ class CreationFlow:
         try:
             # Remove all non-digit characters
             clean = ''.join(filter(str.isdigit, phone))
-            
+
             # Add country code if missing (assuming South Africa +27)
             if len(clean) == 10 and clean.startswith('0'):
                 clean = '27' + clean[1:]
             elif len(clean) == 9:
                 clean = '27' + clean
-            
+
             return clean
-            
+
         except Exception as e:
             log_error(f"Error cleaning phone number: {str(e)}")
             return phone
+
+    def handle_new_client_scenario(self, trainer_phone: str, message: str,
+                                   client_data: Dict, trainer_id: str, task: Dict) -> Dict:
+        """
+        Handle Scenario 1: Client doesn't exist in database
+
+        Flow:
+        1. Ask about pricing (default vs custom)
+        2a. If default: Proceed to profile completion choice
+        2b. If custom: Ask for custom price and validate
+        3. Ask who fills profile (client or trainer)
+        4. Store choices and branch to appropriate scenario
+
+        Args:
+            trainer_phone: Trainer's WhatsApp number
+            message: User's message/button response
+            client_data: Collected client information
+            trainer_id: Trainer's ID
+            task: Current task data
+
+        Returns:
+            Dict with success status and response details
+        """
+        try:
+            task_data = task.get('task_data', {})
+            step = task_data.get('new_client_step', 'ask_pricing')
+
+            # Store client_data and trainer_id in task_data for later use
+            if not task_data.get('client_data'):
+                task_data['client_data'] = client_data
+                task_data['trainer_id'] = trainer_id
+
+            # Step 1: Ask about pricing
+            if step == 'ask_pricing':
+                # Get trainer's default price
+                trainer_result = self.db.table('trainers').select('pricing_per_session').eq(
+                    'trainer_id', trainer_id
+                ).execute()
+
+                default_price = 300  # Fallback default
+                if trainer_result.data and trainer_result.data[0].get('pricing_per_session'):
+                    default_price = trainer_result.data[0]['pricing_per_session']
+
+                # Store default price in task data
+                task_data['default_price'] = default_price
+
+                # Ask about pricing with buttons
+                msg = (
+                    f"💰 *Pricing Setup*\n\n"
+                    f"What price per session would you like for this client?\n\n"
+                    f"*Your default:* R{default_price}"
+                )
+
+                buttons = [
+                    {'id': f'use_default_{default_price}', 'title': f'Use Default R{default_price}'},
+                    {'id': 'custom_price', 'title': 'Custom Price'}
+                ]
+
+                self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+
+                # Update task to wait for pricing choice
+                task_data['new_client_step'] = 'await_pricing_choice'
+                self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                return {'success': True, 'response': msg, 'handler': 'new_client_pricing'}
+
+            # Step 2a: Handle default price choice
+            elif step == 'await_pricing_choice':
+                choice = message.strip()
+
+                if choice.startswith('use_default_'):
+                    # Use default price
+                    default_price = task_data.get('default_price', 300)
+                    task_data['selected_price'] = default_price
+                    task_data['new_client_step'] = 'ask_profile_completion'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # Proceed to profile completion choice
+                    return self._ask_profile_completion(trainer_phone, task, task_data)
+
+                elif choice == 'custom_price':
+                    # Ask for custom price
+                    msg = (
+                        "💰 *Custom Price*\n\n"
+                        "What's your price per session for this client?\n\n"
+                        "Please enter the amount in Rands (e.g., 350)"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+
+                    task_data['new_client_step'] = 'await_custom_price'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    return {'success': True, 'response': msg, 'handler': 'new_client_custom_price'}
+
+                else:
+                    # Invalid choice
+                    msg = "❌ Invalid choice. Please use the buttons provided."
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'new_client_invalid_choice'}
+
+            # Step 2b: Handle custom price input
+            elif step == 'await_custom_price':
+                # Validate price input
+                try:
+                    # Remove 'R' and whitespace if present
+                    price_str = message.strip().replace('R', '').replace('r', '').strip()
+                    custom_price = float(price_str)
+
+                    if custom_price <= 0:
+                        msg = (
+                            "❌ *Invalid Price*\n\n"
+                            "Price must be a positive number.\n\n"
+                            "Please enter the amount in Rands (e.g., 350)"
+                        )
+                        self.whatsapp.send_message(trainer_phone, msg)
+                        return {'success': True, 'response': msg, 'handler': 'new_client_invalid_price'}
+
+                    # Store custom price
+                    task_data['selected_price'] = custom_price
+                    task_data['new_client_step'] = 'ask_profile_completion'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # Proceed to profile completion choice
+                    return self._ask_profile_completion(trainer_phone, task, task_data)
+
+                except ValueError:
+                    msg = (
+                        "❌ *Invalid Format*\n\n"
+                        "Please enter a valid number (e.g., 350)"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'new_client_invalid_format'}
+
+            # Step 3: Handle profile completion choice
+            elif step == 'await_profile_completion_choice':
+                choice = message.strip()
+
+                if choice == 'client_fills':
+                    # Client fills details (Scenario 1A)
+                    task_data['profile_completion_by'] = 'client'
+                    task_data['new_client_step'] = 'scenario_1a'
+
+                    # Add pricing to client_data for invitation
+                    stored_client_data = task_data.get('client_data', client_data)
+                    stored_client_data['custom_price_per_session'] = task_data.get('selected_price')
+                    task_data['client_data'] = stored_client_data
+
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # TODO: Branch to Scenario 1A handler
+                    # This should send an invitation to the client with:
+                    # - Basic info already collected (name, phone, email)
+                    # - Custom price set
+                    # - Request to complete fitness profile (goals, experience, etc.)
+                    msg = (
+                        "✅ *Great!*\n\n"
+                        f"The client will receive an invitation to fill in their fitness details.\n\n"
+                        f"📋 *Next Steps:*\n"
+                        f"I'll send them an invitation with:\n"
+                        f"• Pricing: R{task_data.get('selected_price', 0)} per session\n"
+                        f"• Request to complete their profile\n\n"
+                        f"_Coming soon: Scenario 1A implementation_"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    self.task_service.complete_task(task['id'], 'trainer')
+
+                    return {'success': True, 'response': msg, 'handler': 'new_client_scenario_1a'}
+
+                elif choice == 'trainer_fills':
+                    # Trainer fills details (Scenario 1B)
+                    task_data['profile_completion_by'] = 'trainer'
+                    task_data['new_client_step'] = 'scenario_1b'
+
+                    # Add pricing to client_data for later use
+                    stored_client_data = task_data.get('client_data', client_data)
+                    stored_client_data['custom_price_per_session'] = task_data.get('selected_price')
+                    task_data['client_data'] = stored_client_data
+
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # TODO: Branch to Scenario 1B handler
+                    # This should:
+                    # - Ask trainer to fill in fitness profile fields
+                    # - Collect: fitness_goals, experience_level, health_conditions, etc.
+                    # - Create complete client record with pricing
+                    # - Send final invitation for client to accept
+                    msg = (
+                        "✅ *Great!*\n\n"
+                        f"You'll fill in the client's fitness details now.\n\n"
+                        f"📋 *Next Steps:*\n"
+                        f"I'll ask you questions about the client's:\n"
+                        f"• Fitness goals\n"
+                        f"• Experience level\n"
+                        f"• Health conditions\n"
+                        f"• And more...\n\n"
+                        f"_Coming soon: Scenario 1B implementation_"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    self.task_service.complete_task(task['id'], 'trainer')
+
+                    return {'success': True, 'response': msg, 'handler': 'new_client_scenario_1b'}
+
+                else:
+                    # Invalid choice
+                    msg = "❌ Invalid choice. Please use the buttons provided."
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'new_client_invalid_choice'}
+
+            return {'success': True, 'response': 'Processing...', 'handler': 'new_client_scenario'}
+
+        except Exception as e:
+            log_error(f"Error in handle_new_client_scenario: {str(e)}")
+
+            # Complete the task
+            self.task_service.complete_task(task['id'], 'trainer')
+
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while processing the new client setup.\n\n"
+                "Please try again with /create-trainee"
+            )
+            self.whatsapp.send_message(trainer_phone, error_msg)
+
+            return {'success': False, 'response': error_msg, 'handler': 'new_client_error'}
+
+    def _ask_profile_completion(self, trainer_phone: str, task: Dict, task_data: Dict) -> Dict:
+        """Ask who should fill in the fitness profile details"""
+        try:
+            selected_price = task_data.get('selected_price', 0)
+
+            msg = (
+                f"✅ *Price Set: R{selected_price}*\n\n"
+                f"👤 *Profile Completion*\n\n"
+                f"Who should fill in the client's fitness details?\n\n"
+                f"• *Client Fills Details:* Client completes their own fitness profile\n"
+                f"• *I'll Fill Details:* You complete the profile for them"
+            )
+
+            buttons = [
+                {'id': 'client_fills', 'title': 'Client Fills Details'},
+                {'id': 'trainer_fills', 'title': "I'll Fill Details"}
+            ]
+
+            self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+
+            # Update task to wait for profile completion choice
+            task_data['new_client_step'] = 'await_profile_completion_choice'
+            self.task_service.update_task(task['id'], 'trainer', task_data)
+
+            return {'success': True, 'response': msg, 'handler': 'new_client_profile_completion'}
+
+        except Exception as e:
+            log_error(f"Error in _ask_profile_completion: {str(e)}")
+            return {'success': False, 'response': str(e), 'handler': 'profile_completion_error'}
