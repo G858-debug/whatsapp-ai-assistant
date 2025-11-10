@@ -8,6 +8,7 @@ from utils.logger import log_info, log_error
 from .core_tasks import CoreTaskHandler
 from .relationship_tasks import RelationshipTaskHandler
 from .habit_tasks import HabitTaskHandler
+from .contact_tasks import ContactTaskHandler
 
 
 class TaskHandler:
@@ -29,6 +30,9 @@ class TaskHandler:
         self.habit_handler = HabitTaskHandler(
             self.db, self.whatsapp, self.task_service
         )
+        self.contact_handler = ContactTaskHandler(
+            self.db, self.whatsapp, self.task_service, self.reg_service
+        )
     
     def continue_task(self, phone: str, message: str, role: str, user_id: str, task: Dict) -> Dict:
         """Continue with a running task by delegating to appropriate handler"""
@@ -47,10 +51,13 @@ class TaskHandler:
                 return self.relationship_handler.handle_relationship_task(phone, message, user_id, task)
             
             elif task_type in ['create_habit', 'edit_habit', 'delete_habit', 'assign_habit', 'unassign_habit',
-                              'view_trainee_progress', 'trainee_report', 'log_habits', 
+                              'view_trainee_progress', 'trainee_report', 'log_habits',
                               'view_progress', 'weekly_report', 'monthly_report']:
                 return self.habit_handler.handle_habit_task(phone, message, user_id, task)
-            
+
+            elif task_type in ['confirm_shared_contact']:
+                return self.contact_handler.handle_contact_task(phone, message, user_id, task)
+
             else:
                 log_error(f"Unknown task type: {task_type}")
                 # Stop the unknown task

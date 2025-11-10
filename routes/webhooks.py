@@ -103,7 +103,56 @@ def whatsapp_webhook():
                                     text = button.get('text', '')
                                     button_id = button.get('payload', '')
                                     log_info(f"Legacy button - ID: {button_id}, Text: {text}")
-                                
+
+                                elif message_type == 'contacts':
+                                    # Contact share (vCard) message
+                                    log_info("Detected contact share message")
+
+                                    # Get required services
+                                    from app import app
+                                    supabase = app.config['supabase']
+                                    whatsapp_service = app.config['services']['whatsapp']
+                                    from services.auth import AuthenticationService, TaskService
+
+                                    # Check if user is logged in as trainer
+                                    auth_service = AuthenticationService(supabase)
+                                    task_service = TaskService(supabase)
+                                    login_status = auth_service.get_login_status(phone)
+
+                                    if login_status == 'trainer':
+                                        # Handle contact message
+                                        try:
+                                            from services.message_handlers.contact_share_handler import handle_contact_message
+
+                                            result = handle_contact_message(
+                                                trainer_phone=phone,
+                                                webhook_data=data,
+                                                task_service=task_service,
+                                                whatsapp_service=whatsapp_service,
+                                                role='trainer'
+                                            )
+
+                                            log_info(f"Contact message processed: {result.get('handler')}")
+
+                                            if not result.get('success'):
+                                                log_error(f"Contact processing failed: {result.get('response')}")
+
+                                        except Exception as e:
+                                            log_error(f"Error processing contact message: {str(e)}")
+                                            whatsapp_service.send_message(
+                                                phone,
+                                                "❌ Sorry, I encountered an error processing that contact. Please try again."
+                                            )
+                                    else:
+                                        # User not logged in as trainer
+                                        whatsapp_service.send_message(
+                                            phone,
+                                            "📇 Contact sharing is only available for trainers. Please log in as a trainer first."
+                                        )
+
+                                    # Skip normal message processing for contacts
+                                    continue
+
                                 else:
                                     # Regular text message or other types
                                     text = message.get('text', {}).get('body', '')
