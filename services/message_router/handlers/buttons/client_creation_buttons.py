@@ -3,7 +3,7 @@ Client Creation Button Handler
 Handles new client account creation approval/rejection buttons
 """
 from typing import Dict
-from utils.logger import log_error
+from utils.logger import log_error, log_info
 
 
 class ClientCreationButtonHandler:
@@ -23,10 +23,24 @@ class ClientCreationButtonHandler:
                 return self._handle_reject_new_client(phone, button_id)
             else:
                 return {'success': False, 'response': 'Unknown client creation button', 'handler': 'unknown_client_creation_button'}
-                
+
         except Exception as e:
             log_error(f"Error handling client creation button: {str(e)}")
             return {'success': False, 'response': 'Error processing client creation button', 'handler': 'client_creation_button_error'}
+
+    def handle_invitation_button(self, phone: str, button_id: str) -> Dict:
+        """Handle client invitation buttons (Scenario 1A)"""
+        try:
+            if button_id.startswith('accept_invitation_'):
+                return self._handle_accept_invitation(phone, button_id)
+            elif button_id.startswith('decline_invitation_'):
+                return self._handle_decline_invitation(phone, button_id)
+            else:
+                return {'success': False, 'response': 'Unknown invitation button', 'handler': 'unknown_invitation_button'}
+
+        except Exception as e:
+            log_error(f"Error handling invitation button: {str(e)}")
+            return {'success': False, 'response': 'Error processing invitation button', 'handler': 'invitation_button_error'}
     
     def _handle_approve_new_client(self, phone: str, button_id: str) -> Dict:
         """New client approving account creation"""
@@ -222,7 +236,7 @@ class ClientCreationButtonHandler:
         try:
             # Get client name from prefilled data
             client_name = prefilled_data.get('name') or prefilled_data.get('full_name') or 'there'
-            
+
             # Notify new client
             msg = (
                 f"✅ *Account Created Successfully!*\n\n"
@@ -232,12 +246,12 @@ class ClientCreationButtonHandler:
                 f"Type /help to see what you can do!"
             )
             self.whatsapp.send_message(phone, msg)
-            
+
             # Notify trainer
             trainer_result = self.db.table('trainers').select('name, first_name, last_name, whatsapp').ilike(
                 'trainer_id', trainer_id
             ).execute()
-            
+
             if trainer_result.data:
                 trainer = trainer_result.data[0]
                 trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'the trainer'
@@ -248,9 +262,90 @@ class ClientCreationButtonHandler:
                     f"They're now in your client list."
                 )
                 self.whatsapp.send_message(trainer['whatsapp'], trainer_msg)
-            
+
             return {'success': True, 'response': msg, 'handler': 'approve_new_client_success'}
-            
+
         except Exception as e:
             log_error(f"Error sending approval notifications: {str(e)}")
             return {'success': False, 'response': 'Account created but error sending notifications', 'handler': 'approval_notification_error'}
+
+    def _handle_accept_invitation(self, phone: str, button_id: str) -> Dict:
+        """Handle client accepting invitation via button (Scenario 1A fallback)"""
+        try:
+            # Extract trainer_id from button_id
+            trainer_string_id = button_id.replace('accept_invitation_', '')
+
+            # Send message asking client to complete profile via text
+            msg = (
+                f"✅ *Great! Let's complete your profile.*\n\n"
+                f"Please answer these questions to set up your fitness journey:\n\n"
+                f"*1. What are your fitness goals?*\n"
+                f"(e.g., lose weight, build muscle, improve fitness)"
+            )
+            self.whatsapp.send_message(phone, msg)
+
+            # Store state for text-based profile completion
+            # This could be implemented with a task or conversation state
+            # For now, just send the message
+            log_info(f"Client {phone} accepted invitation from trainer {trainer_string_id}")
+            return {'success': True, 'response': msg, 'handler': 'accept_invitation_text_flow'}
+
+        except Exception as e:
+            log_error(f"Error handling accept invitation: {str(e)}")
+            return {'success': False, 'response': 'Error accepting invitation', 'handler': 'accept_invitation_error'}
+
+    def _handle_decline_invitation(self, phone: str, button_id: str) -> Dict:
+        """Handle client declining invitation (Scenario 1A)"""
+        try:
+            from datetime import datetime
+            import pytz
+
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+
+            # Extract trainer_id from button_id
+            trainer_string_id = button_id.replace('decline_invitation_', '')
+
+            # Get trainer UUID from string ID
+            trainer_result = self.db.table('trainers').select('id, trainer_id, name, first_name, last_name, whatsapp').ilike(
+                'trainer_id', trainer_string_id
+            ).execute()
+
+            if not trainer_result.data:
+                msg = "❌ Trainer not found."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'decline_invitation_trainer_not_found'}
+
+            trainer = trainer_result.data[0]
+            trainer_uuid = trainer['id']
+            trainer_whatsapp = trainer['whatsapp']
+            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
+
+            # Update invitation status to declined
+            update_result = self.db.table('client_invitations').update({
+                'status': 'declined',
+                'declined_at': datetime.now(sa_tz).isoformat(),
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }).eq('trainer_id', trainer_uuid).eq('client_phone', phone).eq('status', 'pending_client_completion').execute()
+
+            if update_result.data:
+                # Notify client
+                msg = f"You declined the training invitation from {trainer_name}."
+                self.whatsapp.send_message(phone, msg)
+
+                # Notify trainer
+                trainer_msg = (
+                    f"ℹ️ *Invitation Declined*\n\n"
+                    f"The client declined your training invitation."
+                )
+                self.whatsapp.send_message(trainer_whatsapp, trainer_msg)
+
+                log_info(f"Client {phone} declined invitation from trainer {trainer_string_id}")
+                return {'success': True, 'response': msg, 'handler': 'decline_invitation_success'}
+            else:
+                msg = "❌ Invitation not found or already processed."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'decline_invitation_not_found'}
+
+        except Exception as e:
+            log_error(f"Error handling decline invitation: {str(e)}")
+            return {'success': False, 'response': 'Error declining invitation', 'handler': 'decline_invitation_error'}

@@ -1629,24 +1629,30 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
         """Handle client onboarding flow response"""
         try:
             log_info(f"Processing client onboarding flow response for {phone_number}")
-            
+
+            # Check if this is an invitation flow (Scenario 1A)
+            if flow_token and flow_token.startswith('client_invitation_'):
+                log_info(f"Processing client invitation flow completion for {phone_number}")
+                return self._handle_client_invitation_flow_completion(flow_response, phone_number, flow_token)
+
+            # Regular client onboarding (not from invitation)
             # Extract client data from flow response
             client_data = self._extract_client_data_from_onboarding_response(flow_response, phone_number)
-            
+
             if not client_data:
                 return {
                     'success': False,
                     'error': 'Failed to extract client data from flow response'
                 }
-            
+
             # Complete client registration using the existing handler
             from services.registration.client_registration import ClientRegistrationHandler
-            
+
             client_reg_handler = ClientRegistrationHandler(self.supabase, self.whatsapp_service)
-            
+
             # Complete registration with flow data
             result = client_reg_handler._complete_registration(phone_number, client_data)
-            
+
             if result.get('success'):
                 # Clear any conversation state
                 try:
@@ -1655,7 +1661,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     refiloe_service.clear_conversation_state(phone_number)
                 except Exception as e:
                     log_warning(f"Could not clear conversation state: {str(e)}")
-                
+
                 return {
                     'success': True,
                     'message': result['message'],
@@ -1666,9 +1672,174 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     'success': False,
                     'error': result.get('message', 'Registration failed')
                 }
-                
+
         except Exception as e:
             log_error(f"Error handling client onboarding flow response: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def _handle_client_invitation_flow_completion(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
+        """Handle client invitation flow completion (Scenario 1A)"""
+        try:
+            from datetime import datetime
+            import pytz
+
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+
+            # Extract invitation token from flow_token (format: client_invitation_{token}_{timestamp})
+            token_parts = flow_token.split('_')
+            if len(token_parts) < 3:
+                log_error(f"Invalid flow_token format: {flow_token}")
+                return {'success': False, 'error': 'Invalid invitation token'}
+
+            invitation_token = token_parts[2]  # Extract the actual invitation token
+
+            # Find invitation in database
+            invitation_result = self.supabase.table('client_invitations').select('*').eq(
+                'invitation_token', invitation_token
+            ).eq('client_phone', phone_number).eq('status', 'pending_client_completion').execute()
+
+            if not invitation_result.data:
+                log_error(f"No pending invitation found for token {invitation_token} and phone {phone_number}")
+                return {'success': False, 'error': 'Invitation not found or expired'}
+
+            invitation = invitation_result.data[0]
+
+            # Extract client data from flow response
+            flow_client_data = self._extract_client_data_from_onboarding_response(flow_response, phone_number)
+
+            if not flow_client_data:
+                return {'success': False, 'error': 'Failed to extract client data from flow'}
+
+            # Merge prefilled data with flow data
+            prefilled_data = invitation.get('prefilled_data', {})
+            client_name = prefilled_data.get('name') or flow_client_data.get('name')
+            client_email = prefilled_data.get('email') or flow_client_data.get('email')
+
+            # Generate client_id
+            from services.auth.authentication_service import AuthenticationService
+            auth_service = AuthenticationService(self.supabase)
+            client_id = auth_service.generate_unique_id(client_name, 'client')
+
+            # Get trainer info for relationship
+            trainer_result = self.supabase.table('trainers').select('trainer_id, name, first_name, last_name, whatsapp').eq(
+                'id', invitation['trainer_id']
+            ).execute()
+
+            if not trainer_result.data:
+                log_error(f"Trainer not found for invitation {invitation['id']}")
+                return {'success': False, 'error': 'Trainer not found'}
+
+            trainer = trainer_result.data[0]
+            trainer_id = trainer['trainer_id']
+            trainer_whatsapp = trainer['whatsapp']
+            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
+
+            # Create client record
+            client_data = {
+                'client_id': client_id,
+                'whatsapp': phone_number,
+                'name': client_name,
+                'email': client_email if client_email and client_email.lower() not in ['skip', 'none'] else None,
+                'fitness_goals': flow_client_data.get('fitness_goals'),
+                'experience_level': flow_client_data.get('experience_level'),
+                'health_conditions': flow_client_data.get('health_conditions'),
+                'availability': flow_client_data.get('availability'),
+                'status': 'active',
+                'created_at': datetime.now(sa_tz).isoformat(),
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }
+
+            # Insert into clients table
+            self.supabase.table('clients').insert(client_data).execute()
+            log_info(f"Created client record for {client_id}")
+
+            # Create user entry
+            user_data = {
+                'phone_number': phone_number,
+                'client_id': client_id,
+                'login_status': 'client',
+                'created_at': datetime.now(sa_tz).isoformat()
+            }
+            self.supabase.table('users').insert(user_data).execute()
+            log_info(f"Created user record for {client_id}")
+
+            # Create trainer-client relationship
+            from services.relationships.invitations.invitation_manager import InvitationManager
+            from services.relationships.core.relationship_manager import RelationshipManager
+
+            relationship_manager = RelationshipManager(self.supabase)
+            invitation_manager = InvitationManager(self.supabase, self.whatsapp_service, relationship_manager)
+
+            # Create relationship with pricing
+            success, error_msg = invitation_manager.create_relationship(trainer_id, client_id, 'trainer', invitation_token)
+
+            if success:
+                # Approve the relationship immediately (client accepted invitation)
+                approve_success, approve_error = relationship_manager.approve_relationship(trainer_id, client_id)
+
+                if approve_success:
+                    # Apply custom pricing if specified
+                    custom_price = invitation.get('custom_price_per_session')
+                    if custom_price:
+                        try:
+                            # Update pricing in trainer_client_list
+                            self.supabase.table('trainer_client_list').update({
+                                'pricing_per_session': custom_price,
+                                'updated_at': datetime.now(sa_tz).isoformat()
+                            }).eq('trainer_id', trainer_id).eq('client_id', client_id).execute()
+
+                            log_info(f"Applied custom pricing R{custom_price} for client {client_id}")
+                        except Exception as pricing_error:
+                            log_error(f"Failed to apply custom pricing: {str(pricing_error)}")
+                else:
+                    log_error(f"Failed to approve relationship: {approve_error}")
+            else:
+                log_error(f"Failed to create relationship: {error_msg}")
+
+            # Update invitation status
+            self.supabase.table('client_invitations').update({
+                'status': 'accepted',
+                'accepted_at': datetime.now(sa_tz).isoformat(),
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }).eq('id', invitation['id']).execute()
+
+            # Notify client
+            client_message = (
+                f"✅ *Profile Complete!*\n\n"
+                f"Welcome to Refiloe, {client_name}!\n\n"
+                f"*Your Client ID:* {client_id}\n"
+                f"*Trainer:* {trainer_name}\n"
+                f"*Price per session:* R{custom_price if custom_price else 'TBD'}\n\n"
+                f"You're now connected with your trainer.\n"
+                f"Type /help to see what you can do!"
+            )
+            self.whatsapp_service.send_message(phone_number, client_message)
+
+            # Notify trainer
+            trainer_message = (
+                f"✅ *Client Accepted Invitation!*\n\n"
+                f"*{client_name}* completed their fitness profile and accepted your invitation!\n\n"
+                f"*Client ID:* {client_id}\n"
+                f"*Fitness Goals:* {flow_client_data.get('fitness_goals')}\n"
+                f"*Experience:* {flow_client_data.get('experience_level')}\n"
+                f"*Availability:* {flow_client_data.get('availability')}\n\n"
+                f"They're now in your client list. 🎉"
+            )
+            self.whatsapp_service.send_message(trainer_whatsapp, trainer_message)
+
+            log_info(f"Successfully completed client invitation flow for {client_id}")
+
+            return {
+                'success': True,
+                'message': 'Client registration and relationship created successfully',
+                'client_id': client_id
+            }
+
+        except Exception as e:
+            log_error(f"Error handling client invitation flow completion: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
