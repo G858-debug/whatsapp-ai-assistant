@@ -519,29 +519,36 @@ class CreationFlow:
 
                     # Add pricing to client_data for invitation
                     stored_client_data = task_data.get('client_data', client_data)
-                    stored_client_data['custom_price_per_session'] = task_data.get('selected_price')
-                    task_data['client_data'] = stored_client_data
+                    pricing_info = {
+                        'custom_price': task_data.get('selected_price'),
+                        'is_default': task_data.get('selected_price') == task_data.get('default_price')
+                    }
 
                     self.task_service.update_task(task['id'], 'trainer', task_data)
 
-                    # TODO: Branch to Scenario 1A handler
-                    # This should send an invitation to the client with:
-                    # - Basic info already collected (name, phone, email)
-                    # - Custom price set
-                    # - Request to complete fitness profile (goals, experience, etc.)
-                    msg = (
-                        "✅ *Great!*\n\n"
-                        f"The client will receive an invitation to fill in their fitness details.\n\n"
-                        f"📋 *Next Steps:*\n"
-                        f"I'll send them an invitation with:\n"
-                        f"• Pricing: R{task_data.get('selected_price', 0)} per session\n"
-                        f"• Request to complete their profile\n\n"
-                        f"_Coming soon: Scenario 1A implementation_"
+                    # Send client completion invitation
+                    success, error_msg = self.send_client_completion_invitation(
+                        trainer_phone, trainer_id, stored_client_data, pricing_info
                     )
-                    self.whatsapp.send_message(trainer_phone, msg)
-                    self.task_service.complete_task(task['id'], 'trainer')
 
-                    return {'success': True, 'response': msg, 'handler': 'new_client_scenario_1a'}
+                    if success:
+                        msg = (
+                            "✅ *Invitation Sent!*\n\n"
+                            f"I've sent an invitation to *{stored_client_data.get('name')}* to complete their fitness profile.\n\n"
+                            f"📋 *What happens next:*\n"
+                            f"• Client receives WhatsApp Flow to fill fitness details\n"
+                            f"• Pricing: R{task_data.get('selected_price', 0)} per session\n"
+                            f"• They can accept or decline the invitation\n\n"
+                            f"I'll notify you when they respond. 🔔"
+                        )
+                        self.whatsapp.send_message(trainer_phone, msg)
+                        self.task_service.complete_task(task['id'], 'trainer')
+                        return {'success': True, 'response': msg, 'handler': 'new_client_scenario_1a_sent'}
+                    else:
+                        msg = f"❌ Failed to send invitation: {error_msg}"
+                        self.whatsapp.send_message(trainer_phone, msg)
+                        self.task_service.complete_task(task['id'], 'trainer')
+                        return {'success': False, 'response': msg, 'handler': 'new_client_scenario_1a_failed'}
 
                 elif choice == 'trainer_fills':
                     # Trainer fills details (Scenario 1B)
@@ -630,3 +637,200 @@ class CreationFlow:
         except Exception as e:
             log_error(f"Error in _ask_profile_completion: {str(e)}")
             return {'success': False, 'response': str(e), 'handler': 'profile_completion_error'}
+
+    def send_client_completion_invitation(self, trainer_phone: str, trainer_id: str,
+                                         client_data: Dict, pricing_info: Dict) -> tuple:
+        """
+        Send invitation to client to complete their fitness profile via WhatsApp Flow (Scenario 1A)
+
+        Args:
+            trainer_phone: Trainer's WhatsApp number
+            trainer_id: Trainer's ID
+            client_data: Client's basic info (name, phone, email)
+            pricing_info: Dict with custom_price and is_default flag
+
+        Returns:
+            Tuple of (success: bool, error_message: str)
+        """
+        try:
+            from datetime import datetime
+            import pytz
+
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+
+            # Get trainer info
+            trainer_result = self.db.table('trainers').select('*').eq(
+                'trainer_id', trainer_id
+            ).execute()
+
+            if not trainer_result.data:
+                return False, "Trainer not found"
+
+            trainer = trainer_result.data[0]
+            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
+
+            # Clean client phone number
+            client_phone = client_data.get('phone_number')
+            if self.reg_service:
+                client_phone = self.reg_service.clean_phone_number(client_phone)
+            else:
+                client_phone = self._clean_phone_number(client_phone)
+
+            # Generate invitation token
+            invitation_token = self.invitation_service.generate_invitation_token()
+
+            # Store invitation in database with pending_client_completion status
+            invitation_data = {
+                'trainer_id': trainer['id'],  # UUID
+                'client_phone': client_phone,
+                'client_name': client_data.get('name'),
+                'client_email': client_data.get('email') if client_data.get('email') and client_data.get('email').lower() not in ['skip', 'none'] else None,
+                'invitation_token': invitation_token,
+                'status': 'pending_client_completion',
+                'profile_completion_method': 'client_fills',
+                'custom_price_per_session': pricing_info.get('custom_price'),
+                'prefilled_data': client_data,  # Store complete client data as JSONB
+                'created_at': datetime.now(sa_tz).isoformat(),
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }
+
+            # Insert or update invitation
+            existing = self.db.table('client_invitations').select('id').eq(
+                'client_phone', client_phone
+            ).eq('trainer_id', trainer['id']).eq('status', 'pending_client_completion').execute()
+
+            if existing.data:
+                # Update existing invitation
+                self.db.table('client_invitations').update(invitation_data).eq(
+                    'id', existing.data[0]['id']
+                ).execute()
+                log_info(f"Updated existing invitation for {client_phone}")
+            else:
+                # Create new invitation
+                result = self.db.table('client_invitations').insert(invitation_data).execute()
+                log_info(f"Created new invitation for {client_phone}")
+
+            # Send WhatsApp Flow invitation
+            success = self._send_client_onboarding_flow(
+                client_phone,
+                client_data.get('name'),
+                trainer_name,
+                trainer_id,
+                pricing_info.get('custom_price'),
+                invitation_token
+            )
+
+            if success:
+                log_info(f"Sent client completion invitation to {client_phone} from trainer {trainer_id}")
+                return True, "Invitation sent successfully"
+            else:
+                return False, "Failed to send WhatsApp Flow invitation"
+
+        except Exception as e:
+            log_error(f"Error sending client completion invitation: {str(e)}")
+            return False, str(e)
+
+    def _send_client_onboarding_flow(self, client_phone: str, client_name: str,
+                                    trainer_name: str, trainer_id: str,
+                                    price_per_session: float, invitation_token: str) -> bool:
+        """
+        Send WhatsApp Flow invitation to client
+
+        Args:
+            client_phone: Client's WhatsApp number
+            client_name: Client's name
+            trainer_name: Trainer's name
+            trainer_id: Trainer's ID
+            price_per_session: Price per session
+            invitation_token: Unique invitation token
+
+        Returns:
+            bool: Success status
+        """
+        try:
+            import os
+            from datetime import datetime
+
+            # Create invitation message
+            message_text = (
+                f"🎯 *Training Invitation from {trainer_name}*\n\n"
+                f"Hi {client_name}! 👋\n\n"
+                f"{trainer_name} has invited you to start your fitness journey together!\n\n"
+                f"📋 *Training Details:*\n"
+                f"• Trainer: {trainer_name}\n"
+                f"• Price per session: R{price_per_session}\n\n"
+                f"Complete your fitness profile to get started, or decline if you're not interested."
+            )
+
+            # Get flow ID from environment or use placeholder
+            # Note: This needs to be the actual Facebook-approved flow ID
+            flow_id = os.getenv('CLIENT_ONBOARDING_FLOW_ID', '1234567890')  # TODO: Replace with actual flow ID
+
+            # Generate flow token
+            flow_token = f"client_invitation_{invitation_token}_{int(datetime.now().timestamp())}"
+
+            # Create flow message payload
+            flow_message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": client_phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": f"Invitation from {trainer_name}"
+                    },
+                    "body": {
+                        "text": message_text
+                    },
+                    "footer": {
+                        "text": "Powered by Refiloe AI"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_id": flow_id,
+                            "flow_cta": "Complete Profile",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "WELCOME"
+                            }
+                        }
+                    }
+                }
+            }
+
+            # Try to send flow first
+            result = self.whatsapp.send_flow_message(flow_message)
+
+            if result.get('success'):
+                log_info(f"Successfully sent flow invitation to {client_phone}")
+                return True
+            else:
+                # Fallback to buttons if flow fails
+                log_warning(f"Flow sending failed, using button fallback: {result.get('error')}")
+
+                fallback_msg = (
+                    f"🎯 *Training Invitation from {trainer_name}*\n\n"
+                    f"Hi {client_name}! 👋\n\n"
+                    f"{trainer_name} has invited you to start your fitness journey together!\n\n"
+                    f"📋 *Training Details:*\n"
+                    f"• Trainer: {trainer_name}\n"
+                    f"• Price per session: R{price_per_session}\n\n"
+                    f"Would you like to accept this invitation?"
+                )
+
+                buttons = [
+                    {'id': f'accept_invitation_{trainer_id}', 'title': '✅ Accept'},
+                    {'id': f'decline_invitation_{trainer_id}', 'title': '❌ Decline'}
+                ]
+
+                self.whatsapp.send_button_message(client_phone, fallback_msg, buttons)
+                return True
+
+        except Exception as e:
+            log_error(f"Error sending client onboarding flow: {str(e)}")
+            return False
