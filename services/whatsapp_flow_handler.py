@@ -1398,7 +1398,14 @@ Welcome to the Refiloe family! 💪"""
             }
     
     def _extract_client_data_from_flow_response(self, flow_response: Dict, trainer_phone: str) -> Optional[Dict]:
-        """Extract client data from flow response"""
+        """
+        Extract client data from flow response with proper type conversions.
+
+        WhatsApp Flows type handling:
+        - TextInput with input-type="number" returns STRING (must convert to float)
+        - CheckboxGroup returns ARRAY (e.g., ["yes"] or [])
+        - RadioButtonsGroup returns STRING (e.g., "standard" or "custom")
+        """
         try:
             # Get the response data
             response_data = flow_response.get('response', {})
@@ -1411,22 +1418,38 @@ Welcome to the Refiloe family! 💪"""
             custom_message = response_data.get('custom_message', '').strip()
 
             # Extract pricing information
-            pricing_choice = response_data.get('pricing_choice', 'standard')
-            custom_price = response_data.get('custom_price', '').strip()
-            package_deal = response_data.get('package_deal', '')
+            pricing_choice = response_data.get('pricing_choice', 'standard')  # STRING: "standard" or "custom"
+            custom_price_str = response_data.get('custom_price', '')  # STRING from number input
+            package_deal_array = response_data.get('package_deal', [])  # ARRAY: ["yes"] or []
             package_details = response_data.get('package_details', '').strip()
 
             if not client_name or not client_phone:
                 log_error("Missing required client data: name or phone")
                 return None
 
-            # Determine final price
+            # TYPE CONVERSION: custom_price from string to float
             final_price = None
-            if pricing_choice == 'custom' and custom_price:
+            if pricing_choice == 'custom' and custom_price_str:
                 try:
-                    final_price = float(custom_price)
-                except ValueError:
-                    log_warning(f"Invalid custom price: {custom_price}")
+                    # Handle both string and already-converted types
+                    if isinstance(custom_price_str, str):
+                        custom_price_str = custom_price_str.strip()
+                    final_price = float(custom_price_str)
+                    log_info(f"Converted custom_price '{custom_price_str}' to float: {final_price}")
+                except (ValueError, TypeError) as e:
+                    log_warning(f"Invalid custom price '{custom_price_str}': {str(e)}")
+                    final_price = None
+
+            # TYPE CONVERSION: package_deal from array to boolean
+            # CheckboxGroup returns array like ["yes"] or []
+            has_package_deal = False
+            if isinstance(package_deal_array, list):
+                has_package_deal = len(package_deal_array) > 0 and 'yes' in package_deal_array
+            elif isinstance(package_deal_array, str):
+                # Fallback: if it's a string (shouldn't happen, but handle it)
+                has_package_deal = 'yes' in package_deal_array.lower()
+
+            log_info(f"Package deal checkbox: {package_deal_array} -> has_package_deal: {has_package_deal}")
 
             return {
                 'name': client_name,
@@ -1436,7 +1459,7 @@ Welcome to the Refiloe family! 💪"""
                 'custom_message': custom_message if custom_message else None,
                 'pricing_choice': pricing_choice,
                 'custom_price': final_price,
-                'has_package_deal': bool(package_deal and 'yes' in str(package_deal).lower()),
+                'has_package_deal': has_package_deal,
                 'package_details': package_details if package_details else None
             }
 
