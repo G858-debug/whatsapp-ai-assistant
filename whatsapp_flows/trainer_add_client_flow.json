@@ -154,6 +154,83 @@
           },
           {
             "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "PRICING"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRICING",
+      "title": "Pricing Details",
+      "terminal": false,
+      "data": {
+        "trainer_price": {
+          "type": "string",
+          "__example__": "500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Set Pricing 💰"
+          },
+          {
+            "type": "TextBody",
+            "text": "Your standard rate: R${data.trainer_price} per session"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "pricing_choice",
+            "required": true,
+            "data-source": [
+              {
+                "id": "standard",
+                "title": "Use standard rate (R${data.trainer_price})"
+              },
+              {
+                "id": "custom",
+                "title": "Set custom price"
+              }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "name": "custom_price",
+            "label": "Custom price per session (Rands)",
+            "input-type": "number",
+            "required": false,
+            "helper-text": "Only required if setting custom price",
+            "visible": "${form.pricing_choice == 'custom'}"
+          },
+          {
+            "type": "CheckboxGroup",
+            "name": "package_deal",
+            "required": false,
+            "data-source": [
+              {
+                "id": "yes",
+                "title": "Package deal?"
+              }
+            ]
+          },
+          {
+            "type": "TextArea",
+            "name": "package_details",
+            "label": "Package details",
+            "required": false,
+            "helper-text": "e.g., '10 sessions for R4500'",
+            "visible": "${form.package_deal.length > 0}"
+          },
+          {
+            "type": "Footer",
             "label": "Review",
             "on-click-action": {
               "name": "navigate",
@@ -190,6 +267,10 @@
             "text": "**Your Message:**\n${form.custom_message}"
           },
           {
+            "type": "TextBody",
+            "text": "**Pricing:** ${form.pricing_choice == 'standard' ? 'Standard rate' : 'Custom price'}\n**Package Deal:** ${form.package_deal.length > 0 ? 'Yes' : 'No'}"
+          },
+          {
             "type": "Footer",
             "label": "Add Client",
             "on-click-action": {
@@ -199,7 +280,11 @@
                 "client_phone": "${form.client_phone}",
                 "client_email": "${form.client_email}",
                 "invitation_method": "${form.invitation_method}",
-                "custom_message": "${form.custom_message}"
+                "custom_message": "${form.custom_message}",
+                "pricing_choice": "${form.pricing_choice}",
+                "custom_price": "${form.custom_price}",
+                "package_deal": "${form.package_deal}",
+                "package_details": "${form.package_details}"
               }
             }
           }

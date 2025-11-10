@@ -1338,14 +1338,54 @@ Welcome to the Refiloe family! 💪"""
                 result = self._add_client_directly(trainer_id, client_data)
             
             if result.get('success'):
-                # Clear any conversation state
-                try:
-                    from services.refiloe import RefiloeService
-                    refiloe_service = RefiloeService(self.supabase)
-                    refiloe_service.clear_conversation_state(phone_number)
-                except Exception as e:
-                    log_warning(f"Could not clear conversation state: {str(e)}")
-                
+                # Handle package deal clarification if needed
+                if client_data.get('has_package_deal') and client_data.get('package_details'):
+                    needs_clarification = self._check_package_needs_clarification(client_data['package_details'])
+
+                    if needs_clarification:
+                        # Set conversation state for package clarification
+                        try:
+                            from services.refiloe import RefiloeService
+                            refiloe_service = RefiloeService(self.supabase)
+
+                            clarification_context = {
+                                'client_name': client_data['name'],
+                                'client_phone': client_data['phone'],
+                                'trainer_id': trainer_id,
+                                'package_details_raw': client_data['package_details'],
+                                'invitation_method': client_data['invitation_method']
+                            }
+
+                            refiloe_service.update_conversation_state(
+                                phone_number,
+                                'PACKAGE_DEAL_CLARIFICATION',
+                                clarification_context
+                            )
+
+                            # Append clarification request to result message
+                            clarification_msg = "\n\n📦 *Package Deal Details*\n\nI need a bit more information about the package deal. Please tell me:\n\n• How many sessions are included?\n• What's the total package price?\n• What's the package duration (e.g., 1 month, 3 months)?"
+
+                            result['message'] = result.get('message', '') + clarification_msg
+
+                        except Exception as e:
+                            log_warning(f"Could not set package clarification state: {str(e)}")
+                    else:
+                        # Clear conversation state if no clarification needed
+                        try:
+                            from services.refiloe import RefiloeService
+                            refiloe_service = RefiloeService(self.supabase)
+                            refiloe_service.clear_conversation_state(phone_number)
+                        except Exception as e:
+                            log_warning(f"Could not clear conversation state: {str(e)}")
+                else:
+                    # Clear any conversation state
+                    try:
+                        from services.refiloe import RefiloeService
+                        refiloe_service = RefiloeService(self.supabase)
+                        refiloe_service.clear_conversation_state(phone_number)
+                    except Exception as e:
+                        log_warning(f"Could not clear conversation state: {str(e)}")
+
                 return result
             else:
                 return result
@@ -1362,26 +1402,44 @@ Welcome to the Refiloe family! 💪"""
         try:
             # Get the response data
             response_data = flow_response.get('response', {})
-            
+
             # Extract client information
             client_name = response_data.get('client_name', '').strip()
             client_phone = response_data.get('client_phone', '').strip()
             client_email = response_data.get('client_email', '').strip()
             invitation_method = response_data.get('invitation_method', 'manual_add')
             custom_message = response_data.get('custom_message', '').strip()
-            
+
+            # Extract pricing information
+            pricing_choice = response_data.get('pricing_choice', 'standard')
+            custom_price = response_data.get('custom_price', '').strip()
+            package_deal = response_data.get('package_deal', '')
+            package_details = response_data.get('package_details', '').strip()
+
             if not client_name or not client_phone:
                 log_error("Missing required client data: name or phone")
                 return None
-            
+
+            # Determine final price
+            final_price = None
+            if pricing_choice == 'custom' and custom_price:
+                try:
+                    final_price = float(custom_price)
+                except ValueError:
+                    log_warning(f"Invalid custom price: {custom_price}")
+
             return {
                 'name': client_name,
                 'phone': client_phone,
                 'email': client_email if client_email else None,
                 'invitation_method': invitation_method,
-                'custom_message': custom_message if custom_message else None
+                'custom_message': custom_message if custom_message else None,
+                'pricing_choice': pricing_choice,
+                'custom_price': final_price,
+                'has_package_deal': bool(package_deal and 'yes' in str(package_deal).lower()),
+                'package_details': package_details if package_details else None
             }
-            
+
         except Exception as e:
             log_error(f"Error extracting client data from flow response: {str(e)}")
             return None
@@ -1404,6 +1462,10 @@ Welcome to the Refiloe family! 💪"""
                 'invitation_method': 'whatsapp',
                 'status': 'pending',
                 'message': client_data.get('custom_message'),
+                'pricing_choice': client_data.get('pricing_choice', 'standard'),
+                'custom_price': client_data.get('custom_price'),
+                'has_package_deal': client_data.get('has_package_deal', False),
+                'package_details': client_data.get('package_details'),
                 'expires_at': (datetime.now() + timedelta(days=7)).isoformat()
             }
             
@@ -1487,6 +1549,10 @@ Reply 'ACCEPT' to get started! 🚀"""
                 'approved_at': datetime.now().isoformat(),
                 'created_at': datetime.now().isoformat()
             }
+
+            # Add custom pricing if provided
+            if client_data.get('custom_price'):
+                new_client_data['custom_price_per_session'] = client_data['custom_price']
             
             client_result = self.supabase.table('clients').insert(new_client_data).execute()
             
@@ -1531,7 +1597,34 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'success': False,
                 'error': str(e)
             }
-    
+
+    def _check_package_needs_clarification(self, package_details: str) -> bool:
+        """
+        Check if package deal details are vague and need clarification.
+        Returns True if clarification is needed.
+        """
+        import re
+
+        if not package_details or len(package_details.strip()) < 10:
+            return True
+
+        # Check if essential information is missing
+        has_session_count = bool(re.search(r'\d+\s*(session|sessions|ses)', package_details, re.IGNORECASE))
+        has_price = bool(re.search(r'R?\s*\d+', package_details))
+        has_duration = bool(re.search(r'\d+\s*(month|months|week|weeks|day|days)', package_details, re.IGNORECASE))
+
+        # If any of these is missing, we need clarification
+        if not (has_session_count and has_price):
+            return True
+
+        # Check for vague phrases that indicate incomplete information
+        vague_phrases = ['tbd', 'to be determined', 'discuss', 'flexible', 'depends', 'various', 'etc']
+        for phrase in vague_phrases:
+            if phrase in package_details.lower():
+                return True
+
+        return False
+
     def _handle_client_onboarding_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
         """Handle client onboarding flow response"""
         try:
