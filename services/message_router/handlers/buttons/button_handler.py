@@ -8,6 +8,7 @@ from utils.logger import log_info, log_error
 from .relationship_buttons import RelationshipButtonHandler
 from .registration_buttons import RegistrationButtonHandler
 from .client_creation_buttons import ClientCreationButtonHandler
+from .contact_confirmation_buttons import ContactConfirmationButtonHandler
 
 
 class ButtonHandler:
@@ -29,6 +30,9 @@ class ButtonHandler:
         )
         self.client_creation_handler = ClientCreationButtonHandler(
             self.db, self.whatsapp, self.auth_service
+        )
+        self.contact_confirmation_handler = ContactConfirmationButtonHandler(
+            self.db, self.whatsapp, self.auth_service, self.task_service
         )
     
     def handle_button_response(self, phone: str, button_id: str) -> Dict:
@@ -55,7 +59,10 @@ class ButtonHandler:
             
             elif button_id in ['register_trainer', 'register_client', 'login_trainer', 'login_client']:
                 return self.registration_handler.handle_registration_button(phone, button_id)
-            
+
+            elif button_id.startswith('confirm_contact_'):
+                return self.contact_confirmation_handler.handle_contact_confirmation_button(phone, button_id)
+
             else:
                 log_error(f"Unknown button ID: {button_id}")
                 return {'success': False, 'response': 'Unknown button action', 'handler': 'button_unknown'}
