@@ -3,7 +3,7 @@ Trainer Client Creation Flow
 Handles trainer creating new client accounts
 """
 from typing import Dict
-from utils.logger import log_info, log_error
+from utils.logger import log_info, log_error, log_warning
 from services.relationships import RelationshipService, InvitationService
 import json
 
@@ -135,22 +135,48 @@ class CreationFlow:
                         ).execute()
                         
                         if existing_client.data:
-                            # Client exists - ask to invite instead
+                            # Client exists - check if they have an active trainer
                             client = existing_client.data[0]
-                            msg = (
-                                f"ℹ️ *Client Already Exists!*\n\n"
-                                f"A client with this phone number is already registered:\n\n"
-                                f"*Name:* {client.get('name')}\n"
-                                f"*Client ID:* {client.get('client_id')}\n\n"
-                                f"Would you like to send them an invitation instead?\n\n"
-                                f"Reply *YES* to send invitation, or *NO* to cancel."
-                            )
-                            self.whatsapp.send_message(phone, msg)
-                            task_data['step'] = 'confirm_invite_existing'
-                            task_data['existing_client_id'] = client.get('client_id')
-                            task_data['existing_client_phone'] = client.get('whatsapp')
-                            self.task_service.update_task(task['id'], 'trainer', task_data)
-                            return {'success': True, 'response': msg, 'handler': 'create_trainee_exists_early'}
+                            client_id = client.get('client_id')
+
+                            # Check for existing active trainer relationships
+                            existing_trainers = self.relationship_service.get_client_trainers(client_id, 'active')
+
+                            if existing_trainers:
+                                # Multi-trainer scenario - client has another trainer
+                                current_trainer = existing_trainers[0]  # Get first active trainer
+                                current_trainer_info = {
+                                    'trainer_id': current_trainer.get('trainer_id'),
+                                    'name': current_trainer.get('name') or f"{current_trainer.get('first_name', '')} {current_trainer.get('last_name', '')}".strip()
+                                }
+
+                                # Store in task data and redirect to multi-trainer handler
+                                task_data['step'] = 'multi_trainer_scenario'
+                                task_data['existing_client'] = client
+                                task_data['current_trainer_info'] = current_trainer_info
+                                task_data['multi_trainer_step'] = 'show_warning'
+                                self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                                # Call the multi-trainer scenario handler
+                                return self.handle_multi_trainer_scenario(
+                                    phone, message, client, current_trainer_info, trainer_id, task
+                                )
+                            else:
+                                # Client exists but no trainer - ask to invite instead
+                                msg = (
+                                    f"ℹ️ *Client Already Exists!*\n\n"
+                                    f"A client with this phone number is already registered:\n\n"
+                                    f"*Name:* {client.get('name')}\n"
+                                    f"*Client ID:* {client.get('client_id')}\n\n"
+                                    f"Would you like to send them an invitation instead?\n\n"
+                                    f"Reply *YES* to send invitation, or *NO* to cancel."
+                                )
+                                self.whatsapp.send_message(phone, msg)
+                                task_data['step'] = 'confirm_invite_existing'
+                                task_data['existing_client_id'] = client.get('client_id')
+                                task_data['existing_client_phone'] = client.get('whatsapp')
+                                self.task_service.update_task(task['id'], 'trainer', task_data)
+                                return {'success': True, 'response': msg, 'handler': 'create_trainee_exists_early'}
                 
                 # Check if we have all fields
                 if current_index >= len(fields):
@@ -168,23 +194,49 @@ class CreationFlow:
                     existing_client = self.db.table('clients').select('client_id, name, whatsapp').eq(
                         'whatsapp', phone_number
                     ).execute()
-                    
+
                     if existing_client.data:
-                        # Client exists - ask to invite instead
+                        # Client exists - check if they have an active trainer
                         client = existing_client.data[0]
-                        msg = (
-                            f"ℹ️ *Client Already Exists!*\n\n"
-                            f"*Name:* {client.get('name')}\n"
-                            f"*Client ID:* {client.get('client_id')}\n\n"
-                            f"Would you like to send them an invitation instead?\n\n"
-                            f"Reply *YES* to send invitation, or *NO* to cancel."
-                        )
-                        self.whatsapp.send_message(phone, msg)
-                        task_data['step'] = 'confirm_invite_existing'
-                        task_data['existing_client_id'] = client.get('client_id')
-                        task_data['existing_client_phone'] = client.get('whatsapp')
-                        self.task_service.update_task(task['id'], 'trainer', task_data)
-                        return {'success': True, 'response': msg, 'handler': 'create_trainee_exists'}
+                        client_id = client.get('client_id')
+
+                        # Check for existing active trainer relationships
+                        existing_trainers = self.relationship_service.get_client_trainers(client_id, 'active')
+
+                        if existing_trainers:
+                            # Multi-trainer scenario - client has another trainer
+                            current_trainer = existing_trainers[0]  # Get first active trainer
+                            current_trainer_info = {
+                                'trainer_id': current_trainer.get('trainer_id'),
+                                'name': current_trainer.get('name') or f"{current_trainer.get('first_name', '')} {current_trainer.get('last_name', '')}".strip()
+                            }
+
+                            # Store in task data and redirect to multi-trainer handler
+                            task_data['step'] = 'multi_trainer_scenario'
+                            task_data['existing_client'] = client
+                            task_data['current_trainer_info'] = current_trainer_info
+                            task_data['multi_trainer_step'] = 'show_warning'
+                            self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                            # Call the multi-trainer scenario handler
+                            return self.handle_multi_trainer_scenario(
+                                phone, message, client, current_trainer_info, trainer_id, task
+                            )
+                        else:
+                            # Client exists but no trainer - ask to invite instead
+                            msg = (
+                                f"ℹ️ *Client Already Exists!*\n\n"
+                                f"*Name:* {client.get('name')}\n"
+                                f"*Client ID:* {client.get('client_id')}\n\n"
+                                f"Would you like to send them an invitation instead?\n\n"
+                                f"Reply *YES* to send invitation, or *NO* to cancel."
+                            )
+                            self.whatsapp.send_message(phone, msg)
+                            task_data['step'] = 'confirm_invite_existing'
+                            task_data['existing_client_id'] = client.get('client_id')
+                            task_data['existing_client_phone'] = client.get('whatsapp')
+                            self.task_service.update_task(task['id'], 'trainer', task_data)
+                            return {'success': True, 'response': msg, 'handler': 'create_trainee_exists'}
                     
                     # Client doesn't exist - map data fields correctly and send invitation
                     # Map full_name to name for database compatibility
@@ -227,15 +279,15 @@ class CreationFlow:
             # Handle confirmation for existing client
             if step == 'confirm_invite_existing':
                 response = message.strip().upper()
-                
+
                 if response == 'YES':
                     existing_client_id = task_data.get('existing_client_id')
                     existing_client_phone = task_data.get('existing_client_phone')
-                    
+
                     success, error_msg = self.invitation_service.send_trainer_to_client_invitation(
                         trainer_id, existing_client_id, existing_client_phone
                     )
-                    
+
                     if success:
                         msg = "✅ Invitation sent! I'll notify you when they respond. 🔔"
                         self.whatsapp.send_message(phone, msg)
@@ -251,6 +303,15 @@ class CreationFlow:
                     self.whatsapp.send_message(phone, msg)
                     self.task_service.complete_task(task['id'], 'trainer')
                     return {'success': True, 'response': msg, 'handler': 'create_trainee_cancelled'}
+
+            # Handle multi-trainer scenario steps
+            if step == 'multi_trainer_scenario':
+                return self.handle_multi_trainer_scenario(
+                    phone, message,
+                    task_data.get('client_data'),
+                    task_data.get('current_trainer_info'),
+                    trainer_id, task
+                )
             
             return {'success': True, 'response': 'Processing...', 'handler': 'create_trainee'}
             
@@ -834,3 +895,404 @@ class CreationFlow:
         except Exception as e:
             log_error(f"Error sending client onboarding flow: {str(e)}")
             return False
+
+    def handle_multi_trainer_scenario(self, trainer_phone: str, message: str,
+                                      client_data: Dict, current_trainer_info: Dict,
+                                      trainer_id: str, task: Dict) -> Dict:
+        """
+        Handle Scenario 4: Client exists and trains with a different trainer
+
+        Flow:
+        1. Show warning message with client and current trainer info (NO pricing)
+        2. Buttons: [Send Invitation Anyway] [Cancel]
+        3. If send anyway:
+           - Ask about pricing (default vs custom)
+           - Ask who fills profile details
+           - Send invitation to client with note about multiple trainers
+           - Create secondary trainer relationship (not primary)
+           - Notify both trainers appropriately
+
+        Args:
+            trainer_phone: Trainer's WhatsApp number
+            message: User's message/button response
+            client_data: Existing client information
+            current_trainer_info: Dict with current trainer's ID and name
+            trainer_id: New trainer's ID
+            task: Current task data
+
+        Returns:
+            Dict with success status and response details
+        """
+        try:
+            task_data = task.get('task_data', {})
+            multi_trainer_step = task_data.get('multi_trainer_step', 'show_warning')
+
+            # Store necessary data in task_data
+            if not task_data.get('client_data'):
+                task_data['client_data'] = client_data
+            if not task_data.get('current_trainer_info'):
+                task_data['current_trainer_info'] = current_trainer_info
+            if not task_data.get('trainer_id'):
+                task_data['trainer_id'] = trainer_id
+
+            # Step 1: Show warning message
+            if multi_trainer_step == 'show_warning':
+                client_name = client_data.get('name', 'Unknown')
+                current_trainer_name = current_trainer_info.get('name', 'Unknown Trainer')
+
+                msg = (
+                    f"⚠️ *Client Has Another Trainer*\n\n"
+                    f"*Client:* {client_name}\n"
+                    f"*Current Trainer:* {current_trainer_name}\n\n"
+                    f"ℹ️ *Good News:* Clients can train with multiple trainers on Refiloe!\n\n"
+                    f"If you send an invitation, they'll be able to work with both of you.\n\n"
+                    f"Would you like to proceed?"
+                )
+
+                buttons = [
+                    {'id': 'send_invitation_anyway', 'title': 'Send Invitation Anyway'},
+                    {'id': 'cancel_multi_trainer', 'title': 'Cancel'}
+                ]
+
+                self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+
+                # Update task to wait for choice
+                task_data['multi_trainer_step'] = 'await_send_choice'
+                self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                return {'success': True, 'response': msg, 'handler': 'multi_trainer_warning'}
+
+            # Step 2: Handle send/cancel choice
+            elif multi_trainer_step == 'await_send_choice':
+                choice = message.strip()
+
+                if choice == 'send_invitation_anyway':
+                    # Proceed to pricing setup
+                    task_data['multi_trainer_step'] = 'ask_pricing'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # Ask about pricing (reuse the same logic as new client scenario)
+                    return self._ask_multi_trainer_pricing(trainer_phone, task, task_data, trainer_id)
+
+                elif choice == 'cancel_multi_trainer':
+                    msg = "❌ Cancelled. No invitation was sent."
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    self.task_service.complete_task(task['id'], 'trainer')
+                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_cancelled'}
+
+                else:
+                    msg = "❌ Invalid choice. Please use the buttons provided."
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_choice'}
+
+            # Step 3: Handle pricing choice
+            elif multi_trainer_step == 'await_pricing_choice':
+                choice = message.strip()
+
+                if choice.startswith('use_default_'):
+                    # Use default price
+                    default_price = task_data.get('default_price', 300)
+                    task_data['selected_price'] = default_price
+                    task_data['multi_trainer_step'] = 'ask_profile_completion'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # Proceed to profile completion choice
+                    return self._ask_multi_trainer_profile_completion(trainer_phone, task, task_data)
+
+                elif choice == 'custom_price':
+                    # Ask for custom price
+                    msg = (
+                        "💰 *Custom Price*\n\n"
+                        "What's your price per session for this client?\n\n"
+                        "Please enter the amount in Rands (e.g., 350)"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+
+                    task_data['multi_trainer_step'] = 'await_custom_price'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_custom_price'}
+
+                else:
+                    msg = "❌ Invalid choice. Please use the buttons provided."
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_pricing'}
+
+            # Step 4: Handle custom price input
+            elif multi_trainer_step == 'await_custom_price':
+                try:
+                    # Remove 'R' and whitespace if present
+                    price_str = message.strip().replace('R', '').replace('r', '').strip()
+                    custom_price = float(price_str)
+
+                    if custom_price <= 0:
+                        msg = (
+                            "❌ *Invalid Price*\n\n"
+                            "Price must be a positive number.\n\n"
+                            "Please enter the amount in Rands (e.g., 350)"
+                        )
+                        self.whatsapp.send_message(trainer_phone, msg)
+                        return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_price'}
+
+                    # Store custom price
+                    task_data['selected_price'] = custom_price
+                    task_data['multi_trainer_step'] = 'ask_profile_completion'
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    # Proceed to profile completion choice
+                    return self._ask_multi_trainer_profile_completion(trainer_phone, task, task_data)
+
+                except ValueError:
+                    msg = (
+                        "❌ *Invalid Format*\n\n"
+                        "Please enter a valid number (e.g., 350)"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_format'}
+
+            # Step 5: Handle profile completion choice
+            elif multi_trainer_step == 'await_profile_completion_choice':
+                choice = message.strip()
+
+                if choice == 'client_fills':
+                    # Client fills details - send invitation
+                    return self._send_multi_trainer_invitation(
+                        trainer_phone, task, task_data, 'client_fills'
+                    )
+
+                elif choice == 'trainer_fills':
+                    # Trainer fills details
+                    msg = (
+                        "✅ *Great!*\n\n"
+                        f"You'll fill in additional training details for this client.\n\n"
+                        f"📋 *Note:* The client already has a profile. "
+                        f"You're setting up your own training plan with them.\n\n"
+                        f"_This feature is coming soon. For now, sending invitation..._"
+                    )
+                    self.whatsapp.send_message(trainer_phone, msg)
+
+                    # For now, just send the invitation
+                    return self._send_multi_trainer_invitation(
+                        trainer_phone, task, task_data, 'trainer_fills'
+                    )
+
+                else:
+                    msg = "❌ Invalid choice. Please use the buttons provided."
+                    self.whatsapp.send_message(trainer_phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_profile_choice'}
+
+            return {'success': True, 'response': 'Processing...', 'handler': 'multi_trainer_scenario'}
+
+        except Exception as e:
+            log_error(f"Error in handle_multi_trainer_scenario: {str(e)}")
+
+            # Complete the task
+            self.task_service.complete_task(task['id'], 'trainer')
+
+            # Send error message
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while processing the multi-trainer setup.\n\n"
+                "Please try again with /create-trainee"
+            )
+            self.whatsapp.send_message(trainer_phone, error_msg)
+
+            return {'success': False, 'response': error_msg, 'handler': 'multi_trainer_error'}
+
+    def _ask_multi_trainer_pricing(self, trainer_phone: str, task: Dict,
+                                   task_data: Dict, trainer_id: str) -> Dict:
+        """Ask about pricing for multi-trainer scenario"""
+        try:
+            # Get trainer's default price
+            trainer_result = self.db.table('trainers').select('pricing_per_session').eq(
+                'trainer_id', trainer_id
+            ).execute()
+
+            default_price = 300  # Fallback default
+            if trainer_result.data and trainer_result.data[0].get('pricing_per_session'):
+                default_price = trainer_result.data[0]['pricing_per_session']
+
+            # Store default price in task data
+            task_data['default_price'] = default_price
+
+            # Ask about pricing with buttons
+            msg = (
+                f"💰 *Pricing Setup*\n\n"
+                f"What price per session would you like for this client?\n\n"
+                f"*Your default:* R{default_price}"
+            )
+
+            buttons = [
+                {'id': f'use_default_{default_price}', 'title': f'Use Default R{default_price}'},
+                {'id': 'custom_price', 'title': 'Custom Price'}
+            ]
+
+            self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+
+            # Update task to wait for pricing choice
+            task_data['multi_trainer_step'] = 'await_pricing_choice'
+            self.task_service.update_task(task['id'], 'trainer', task_data)
+
+            return {'success': True, 'response': msg, 'handler': 'multi_trainer_pricing'}
+
+        except Exception as e:
+            log_error(f"Error in _ask_multi_trainer_pricing: {str(e)}")
+            return {'success': False, 'response': str(e), 'handler': 'multi_trainer_pricing_error'}
+
+    def _ask_multi_trainer_profile_completion(self, trainer_phone: str,
+                                             task: Dict, task_data: Dict) -> Dict:
+        """Ask who should fill in the profile details for multi-trainer scenario"""
+        try:
+            selected_price = task_data.get('selected_price', 0)
+
+            msg = (
+                f"✅ *Price Set: R{selected_price}*\n\n"
+                f"👤 *Profile Details*\n\n"
+                f"The client already has a profile. Who should fill in YOUR specific training details?\n\n"
+                f"• *Client Fills Details:* Client completes training preferences for you\n"
+                f"• *I'll Fill Details:* You set up your own training plan for them"
+            )
+
+            buttons = [
+                {'id': 'client_fills', 'title': 'Client Fills Details'},
+                {'id': 'trainer_fills', 'title': "I'll Fill Details"}
+            ]
+
+            self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+
+            # Update task to wait for profile completion choice
+            task_data['multi_trainer_step'] = 'await_profile_completion_choice'
+            self.task_service.update_task(task['id'], 'trainer', task_data)
+
+            return {'success': True, 'response': msg, 'handler': 'multi_trainer_profile_completion'}
+
+        except Exception as e:
+            log_error(f"Error in _ask_multi_trainer_profile_completion: {str(e)}")
+            return {'success': False, 'response': str(e), 'handler': 'multi_trainer_profile_error'}
+
+    def _send_multi_trainer_invitation(self, trainer_phone: str, task: Dict,
+                                      task_data: Dict, completion_method: str) -> Dict:
+        """Send multi-trainer invitation and create secondary relationship"""
+        try:
+            from datetime import datetime
+            import pytz
+
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+
+            # Get stored data
+            client_data = task_data.get('client_data', {})
+            current_trainer_info = task_data.get('current_trainer_info', {})
+            trainer_id = task_data.get('trainer_id')
+            selected_price = task_data.get('selected_price', 300)
+
+            # Get trainer info
+            trainer_result = self.db.table('trainers').select('*').eq(
+                'trainer_id', trainer_id
+            ).execute()
+
+            if not trainer_result.data:
+                return False, "Trainer not found"
+
+            trainer = trainer_result.data[0]
+            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
+
+            # Get client phone
+            client_id = client_data.get('client_id')
+            client_phone = client_data.get('whatsapp')
+            client_name = client_data.get('name', 'there')
+
+            # Generate invitation token
+            invitation_token = self.invitation_service.generate_invitation_token()
+
+            # Store invitation in database with multi-trainer flag
+            invitation_data = {
+                'trainer_id': trainer['id'],  # UUID
+                'client_phone': client_phone,
+                'client_name': client_name,
+                'invitation_token': invitation_token,
+                'status': 'pending',
+                'profile_completion_method': completion_method,
+                'custom_price_per_session': selected_price,
+                'is_secondary_trainer': True,  # Mark as secondary trainer
+                'created_at': datetime.now(sa_tz).isoformat(),
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }
+
+            # Insert invitation
+            self.db.table('client_invitations').insert(invitation_data).execute()
+
+            # Send invitation to client with multi-trainer note
+            message = (
+                f"🎯 *New Training Invitation*\n\n"
+                f"Hi {client_name}! 👋\n\n"
+                f"*{trainer_name}* has invited you to train together!\n\n"
+                f"📋 *Training Details:*\n"
+                f"• Trainer: {trainer_name}\n"
+                f"• Price per session: R{selected_price}\n\n"
+                f"✨ *Multi-Trainer Setup:*\n"
+                f"You can accept this invitation and train with {trainer_name} "
+                f"while continuing with your current trainer.\n\n"
+                f"Would you like to accept?"
+            )
+
+            buttons = [
+                {'id': f'accept_multi_trainer_{trainer_id}', 'title': '✅ Accept'},
+                {'id': f'decline_multi_trainer_{trainer_id}', 'title': '❌ Decline'}
+            ]
+
+            self.whatsapp.send_button_message(client_phone, message, buttons)
+
+            # Create secondary relationship (pending status, not primary)
+            relationship_success, relationship_msg = self.invitation_service.create_relationship(
+                trainer_id, client_id, 'trainer', invitation_token
+            )
+
+            if not relationship_success:
+                log_error(f"Failed to create secondary relationship: {relationship_msg}")
+
+            # Notify the new trainer
+            msg_to_new_trainer = (
+                f"✅ *Invitation Sent!*\n\n"
+                f"I've sent a multi-trainer invitation to *{client_name}*.\n\n"
+                f"📋 *Details:*\n"
+                f"• Price per session: R{selected_price}\n"
+                f"• Profile completion: {completion_method.replace('_', ' ').title()}\n"
+                f"• Current trainer: {current_trainer_info.get('name')}\n\n"
+                f"I'll notify you when they respond. 🔔"
+            )
+            self.whatsapp.send_message(trainer_phone, msg_to_new_trainer)
+
+            # Notify the original trainer
+            current_trainer_id = current_trainer_info.get('trainer_id')
+            current_trainer_result = self.db.table('trainers').select('whatsapp').eq(
+                'trainer_id', current_trainer_id
+            ).execute()
+
+            if current_trainer_result.data:
+                current_trainer_phone = current_trainer_result.data[0].get('whatsapp')
+                if current_trainer_phone:
+                    msg_to_current_trainer = (
+                        f"ℹ️ *Client Update*\n\n"
+                        f"FYI: *{client_name}* is now also training with *{trainer_name}*.\n\n"
+                        f"This doesn't affect your relationship with {client_name}. "
+                        f"They can train with multiple trainers on Refiloe!"
+                    )
+                    self.whatsapp.send_message(current_trainer_phone, msg_to_current_trainer)
+                    log_info(f"Notified current trainer {current_trainer_id} about multi-trainer setup")
+
+            # Complete the task
+            self.task_service.complete_task(task['id'], 'trainer')
+
+            log_info(f"Sent multi-trainer invitation from {trainer_id} to {client_id}")
+            return {'success': True, 'response': msg_to_new_trainer, 'handler': 'multi_trainer_sent'}
+
+        except Exception as e:
+            log_error(f"Error sending multi-trainer invitation: {str(e)}")
+
+            # Complete the task
+            self.task_service.complete_task(task['id'], 'trainer')
+
+            error_msg = f"❌ Failed to send invitation: {str(e)}"
+            self.whatsapp.send_message(trainer_phone, error_msg)
+
+            return {'success': False, 'response': error_msg, 'handler': 'multi_trainer_send_failed'}
