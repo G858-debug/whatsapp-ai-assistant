@@ -25,9 +25,13 @@ class RelationshipButtonHandler:
                 return self._handle_accept_client(phone, button_id)
             elif button_id.startswith('decline_client_'):
                 return self._handle_decline_client(phone, button_id)
+            elif button_id.startswith('send_invitation_'):
+                return self._handle_send_invitation(phone, button_id)
+            elif button_id.startswith('cancel_invitation_'):
+                return self._handle_cancel_invitation(phone, button_id)
             else:
                 return {'success': False, 'response': 'Unknown relationship button', 'handler': 'unknown_relationship_button'}
-                
+
         except Exception as e:
             log_error(f"Error handling relationship button: {str(e)}")
             return {'success': False, 'response': 'Error processing relationship button', 'handler': 'relationship_button_error'}
@@ -265,3 +269,52 @@ class RelationshipButtonHandler:
         except Exception as e:
             log_error(f"Error notifying relationship declined: {str(e)}")
             return {'success': False, 'response': 'Error sending notifications', 'handler': 'notification_error'}
+
+    def _handle_send_invitation(self, phone: str, button_id: str) -> Dict:
+        """Trainer sending invitation to available client"""
+        try:
+            from services.flows.relationships.trainer_flows.invitation_flow import InvitationFlow
+            from services.tasks import TaskService
+
+            client_id = button_id.replace('send_invitation_', '')
+
+            # Get trainer_id
+            user = self.auth_service.check_user_exists(phone)
+            if not user or not user.get('trainer_id'):
+                return {'success': False, 'response': 'Error: Trainer ID not found', 'handler': 'button_error'}
+
+            trainer_id = user['trainer_id']
+
+            # Initialize invitation flow
+            task_service = TaskService(self.db)
+            invitation_flow = InvitationFlow(self.db, self.whatsapp, task_service)
+
+            # Send invitation to available client
+            result = invitation_flow.send_invitation_to_available_client(phone, trainer_id, client_id)
+
+            return result
+
+        except Exception as e:
+            log_error(f"Error sending invitation to available client: {str(e)}")
+            return {'success': False, 'response': 'Error sending invitation', 'handler': 'send_invitation_error'}
+
+    def _handle_cancel_invitation(self, phone: str, button_id: str) -> Dict:
+        """Trainer cancelling invitation to available client"""
+        try:
+            from services.flows.relationships.trainer_flows.invitation_flow import InvitationFlow
+            from services.tasks import TaskService
+
+            client_id = button_id.replace('cancel_invitation_', '')
+
+            # Initialize invitation flow
+            task_service = TaskService(self.db)
+            invitation_flow = InvitationFlow(self.db, self.whatsapp, task_service)
+
+            # Cancel invitation
+            result = invitation_flow.cancel_invitation_to_available_client(phone, client_id)
+
+            return result
+
+        except Exception as e:
+            log_error(f"Error cancelling invitation: {str(e)}")
+            return {'success': False, 'response': 'Error cancelling invitation', 'handler': 'cancel_invitation_error'}
