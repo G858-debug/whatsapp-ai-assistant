@@ -36,6 +36,41 @@ def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_se
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'add_client_task_error'}
 
+        # Check for abandoned tasks with pre-collected client information
+        if timeout_service:
+            abandoned_typing_task = timeout_service.get_resumable_task(
+                phone=phone,
+                role='trainer',
+                task_type='add_client_typing'
+            )
+
+            if abandoned_typing_task:
+                # Extract pre-collected data from abandoned task
+                abandoned_task_data = abandoned_typing_task.get('task_data', {}).get('task_data', {})
+                collected_data = abandoned_task_data.get('collected_data', {})
+
+                # Check if there's any useful pre-collected data
+                pre_collected = {}
+                if collected_data.get('name'):
+                    pre_collected['name'] = collected_data['name']
+                if collected_data.get('phone'):
+                    pre_collected['phone'] = collected_data['phone']
+                if collected_data.get('email'):
+                    pre_collected['email'] = collected_data['email']
+
+                # Store pre-collected data in the new task if any was found
+                if pre_collected:
+                    task_service.update_task(
+                        task_id=task_id,
+                        updates={
+                            'task_data.pre_collected_data': pre_collected
+                        }
+                    )
+                    log_info(f"Stored pre-collected data from abandoned task for trainer {trainer_id}: {list(pre_collected.keys())}")
+
+                    # Mark the abandoned task as superseded
+                    timeout_service.cancel_timeout(abandoned_typing_task['id'])
+
         # Prepare message with friendly Refiloe tone
         msg = (
             "👥 *Add New Client*\n\n"
