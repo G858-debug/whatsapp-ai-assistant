@@ -387,6 +387,8 @@ class ClientCreationButtonHandler:
         Handle add client flow buttons (profile filling and secondary invitation)
 
         Buttons:
+        - add_client_type: Launch WhatsApp Flow for trainer to type client details
+        - add_client_share: Prompt trainer to share a contact
         - client_fills_profile: Send invitation for client to fill their own profile
         - trainer_fills_profile: Launch WhatsApp Flow for trainer to fill profile
         - send_secondary_invitation: Send invitation for multi-trainer scenario
@@ -397,7 +399,11 @@ class ClientCreationButtonHandler:
                 log_error("Task service not available")
                 return {'success': False, 'response': 'Service unavailable', 'handler': 'add_client_no_task_service'}
 
-            if button_id == 'client_fills_profile':
+            if button_id == 'add_client_type':
+                return self._handle_add_client_type(phone)
+            elif button_id == 'add_client_share':
+                return self._handle_add_client_share(phone)
+            elif button_id == 'client_fills_profile':
                 return self._handle_client_fills_profile(phone)
             elif button_id == 'trainer_fills_profile':
                 return self._handle_trainer_fills_profile(phone)
@@ -707,3 +713,146 @@ class ClientCreationButtonHandler:
             msg = "✅ Process cancelled."
             self.whatsapp.send_message(phone, msg)
             return {'success': True, 'response': msg, 'handler': 'cancel_add_client_error'}
+
+    def _handle_add_client_type(self, phone: str) -> Dict:
+        """
+        Handle 'Type Details' button (add_client_type)
+        Launch WhatsApp Flow for trainer to fill client details
+        Checks for pre_collected_data and prepopulates the flow if available
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'add_client_type_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task or task.get('task_type') != 'add_client_choice':
+                msg = "❌ No add client task in progress. Please use /add-client to start."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'add_client_type_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+
+            # Check for pre_collected_data (from AI intent or other sources)
+            pre_collected_data = task_data.get('pre_collected_data', {})
+
+            # Extract pre-filled data if available
+            client_name = pre_collected_data.get('client_name', '')
+            client_phone = pre_collected_data.get('client_phone', '')
+            client_email = pre_collected_data.get('client_email', '')
+
+            # Launch WhatsApp Flow for trainer to add client
+            from services.whatsapp_flow_handler import WhatsAppFlowHandler
+
+            flow_handler = WhatsAppFlowHandler(self.db, self.whatsapp)
+
+            # Pre-fill the flow with any pre-collected data
+            flow_result = flow_handler.send_trainer_add_client_flow(
+                trainer_phone=phone,
+                trainer_id=user_id,
+                client_name=client_name if client_name else None,
+                client_phone=client_phone if client_phone else None,
+                client_email=client_email if client_email else None
+            )
+
+            if flow_result.get('success'):
+                # Update task to track that flow was sent
+                self.task_service.update_task(
+                    task_id,
+                    role,
+                    task_data={
+                        'step': 'flow_sent',
+                        'trainer_id': user_id,
+                        'pre_collected_data': pre_collected_data,
+                        'flow_token': flow_result.get('flow_token')
+                    }
+                )
+
+                # The task will be completed when the flow response is received
+                msg = "✏️ Please fill in the client details in the form I just sent you."
+                if client_name or client_phone or client_email:
+                    msg += "\n\nI've pre-filled some fields with the information you provided earlier."
+
+                self.whatsapp.send_message(phone, msg)
+
+                log_info(f"Launched add client flow for {user_id} with pre-collected data: {bool(pre_collected_data)}")
+                return {'success': True, 'response': msg, 'handler': 'add_client_type_flow_launched'}
+            else:
+                error_msg = f"❌ Failed to launch form: {flow_result.get('error', 'Unknown error')}"
+                self.whatsapp.send_message(phone, error_msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': error_msg, 'handler': 'add_client_type_flow_failed'}
+
+        except Exception as e:
+            log_error(f"Error handling add client type: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'add_client_type_error'}
+
+    def _handle_add_client_share(self, phone: str) -> Dict:
+        """
+        Handle 'Share Contact' button (add_client_share)
+        Prompt trainer to share a contact card
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'add_client_share_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task or task.get('task_type') != 'add_client_choice':
+                msg = "❌ No add client task in progress. Please use /add-client to start."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'add_client_share_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+
+            # Update task to wait for contact share
+            self.task_service.update_task(
+                task_id,
+                role,
+                task_data={
+                    'step': 'waiting_for_contact',
+                    'trainer_id': user_id,
+                    'pre_collected_data': task_data.get('pre_collected_data', {})
+                }
+            )
+
+            # Send instructions with button for more help
+            msg = (
+                "📱 *Share Your Client's Contact*\n\n"
+                "Please share your client's contact card with me.\n\n"
+                "👉 Tap the 📎 or ➕ icon, select 'Contact', and send it here."
+            )
+
+            # Add a help button
+            buttons = [
+                {'id': 'share_contact_instructions', 'title': 'How do I share?'}
+            ]
+
+            self.whatsapp.send_button_message(phone, msg, buttons)
+
+            log_info(f"Prompted trainer {user_id} to share contact for add client flow")
+            return {'success': True, 'response': msg, 'handler': 'add_client_share_prompted'}
+
+        except Exception as e:
+            log_error(f"Error handling add client share: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'add_client_share_error'}

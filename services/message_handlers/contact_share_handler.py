@@ -139,11 +139,24 @@ def create_contact_confirmation_task(
         Task ID if successful, None otherwise
     """
     try:
+        # Check if there's an existing add_client_choice task with pre_collected_data
+        existing_task = task_service.get_running_task(trainer_phone, role)
+        pre_collected_data = {}
+
+        if existing_task and existing_task.get('task_type') == 'add_client_choice':
+            existing_task_data = existing_task.get('task_data', {})
+            pre_collected_data = existing_task_data.get('pre_collected_data', {})
+
+            # Complete the add_client_choice task since we're moving to contact confirmation
+            task_service.complete_task(existing_task['id'], role)
+            log_info(f"Completed add_client_choice task {existing_task['id']} and carrying over pre_collected_data")
+
         # Build task data with contact information
         task_data = {
             'step': 'confirm_shared_contact',
             'contact_data': contact_data,
-            'action': 'share_contact'
+            'action': 'share_contact',
+            'pre_collected_data': pre_collected_data  # Preserve any pre-collected data
         }
 
         # Create task
