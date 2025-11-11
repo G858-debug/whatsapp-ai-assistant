@@ -1,0 +1,390 @@
+====================================================================
+ADD-CLIENT FLOW - KEY FILES & THEIR ROLES
+====================================================================
+
+ENTRY POINTS:
+├── /add-client command
+│   └── services/commands/trainer/relationships/client_management_commands.py
+│       └── handle_add_client_command() → Shows "Type Details" vs "Share Contact"
+│
+└── /create-trainee command
+    └── services/commands/trainer/trainer_command_handler.py
+        └── handle_create_trainee()
+            └── services/flows/relationships/trainer_flows/creation_flow.py
+                └── continue_create_trainee() [Text-based flow]
+
+====================================================================
+
+FLOW DEFINITION & CONFIGURATION:
+│
+├── whatsapp_flows/trainer_add_client_flow.json
+│   ├── WELCOME screen → Dynamic price display
+│   ├── CLIENT_INFO → Name, Phone, Email
+│   ├── FITNESS_GOALS → Goals, Experience
+│   ├── TRAINING_SCHEDULE → Sessions, Times
+│   ├── HEALTH_INFO → Conditions, Medications
+│   ├── PRICING → Dynamic pricing + package deals
+│   └── CONFIRMATION → Review & Submit
+│
+└── config/trainer_add_client_inputs.json
+    └── 8 fields with validation rules (text-based alternative)
+
+====================================================================
+
+FLOW PROCESSING LAYER:
+│
+└── services/whatsapp_flow_handler.py
+    ├── send_trainer_add_client_flow()
+    │   └── Gets trainer default price
+    │   └── Passes as initial flow data
+    │   └── Sends via WhatsApp API with flow_token
+    │
+    └── _handle_trainer_add_client_response()
+        ├── Extracts & validates client data
+        ├── _extract_client_data_from_flow_response()
+        │   ├── Type conversions (string→float for prices)
+        │   ├── Array handling (fitness_goals, preferred_times)
+        │   └── Boolean handling (has_package_deal)
+        │
+        ├── Phone validation (format + normalization)
+        ├── Duplicate check (clients table)
+        ├── Subscription limit check
+        │
+        ├── Routes to:
+        │   ├── _create_and_send_invitation() → New client
+        │   └── _add_client_directly() → Direct creation
+        │
+        └── Package deal clarification
+            └── Sets conversation state for AI follow-up
+
+====================================================================
+
+VALIDATION LAYER:
+│
+├── services/auth/registration/validation_service.py
+│   └── ValidationService.validate_field_value()
+│       ├── Phone: 10-15 digits
+│       ├── Email: @ and . validation
+│       ├── Choice: Range validation
+│       ├── Multi-choice: Comma-separated validation
+│       └── Length validation (min/max)
+│
+└── services/helpers/validation_helpers.py
+    └── Phone normalization & validation
+
+====================================================================
+
+CONTACT HANDLING (vCard):
+│
+└── services/message_handlers/contact_share_handler.py
+    ├── parse_vcard() → Extracts contact from webhook
+    │   ├── Name (first, last, formatted)
+    │   ├── Phones (with type detection for primary)
+    │   └── Emails (optional)
+    │
+    ├── create_contact_confirmation_task() → Creates task
+    │
+    └── send_contact_confirmation_message() → Buttons for confirm/edit
+
+====================================================================
+
+CLIENT SCENARIO DETECTION:
+│
+└── services/relationships/client_checker.py
+    └── ClientChecker.check_client_status()
+        ├── SCENARIO_NEW → Create new client
+        ├── SCENARIO_AVAILABLE → Exists, no trainer
+        ├── SCENARIO_ALREADY_YOURS → Already this trainer's client
+        └── SCENARIO_HAS_OTHER_TRAINER → Multi-trainer scenario
+
+        Checks:
+        ├── clients table (by whatsapp/phone)
+        ├── client_trainer_list (active relationships)
+        └── trainer_client_list (specific relationship)
+
+====================================================================
+
+INVITATION & RELATIONSHIP MANAGEMENT:
+│
+└── services/relationships/invitations/
+    │
+    ├── invitation_service.py (Facade)
+    │   └── Delegates to InvitationManager
+    │
+    └── invitation_manager.py
+        ├── send_new_client_invitation()
+        │   ├── Get trainer info
+        │   ├── Generate invitation token
+        │   ├── Store in client_invitations table
+        │   │   └── status: pending_client_completion
+        │   │   └── prefilled_data: JSONB
+        │   ├── Send WhatsApp buttons (Accept/Decline)
+        │   └── Create pending relationship
+        │
+        └── create_relationship() → Creates trainer-client link
+
+====================================================================
+
+BUTTON HANDLING & ACCOUNT CREATION:
+│
+└── services/message_router/handlers/buttons/client_creation_buttons.py
+    └── ClientCreationButtonHandler
+        │
+        ├── handle_client_creation_button()
+        │   ├── approve_new_client_{trainer_id}
+        │   └── reject_new_client_{trainer_id}
+        │
+        ├── handle_invitation_button()
+        │   ├── accept_invitation_{trainer_id}
+        │   ├── decline_invitation_{trainer_id}
+        │   ├── accept_multi_trainer_{trainer_id}
+        │   └── decline_multi_trainer_{trainer_id}
+        │
+        └── _create_client_account()
+            ├── Generate client_id
+            ├── Insert into clients table
+            ├── Create users entry
+            ├── Create & approve relationship
+            └── Send notifications to both
+
+====================================================================
+
+STATE MANAGEMENT:
+│
+├── Task-based State (for text-based flow)
+│   ├── task_data['step'] → Current step
+│   ├── task_data['collected_data'] → User inputs
+│   ├── task_data['current_field_index'] → Field position
+│   └── task_data['multi_trainer_step'] → Multi-trainer flow
+│
+└── Conversation State (for AI follow-up)
+    └── PACKAGE_DEAL_CLARIFICATION → Vague package details
+
+====================================================================
+
+DATABASE TABLES:
+│
+├── clients
+│   ├── client_id, whatsapp, name, email
+│   ├── fitness_goals, experience_level
+│   ├── health_conditions, availability
+│   └── preferred_training_times, status
+│
+├── client_invitations
+│   ├── trainer_id, client_phone, client_name
+│   ├── invitation_token, status
+│   ├── profile_completion_method
+│   ├── trainer_provided_data (JSONB)
+│   ├── custom_price_per_session
+│   ├── is_secondary_trainer (multi-trainer)
+│   └── created_at, updated_at, accepted_at
+│
+├── trainer_client_list (Bidirectional)
+│   ├── trainer_id, client_id
+│   ├── connection_status (pending, active, inactive)
+│   └── primary_trainer flag
+│
+└── client_trainer_list (Reverse mapping)
+    ├── client_id, trainer_id
+    └── connection_status
+
+====================================================================
+
+DATA FLOW EXAMPLES:
+
+SCENARIO 1: New Client via WhatsApp Flow
+─────────────────────────────────────────
+Trainer Message → send_trainer_add_client_flow()
+                  [with trainer.default_price_per_session]
+                ↓
+WhatsApp Flow UI (7 screens)
+                ↓
+Trainer completes & submits
+                ↓
+_handle_trainer_add_client_response()
+                ├─ Extract & convert types
+                ├─ Validate phone number
+                ├─ Check duplicates
+                └─ Check subscription
+                ↓
+_create_and_send_invitation()
+                ├─ Create client_invitations record
+                ├─ Store prefilled_data as JSONB
+                └─ Send invitation buttons
+                ↓
+Client receives invitation
+                ├─ [Accept] → _create_client_account()
+                │   ├─ Create clients record
+                │   ├─ Create users entry
+                │   ├─ Approve relationship
+                │   └─ Send success notifications
+                │
+                └─ [Decline] → Mark as declined
+
+SCENARIO 2: Existing Client via Text
+─────────────────────────────────────
+Trainer: /create-trainee
+                ↓
+continue_create_trainee()
+                ├─ Ask "Create new or link existing?"
+                ├─ Load trainer_add_client_inputs.json
+                └─ Collect field by field
+                ↓
+[After phone number]
+ClientChecker.check_client_status()
+                ├─ Found → SCENARIO_AVAILABLE
+                └─ Ask: "Send invitation instead?"
+                ↓
+send_new_client_invitation()
+                ├─ Create client_invitations
+                └─ Send buttons
+                ↓
+[Client accepts]
+                └─ Relationship created
+
+SCENARIO 3: vCard Contact
+──────────────────────────
+Trainer: [Shares contact via WhatsApp]
+                ↓
+parse_vcard()
+                ├─ Extract name, phones, emails
+                └─ Prefer mobile as primary
+                ↓
+create_contact_confirmation_task()
+                ↓
+send_contact_confirmation_message()
+                ├─ [Confirm] → Proceed to create
+                └─ [Edit] → Ask for corrections
+                ↓
+create_contact_confirmation_task()
+                └─ Awaits trainer's next message
+
+SCENARIO 4: Multi-Trainer
+──────────────────────────
+Trainer adds client with different trainer
+                ↓
+Client detected with active relationship
+                ↓
+handle_multi_trainer_scenario()
+                ├─ Show warning with current trainer
+                ├─ [Send Anyway]
+                ├─   ├─ Ask pricing
+                ├─   ├─ Ask profile completion method
+                ├─   └─ Send invitation as secondary
+                └─ [Cancel] → End flow
+                ↓
+Notify both trainers
+
+====================================================================
+
+VALIDATION FLOW:
+
+Text-based Input
+────────────────
+User input (message)
+        ↓
+validation_service.validate_field_value()
+        │
+        ├─ Check required (not empty, not 'skip')
+        ├─ Type-specific validation (phone/email/number)
+        ├─ Length validation (min/max)
+        ├─ Choice validation (option range)
+        └─ Multi-choice validation (comma-separated)
+        ↓
+        ├─ Valid → Store in collected_data
+        └─ Invalid → Show error + re-prompt
+
+WhatsApp Flow Input
+───────────────────
+Flow response (JSON)
+        ↓
+_extract_client_data_from_flow_response()
+        │
+        ├─ String to float: custom_price_amount
+        ├─ Boolean handling: has_package_deal
+        ├─ Array handling: fitness_goals, preferred_times
+        └─ String parsing: sessions_per_week
+        ↓
+validators.validate_phone_number()
+        ├─ Format check (10-15 digits)
+        └─ Normalization (0-prefix → 27-prefix)
+        ↓
+Duplicate check (clients table)
+        ↓
+        ├─ New → Proceed to invitation
+        └─ Exists → Check relationship scenario
+
+====================================================================
+
+KEY VALIDATION RULES:
+
+Phone:
+  - Required, 10-15 digits
+  - Pattern: ^[0-9]{10,15}$
+  - Cleanup: Remove +, -, spaces, ()
+  - Normalization: 0-prefix SA → 27-prefix SA
+  
+Full Name:
+  - Required, 2-100 characters
+  - Spaces allowed
+  
+Email:
+  - Optional
+  - Pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+  - Supports: skip, none, empty
+  
+Fitness Goals:
+  - Multi-choice selection
+  - Options from config
+  - Can select multiple
+
+Experience Level:
+  - Single choice
+  - Options: Beginner, Intermediate, Advanced, Athlete
+  
+Health Conditions:
+  - Optional textarea, max 500 characters
+  - Supports: skip, none, empty
+  
+Availability:
+  - Multi-choice from 5 time slots
+  - Early Morning, Morning, Afternoon, Evening, Flexible
+
+Custom Price:
+  - String input → Float conversion
+  - Must be > 0
+  - Optional (when use_default selected)
+
+Package Deal Details:
+  - Optional, triggers clarification if vague
+  - Vague = <10 chars OR contains: tbd, discuss, flexible
+
+====================================================================
+
+CONFIGURATION:
+
+Default Prices:
+  - Fallback: R500/session
+  - From: trainer.default_price_per_session
+  - Used in: Flow screens, invitations, billing
+
+Phone Formats (South Africa):
+  - Input: 0821234567 OR +27821234567 OR 27821234567
+  - Stored: 27821234567 (normalized)
+  - Display: 0821234567 or with country code
+
+Timezone:
+  - Africa/Johannesburg (pytz)
+  - Used for: timestamps, scheduling
+
+Currency:
+  - South African Rand (R)
+  - Symbol: R{amount}
+
+Invitation Statuses:
+  - pending: Awaiting response
+  - pending_client_completion: Client needs to complete profile
+  - accepted: Client accepted, account created
+  - declined: Client rejected invitation
+
+====================================================================
