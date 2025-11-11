@@ -2236,7 +2236,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             })
 
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(trainer_phone, flow_message)
+            result = self.whatsapp_service.send_flow_message(flow_message)
 
             if result.get('success'):
                 log_info(f"Trainer add client flow sent to {trainer_phone}")
@@ -2481,8 +2481,8 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             })
             
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(phone_number, message)
-            
+            result = self.whatsapp_service.send_flow_message(message)
+
             if result.get('success'):
                 log_info(f"Trainer habit setup flow sent to {phone_number}")
                 return {
@@ -2608,8 +2608,8 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             })
             
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(phone_number, message)
-            
+            result = self.whatsapp_service.send_flow_message(message)
+
             if result.get('success'):
                 log_info(f"Client habit logging flow sent to {phone_number}")
                 return {
@@ -2690,8 +2690,8 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             })
             
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(phone_number, message)
-            
+            result = self.whatsapp_service.send_flow_message(message)
+
             if result.get('success'):
                 log_info(f"Habit progress flow sent to {phone_number}")
                 return {
