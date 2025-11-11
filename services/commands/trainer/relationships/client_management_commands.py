@@ -6,9 +6,20 @@ from typing import Dict
 from utils.logger import log_info, log_error
 
 
-def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
+def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_service, timeout_service=None) -> Dict:
     """Handle /add-client command - presents two clickable options for adding clients"""
     try:
+        # Check if there's a resumable abandoned task
+        if timeout_service:
+            abandoned_task = timeout_service.get_resumable_task(
+                phone=phone,
+                role='trainer',
+                task_type='add_client_choice'
+            )
+
+            if abandoned_task:
+                return _offer_resume(phone, trainer_id, db, whatsapp, task_service, timeout_service, abandoned_task)
+
         # Create task to track the add client flow - use phone for task identification
         task_id = task_service.create_task(
             user_id=phone,
@@ -55,3 +66,38 @@ def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_se
             'response': "Sorry, I encountered an error. Please try again.",
             'handler': 'add_client_error'
         }
+
+
+def _offer_resume(phone: str, trainer_id: str, db, whatsapp, task_service, timeout_service, abandoned_task: Dict) -> Dict:
+    """Offer to resume an abandoned add-client task"""
+    try:
+        # Get client name from abandoned task data if available
+        task_data = abandoned_task.get('task_data', {}).get('task_data', {})
+        collected_data = task_data.get('collected_data', {})
+        client_name = collected_data.get('name', 'your client')
+
+        msg = (
+            f"🔄 *Resume Previous Session?*\n\n"
+            f"You were adding {client_name}.\n\n"
+            f"Would you like to:"
+        )
+
+        buttons = [
+            {'id': 'resume_add_client', 'title': f'Resume {client_name}'},
+            {'id': 'start_fresh_add_client', 'title': 'Start Fresh'}
+        ]
+
+        whatsapp.send_button_message(phone, msg, buttons)
+
+        log_info(f"Offered resume to trainer {trainer_id} for abandoned task {abandoned_task['id']}")
+
+        return {
+            'success': True,
+            'response': msg,
+            'handler': 'add_client_resume_offered'
+        }
+
+    except Exception as e:
+        log_error(f"Error offering resume: {str(e)}")
+        # Fall back to normal flow
+        return handle_add_client_command(phone, trainer_id, db, whatsapp, task_service, timeout_service=None)

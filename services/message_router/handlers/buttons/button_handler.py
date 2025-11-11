@@ -9,18 +9,20 @@ from .relationship_buttons import RelationshipButtonHandler
 from .registration_buttons import RegistrationButtonHandler
 from .client_creation_buttons import ClientCreationButtonHandler
 from .contact_confirmation_buttons import ContactConfirmationButtonHandler
+from .timeout_buttons import TimeoutButtonHandler
 
 
 class ButtonHandler:
     """Main button handler that delegates to specific button handlers"""
-    
-    def __init__(self, supabase_client, whatsapp_service, auth_service, reg_service=None, task_service=None):
+
+    def __init__(self, supabase_client, whatsapp_service, auth_service, reg_service=None, task_service=None, timeout_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
         self.reg_service = reg_service
         self.task_service = task_service
-        
+        self.timeout_service = timeout_service
+
         # Initialize sub-handlers
         self.relationship_handler = RelationshipButtonHandler(
             self.db, self.whatsapp, self.auth_service
@@ -34,6 +36,14 @@ class ButtonHandler:
         self.contact_confirmation_handler = ContactConfirmationButtonHandler(
             self.db, self.whatsapp, self.auth_service, self.task_service
         )
+
+        # Initialize timeout handler if timeout service is available
+        if self.timeout_service and self.task_service:
+            self.timeout_handler = TimeoutButtonHandler(
+                self.db, self.whatsapp, self.task_service, self.timeout_service
+            )
+        else:
+            self.timeout_handler = None
     
     def handle_button_response(self, phone: str, button_id: str) -> Dict:
         """Handle button responses by delegating to appropriate handler"""
@@ -65,6 +75,13 @@ class ButtonHandler:
 
             elif button_id.startswith('confirm_contact_'):
                 return self.contact_confirmation_handler.handle_contact_confirmation_button(phone, button_id)
+
+            elif button_id in ['continue_task', 'start_over', 'resume_add_client', 'start_fresh_add_client']:
+                if self.timeout_handler:
+                    return self.timeout_handler.handle_timeout_button(phone, button_id)
+                else:
+                    log_error("Timeout handler not initialized")
+                    return {'success': False, 'response': 'Service unavailable', 'handler': 'timeout_handler_unavailable'}
 
             else:
                 log_error(f"Unknown button ID: {button_id}")
