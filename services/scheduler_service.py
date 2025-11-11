@@ -6,11 +6,24 @@ from utils.logger import log_info, log_error
 
 class SchedulerService:
     """Handle scheduling of reminders and automated messages"""
-    
-    def __init__(self, supabase_client, whatsapp_service):
+
+    def __init__(self, supabase_client, whatsapp_service, analytics_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
+        self.analytics = analytics_service
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
+
+        # Initialize timeout service for task monitoring
+        self.timeout_service = None
+        try:
+            from services.task_timeout_service import TaskTimeoutService
+            self.timeout_service = TaskTimeoutService(
+                supabase_client,
+                whatsapp_service,
+                analytics_service
+            )
+        except Exception as e:
+            log_error(f"Failed to initialize timeout service: {str(e)}")
     
     def check_and_send_reminders(self) -> Dict:
         """Check and send due reminders"""
@@ -19,11 +32,12 @@ class SchedulerService:
                 'workout_reminders': self._send_workout_reminders(),
                 'payment_reminders': self._send_payment_reminders(),
                 'assessment_reminders': self._send_assessment_reminders(),
-                'habit_reminders': self._send_habit_reminders()
+                'habit_reminders': self._send_habit_reminders(),
+                'task_timeouts': self._check_task_timeouts()
             }
-            
+
             return results
-            
+
         except Exception as e:
             log_error(f"Error checking reminders: {str(e)}")
             return {'error': str(e)}
@@ -205,7 +219,25 @@ class SchedulerService:
             log_error(f"Error sending habit reminders: {str(e)}")
             return {'error': str(e)}
     
-    def schedule_message(self, phone: str, message: str, 
+    def _check_task_timeouts(self) -> Dict:
+        """Check for timed out tasks and send reminders or cleanup"""
+        try:
+            if not self.timeout_service:
+                log_info("Timeout service not available, skipping task timeout checks")
+                return {'skipped': True, 'reason': 'timeout_service_unavailable'}
+
+            results = self.timeout_service.check_and_process_timeouts()
+
+            log_info(f"Task timeout check: {results.get('reminders_sent', 0)} reminders, "
+                    f"{results.get('tasks_cleaned', 0)} cleanups")
+
+            return results
+
+        except Exception as e:
+            log_error(f"Error checking task timeouts: {str(e)}")
+            return {'error': str(e)}
+
+    def schedule_message(self, phone: str, message: str,
                         send_at: datetime) -> Dict:
         """Schedule a message for future sending"""
         try:
@@ -216,16 +248,16 @@ class SchedulerService:
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
-            
+
             result = self.db.table('scheduled_messages').insert(
                 scheduled_data
             ).execute()
-            
+
             if result.data:
                 return {'success': True, 'scheduled_id': result.data[0]['id']}
-            
+
             return {'success': False, 'error': 'Failed to schedule message'}
-            
+
         except Exception as e:
             log_error(f"Error scheduling message: {str(e)}")
             return {'success': False, 'error': str(e)}
