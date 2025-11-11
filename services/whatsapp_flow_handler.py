@@ -2133,14 +2133,24 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'error': str(e)
             }
 
-    def send_trainer_add_client_flow(self, trainer_phone: str, trainer_id: str = None) -> Dict:
+    def send_trainer_add_client_flow(
+        self,
+        trainer_phone: str,
+        trainer_id: str = None,
+        client_name: str = None,
+        client_phone: str = None,
+        client_email: str = None
+    ) -> Dict:
         """
-        Send trainer add client flow with dynamic pricing.
-        Passes trainer's default_price_per_session as initial flow data.
+        Send trainer add client flow with dynamic pricing and optional pre-filled client data.
+        Passes trainer's default_price_per_session and client contact data as initial flow data.
 
         Args:
             trainer_phone: Trainer's WhatsApp number
             trainer_id: Optional trainer ID (will lookup if not provided)
+            client_name: Optional client name to pre-fill in the flow
+            client_phone: Optional client phone to pre-fill in the flow
+            client_email: Optional client email to pre-fill in the flow
 
         Returns:
             Dict with success status and flow_token or error details
@@ -2219,7 +2229,10 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                             "flow_action_payload": {
                                 "screen": "WELCOME",
                                 "data": {
-                                    "trainer_default_price": trainer_default_price  # Pass to flow
+                                    "trainer_default_price": trainer_default_price,  # Pass to flow
+                                    "client_name": client_name or "",
+                                    "client_phone": client_phone or "",
+                                    "client_email": client_email or ""
                                 }
                             }
                         }
@@ -2232,7 +2245,10 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'type': 'trainer_add_client',
                 'trainer_id': trainer_id,
                 'trainer_phone': trainer_phone,
-                'trainer_default_price': trainer_default_price
+                'trainer_default_price': trainer_default_price,
+                'client_name': client_name,
+                'client_phone': client_phone,
+                'client_email': client_email
             })
 
             # Send the flow
