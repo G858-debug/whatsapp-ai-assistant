@@ -11,6 +11,7 @@ from services.whatsapp_flow_handler import WhatsAppFlowHandler
 from services.ai_intent_handler import AIIntentHandler
 from services.scheduler_service import SchedulerService
 from services.scheduler.reminder_scheduler import ReminderScheduler
+from services.scheduled.invitation_reminders import InvitationReminderService
 from services.assessment import EnhancedAssessmentService
 from services.habits import HabitTrackingService
 from services.workout import WorkoutService
@@ -39,6 +40,7 @@ def setup_app_core(app):
     whatsapp_service = WhatsAppService(Config, supabase, logger)
     scheduler_service = SchedulerService(supabase, whatsapp_service)
     reminder_scheduler = ReminderScheduler(supabase, whatsapp_service)
+    invitation_reminder_service = InvitationReminderService(supabase, whatsapp_service)
     assessment_service = EnhancedAssessmentService(supabase)
     habit_service = HabitTrackingService(supabase)
     workout_service = WorkoutService(Config, supabase)
@@ -60,6 +62,7 @@ def setup_app_core(app):
     services_dict = {
         'whatsapp': whatsapp_service,
         'scheduler': scheduler_service,
+        'invitation_reminders': invitation_reminder_service,
         'assessment': assessment_service,
         'habit': habit_service,
         'workout': workout_service,
@@ -87,7 +90,7 @@ def setup_app_core(app):
     scheduler = BackgroundScheduler(timezone=pytz.timezone(Config.TIMEZONE))
     
     # Setup scheduled tasks
-    setup_scheduled_tasks(scheduler, scheduler_service, supabase)
+    setup_scheduled_tasks(scheduler, scheduler_service, invitation_reminder_service, supabase)
     
     # Start scheduler
     scheduler.start()
@@ -152,9 +155,9 @@ def process_whatsapp_message(phone, text):
         log_error(f"Error processing WhatsApp message: {str(e)}")
         return {'success': False, 'error': str(e)}
 
-def setup_scheduled_tasks(scheduler, scheduler_service, supabase):
+def setup_scheduled_tasks(scheduler, scheduler_service, invitation_reminder_service, supabase):
     """Setup scheduled background tasks"""
-    
+
     def send_daily_reminders():
         """Send daily workout and payment reminders"""
         try:
@@ -171,7 +174,7 @@ def setup_scheduled_tasks(scheduler, scheduler_service, supabase):
             active_subs = supabase.table('trainer_subscriptions').select('*').eq(
                 'status', 'active'
             ).execute()
-            
+
             expired_count = 0
             for sub in (active_subs.data or []):
                 if sub.get('end_date'):
@@ -181,10 +184,19 @@ def setup_scheduled_tasks(scheduler, scheduler_service, supabase):
                             'status': 'expired'
                         }).eq('id', sub['id']).execute()
                         expired_count += 1
-            
+
             log_info(f"Processed {expired_count} expired subscriptions")
         except Exception as e:
             log_error(f"Error checking subscriptions: {str(e)}")
+
+    def process_invitation_reminders():
+        """Process invitation reminders (24h, 72h, 7d)"""
+        try:
+            log_info("Running invitation reminders task")
+            results = invitation_reminder_service.process_all_reminders()
+            log_info(f"Invitation reminders completed: {results}")
+        except Exception as e:
+            log_error(f"Error in invitation reminders task: {str(e)}")
 
     scheduler.add_job(
         send_daily_reminders,
@@ -197,5 +209,13 @@ def setup_scheduled_tasks(scheduler, scheduler_service, supabase):
         check_subscription_status,
         CronTrigger(hour=0, minute=0),
         id='check_subscriptions',
+        replace_existing=True
+    )
+
+    # Run invitation reminders every hour to check for due reminders
+    scheduler.add_job(
+        process_invitation_reminders,
+        CronTrigger(minute=0),  # Every hour at :00
+        id='invitation_reminders',
         replace_existing=True
     )

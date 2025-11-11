@@ -51,7 +51,7 @@ class ButtonHandler:
                 return router.route_message(phone, button_id, button_id=None)
             
             # Delegate to appropriate handler based on button type
-            if button_id.startswith(('accept_trainer_', 'decline_trainer_', 'accept_client_', 'decline_client_', 'send_invitation_', 'cancel_invitation_')):
+            if button_id.startswith(('accept_trainer_', 'decline_trainer_', 'accept_client_', 'decline_client_', 'send_invitation_', 'cancel_invitation_', 'resend_invite_', 'cancel_invite_', 'contact_client_')):
                 return self.relationship_handler.handle_relationship_button(phone, button_id)
             
             elif button_id.startswith(('approve_new_client_', 'reject_new_client_')):

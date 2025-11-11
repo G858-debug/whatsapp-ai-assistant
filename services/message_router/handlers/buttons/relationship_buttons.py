@@ -29,6 +29,12 @@ class RelationshipButtonHandler:
                 return self._handle_send_invitation(phone, button_id)
             elif button_id.startswith('cancel_invitation_'):
                 return self._handle_cancel_invitation(phone, button_id)
+            elif button_id.startswith('resend_invite_'):
+                return self._handle_resend_invite(phone, button_id)
+            elif button_id.startswith('cancel_invite_'):
+                return self._handle_cancel_invite(phone, button_id)
+            elif button_id.startswith('contact_client_'):
+                return self._handle_contact_client(phone, button_id)
             else:
                 return {'success': False, 'response': 'Unknown relationship button', 'handler': 'unknown_relationship_button'}
 
@@ -318,3 +324,116 @@ class RelationshipButtonHandler:
         except Exception as e:
             log_error(f"Error cancelling invitation: {str(e)}")
             return {'success': False, 'response': 'Error cancelling invitation', 'handler': 'cancel_invitation_error'}
+
+    def _handle_resend_invite(self, phone: str, button_id: str) -> Dict:
+        """Trainer resending invitation (from 72h reminder)"""
+        try:
+            from services.scheduled.invitation_reminders import InvitationReminderService
+
+            invitation_id = int(button_id.replace('resend_invite_', ''))
+
+            # Verify trainer owns this invitation
+            user = self.auth_service.check_user_exists(phone)
+            if not user or not user.get('trainer_id'):
+                return {'success': False, 'response': 'Error: Trainer ID not found', 'handler': 'button_error'}
+
+            # Get invitation and verify ownership
+            invitation = self.db.table('client_invitations').select('trainer_id, client_name').eq(
+                'id', invitation_id
+            ).execute()
+
+            if not invitation.data:
+                return {'success': False, 'response': 'Invitation not found', 'handler': 'resend_invite_error'}
+
+            # Initialize invitation reminder service
+            invitation_reminder_service = InvitationReminderService(self.db, self.whatsapp)
+
+            # Resend invitation
+            result = invitation_reminder_service.resend_invitation(invitation_id)
+
+            if result.get('success'):
+                client_name = invitation.data[0].get('client_name', 'the client')
+                msg = f"✅ Invitation resent to {client_name}!"
+                return {'success': True, 'response': msg, 'handler': 'resend_invite'}
+            else:
+                return {'success': False, 'response': f"Failed to resend invitation: {result.get('error')}", 'handler': 'resend_invite_error'}
+
+        except Exception as e:
+            log_error(f"Error resending invitation: {str(e)}")
+            return {'success': False, 'response': 'Error resending invitation', 'handler': 'resend_invite_error'}
+
+    def _handle_cancel_invite(self, phone: str, button_id: str) -> Dict:
+        """Trainer cancelling invitation (from 72h reminder)"""
+        try:
+            from services.scheduled.invitation_reminders import InvitationReminderService
+
+            invitation_id = int(button_id.replace('cancel_invite_', ''))
+
+            # Verify trainer owns this invitation
+            user = self.auth_service.check_user_exists(phone)
+            if not user or not user.get('trainer_id'):
+                return {'success': False, 'response': 'Error: Trainer ID not found', 'handler': 'button_error'}
+
+            # Get invitation and verify ownership
+            invitation = self.db.table('client_invitations').select('trainer_id, client_name').eq(
+                'id', invitation_id
+            ).execute()
+
+            if not invitation.data:
+                return {'success': False, 'response': 'Invitation not found', 'handler': 'cancel_invite_error'}
+
+            # Initialize invitation reminder service
+            invitation_reminder_service = InvitationReminderService(self.db, self.whatsapp)
+
+            # Cancel invitation
+            result = invitation_reminder_service.cancel_invitation(invitation_id)
+
+            if result.get('success'):
+                client_name = invitation.data[0].get('client_name', 'the client')
+                msg = f"✅ Invitation to {client_name} has been cancelled."
+                return {'success': True, 'response': msg, 'handler': 'cancel_invite'}
+            else:
+                return {'success': False, 'response': f"Failed to cancel invitation: {result.get('error')}", 'handler': 'cancel_invite_error'}
+
+        except Exception as e:
+            log_error(f"Error cancelling invitation: {str(e)}")
+            return {'success': False, 'response': 'Error cancelling invitation', 'handler': 'cancel_invite_error'}
+
+    def _handle_contact_client(self, phone: str, button_id: str) -> Dict:
+        """Trainer requesting client contact info (from 72h reminder)"""
+        try:
+            invitation_id = int(button_id.replace('contact_client_', ''))
+
+            # Get invitation details
+            invitation = self.db.table('client_invitations').select(
+                'client_name, client_phone, client_email'
+            ).eq('id', invitation_id).execute()
+
+            if not invitation.data:
+                return {'success': False, 'response': 'Invitation not found', 'handler': 'contact_client_error'}
+
+            client_data = invitation.data[0]
+            client_name = client_data.get('client_name', 'the client')
+            client_phone = client_data.get('client_phone')
+            client_email = client_data.get('client_email')
+
+            # Send contact info to trainer
+            msg = f"📞 *Contact Information for {client_name}:*\n\n"
+
+            if client_phone:
+                msg += f"• Phone: {client_phone}\n"
+            if client_email:
+                msg += f"• Email: {client_email}\n"
+
+            msg += f"\nYou can reach out to them directly to follow up on the invitation."
+
+            result = self.whatsapp.send_message(phone, msg)
+
+            if result.get('success'):
+                return {'success': True, 'response': msg, 'handler': 'contact_client'}
+            else:
+                return {'success': False, 'response': 'Failed to send contact info', 'handler': 'contact_client_error'}
+
+        except Exception as e:
+            log_error(f"Error getting client contact info: {str(e)}")
+            return {'success': False, 'response': 'Error getting contact information', 'handler': 'contact_client_error'}
