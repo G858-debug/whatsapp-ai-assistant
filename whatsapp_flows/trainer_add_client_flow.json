@@ -1,29 +1,41 @@
 {
   "version": "5.0",
+  "data_api_version": "3.0",
+  "routing_model": {},
   "screens": [
     {
       "id": "WELCOME",
       "title": "Add New Client",
       "terminal": false,
-      "data": {},
+      "data": {
+        "trainer_default_price": {
+          "type": "number",
+          "__example__": 500
+        }
+      },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "Add New Client 👥"
+            "text": "Add New Client Profile"
           },
           {
             "type": "TextBody",
-            "text": "Let's add a new client to your training program! I'll guide you through the process."
+            "text": "Fill in your client's details to create their profile. They'll receive an invitation to review and accept."
+          },
+          {
+            "type": "TextBody",
+            "text": "Your default rate: R${data.trainer_default_price} per session"
           },
           {
             "type": "Footer",
-            "label": "Continue",
+            "label": "Start",
             "on-click-action": {
               "name": "navigate",
-              "payload": {
-                "screen": "CLIENT_INFO"
+              "next": {
+                "type": "screen",
+                "name": "CLIENT_INFO"
               }
             }
           }
@@ -40,16 +52,12 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Client Details 📝"
-          },
-          {
-            "type": "TextBody",
-            "text": "Please provide your client's information:"
+            "text": "Client Contact Details"
           },
           {
             "type": "TextInput",
             "name": "client_name",
-            "label": "Full Name *",
+            "label": "Full Name",
             "input-type": "text",
             "required": true,
             "helper-text": "Enter client's full name"
@@ -57,7 +65,7 @@
           {
             "type": "TextInput",
             "name": "client_phone",
-            "label": "Phone Number *",
+            "label": "Phone Number",
             "input-type": "phone",
             "required": true,
             "helper-text": "South African number (e.g., 0821234567)"
@@ -75,8 +83,9 @@
             "label": "Next",
             "on-click-action": {
               "name": "navigate",
-              "payload": {
-                "screen": "INVITATION_METHOD"
+              "next": {
+                "type": "screen",
+                "name": "FITNESS_GOALS"
               }
             }
           }
@@ -84,8 +93,8 @@
       }
     },
     {
-      "id": "INVITATION_METHOD",
-      "title": "Invitation Method",
+      "id": "FITNESS_GOALS",
+      "title": "Fitness Goals",
       "terminal": false,
       "data": {},
       "layout": {
@@ -93,26 +102,70 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "How to Add Client? 🤔"
+            "text": "Fitness Goals & Experience"
           },
           {
             "type": "TextBody",
-            "text": "Choose how you'd like to add this client:"
+            "text": "What are your client's fitness goals?"
           },
           {
-            "type": "RadioButtonsGroup",
-            "name": "invitation_method",
+            "type": "CheckboxGroup",
+            "name": "fitness_goals",
             "required": true,
             "data-source": [
               {
-                "id": "whatsapp_invite",
-                "title": "Send WhatsApp Invitation",
-                "description": "Client receives invitation message and can accept"
+                "id": "weight_loss",
+                "title": "Weight Loss"
               },
               {
-                "id": "manual_add",
-                "title": "Add Manually",
-                "description": "Add client directly (they can start messaging you)"
+                "id": "muscle_gain",
+                "title": "Muscle Gain"
+              },
+              {
+                "id": "strength",
+                "title": "Strength Training"
+              },
+              {
+                "id": "endurance",
+                "title": "Endurance"
+              },
+              {
+                "id": "flexibility",
+                "title": "Flexibility"
+              },
+              {
+                "id": "general_fitness",
+                "title": "General Fitness"
+              }
+            ]
+          },
+          {
+            "type": "TextArea",
+            "name": "specific_goals",
+            "label": "Specific Goals",
+            "required": false,
+            "helper-text": "Any specific targets or details?"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "experience_level",
+            "label": "Experience Level",
+            "required": true,
+            "data-source": [
+              {
+                "id": "beginner",
+                "title": "Beginner",
+                "description": "New to fitness training"
+              },
+              {
+                "id": "intermediate",
+                "title": "Intermediate",
+                "description": "Some training experience"
+              },
+              {
+                "id": "advanced",
+                "title": "Advanced",
+                "description": "Experienced trainee"
               }
             ]
           },
@@ -121,8 +174,9 @@
             "label": "Next",
             "on-click-action": {
               "name": "navigate",
-              "payload": {
-                "screen": "CUSTOM_MESSAGE"
+              "next": {
+                "type": "screen",
+                "name": "TRAINING_SCHEDULE"
               }
             }
           }
@@ -130,8 +184,8 @@
       }
     },
     {
-      "id": "CUSTOM_MESSAGE",
-      "title": "Personal Message",
+      "id": "TRAINING_SCHEDULE",
+      "title": "Training Schedule",
       "terminal": false,
       "data": {},
       "layout": {
@@ -139,26 +193,130 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Personal Touch ✨"
+            "text": "Training Schedule"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "sessions_per_week",
+            "label": "Sessions Per Week",
+            "required": true,
+            "data-source": [
+              {
+                "id": "1",
+                "title": "1 session"
+              },
+              {
+                "id": "2",
+                "title": "2 sessions"
+              },
+              {
+                "id": "3",
+                "title": "3 sessions"
+              },
+              {
+                "id": "4",
+                "title": "4 sessions"
+              },
+              {
+                "id": "5+",
+                "title": "5+ sessions"
+              }
+            ]
           },
           {
             "type": "TextBody",
-            "text": "Add a personal message for your client (optional):"
+            "text": "Preferred training times:"
           },
           {
-            "type": "TextArea",
-            "name": "custom_message",
-            "label": "Your Message",
+            "type": "CheckboxGroup",
+            "name": "preferred_times",
             "required": false,
-            "helper-text": "e.g., 'Looking forward to helping you reach your fitness goals!'"
+            "data-source": [
+              {
+                "id": "early_morning",
+                "title": "Early Morning (5-7 AM)"
+              },
+              {
+                "id": "morning",
+                "title": "Morning (7-10 AM)"
+              },
+              {
+                "id": "midday",
+                "title": "Midday (10 AM-2 PM)"
+              },
+              {
+                "id": "afternoon",
+                "title": "Afternoon (2-5 PM)"
+              },
+              {
+                "id": "evening",
+                "title": "Evening (5-8 PM)"
+              },
+              {
+                "id": "night",
+                "title": "Night (8 PM+)"
+              }
+            ]
           },
           {
             "type": "Footer",
             "label": "Next",
             "on-click-action": {
               "name": "navigate",
-              "payload": {
-                "screen": "PRICING"
+              "next": {
+                "type": "screen",
+                "name": "HEALTH_INFO"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "HEALTH_INFO",
+      "title": "Health Information",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Health & Safety"
+          },
+          {
+            "type": "TextBody",
+            "text": "Important health information:"
+          },
+          {
+            "type": "TextArea",
+            "name": "health_conditions",
+            "label": "Health Conditions",
+            "required": false,
+            "helper-text": "Any injuries, chronic conditions, or limitations?"
+          },
+          {
+            "type": "TextArea",
+            "name": "medications",
+            "label": "Current Medications",
+            "required": false,
+            "helper-text": "Any medications that might affect training?"
+          },
+          {
+            "type": "TextArea",
+            "name": "additional_notes",
+            "label": "Additional Notes",
+            "required": false,
+            "helper-text": "Any other relevant information"
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "PRICING"
               }
             }
           }
@@ -170,9 +328,9 @@
       "title": "Pricing Details",
       "terminal": false,
       "data": {
-        "trainer_price": {
-          "type": "string",
-          "__example__": "500"
+        "trainer_default_price": {
+          "type": "number",
+          "__example__": 500
         }
       },
       "layout": {
@@ -180,11 +338,11 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Set Pricing 💰"
+            "text": "Set Pricing"
           },
           {
             "type": "TextBody",
-            "text": "Your standard rate: R${data.trainer_price} per session"
+            "text": "Your standard rate: R${data.trainer_default_price} per session"
           },
           {
             "type": "RadioButtonsGroup",
@@ -192,50 +350,50 @@
             "required": true,
             "data-source": [
               {
-                "id": "standard",
-                "title": "Use standard rate (R${data.trainer_price})"
+                "id": "use_default",
+                "title": "Use standard rate (R${data.trainer_default_price})"
               },
               {
-                "id": "custom",
-                "title": "Set custom price"
+                "id": "custom_price",
+                "title": "Set custom price for this client"
               }
             ]
           },
           {
             "type": "TextInput",
-            "name": "custom_price",
-            "label": "Custom price per session (Rands)",
-            "input-type": "number",
+            "name": "custom_price_amount",
+            "label": "Custom Price (Rands)",
+            "input-type": "text",
             "required": false,
-            "helper-text": "Only required if setting custom price",
-            "visible": "${form.pricing_choice == 'custom'}"
+            "helper-text": "Enter price per session (numbers only)",
+            "visible": "${form.pricing_choice == 'custom_price'}"
           },
           {
-            "type": "CheckboxGroup",
-            "name": "package_deal",
+            "type": "OptIn",
+            "name": "has_package_deal",
+            "label": "Offer a package deal?",
             "required": false,
-            "data-source": [
-              {
-                "id": "yes",
-                "title": "Package deal?"
-              }
-            ]
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {}
+            }
           },
           {
             "type": "TextArea",
-            "name": "package_details",
-            "label": "Package details",
+            "name": "package_deal_details",
+            "label": "Package Deal Details",
             "required": false,
-            "helper-text": "e.g., '10 sessions for R4500'",
-            "visible": "${form.package_deal.length > 0}"
+            "helper-text": "e.g., '10 sessions for R4500, valid for 6 weeks'",
+            "visible": "${form.has_package_deal == true}"
           },
           {
             "type": "Footer",
             "label": "Review",
             "on-click-action": {
               "name": "navigate",
-              "payload": {
-                "screen": "CONFIRMATION"
+              "next": {
+                "type": "screen",
+                "name": "CONFIRMATION"
               }
             }
           }
@@ -246,45 +404,62 @@
       "id": "CONFIRMATION",
       "title": "Confirm Details",
       "terminal": true,
-      "data": {},
+      "data": {
+        "trainer_default_price": {
+          "type": "number",
+          "__example__": 500
+        }
+      },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "Ready to Add Client? ✅"
+            "text": "Review Client Profile"
           },
           {
             "type": "TextBody",
-            "text": "Please review the details:"
+            "text": "**Client Information:**\n${form.client_name}\n${form.client_phone}\n${form.client_email}"
           },
           {
             "type": "TextBody",
-            "text": "**Name:** ${form.client_name}\n**Phone:** ${form.client_phone}\n**Email:** ${form.client_email}\n**Method:** ${form.invitation_method}"
+            "text": "**Fitness Goals:**\n${form.fitness_goals}\n${form.experience_level}"
           },
           {
             "type": "TextBody",
-            "text": "**Your Message:**\n${form.custom_message}"
+            "text": "**Schedule:**\n${form.sessions_per_week} sessions per week"
           },
           {
             "type": "TextBody",
-            "text": "**Pricing:** ${form.pricing_choice == 'standard' ? 'Standard rate' : 'Custom price'}\n**Package Deal:** ${form.package_deal.length > 0 ? 'Yes' : 'No'}"
+            "text": "**Pricing:**\n${form.pricing_choice == 'use_default' ? 'R' + data.trainer_default_price + ' (standard)' : 'R' + form.custom_price_amount + ' (custom)'}"
+          },
+          {
+            "type": "TextBody",
+            "text": "**Package Deal:**\n${form.has_package_deal == true ? form.package_deal_details : 'No package deal'}",
+            "visible": "${form.has_package_deal == true}"
           },
           {
             "type": "Footer",
-            "label": "Add Client",
+            "label": "Create Profile & Send Invitation",
             "on-click-action": {
               "name": "complete",
               "payload": {
                 "client_name": "${form.client_name}",
                 "client_phone": "${form.client_phone}",
                 "client_email": "${form.client_email}",
-                "invitation_method": "${form.invitation_method}",
-                "custom_message": "${form.custom_message}",
+                "fitness_goals": "${form.fitness_goals}",
+                "specific_goals": "${form.specific_goals}",
+                "experience_level": "${form.experience_level}",
+                "sessions_per_week": "${form.sessions_per_week}",
+                "preferred_times": "${form.preferred_times}",
                 "pricing_choice": "${form.pricing_choice}",
-                "custom_price": "${form.custom_price}",
-                "package_deal": "${form.package_deal}",
-                "package_details": "${form.package_details}"
+                "custom_price_amount": "${form.custom_price_amount}",
+                "has_package_deal": "${form.has_package_deal}",
+                "package_deal_details": "${form.package_deal_details}",
+                "health_conditions": "${form.health_conditions}",
+                "medications": "${form.medications}",
+                "additional_notes": "${form.additional_notes}",
+                "trainer_filled": "true"
               }
             }
           }
