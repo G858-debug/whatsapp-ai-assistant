@@ -135,8 +135,21 @@ class CreationFlow:
                         ).execute()
                         
                         if existing_client.data:
-                            # Client exists - ask to invite instead
+                            # Client exists - check if relationship already exists
                             client = existing_client.data[0]
+                            client_id = client.get('client_id')
+
+                            # Check for existing relationship (Scenario 3)
+                            existing_relationship = self.relationship_service.check_relationship_exists(trainer_id, client_id)
+
+                            if existing_relationship:
+                                # Scenario 3: Already this trainer's client
+                                self.task_service.complete_task(task['id'], 'trainer')
+                                return self.handle_existing_client_scenario(
+                                    phone, client, trainer_id, existing_relationship
+                                )
+
+                            # Scenario 2: Client exists but not connected - ask to invite instead
                             msg = (
                                 f"ℹ️ *Client Already Exists!*\n\n"
                                 f"A client with this phone number is already registered:\n\n"
@@ -170,8 +183,21 @@ class CreationFlow:
                     ).execute()
                     
                     if existing_client.data:
-                        # Client exists - ask to invite instead
+                        # Client exists - check if relationship already exists
                         client = existing_client.data[0]
+                        client_id = client.get('client_id')
+
+                        # Check for existing relationship (Scenario 3)
+                        existing_relationship = self.relationship_service.check_relationship_exists(trainer_id, client_id)
+
+                        if existing_relationship:
+                            # Scenario 3: Already this trainer's client
+                            self.task_service.complete_task(task['id'], 'trainer')
+                            return self.handle_existing_client_scenario(
+                                phone, client, trainer_id, existing_relationship
+                            )
+
+                        # Scenario 2: Client exists but not connected - ask to invite instead
                         msg = (
                             f"ℹ️ *Client Already Exists!*\n\n"
                             f"*Name:* {client.get('name')}\n"
@@ -834,3 +860,129 @@ class CreationFlow:
         except Exception as e:
             log_error(f"Error sending client onboarding flow: {str(e)}")
             return False
+
+    def handle_existing_client_scenario(self, trainer_phone: str, client_data: Dict,
+                                       trainer_id: str, relationship_data: Dict) -> Dict:
+        """
+        Handle Scenario 3: Client is already this trainer's active client
+
+        Shows helpful information about the existing relationship and offers actions:
+        - View Full Profile
+        - Schedule Session
+        - Nothing, Thanks
+
+        Args:
+            trainer_phone: Trainer's WhatsApp number
+            client_data: Client information from database
+            trainer_id: Trainer's ID
+            relationship_data: Existing relationship data
+
+        Returns:
+            Dict with success status and response details
+        """
+        try:
+            # Get client details
+            client_name = client_data.get('name', 'Your Client')
+            client_id = client_data.get('client_id')
+            relationship_status = relationship_data.get('connection_status', 'active')
+
+            # Get session statistics
+            sessions_completed = self._get_completed_sessions_count(trainer_id, client_id)
+            next_session = self._get_next_scheduled_session(trainer_id, client_id)
+
+            # Build message
+            msg = f"😊 *Already Your Client!*\n\n"
+            msg += f"*Name:* {client_name}\n"
+            msg += f"*Status:* {relationship_status.title()}\n"
+
+            # Add session info if available
+            if sessions_completed > 0:
+                msg += f"*Sessions Completed:* {sessions_completed}\n"
+
+            if next_session:
+                session_date = next_session.get('session_date')
+                session_time = next_session.get('session_time', 'TBD')
+                msg += f"*Next Session:* {session_date} at {session_time}\n"
+
+            msg += f"\n*What would you like to do?*"
+
+            # Create action buttons
+            buttons = [
+                {'id': f'view_client_profile_{client_id}', 'title': 'View Full Profile'},
+                {'id': f'schedule_session_{client_id}', 'title': 'Schedule Session'},
+                {'id': 'nothing_thanks', 'title': 'Nothing, Thanks'}
+            ]
+
+            self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+
+            log_info(f"Showed existing client scenario for {client_id} to trainer {trainer_id}")
+            return {'success': True, 'response': msg, 'handler': 'existing_client_scenario'}
+
+        except Exception as e:
+            log_error(f"Error in handle_existing_client_scenario: {str(e)}")
+
+            error_msg = (
+                "❌ *Error Occurred*\n\n"
+                "Sorry, I encountered an error while retrieving the client information."
+            )
+            self.whatsapp.send_message(trainer_phone, error_msg)
+
+            return {'success': False, 'response': error_msg, 'handler': 'existing_client_error'}
+
+    def _get_completed_sessions_count(self, trainer_id: str, client_id: str) -> int:
+        """
+        Get count of completed sessions for a trainer-client relationship
+
+        Args:
+            trainer_id: Trainer's ID
+            client_id: Client's ID
+
+        Returns:
+            int: Number of completed sessions
+        """
+        try:
+            result = self.db.table('bookings').select('id').eq(
+                'trainer_id', trainer_id
+            ).eq('client_id', client_id).eq('status', 'completed').execute()
+
+            return len(result.data) if result.data else 0
+
+        except Exception as e:
+            log_error(f"Error getting completed sessions count: {str(e)}")
+            return 0
+
+    def _get_next_scheduled_session(self, trainer_id: str, client_id: str) -> Dict:
+        """
+        Get the next scheduled session for a trainer-client relationship
+
+        Args:
+            trainer_id: Trainer's ID
+            client_id: Client's ID
+
+        Returns:
+            Dict: Next session data or None if no upcoming sessions
+        """
+        try:
+            from datetime import datetime
+            import pytz
+
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+            today = datetime.now(sa_tz).date().isoformat()
+
+            # Get upcoming sessions ordered by date
+            result = self.db.table('bookings').select('*').eq(
+                'trainer_id', trainer_id
+            ).eq('client_id', client_id).gte(
+                'session_date', today
+            ).in_('status', ['scheduled', 'confirmed']).order(
+                'session_date', desc=False
+            ).limit(1).execute()
+
+            if result.data and len(result.data) > 0:
+                return result.data[0]
+
+            return None
+
+        except Exception as e:
+            log_error(f"Error getting next scheduled session: {str(e)}")
+            return None
