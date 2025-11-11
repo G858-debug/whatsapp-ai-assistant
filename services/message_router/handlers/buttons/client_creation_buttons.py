@@ -161,12 +161,11 @@ class ClientCreationButtonHandler:
             msg = (
                 "📱 *How to Share a Contact*\n\n"
                 "Here's how to share your client's contact with me:\n\n"
-                "1️⃣ Tap the 📎 attachment icon in WhatsApp\n"
+                "1️⃣ Tap the 📎 or ➕ icon in WhatsApp\n"
                 "2️⃣ Select 'Contact' \n"
                 "3️⃣ Choose your client from your phone contacts\n"
                 "4️⃣ Send the contact to me\n\n"
-                "Once I receive their contact card, I'll extract their details and help you create their profile! \n\n"
-                "💡 *Tip:* Make sure the contact has their name and phone number saved."
+                "Once I receive their contact card, I'll extract their details and help you create their profile!"
             )
             self.whatsapp.send_message(phone, msg)
 
