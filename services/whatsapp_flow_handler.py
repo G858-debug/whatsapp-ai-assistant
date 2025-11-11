@@ -2213,7 +2213,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "parameters": {
                             "flow_message_version": "3",
                             "flow_token": flow_token,
-                            "flow_id": "YOUR_FLOW_ID_HERE",  # Replace with actual flow ID from Meta
+                            "flow_id": Config.TRAINER_ADD_CLIENT_FLOW_ID,
                             "flow_cta": "Start",
                             "flow_action": "navigate",
                             "flow_action_payload": {
