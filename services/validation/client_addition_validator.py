@@ -16,8 +16,9 @@ Features:
 
 from typing import Dict, Tuple, Optional, List
 import re
+from anthropic import Anthropic
+from config import Config
 from utils.logger import log_info, log_error, log_warning, log_debug
-from services.openai_service import get_openai_response
 
 
 class ClientAdditionValidator:
@@ -43,6 +44,11 @@ class ClientAdditionValidator:
     def __init__(self):
         """Initialize the validator"""
         self.retry_counts = {}  # Track retry attempts per user per field
+
+        # Initialize Claude client for AI validation
+        self.client = Anthropic(api_key=Config.ANTHROPIC_API_KEY) if Config.ANTHROPIC_API_KEY else None
+        self.model = "claude-sonnet-4-20250514"
+
         log_info("ClientAdditionValidator initialized")
 
     # ==================== PHONE NUMBER VALIDATION ====================
@@ -548,16 +554,28 @@ Respond in JSON format:
 Be helpful - if it's close to valid but missing info, mark invalid and ask for clarification in friendly_error.
 """
 
-            response = get_openai_response(prompt, max_tokens=300)
-
-            if not response:
-                # Fallback validation if AI fails
-                log_warning("AI validation failed, using fallback validation")
+            # Use Claude AI for validation
+            if self.client:
+                try:
+                    response = self.client.messages.create(
+                        model=self.model,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=300,
+                        temperature=0.3
+                    )
+                    response_text = response.content[0].text
+                except Exception as e:
+                    log_error(f"Claude API call failed: {str(e)}")
+                    log_warning("AI validation failed, using fallback validation")
+                    return self._fallback_package_validation(package_description, price_per_session)
+            else:
+                # No API key available
+                log_warning("AI validation unavailable (no API key), using fallback validation")
                 return self._fallback_package_validation(package_description, price_per_session)
 
             try:
                 import json
-                result = json.loads(response)
+                result = json.loads(response_text)
 
                 is_valid = result.get('is_valid', False)
 
@@ -583,7 +601,7 @@ Be helpful - if it's close to valid but missing info, mark invalid and ask for c
                     return False, error_msg, None
 
             except json.JSONDecodeError:
-                log_error(f"Failed to parse AI response as JSON: {response}")
+                log_error(f"Failed to parse AI response as JSON: {response_text}")
                 return self._fallback_package_validation(package_description, price_per_session)
 
         except Exception as e:
