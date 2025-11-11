@@ -2160,7 +2160,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
 
             # Get trainer data if not provided
             if not trainer_id:
-                trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, name').eq(
+                trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, pricing_per_session, name').eq(
                     'whatsapp', trainer_phone
                 ).execute()
 
@@ -2174,7 +2174,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 trainer_id = trainer['id']
             else:
                 # Fetch trainer data using ID
-                trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, name').eq(
+                trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, pricing_per_session, name').eq(
                     'id', trainer_id
                 ).execute()
 
@@ -2187,7 +2187,12 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 trainer = trainer_result.data[0]
 
             # Get trainer's default price (default to R500 if not set)
-            trainer_default_price = trainer.get('default_price_per_session', 500)
+            # Check both columns for backward compatibility with older pricing_per_session column
+            trainer_default_price = (
+                trainer.get('default_price_per_session') or
+                trainer.get('pricing_per_session') or
+                500
+            )
 
             # Handle None or 0 values
             if not trainer_default_price or trainer_default_price == 0:
