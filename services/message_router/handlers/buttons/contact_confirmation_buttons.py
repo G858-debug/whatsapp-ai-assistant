@@ -104,6 +104,11 @@ class ContactConfirmationButtonHandler:
                 self.task_service.complete_task(task_id, role)
                 return {'success': False, 'response': msg, 'handler': 'contact_confirmation_no_phone'}
 
+            # Get pre_collected_data from the current task
+            task = self.task_service.get_running_task(phone, role)
+            task_data = task.get('task_data', {}) if task else {}
+            pre_collected_data = task_data.get('pre_collected_data', {})
+
             # Check client status - CORRECTED: ClientChecker only takes db as argument
             client_checker = ClientChecker(self.db)
             check_result = client_checker.check_client_status(contact_phone, user_id)
@@ -136,7 +141,8 @@ class ContactConfirmationButtonHandler:
                     task_data={
                         'step': 'choose_profile_method',
                         'trainer_id': user_id,
-                        'contact_data': contact_data
+                        'contact_data': contact_data,
+                        'pre_collected_data': pre_collected_data  # Preserve any pre-collected data
                     }
                 )
 

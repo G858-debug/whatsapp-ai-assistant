@@ -76,7 +76,7 @@ class ButtonHandler:
             elif button_id.startswith('confirm_contact_'):
                 return self.contact_confirmation_handler.handle_contact_confirmation_button(phone, button_id)
 
-            elif button_id in ['client_fills_profile', 'trainer_fills_profile', 'send_secondary_invitation', 'cancel_add_client']:
+            elif button_id in ['client_fills_profile', 'trainer_fills_profile', 'send_secondary_invitation', 'cancel_add_client', 'add_client_type', 'add_client_share']:
                 return self.client_creation_handler.handle_add_client_button(phone, button_id)
 
             elif button_id in ['continue_task', 'start_over', 'resume_add_client', 'start_fresh_add_client']:
