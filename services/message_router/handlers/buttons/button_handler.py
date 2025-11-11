@@ -31,7 +31,7 @@ class ButtonHandler:
             self.db, self.whatsapp, self.auth_service, self.reg_service, self.task_service
         )
         self.client_creation_handler = ClientCreationButtonHandler(
-            self.db, self.whatsapp, self.auth_service
+            self.db, self.whatsapp, self.auth_service, self.task_service
         )
         self.contact_confirmation_handler = ContactConfirmationButtonHandler(
             self.db, self.whatsapp, self.auth_service, self.task_service
@@ -75,6 +75,9 @@ class ButtonHandler:
 
             elif button_id.startswith('confirm_contact_'):
                 return self.contact_confirmation_handler.handle_contact_confirmation_button(phone, button_id)
+
+            elif button_id in ['client_fills_profile', 'trainer_fills_profile', 'send_secondary_invitation', 'cancel_add_client']:
+                return self.client_creation_handler.handle_add_client_button(phone, button_id)
 
             elif button_id in ['continue_task', 'start_over', 'resume_add_client', 'start_fresh_add_client']:
                 if self.timeout_handler:
