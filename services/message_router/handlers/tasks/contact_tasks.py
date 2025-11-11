@@ -3,7 +3,8 @@ Contact Task Handler
 Handles contact share and edit tasks
 """
 from typing import Dict
-from utils.logger import log_info, log_error
+from utils.logger import log_info, log_error, log_warning
+from services.validation import get_validator
 
 
 class ContactTaskHandler:
@@ -41,6 +42,8 @@ class ContactTaskHandler:
 
             if task_type == 'confirm_shared_contact':
                 return self._handle_contact_edit_flow(phone, message, user_id, task_id, task_data, role)
+            elif task_type == 'vcard_edge_case_handler':
+                return self._handle_vcard_edge_case(phone, message, user_id, task_id, task_data, role)
             else:
                 log_error(f"Unknown contact task type: {task_type}")
                 return {
@@ -207,4 +210,244 @@ class ContactTaskHandler:
                 'success': False,
                 'response': "❌ Sorry, I encountered an error. Type /stop to cancel.",
                 'handler': 'contact_edit_flow_error'
+            }
+
+    def _handle_vcard_edge_case(
+        self,
+        phone: str,
+        message: str,
+        user_id: str,
+        task_id: str,
+        task_data: Dict,
+        role: str
+    ) -> Dict:
+        """Handle vCard edge cases (missing phone, multiple phones, missing name)"""
+        try:
+            action_required = task_data.get('action_required')
+            contact_data = task_data.get('contact_data', {})
+            validator = get_validator()
+
+            log_info(f"Handling vCard edge case: {action_required}")
+
+            # Check for cancel command
+            if message.strip().lower() in ['/cancel', '/stop']:
+                self.task_service.complete_task(task_id, role)
+                msg = "❌ Cancelled. You can try sharing the contact again."
+                self.whatsapp.send_message(phone, msg)
+                return {
+                    'success': True,
+                    'response': msg,
+                    'handler': 'vcard_edge_case_cancelled'
+                }
+
+            # Handle missing phone number
+            if action_required == 'ask_phone':
+                # Validate the phone number
+                is_valid, error_msg, cleaned_phone = validator.validate_phone_number(message, phone)
+
+                if not is_valid:
+                    # Check for max retries
+                    if validator.has_exceeded_max_retries(phone, 'phone'):
+                        restart_msg = validator.get_restart_prompt('phone number')
+                        self.whatsapp.send_message(phone, restart_msg)
+                        return {
+                            'success': True,
+                            'response': restart_msg,
+                            'handler': 'vcard_edge_case_max_retries'
+                        }
+
+                    # Send validation error
+                    self.whatsapp.send_message(phone, error_msg)
+                    return {
+                        'success': True,
+                        'response': error_msg,
+                        'handler': 'vcard_edge_case_invalid_phone'
+                    }
+
+                # Update contact data with validated phone
+                contact_data['phone'] = cleaned_phone
+                contact_data['phones'] = [cleaned_phone]
+
+                # Complete task and send confirmation
+                self.task_service.complete_task(task_id, role)
+
+                # Import and call contact confirmation
+                from services.message_handlers.contact_share_handler import (
+                    send_contact_confirmation_message,
+                    create_contact_confirmation_task
+                )
+
+                # Create new confirmation task
+                task_id = create_contact_confirmation_task(phone, contact_data, self.task_service, role)
+
+                if task_id:
+                    # Send confirmation message
+                    send_contact_confirmation_message(phone, contact_data, self.whatsapp)
+
+                    return {
+                        'success': True,
+                        'response': 'Contact updated and confirmation sent',
+                        'handler': 'vcard_edge_case_phone_added'
+                    }
+                else:
+                    log_error(f"Failed to create confirmation task for {phone}")
+                    return {
+                        'success': False,
+                        'response': "❌ Sorry, I encountered an error. Please try again.",
+                        'handler': 'vcard_edge_case_task_error'
+                    }
+
+            # Handle multiple phone numbers - choose one
+            elif action_required == 'choose_phone':
+                phone_options = contact_data.get('phone_options', [])
+
+                # Validate choice
+                try:
+                    choice = int(message.strip())
+                    if choice < 1 or choice > len(phone_options):
+                        msg = (
+                            f"❌ Please choose a number between 1 and {len(phone_options)}.\n\n"
+                            f"Type the number of the WhatsApp phone."
+                        )
+                        self.whatsapp.send_message(phone, msg)
+                        return {
+                            'success': True,
+                            'response': msg,
+                            'handler': 'vcard_edge_case_invalid_choice'
+                        }
+
+                    # Get selected phone
+                    selected_phone = phone_options[choice - 1]
+
+                    # Validate the selected phone
+                    is_valid, error_msg, cleaned_phone = validator.validate_phone_number(selected_phone, phone)
+
+                    if not is_valid:
+                        # Phone from contact is invalid, ask manually
+                        msg = (
+                            f"📱 That phone number seems invalid.\n\n"
+                            f"Please enter the correct WhatsApp number manually.\n\n"
+                            f"*Example:* 0730564882"
+                        )
+                        self.whatsapp.send_message(phone, msg)
+
+                        # Update task to ask for phone manually
+                        task_data['action_required'] = 'ask_phone'
+                        self.task_service.update_task(task_id, role, task_data)
+
+                        return {
+                            'success': True,
+                            'response': msg,
+                            'handler': 'vcard_edge_case_phone_invalid'
+                        }
+
+                    # Update contact data with selected phone
+                    contact_data['phone'] = cleaned_phone
+                    contact_data['phones'] = [cleaned_phone]
+                    del contact_data['phone_options']  # Clean up
+
+                    # Complete task and send confirmation
+                    self.task_service.complete_task(task_id, role)
+
+                    # Import and call contact confirmation
+                    from services.message_handlers.contact_share_handler import (
+                        send_contact_confirmation_message,
+                        create_contact_confirmation_task
+                    )
+
+                    # Create new confirmation task
+                    task_id = create_contact_confirmation_task(phone, contact_data, self.task_service, role)
+
+                    if task_id:
+                        # Send confirmation message
+                        send_contact_confirmation_message(phone, contact_data, self.whatsapp)
+
+                        return {
+                            'success': True,
+                            'response': 'Phone selected and confirmation sent',
+                            'handler': 'vcard_edge_case_phone_selected'
+                        }
+                    else:
+                        log_error(f"Failed to create confirmation task for {phone}")
+                        return {
+                            'success': False,
+                            'response': "❌ Sorry, I encountered an error. Please try again.",
+                            'handler': 'vcard_edge_case_task_error'
+                        }
+
+                except ValueError:
+                    msg = (
+                        f"❌ Please enter a number (1, 2, 3, etc.).\n\n"
+                        f"Which phone number is their WhatsApp?"
+                    )
+                    self.whatsapp.send_message(phone, msg)
+                    return {
+                        'success': True,
+                        'response': msg,
+                        'handler': 'vcard_edge_case_invalid_input'
+                    }
+
+            # Handle missing name
+            elif action_required == 'ask_name':
+                # Validate the name
+                is_valid, error_msg = validator.validate_name(message, phone)
+
+                if not is_valid:
+                    # Send validation error
+                    self.whatsapp.send_message(phone, error_msg)
+                    return {
+                        'success': True,
+                        'response': error_msg,
+                        'handler': 'vcard_edge_case_invalid_name'
+                    }
+
+                # Update contact data with validated name
+                name_parts = message.strip().split(maxsplit=1)
+                contact_data['name'] = message.strip()
+                contact_data['first_name'] = name_parts[0] if name_parts else message.strip()
+                contact_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
+
+                # Complete task and send confirmation
+                self.task_service.complete_task(task_id, role)
+
+                # Import and call contact confirmation
+                from services.message_handlers.contact_share_handler import (
+                    send_contact_confirmation_message,
+                    create_contact_confirmation_task
+                )
+
+                # Create new confirmation task
+                task_id = create_contact_confirmation_task(phone, contact_data, self.task_service, role)
+
+                if task_id:
+                    # Send confirmation message
+                    send_contact_confirmation_message(phone, contact_data, self.whatsapp)
+
+                    return {
+                        'success': True,
+                        'response': 'Name added and confirmation sent',
+                        'handler': 'vcard_edge_case_name_added'
+                    }
+                else:
+                    log_error(f"Failed to create confirmation task for {phone}")
+                    return {
+                        'success': False,
+                        'response': "❌ Sorry, I encountered an error. Please try again.",
+                        'handler': 'vcard_edge_case_task_error'
+                    }
+
+            else:
+                log_error(f"Unknown vCard edge case action: {action_required}")
+                return {
+                    'success': False,
+                    'response': "❌ Something went wrong. Type /stop to cancel.",
+                    'handler': 'vcard_edge_case_unknown_action'
+                }
+
+        except Exception as e:
+            log_error(f"Error handling vCard edge case: {str(e)}")
+            return {
+                'success': False,
+                'response': "❌ Sorry, I encountered an error. Type /stop to cancel.",
+                'handler': 'vcard_edge_case_error'
             }

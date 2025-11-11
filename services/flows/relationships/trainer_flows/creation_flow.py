@@ -5,6 +5,7 @@ Handles trainer creating new client accounts
 from typing import Dict
 from utils.logger import log_info, log_error, log_warning
 from services.relationships import RelationshipService, InvitationService
+from services.validation import get_validator
 import json
 
 
@@ -90,32 +91,74 @@ class CreationFlow:
                 if current_index > 0:
                     prev_field = fields[current_index - 1]
                     field_name = prev_field['name']
-                    
-                    # Use registration service for validation (with fallback)
-                    if self.reg_service:
-                        is_valid, error_msg = self.reg_service.validate_field_value(prev_field, message)
-                        
-                        if not is_valid:
-                            error_response = f"❌ {error_msg}\n\n{prev_field['prompt']}"
-                            self.whatsapp.send_message(phone, error_response)
-                            return {'success': True, 'response': error_response, 'handler': 'create_trainee_validation_error'}
-                        
-                        # Parse and store value
-                        parsed_value = self.reg_service.parse_field_value(prev_field, message)
+                    field_type = prev_field.get('type', 'text')
+
+                    # Use comprehensive validator for better validation and retry logic
+                    validator = get_validator()
+                    is_valid = False
+                    error_msg = ""
+                    parsed_value = message
+
+                    # Field-specific validation with retry logic
+                    if field_name == 'phone_number' or field_type == 'phone':
+                        is_valid, error_msg, cleaned_phone = validator.validate_phone_number(message, phone)
+                        if is_valid:
+                            parsed_value = cleaned_phone
+
+                        # Check for max retries
+                        if not is_valid and validator.has_exceeded_max_retries(phone, 'phone'):
+                            restart_msg = validator.get_restart_prompt('phone number')
+                            self.whatsapp.send_message(phone, restart_msg)
+                            return {'success': True, 'response': restart_msg, 'handler': 'create_trainee_max_retries'}
+
+                    elif field_name == 'full_name' or field_name == 'name':
+                        is_valid, error_msg = validator.validate_name(message, phone)
+                        if is_valid:
+                            parsed_value = message.strip()
+
+                    elif field_name == 'email' or field_type == 'email':
+                        is_optional = not prev_field.get('required', False)
+                        is_valid, error_msg = validator.validate_email(message, not is_optional, phone)
+                        if is_valid:
+                            # Handle skip for optional fields
+                            if message.strip().lower() in ['skip', 'none', 'n/a', 'na']:
+                                parsed_value = None
+                            else:
+                                parsed_value = message.strip().lower()
+
+                    elif field_name == 'custom_price_amount' or 'price' in field_name.lower():
+                        is_valid, error_msg, price_value = validator.validate_price(message, phone)
+                        if is_valid:
+                            parsed_value = price_value
+
+                        # Check for max retries
+                        if not is_valid and validator.has_exceeded_max_retries(phone, 'price'):
+                            restart_msg = validator.get_restart_prompt('price')
+                            self.whatsapp.send_message(phone, restart_msg)
+                            return {'success': True, 'response': restart_msg, 'handler': 'create_trainee_max_retries'}
+
                     else:
-                        # Fallback validation when reg_service is not available
-                        is_valid, error_msg = self._validate_field_value(prev_field, message)
-                        
-                        if not is_valid:
-                            error_response = f"❌ {error_msg}\n\n{prev_field['prompt']}"
-                            self.whatsapp.send_message(phone, error_response)
-                            return {'success': True, 'response': error_response, 'handler': 'create_trainee_validation_error'}
-                        
-                        # Parse and store value
-                        parsed_value = self._parse_field_value(prev_field, message)
-                    
+                        # Use registration service or fallback for other field types
+                        if self.reg_service:
+                            is_valid, error_msg = self.reg_service.validate_field_value(prev_field, message)
+                            if is_valid:
+                                parsed_value = self.reg_service.parse_field_value(prev_field, message)
+                        else:
+                            is_valid, error_msg = self._validate_field_value(prev_field, message)
+                            if is_valid:
+                                parsed_value = self._parse_field_value(prev_field, message)
+
+                    # Handle validation failure
+                    if not is_valid:
+                        error_response = error_msg  # Already formatted with examples and tips
+                        self.whatsapp.send_message(phone, error_response)
+                        log_warning(f"Validation failed for {field_name}: {error_msg}")
+                        return {'success': True, 'response': error_response, 'handler': 'create_trainee_validation_error'}
+
+                    # Store validated value
                     collected_data[field_name] = parsed_value
                     task_data['collected_data'] = collected_data
+                    log_info(f"Field {field_name} validated and stored: {parsed_value}")
                     
                     # Special handling for phone_number field - check if client exists immediately
                     if field_name == 'phone_number':
@@ -538,36 +581,28 @@ class CreationFlow:
 
             # Step 2b: Handle custom price input
             elif step == 'await_custom_price':
-                # Validate price input
-                try:
-                    # Remove 'R' and whitespace if present
-                    price_str = message.strip().replace('R', '').replace('r', '').strip()
-                    custom_price = float(price_str)
+                # Validate price input using comprehensive validator
+                validator = get_validator()
+                is_valid, error_msg, custom_price = validator.validate_price(message, trainer_phone)
 
-                    if custom_price <= 0:
-                        msg = (
-                            "❌ *Invalid Price*\n\n"
-                            "Price must be a positive number.\n\n"
-                            "Please enter the amount in Rands (e.g., 350)"
-                        )
-                        self.whatsapp.send_message(trainer_phone, msg)
-                        return {'success': True, 'response': msg, 'handler': 'new_client_invalid_price'}
+                if not is_valid:
+                    # Check for max retries
+                    if validator.has_exceeded_max_retries(trainer_phone, 'price'):
+                        restart_msg = validator.get_restart_prompt('price')
+                        self.whatsapp.send_message(trainer_phone, restart_msg)
+                        return {'success': True, 'response': restart_msg, 'handler': 'new_client_max_retries'}
 
-                    # Store custom price
-                    task_data['selected_price'] = custom_price
-                    task_data['new_client_step'] = 'ask_profile_completion'
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
+                    # Send validation error
+                    self.whatsapp.send_message(trainer_phone, error_msg)
+                    return {'success': True, 'response': error_msg, 'handler': 'new_client_invalid_price'}
 
-                    # Proceed to profile completion choice
-                    return self._ask_profile_completion(trainer_phone, task, task_data)
+                # Store custom price
+                task_data['selected_price'] = custom_price
+                task_data['new_client_step'] = 'ask_profile_completion'
+                self.task_service.update_task(task['id'], 'trainer', task_data)
 
-                except ValueError:
-                    msg = (
-                        "❌ *Invalid Format*\n\n"
-                        "Please enter a valid number (e.g., 350)"
-                    )
-                    self.whatsapp.send_message(trainer_phone, msg)
-                    return {'success': True, 'response': msg, 'handler': 'new_client_invalid_format'}
+                # Proceed to profile completion choice
+                return self._ask_profile_completion(trainer_phone, task, task_data)
 
             # Step 3: Handle profile completion choice
             elif step == 'await_profile_completion_choice':
@@ -1020,35 +1055,28 @@ class CreationFlow:
 
             # Step 4: Handle custom price input
             elif multi_trainer_step == 'await_custom_price':
-                try:
-                    # Remove 'R' and whitespace if present
-                    price_str = message.strip().replace('R', '').replace('r', '').strip()
-                    custom_price = float(price_str)
+                # Validate price input using comprehensive validator
+                validator = get_validator()
+                is_valid, error_msg, custom_price = validator.validate_price(message, trainer_phone)
 
-                    if custom_price <= 0:
-                        msg = (
-                            "❌ *Invalid Price*\n\n"
-                            "Price must be a positive number.\n\n"
-                            "Please enter the amount in Rands (e.g., 350)"
-                        )
-                        self.whatsapp.send_message(trainer_phone, msg)
-                        return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_price'}
+                if not is_valid:
+                    # Check for max retries
+                    if validator.has_exceeded_max_retries(trainer_phone, 'price'):
+                        restart_msg = validator.get_restart_prompt('price')
+                        self.whatsapp.send_message(trainer_phone, restart_msg)
+                        return {'success': True, 'response': restart_msg, 'handler': 'multi_trainer_max_retries'}
 
-                    # Store custom price
-                    task_data['selected_price'] = custom_price
-                    task_data['multi_trainer_step'] = 'ask_profile_completion'
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
+                    # Send validation error
+                    self.whatsapp.send_message(trainer_phone, error_msg)
+                    return {'success': True, 'response': error_msg, 'handler': 'multi_trainer_invalid_price'}
 
-                    # Proceed to profile completion choice
-                    return self._ask_multi_trainer_profile_completion(trainer_phone, task, task_data)
+                # Store custom price
+                task_data['selected_price'] = custom_price
+                task_data['multi_trainer_step'] = 'ask_profile_completion'
+                self.task_service.update_task(task['id'], 'trainer', task_data)
 
-                except ValueError:
-                    msg = (
-                        "❌ *Invalid Format*\n\n"
-                        "Please enter a valid number (e.g., 350)"
-                    )
-                    self.whatsapp.send_message(trainer_phone, msg)
-                    return {'success': True, 'response': msg, 'handler': 'multi_trainer_invalid_format'}
+                # Proceed to profile completion choice
+                return self._ask_multi_trainer_profile_completion(trainer_phone, task, task_data)
 
             # Step 5: Handle profile completion choice
             elif multi_trainer_step == 'await_profile_completion_choice':

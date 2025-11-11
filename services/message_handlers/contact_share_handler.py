@@ -4,6 +4,7 @@ Handles WhatsApp vCard contact messages shared by trainers
 """
 from typing import Dict, Optional, List
 from utils.logger import log_info, log_error, log_warning
+from services.validation import get_validator
 
 
 def parse_vcard(webhook_data: Dict) -> Optional[Dict]:
@@ -264,10 +265,63 @@ def handle_contact_message(
                 'handler': 'contact_parse_error'
             }
 
+        # Validate and handle vCard edge cases
+        validator = get_validator()
+        edge_case_result = validator.handle_vcard_edge_cases(contact_data)
+
+        log_info(f"vCard edge case result: {edge_case_result['status']}")
+
+        # Handle edge cases
+        if edge_case_result['status'] != 'valid':
+            # Create a task to collect missing information
+            action = edge_case_result.get('action_required')
+
+            if action in ['ask_phone', 'choose_phone', 'ask_name']:
+                task_data = {
+                    'step': 'vcard_edge_case',
+                    'contact_data': edge_case_result['data'],
+                    'action_required': action,
+                    'original_contact_data': contact_data
+                }
+
+                task_id = task_service.create_task(
+                    user_id=trainer_phone,
+                    role=role,
+                    task_type='vcard_edge_case_handler',
+                    task_data=task_data
+                )
+
+                if task_id:
+                    # Send the edge case message
+                    whatsapp_service.send_message(trainer_phone, edge_case_result['message'])
+
+                    return {
+                        'success': True,
+                        'response': edge_case_result['message'],
+                        'handler': f'contact_edge_case_{action}'
+                    }
+                else:
+                    log_error(f"Failed to create vCard edge case task for {trainer_phone}")
+                    return {
+                        'success': False,
+                        'response': "❌ Sorry, I encountered an error. Please try again.",
+                        'handler': 'contact_edge_case_task_error'
+                    }
+            else:
+                # Unknown action or error
+                return {
+                    'success': False,
+                    'response': edge_case_result['message'],
+                    'handler': 'contact_edge_case_error'
+                }
+
+        # Use validated contact data
+        validated_contact_data = edge_case_result['data']
+
         # Create confirmation task
         task_id = create_contact_confirmation_task(
             trainer_phone,
-            contact_data,
+            validated_contact_data,
             task_service,
             role
         )
@@ -282,7 +336,7 @@ def handle_contact_message(
         # Send confirmation message
         sent = send_contact_confirmation_message(
             trainer_phone,
-            contact_data,
+            validated_contact_data,
             whatsapp_service
         )
 
