@@ -69,6 +69,13 @@ Examples:
 - "reminder settings" (client) → {{"intent": "reminder_settings", "confidence": 0.9, "needs_action": true, "suggested_command": "/reminder-settings"}}
 - "test my reminder" (client) → {{"intent": "test_reminder", "confidence": 0.9, "needs_action": true, "suggested_command": "/test-reminder"}}
 - "send test reminder" (client) → {{"intent": "test_reminder", "confidence": 0.9, "needs_action": true, "suggested_command": "/test-reminder"}}
+- "create new client" (trainer) → {{"intent": "create_trainee", "confidence": 0.95, "needs_action": true, "suggested_command": "/create-trainee"}}
+- "I'd like to add a client" (trainer) → {{"intent": "create_trainee", "confidence": 0.95, "needs_action": true, "suggested_command": "/create-trainee"}}
+- "add a client" (trainer) → {{"intent": "create_trainee", "confidence": 0.95, "needs_action": true, "suggested_command": "/create-trainee"}}
+- "add client" (trainer) → {{"intent": "create_trainee", "confidence": 0.95, "needs_action": true, "suggested_command": "/create-trainee"}}
+- "I want to add a client" (trainer) → {{"intent": "create_trainee", "confidence": 0.95, "needs_action": true, "suggested_command": "/create-trainee"}}
+- "can I add a client" (trainer) → {{"intent": "create_trainee", "confidence": 0.9, "needs_action": true, "suggested_command": "/create-trainee"}}
+- "how do I add a client" (trainer) → {{"intent": "create_trainee", "confidence": 0.9, "needs_action": true, "suggested_command": "/create-trainee"}}
 - "how do I add clients?" → {{"intent": "general_conversation", "confidence": 0.8, "needs_action": false, "is_asking_about_phase2": true}}
 - "hi" → {{"intent": "general_conversation", "confidence": 0.9, "needs_action": false}}
 
