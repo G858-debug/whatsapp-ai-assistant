@@ -104,8 +104,8 @@ class ContactConfirmationButtonHandler:
                 self.task_service.complete_task(task_id, role)
                 return {'success': False, 'response': msg, 'handler': 'contact_confirmation_no_phone'}
 
-            # Check client status
-            client_checker = ClientChecker(self.db, self.whatsapp)
+            # Check client status - CORRECTED: ClientChecker only takes db as argument
+            client_checker = ClientChecker(self.db)
             check_result = client_checker.check_client_status(contact_phone, user_id)
 
             scenario = check_result.get('scenario')
@@ -115,7 +115,7 @@ class ContactConfirmationButtonHandler:
             self.task_service.complete_task(task_id, role)
 
             # Route based on scenario
-            if scenario == 'SCENARIO_NEW':
+            if scenario == 'SCENARIO_NEW' or scenario == 'new':
                 # New client - ask who fills the profile
                 msg = (
                     f"🎉 *New Client!*\n\n"
@@ -142,9 +142,9 @@ class ContactConfirmationButtonHandler:
 
                 return {'success': True, 'response': msg, 'handler': 'contact_confirmed_new_client'}
 
-            elif scenario == 'SCENARIO_AVAILABLE':
+            elif scenario == 'SCENARIO_AVAILABLE' or scenario == 'available':
                 # Client exists but no trainer - send invitation
-                client_id = check_result.get('client_id')
+                client_id = check_result.get('client_data', {}).get('client_id')
                 msg = (
                     f"👤 *Existing Client Found!*\n\n"
                     f"{name} is already registered on Refiloe but doesn't have a trainer yet.\n\n"
@@ -152,13 +152,12 @@ class ContactConfirmationButtonHandler:
                 )
                 self.whatsapp.send_message(phone, msg)
 
-                # Send invitation
-                from services.commands.trainer.relationships.invitation_commands import handle_invite_client
-                # Note: This will need the invitation system to handle existing clients
+                # TODO: Integrate with invitation system for existing clients
+                # For now, just acknowledge
 
                 return {'success': True, 'response': msg, 'handler': 'contact_confirmed_existing_available'}
 
-            elif scenario == 'SCENARIO_ALREADY_YOURS':
+            elif scenario == 'SCENARIO_ALREADY_YOURS' or scenario == 'already_yours':
                 # Already this trainer's client
                 msg = (
                     f"ℹ️ *Already Your Client!*\n\n"
@@ -168,7 +167,7 @@ class ContactConfirmationButtonHandler:
                 self.whatsapp.send_message(phone, msg)
                 return {'success': True, 'response': msg, 'handler': 'contact_confirmed_already_yours'}
 
-            elif scenario == 'SCENARIO_HAS_OTHER_TRAINER':
+            elif scenario == 'SCENARIO_HAS_OTHER_TRAINER' or scenario == 'has_other_trainer':
                 # Has another trainer - multi-trainer scenario
                 msg = (
                     f"👥 *Client Has Another Trainer*\n\n"
@@ -190,7 +189,7 @@ class ContactConfirmationButtonHandler:
                         'step': 'confirm_secondary',
                         'trainer_id': user_id,
                         'contact_data': contact_data,
-                        'client_id': check_result.get('client_id')
+                        'client_id': check_result.get('client_data', {}).get('client_id')
                     }
                 )
 
@@ -198,7 +197,7 @@ class ContactConfirmationButtonHandler:
 
             else:
                 # Unknown scenario
-                msg = "❌ Sorry, I encountered an error checking this contact. Please try again."
+                msg = f"❌ Unknown scenario: {scenario}. Please try again."
                 self.whatsapp.send_message(phone, msg)
                 return {'success': False, 'response': msg, 'handler': 'contact_confirmation_unknown_scenario'}
 
