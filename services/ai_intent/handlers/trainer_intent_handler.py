@@ -110,9 +110,12 @@ class TrainerIntentHandler:
             f"Would you like to:\n"
             f"1️⃣ Type in their details manually\n"
             f"2️⃣ Share their contact from your phone\n\n"
-            f"Just reply with 1 or 2, or tap the button below to get started!"
+            f"Just reply with 1 or 2, or tap a button below!"
         )
-        buttons = [{'id': '/create-trainee', 'title': '➕ Add Client'}]
+        buttons = [
+            {'id': '/create-trainee', 'title': '✏️ Type Details'},
+            {'id': 'share_contact_instructions', 'title': '📱 Share Contact'}
+        ]
         self.whatsapp.send_button_message(phone, msg, buttons)
 
         return {
