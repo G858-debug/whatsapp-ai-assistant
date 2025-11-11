@@ -8,11 +8,12 @@ from utils.logger import log_error, log_info
 
 class ClientCreationButtonHandler:
     """Handles new client account creation buttons"""
-    
-    def __init__(self, supabase_client, whatsapp_service, auth_service):
+
+    def __init__(self, supabase_client, whatsapp_service, auth_service, task_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = auth_service
+        self.task_service = task_service
     
     def handle_client_creation_button(self, phone: str, button_id: str) -> Dict:
         """Handle client creation buttons"""
@@ -380,3 +381,319 @@ class ClientCreationButtonHandler:
         except Exception as e:
             log_error(f"Error handling decline invitation: {str(e)}")
             return {'success': False, 'response': 'Error declining invitation', 'handler': 'decline_invitation_error'}
+
+    def handle_add_client_button(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle add client flow buttons (profile filling and secondary invitation)
+
+        Buttons:
+        - client_fills_profile: Send invitation for client to fill their own profile
+        - trainer_fills_profile: Launch WhatsApp Flow for trainer to fill profile
+        - send_secondary_invitation: Send invitation for multi-trainer scenario
+        - cancel_add_client: Cancel the add client process
+        """
+        try:
+            if not self.task_service:
+                log_error("Task service not available")
+                return {'success': False, 'response': 'Service unavailable', 'handler': 'add_client_no_task_service'}
+
+            if button_id == 'client_fills_profile':
+                return self._handle_client_fills_profile(phone)
+            elif button_id == 'trainer_fills_profile':
+                return self._handle_trainer_fills_profile(phone)
+            elif button_id == 'send_secondary_invitation':
+                return self._handle_send_secondary_invitation(phone)
+            elif button_id == 'cancel_add_client':
+                return self._handle_cancel_add_client(phone)
+            else:
+                return {'success': False, 'response': 'Unknown add client button', 'handler': 'unknown_add_client_button'}
+
+        except Exception as e:
+            log_error(f"Error handling add client button: {str(e)}")
+            return {'success': False, 'response': 'Error processing button', 'handler': 'add_client_button_error'}
+
+    def _handle_client_fills_profile(self, phone: str) -> Dict:
+        """
+        Handle 'Client Fills Profile' button
+        Send invitation for client to fill their own profile (Scenario 1A)
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'client_fills_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task or task.get('task_type') != 'add_client_profile_choice':
+                msg = "❌ No client profile task in progress. Please share a contact first."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'client_fills_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+            contact_data = task_data.get('contact_data', {})
+
+            client_name = contact_data.get('name', 'Unknown')
+            client_phone = contact_data.get('phone')
+
+            if not client_phone:
+                msg = "❌ Missing phone number. Please share the contact again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'client_fills_no_phone'}
+
+            # Get trainer UUID (we have trainer_id string, need UUID)
+            trainer_result = self.db.table('trainers').select('id').eq(
+                'trainer_id', user_id
+            ).execute()
+
+            if not trainer_result.data:
+                msg = "❌ Trainer not found."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_not_found'}
+
+            trainer_uuid = trainer_result.data[0]['id']
+
+            # Send invitation to client using InvitationService
+            from services.relationships.invitations.invitation_service import InvitationService
+
+            invitation_service = InvitationService(self.db, self.whatsapp)
+
+            # Prepare minimal client data for invitation
+            client_data = {
+                'name': client_name,
+                'phone': client_phone
+            }
+
+            # Send invitation with type 'pending_client_completion' (client needs to fill profile)
+            success, msg = invitation_service.send_new_client_invitation(
+                trainer_id=trainer_uuid,
+                client_data=client_data,
+                client_phone=client_phone
+            )
+
+            if success:
+                # Notify trainer
+                trainer_msg = (
+                    f"✅ *Invitation Sent!*\n\n"
+                    f"I've sent {client_name} an invitation to fill out their fitness profile.\n\n"
+                    f"They'll receive a message with buttons to accept or decline."
+                )
+                self.whatsapp.send_message(phone, trainer_msg)
+
+                # Complete the task
+                self.task_service.complete_task(task_id, role)
+
+                log_info(f"Sent client-fills invitation from trainer {user_id} to {client_name} ({client_phone})")
+                return {'success': True, 'response': trainer_msg, 'handler': 'client_fills_success'}
+            else:
+                error_msg = f"❌ Failed to send invitation: {msg}"
+                self.whatsapp.send_message(phone, error_msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': error_msg, 'handler': 'client_fills_invitation_failed'}
+
+        except Exception as e:
+            log_error(f"Error handling client fills profile: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'client_fills_error'}
+
+    def _handle_trainer_fills_profile(self, phone: str) -> Dict:
+        """
+        Handle 'Trainer Fills Profile' button
+        Launch WhatsApp Flow for trainer to fill the client's profile (Scenario 1B)
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'trainer_fills_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task or task.get('task_type') != 'add_client_profile_choice':
+                msg = "❌ No client profile task in progress. Please share a contact first."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'trainer_fills_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+            contact_data = task_data.get('contact_data', {})
+
+            client_name = contact_data.get('name', 'Unknown')
+            client_phone = contact_data.get('phone')
+
+            if not client_phone:
+                msg = "❌ Missing phone number. Please share the contact again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'trainer_fills_no_phone'}
+
+            # Launch WhatsApp Flow for trainer to add client
+            from services.whatsapp_flow_handler import WhatsAppFlowHandler
+
+            flow_handler = WhatsAppFlowHandler(self.db, self.whatsapp)
+
+            # Pre-fill the flow with contact data
+            flow_result = flow_handler.send_trainer_add_client_flow(
+                trainer_phone=phone,
+                trainer_id=user_id
+            )
+
+            if flow_result.get('success'):
+                # Update task to track that flow was sent
+                self.task_service.update_task(
+                    task_id,
+                    role,
+                    task_data={
+                        'step': 'flow_sent',
+                        'trainer_id': user_id,
+                        'contact_data': contact_data,
+                        'flow_token': flow_result.get('flow_token')
+                    }
+                )
+
+                # Note: The flow will be pre-filled with name and phone in the flow handler
+                # The task will be completed when the flow response is received
+
+                msg = f"✏️ Please fill in {client_name}'s fitness profile in the form I just sent you."
+                self.whatsapp.send_message(phone, msg)
+
+                log_info(f"Launched trainer add client flow for {user_id} to add {client_name} ({client_phone})")
+                return {'success': True, 'response': msg, 'handler': 'trainer_fills_flow_launched'}
+            else:
+                error_msg = f"❌ Failed to launch form: {flow_result.get('error', 'Unknown error')}"
+                self.whatsapp.send_message(phone, error_msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': error_msg, 'handler': 'trainer_fills_flow_failed'}
+
+        except Exception as e:
+            log_error(f"Error handling trainer fills profile: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'trainer_fills_error'}
+
+    def _handle_send_secondary_invitation(self, phone: str) -> Dict:
+        """
+        Handle 'Send Secondary Invitation' button
+        Send invitation for multi-trainer scenario (Scenario 3)
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'secondary_inv_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task or task.get('task_type') != 'secondary_trainer_invitation':
+                msg = "❌ No secondary invitation task in progress."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'secondary_inv_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+            contact_data = task_data.get('contact_data', {})
+            client_id = task_data.get('client_id')
+
+            client_name = contact_data.get('name', 'Unknown')
+            client_phone = contact_data.get('phone')
+
+            if not client_id or not client_phone:
+                msg = "❌ Missing client information. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'secondary_inv_missing_data'}
+
+            # Send invitation using InvitationService
+            from services.relationships.invitations.invitation_service import InvitationService
+
+            invitation_service = InvitationService(self.db, self.whatsapp)
+
+            # Send trainer-to-client invitation (client already exists)
+            success, msg = invitation_service.send_trainer_to_client_invitation(
+                trainer_id=user_id,
+                client_id=client_id,
+                client_phone=client_phone
+            )
+
+            if success:
+                trainer_msg = (
+                    f"✅ *Invitation Sent!*\n\n"
+                    f"I've sent {client_name} an invitation to train with you as well.\n\n"
+                    f"They'll be able to accept or decline your invitation."
+                )
+                self.whatsapp.send_message(phone, trainer_msg)
+
+                # Complete the task
+                self.task_service.complete_task(task_id, role)
+
+                log_info(f"Sent secondary trainer invitation from {user_id} to {client_name} ({client_id})")
+                return {'success': True, 'response': trainer_msg, 'handler': 'secondary_inv_success'}
+            else:
+                error_msg = f"❌ Failed to send invitation: {msg}"
+                self.whatsapp.send_message(phone, error_msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': error_msg, 'handler': 'secondary_inv_failed'}
+
+        except Exception as e:
+            log_error(f"Error handling secondary invitation: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'secondary_inv_error'}
+
+    def _handle_cancel_add_client(self, phone: str) -> Dict:
+        """
+        Handle 'Cancel Add Client' button
+        Simply complete the task and send confirmation
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'cancel_add_client_no_user'}
+
+            # Get running task (could be either type)
+            task = self.task_service.get_running_task(phone, role)
+
+            if task:
+                task_id = task.get('id')
+                task_type = task.get('task_type')
+
+                # Complete the task
+                self.task_service.complete_task(task_id, role)
+
+                log_info(f"Cancelled {task_type} for trainer {user_id}")
+
+            # Send confirmation
+            msg = "✅ Add client process cancelled. You can try again anytime!"
+            self.whatsapp.send_message(phone, msg)
+
+            return {'success': True, 'response': msg, 'handler': 'cancel_add_client_success'}
+
+        except Exception as e:
+            log_error(f"Error handling cancel add client: {str(e)}")
+            msg = "✅ Process cancelled."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': True, 'response': msg, 'handler': 'cancel_add_client_error'}
