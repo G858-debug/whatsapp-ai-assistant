@@ -535,6 +535,13 @@ class ClientCreationButtonHandler:
             client_name = contact_data.get('name', 'Unknown')
             client_phone = contact_data.get('phone')
 
+            # Extract email from contact_data if available
+            client_email = ''
+            if contact_data.get('emails'):
+                emails = contact_data.get('emails', [])
+                if emails and len(emails) > 0:
+                    client_email = emails[0]
+
             if not client_phone:
                 msg = "❌ Missing phone number. Please share the contact again."
                 self.whatsapp.send_message(phone, msg)
@@ -549,7 +556,10 @@ class ClientCreationButtonHandler:
             # Pre-fill the flow with contact data
             flow_result = flow_handler.send_trainer_add_client_flow(
                 trainer_phone=phone,
-                trainer_id=user_id
+                trainer_id=user_id,
+                client_name=client_name,
+                client_phone=client_phone,
+                client_email=client_email
             )
 
             if flow_result.get('success'):
