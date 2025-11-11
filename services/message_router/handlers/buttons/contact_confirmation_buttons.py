@@ -91,47 +91,122 @@ class ContactConfirmationButtonHandler:
         task_id: str,
         contact_data: Dict
     ) -> Dict:
-        """Handle 'Yes, Continue' button click"""
+        """Handle 'Yes, Continue' button click - route to add client flow"""
         try:
-            # This is where you would process the confirmed contact
-            # For now, we'll just acknowledge and complete the task
-            # TODO: Integrate with client creation flow or invitation system
+            from services.relationships.client_checker import ClientChecker
 
-            name = contact_data.get('name', 'the contact')
-            contact_phone = contact_data.get('phone', 'N/A')
+            name = contact_data.get('name', 'Unknown')
+            contact_phone = contact_data.get('phone')
 
-            # Complete the task
+            if not contact_phone:
+                msg = "❌ Missing phone number in contact. Please share the contact again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'contact_confirmation_no_phone'}
+
+            # Check client status
+            client_checker = ClientChecker(self.db, self.whatsapp)
+            check_result = client_checker.check_client_status(contact_phone, user_id)
+
+            scenario = check_result.get('scenario')
+            log_info(f"Contact {name} ({contact_phone}) scenario: {scenario}")
+
+            # Complete the confirmation task
             self.task_service.complete_task(task_id, role)
 
-            # Send confirmation message
-            msg = (
-                f"✅ *Contact Confirmed!*\n\n"
-                f"*Name:* {name}\n"
-                f"*Phone:* {contact_phone}\n\n"
-                f"Great! I've saved this contact information.\n\n"
-                f"What would you like to do next?\n"
-                f"• /create-trainee - Add them as a client\n"
-                f"• /invite-trainee - Send them an invitation"
-            )
+            # Route based on scenario
+            if scenario == 'SCENARIO_NEW':
+                # New client - ask who fills the profile
+                msg = (
+                    f"🎉 *New Client!*\n\n"
+                    f"{name} ({contact_phone}) is new to Refiloe!\n\n"
+                    f"Who should fill in their fitness profile?"
+                )
+                buttons = [
+                    {'id': 'client_fills_profile', 'title': '📱 Client Fills'},
+                    {'id': 'trainer_fills_profile', 'title': '✏️ I\'ll Fill It'}
+                ]
+                self.whatsapp.send_button_message(phone, msg, buttons)
 
-            self.whatsapp.send_message(phone, msg)
+                # Create a new task to track the profile filling choice
+                self.task_service.create_task(
+                    user_id=phone,
+                    role='trainer',
+                    task_type='add_client_profile_choice',
+                    task_data={
+                        'step': 'choose_profile_method',
+                        'trainer_id': user_id,
+                        'contact_data': contact_data
+                    }
+                )
 
-            log_info(f"Contact confirmed by {phone}: {name}")
+                return {'success': True, 'response': msg, 'handler': 'contact_confirmed_new_client'}
 
-            return {
-                'success': True,
-                'response': msg,
-                'handler': 'contact_confirmed',
-                'contact_data': contact_data
-            }
+            elif scenario == 'SCENARIO_AVAILABLE':
+                # Client exists but no trainer - send invitation
+                client_id = check_result.get('client_id')
+                msg = (
+                    f"👤 *Existing Client Found!*\n\n"
+                    f"{name} is already registered on Refiloe but doesn't have a trainer yet.\n\n"
+                    f"I'll send them an invitation to connect with you!"
+                )
+                self.whatsapp.send_message(phone, msg)
+
+                # Send invitation
+                from services.commands.trainer.relationships.invitation_commands import handle_invite_client
+                # Note: This will need the invitation system to handle existing clients
+
+                return {'success': True, 'response': msg, 'handler': 'contact_confirmed_existing_available'}
+
+            elif scenario == 'SCENARIO_ALREADY_YOURS':
+                # Already this trainer's client
+                msg = (
+                    f"ℹ️ *Already Your Client!*\n\n"
+                    f"{name} is already one of your clients.\n\n"
+                    f"You can view their details with /view-trainees"
+                )
+                self.whatsapp.send_message(phone, msg)
+                return {'success': True, 'response': msg, 'handler': 'contact_confirmed_already_yours'}
+
+            elif scenario == 'SCENARIO_HAS_OTHER_TRAINER':
+                # Has another trainer - multi-trainer scenario
+                msg = (
+                    f"👥 *Client Has Another Trainer*\n\n"
+                    f"{name} currently trains with another trainer.\n\n"
+                    f"Would you like to send them an invitation to work with you as well?"
+                )
+                buttons = [
+                    {'id': 'send_secondary_invitation', 'title': '✅ Yes, Invite'},
+                    {'id': 'cancel_add_client', 'title': '❌ Cancel'}
+                ]
+                self.whatsapp.send_button_message(phone, msg, buttons)
+
+                # Store for secondary invitation flow
+                self.task_service.create_task(
+                    user_id=phone,
+                    role='trainer',
+                    task_type='secondary_trainer_invitation',
+                    task_data={
+                        'step': 'confirm_secondary',
+                        'trainer_id': user_id,
+                        'contact_data': contact_data,
+                        'client_id': check_result.get('client_id')
+                    }
+                )
+
+                return {'success': True, 'response': msg, 'handler': 'contact_confirmed_has_trainer'}
+
+            else:
+                # Unknown scenario
+                msg = "❌ Sorry, I encountered an error checking this contact. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'contact_confirmation_unknown_scenario'}
 
         except Exception as e:
-            log_error(f"Error handling confirm yes: {str(e)}")
-            return {
-                'success': False,
-                'response': "❌ Sorry, I encountered an error confirming the contact.",
-                'handler': 'contact_confirm_yes_error'
-            }
+            log_error(f"Error processing confirmed contact: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'contact_confirmation_processing_error'}
 
     def _handle_edit_details(
         self,
