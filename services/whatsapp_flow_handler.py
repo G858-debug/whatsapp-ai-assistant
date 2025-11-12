@@ -2172,6 +2172,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
 
                 trainer = trainer_result.data[0]
                 trainer_id = trainer['id']
+                log_info(f"Fetched trainer data: {trainer}")
             else:
                 # Fetch trainer data using ID
                 trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, name').eq(
@@ -2185,6 +2186,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     }
 
                 trainer = trainer_result.data[0]
+                log_info(f"Fetched trainer data: {trainer}")
 
             # Get trainer's default price (default to R500 if not set)
             trainer_default_price = trainer.get('default_price_per_session', 500)
@@ -2195,12 +2197,23 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 log_warning(f"Trainer {trainer_id} has no default price set, using R500")
 
             log_info(f"Trainer default price: R{trainer_default_price}")
+            log_info(f"Calculated trainer_default_price: {trainer_default_price}")
 
             # Generate flow token
             flow_token = f"trainer_add_client_{trainer_phone}_{int(datetime.now().timestamp())}"
 
             # CRITICAL: Pass trainer_default_price as initial flow data
             # This data cascades through all screens in the flow
+            flow_action_payload = {
+                "screen": "WELCOME",
+                "data": {
+                    "trainer_default_price": int(trainer_default_price),  # Convert to int to avoid decimal issues
+                    "client_name": client_name or "",
+                    "client_phone": client_phone or "",
+                    "client_email": client_email or ""
+                }
+            }
+
             flow_message = {
                 "recipient_type": "individual",
                 "messaging_product": "whatsapp",
@@ -2226,15 +2239,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                             "flow_id": Config.TRAINER_ADD_CLIENT_FLOW_ID,
                             "flow_cta": "Start",
                             "flow_action": "navigate",
-                            "flow_action_payload": {
-                                "screen": "WELCOME",
-                                "data": {
-                                    "trainer_default_price": trainer_default_price,  # Pass to flow
-                                    "client_name": client_name or "",
-                                    "client_phone": client_phone or "",
-                                    "client_email": client_email or ""
-                                }
-                            }
+                            "flow_action_payload": flow_action_payload
                         }
                     }
                 }
@@ -2250,6 +2255,8 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'client_phone': client_phone,
                 'client_email': client_email
             })
+
+            log_info(f"Sending flow with payload: {flow_action_payload}")
 
             # Send the flow
             result = self.whatsapp_service.send_flow_message(flow_message)
