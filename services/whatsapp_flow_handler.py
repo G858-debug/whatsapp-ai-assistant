@@ -2207,7 +2207,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             flow_action_payload = {
                 "screen": "WELCOME",
                 "data": {
-                    "trainer_default_price": int(trainer_default_price),  # Convert to int to avoid decimal issues
+                    "trainer_default_price": str(int(trainer_default_price)),  # Convert to string as per Flow JSON schema
                     "client_name": client_name or "",
                     "client_phone": client_phone or "",
                     "client_email": client_email or ""
