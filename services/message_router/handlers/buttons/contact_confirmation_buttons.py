@@ -124,12 +124,12 @@ class ContactConfirmationButtonHandler:
                 # New client - ask who fills the profile
                 msg = (
                     f"🎉 *New Client!*\n\n"
-                    f"{name} ({contact_phone}) is new to Refiloe!\n\n"
+                    f"{name} ({contact_phone}) is a new number on my database.\n\n"
                     f"Who should fill in their fitness profile?"
                 )
                 buttons = [
-                    {'id': 'client_fills_profile', 'title': '📱 Client populates'},
-                    {'id': 'trainer_fills_profile', 'title': '✏️ I\'ll populate'}
+                    {'id': 'client_fills_profile', 'title': '📱 Client to fill in'},
+                    {'id': 'trainer_fills_profile', 'title': '✏️ I\'ll fill in'}
                 ]
                 self.whatsapp.send_button_message(phone, msg, buttons)
 
