@@ -220,11 +220,11 @@ def send_contact_confirmation_message(
         buttons = [
             {
                 'id': 'confirm_contact_yes',
-                'title': '✅ Yes, Continue'
+                'title': '✅ Yes, continue'
             },
             {
                 'id': 'confirm_contact_edit',
-                'title': '❌ Edit Details'
+                'title': '❌ Edit details'
             }
         ]
 
