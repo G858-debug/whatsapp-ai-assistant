@@ -2229,7 +2229,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "text": "Fill in your client's details to create their profile. They'll receive an invitation to review and accept."
                     },
                     "footer": {
-                        "text": f"Your default rate: R{trainer_default_price}/session"
+                        "text": f"Your default rate: R{int(trainer_default_price)}/session"
                     },
                     "action": {
                         "name": "flow",
