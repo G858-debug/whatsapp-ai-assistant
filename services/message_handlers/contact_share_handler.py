@@ -213,7 +213,7 @@ def send_contact_confirmation_message(
 
         message += (
             f"\n"
-            f"Would you like to continue with this contact information?"
+            f"Would you like to continue with this contact information or edit some of the detail?"
         )
 
         # Create interactive buttons
