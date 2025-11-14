@@ -105,6 +105,17 @@ class TrainerIntentHandler:
     
     def _handle_create_trainee(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
         """Handle create trainee intent"""
+        # Check if task_service is available
+        if not self.task_service:
+            log_error("Task service not available in AI intent handler")
+            msg = "Sorry, I encountered an error. Please try /add-client instead."
+            self.whatsapp.send_message(phone, msg)
+            return {
+                'success': False,
+                'response': msg,
+                'handler': 'ai_intent_create_trainee_no_task_service'
+            }
+
         # Create the add_client_choice task before sending buttons
         task_id = self.task_service.create_task(
             user_id=phone,
