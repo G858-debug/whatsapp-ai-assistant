@@ -717,8 +717,7 @@ class ClientCreationButtonHandler:
     def _handle_add_client_type(self, phone: str) -> Dict:
         """
         Handle 'Type Details' button (add_client_type)
-        Launch WhatsApp Flow for trainer to fill client details
-        Checks for pre_collected_data and prepopulates the flow if available
+        Start text-based collection for client details
         """
         try:
             # Get trainer info
@@ -739,57 +738,29 @@ class ClientCreationButtonHandler:
                 return {'success': False, 'response': msg, 'handler': 'add_client_type_no_task'}
 
             task_id = task.get('id')
-            task_data = task.get('task_data', {})
 
-            # Check for pre_collected_data (from AI intent or other sources)
-            pre_collected_data = task_data.get('pre_collected_data', {})
+            # Update task to track we're collecting basic contact info
+            task_data = {
+                'step': 'collecting_name',
+                'trainer_id': user_id,
+                'basic_contact_data': {}
+            }
 
-            # Extract pre-filled data if available
-            client_name = pre_collected_data.get('client_name', '')
-            client_phone = pre_collected_data.get('client_phone', '')
-            client_email = pre_collected_data.get('client_email', '')
-
-            # Launch WhatsApp Flow for trainer to add client
-            from services.whatsapp_flow_handler import WhatsAppFlowHandler
-
-            flow_handler = WhatsAppFlowHandler(self.db, self.whatsapp)
-
-            # Pre-fill the flow with any pre-collected data
-            flow_result = flow_handler.send_trainer_add_client_flow(
-                trainer_phone=phone,
-                trainer_id=user_id,
-                client_name=client_name if client_name else None,
-                client_phone=client_phone if client_phone else None,
-                client_email=client_email if client_email else None
+            self.task_service.update_task(
+                task_id,
+                role,
+                task_data=task_data
             )
 
-            if flow_result.get('success'):
-                # Update task to track that flow was sent
-                self.task_service.update_task(
-                    task_id,
-                    role,
-                    task_data={
-                        'step': 'flow_sent',
-                        'trainer_id': user_id,
-                        'pre_collected_data': pre_collected_data,
-                        'flow_token': flow_result.get('flow_token')
-                    }
-                )
+            # Send message asking for client's name
+            msg = (
+                "Great! Let's get started. ✍️\n\n"
+                "What is your client's full name?"
+            )
+            self.whatsapp.send_message(phone, msg)
 
-                # The task will be completed when the flow response is received
-                msg = "✏️ Please fill in the client details in the form I just sent you."
-                if client_name or client_phone or client_email:
-                    msg += "\n\nI've pre-filled some fields with the information you provided earlier."
-
-                self.whatsapp.send_message(phone, msg)
-
-                log_info(f"Launched add client flow for {user_id} with pre-collected data: {bool(pre_collected_data)}")
-                return {'success': True, 'response': msg, 'handler': 'add_client_type_flow_launched'}
-            else:
-                error_msg = f"❌ Failed to launch form: {flow_result.get('error', 'Unknown error')}"
-                self.whatsapp.send_message(phone, error_msg)
-                self.task_service.complete_task(task_id, role)
-                return {'success': False, 'response': error_msg, 'handler': 'add_client_type_flow_failed'}
+            log_info(f"Started text-based client collection for trainer {user_id}")
+            return {'success': True, 'response': msg, 'handler': 'add_client_type_name_requested'}
 
         except Exception as e:
             log_error(f"Error handling add client type: {str(e)}")
