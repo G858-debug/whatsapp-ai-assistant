@@ -620,11 +620,8 @@ class ClientCreationButtonHandler:
                 # Note: The flow will be pre-filled with name and phone in the flow handler
                 # The task will be completed when the flow response is received
 
-                msg = f"✏️ Please fill in {client_name}'s fitness profile in the form I just sent you."
-                self.whatsapp.send_message(phone, msg)
-
                 log_info(f"Launched trainer add client flow for {user_id} to add {client_name} ({client_phone})")
-                return {'success': True, 'response': msg, 'handler': 'trainer_fills_flow_launched'}
+                return {'success': True, 'response': 'Flow launched successfully', 'handler': 'trainer_fills_flow_launched'}
             else:
                 error_msg = f"❌ Failed to launch form: {flow_result.get('error', 'Unknown error')}"
                 self.whatsapp.send_message(phone, error_msg)
