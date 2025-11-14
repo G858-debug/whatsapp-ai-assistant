@@ -106,15 +106,14 @@ class TrainerIntentHandler:
     def _handle_create_trainee(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
         """Handle create trainee intent"""
         msg = (
-            f"Perfect! Let's add your new client, {name}! \n\n"
+            f"Perfect! Let's add your new client, {name}! 💪\n\n"
             f"Would you like to:\n"
-            f"1️⃣ Type in their details manually\n"
-            f"2️⃣ Share their contact from your phone\n\n"
-            f"Just reply with 1 or 2, or tap a button below!"
+            f"1️⃣ Type in their contact details manually\n"
+            f"2️⃣ Share their contact from your phone"
         )
         buttons = [
-            {'id': '/create-trainee', 'title': '✏️ Type Details'},
-            {'id': 'share_contact_instructions', 'title': '📱 Share Contact'}
+            {'id': 'add_client_type', 'title': 'Type Details'},
+            {'id': 'add_client_share', 'title': 'Share Contact'}
         ]
         self.whatsapp.send_button_message(phone, msg, buttons)
 
