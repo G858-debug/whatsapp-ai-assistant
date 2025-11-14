@@ -84,20 +84,16 @@ def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_se
             log_error(f"Error fetching trainer name: {str(e)}")
 
         # Prepare message with friendly Refiloe tone
-        if trainer_name:
-            msg = (
-                f"Perfect! Let's add your new client, {trainer_name}! 💪\n\n"
-                "Would you like to:\n"
-                "1️⃣ Type in their contact details manually\n"
-                "2️⃣ Share their contact from your phone"
-            )
-        else:
-            msg = (
-                "Perfect! Let's add your new client! 💪\n\n"
-                "Would you like to:\n"
-                "1️⃣ Type in their contact details manually\n"
-                "2️⃣ Share their contact from your phone"
-            )
+        # Use trainer_name if available, otherwise default to "there"
+        if not trainer_name:
+            trainer_name = "there"
+
+        msg = (
+            f"Perfect! Let's add your new client, {trainer_name}! 💪\n\n"
+            "Would you like to:\n"
+            "1️⃣ Type in their contact details manually\n"
+            "2️⃣ Share their contact from your phone"
+        )
 
         # Create interactive buttons
         buttons = [
