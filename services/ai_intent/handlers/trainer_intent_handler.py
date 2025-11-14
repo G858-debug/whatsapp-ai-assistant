@@ -105,6 +105,28 @@ class TrainerIntentHandler:
     
     def _handle_create_trainee(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
         """Handle create trainee intent"""
+        # Create the add_client_choice task before sending buttons
+        task_id = self.task_service.create_task(
+            user_id=phone,
+            role='trainer',
+            task_type='add_client_choice',
+            task_data={
+                'step': 'choose_input_method',
+                'trainer_id': context.get('user_id')
+            }
+        )
+
+        # Check if task creation failed
+        if not task_id:
+            msg = "❌ I couldn't start the process. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {
+                'success': False,
+                'response': msg,
+                'handler': 'ai_intent_create_trainee_task_failed'
+            }
+
+        # Send the button message
         msg = (
             f"Perfect! Let's add your new client, {name}! 💪\n\n"
             f"Would you like to:\n"
