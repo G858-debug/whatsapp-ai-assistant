@@ -71,11 +71,33 @@ def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_se
                     # Mark the abandoned task as superseded
                     timeout_service.cancel_timeout(abandoned_typing_task['id'])
 
+        # Get trainer's name from database
+        trainer_name = None
+        try:
+            trainer = db.trainers.find_one(
+                {'trainer_id': trainer_id},
+                {'name': 1, 'first_name': 1}
+            )
+            if trainer:
+                trainer_name = trainer.get('name') or trainer.get('first_name')
+        except Exception as e:
+            log_error(f"Error fetching trainer name: {str(e)}")
+
         # Prepare message with friendly Refiloe tone
-        msg = (
-            "👥 *Add New Client*\n\n"
-            "How would you like to add them?"
-        )
+        if trainer_name:
+            msg = (
+                f"Perfect! Let's add your new client, {trainer_name}! 💪\n\n"
+                "Would you like to:\n"
+                "1️⃣ Type in their contact details manually\n"
+                "2️⃣ Share their contact from your phone"
+            )
+        else:
+            msg = (
+                "Perfect! Let's add your new client! 💪\n\n"
+                "Would you like to:\n"
+                "1️⃣ Type in their contact details manually\n"
+                "2️⃣ Share their contact from your phone"
+            )
 
         # Create interactive buttons
         buttons = [
