@@ -443,10 +443,28 @@ class ClientCreationButtonHandler:
 
             task_id = task.get('id')
             task_data = task.get('task_data', {})
-            contact_data = task_data.get('contact_data', {})
 
-            client_name = contact_data.get('name', 'Unknown')
-            client_phone = contact_data.get('phone')
+            # Handle both contact_data (from contact share) and basic_contact_data (from typed input)
+            contact_data = task_data.get('contact_data')
+            basic_contact_data = task_data.get('basic_contact_data')
+
+            if contact_data:
+                # From shared contact
+                client_name = contact_data.get('name', 'Unknown')
+                client_phone = contact_data.get('phone')
+                # Extract email from emails array
+                emails = contact_data.get('emails', [])
+                client_email = emails[0] if emails else None
+            elif basic_contact_data:
+                # From typed input
+                client_name = basic_contact_data.get('name', 'Unknown')
+                client_phone = basic_contact_data.get('phone')
+                client_email = basic_contact_data.get('email')
+            else:
+                msg = "❌ Missing contact information. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'client_fills_no_contact_data'}
 
             if not client_phone:
                 msg = "❌ Missing phone number. Please share the contact again."
@@ -472,11 +490,13 @@ class ClientCreationButtonHandler:
 
             invitation_service = InvitationService(self.db, self.whatsapp)
 
-            # Prepare minimal client data for invitation
+            # Prepare client data for invitation (include email if available)
             client_data = {
                 'name': client_name,
                 'phone': client_phone
             }
+            if client_email:
+                client_data['email'] = client_email
 
             # Send invitation with type 'pending_client_completion' (client needs to fill profile)
             success, msg = invitation_service.send_new_client_invitation(
@@ -536,17 +556,28 @@ class ClientCreationButtonHandler:
 
             task_id = task.get('id')
             task_data = task.get('task_data', {})
-            contact_data = task_data.get('contact_data', {})
 
-            client_name = contact_data.get('name', 'Unknown')
-            client_phone = contact_data.get('phone')
+            # Handle both contact_data (from contact share) and basic_contact_data (from typed input)
+            contact_data = task_data.get('contact_data')
+            basic_contact_data = task_data.get('basic_contact_data')
 
-            # Extract email from contact_data if available
-            client_email = ''
-            if contact_data.get('emails'):
+            if contact_data:
+                # From shared contact
+                client_name = contact_data.get('name', 'Unknown')
+                client_phone = contact_data.get('phone')
+                # Extract email from emails array
                 emails = contact_data.get('emails', [])
-                if emails and len(emails) > 0:
-                    client_email = emails[0]
+                client_email = emails[0] if emails and len(emails) > 0 else ''
+            elif basic_contact_data:
+                # From typed input
+                client_name = basic_contact_data.get('name', 'Unknown')
+                client_phone = basic_contact_data.get('phone')
+                client_email = basic_contact_data.get('email') or ''
+            else:
+                msg = "❌ Missing contact information. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'trainer_fills_no_contact_data'}
 
             if not client_phone:
                 msg = "❌ Missing phone number. Please share the contact again."
@@ -569,16 +600,21 @@ class ClientCreationButtonHandler:
             )
 
             if flow_result.get('success'):
-                # Update task to track that flow was sent
+                # Update task to track that flow was sent (preserve original data source)
+                updated_task_data = {
+                    'step': 'flow_sent',
+                    'trainer_id': user_id,
+                    'flow_token': flow_result.get('flow_token')
+                }
+                if contact_data:
+                    updated_task_data['contact_data'] = contact_data
+                if basic_contact_data:
+                    updated_task_data['basic_contact_data'] = basic_contact_data
+
                 self.task_service.update_task(
                     task_id,
                     role,
-                    task_data={
-                        'step': 'flow_sent',
-                        'trainer_id': user_id,
-                        'contact_data': contact_data,
-                        'flow_token': flow_result.get('flow_token')
-                    }
+                    task_data=updated_task_data
                 )
 
                 # Note: The flow will be pre-filled with name and phone in the flow handler
