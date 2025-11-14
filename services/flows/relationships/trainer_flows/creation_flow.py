@@ -30,36 +30,23 @@ class CreationFlow:
             # Step 1: Ask if create new or link existing
             if step == 'ask_create_or_link':
                 choice = message.strip()
-                
+
                 if choice == '1':
-                    # Create new client - load fields (use trainer_add_client config)
-                    with open('config/trainer_add_client_inputs.json', 'r') as f:
-                        config = json.load(f)
-                        task_data['fields'] = config['fields']
-                        task_data['current_field_index'] = 0
-                        task_data['step'] = 'collecting'
-                        task_data['mode'] = 'create_new'
-                    
-                    fields = task_data['fields']
-                    
-                    # Send intro message
-                    intro_msg = (
-                        "✅ *Create New Client*\n\n"
-                        f"I'll ask you *{len(fields)} questions* to create a client profile.\n\n"
-                        f"📝 *Note:* You'll provide the client's information, then they'll receive an invitation to accept.\n\n"
-                        f"💡 *Tip:* Type /stop at any time to cancel\n\n"
-                        f"Let's start! 👇"
+                    # Text-based client creation is deprecated - redirect to /add-client
+                    msg = (
+                        "ℹ️ *Text-Based Creation Deprecated*\n\n"
+                        "The step-by-step text-based client creation has been replaced "
+                        "with an improved WhatsApp Flow interface.\n\n"
+                        "Please use the */add-client* command instead for a better experience!\n\n"
+                        "🎯 *New Features:*\n"
+                        "• Better form interface\n"
+                        "• Easier to fill out\n"
+                        "• Fewer errors\n\n"
+                        "Type */add-client* to get started."
                     )
-                    self.whatsapp.send_message(phone, intro_msg)
-                    
-                    # Send first field
-                    first_field = fields[0]
-                    self.whatsapp.send_message(phone, first_field['prompt'])
-                    
-                    task_data['current_field_index'] = 1
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
-                    
-                    return {'success': True, 'response': first_field['prompt'], 'handler': 'create_trainee_new'}
+                    self.whatsapp.send_message(phone, msg)
+                    self.task_service.complete_task(task['id'], 'trainer')
+                    return {'success': True, 'response': msg, 'handler': 'create_trainee_deprecated'}
                 
                 elif choice == '2':
                     # Redirect to invitation flow with existing command button
@@ -81,7 +68,11 @@ class CreationFlow:
                     msg = "❌ Invalid choice. Please reply with *1* to create new or *2* to link existing."
                     self.whatsapp.send_message(phone, msg)
                     return {'success': True, 'response': msg, 'handler': 'create_trainee_invalid_choice'}
-            
+
+            # ===== DEPRECATED: Text-based field collection =====
+            # This entire section has been replaced by the /add-client WhatsApp Flow
+            # Kept here for reference but should not be reached anymore
+            """
             # Step 2: Collect fields for new client
             if step == 'collecting':
                 fields = task_data.get('fields', [])
@@ -316,9 +307,11 @@ class CreationFlow:
                 # Update task
                 task_data['current_field_index'] = current_index + 1
                 self.task_service.update_task(task['id'], 'trainer', task_data)
-                
+
                 return {'success': True, 'response': msg, 'handler': 'create_trainee'}
-            
+            """
+            # ===== END OF DEPRECATED CODE =====
+
             # Handle confirmation for existing client
             if step == 'confirm_invite_existing':
                 response = message.strip().upper()
