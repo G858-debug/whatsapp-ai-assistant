@@ -26,7 +26,7 @@
           },
           {
             "type": "TextBody",
-            "text": "Populate ${data.client_name}'s details to create their profile."
+            "text": "Populate ${data.client_name}'s details to create their profile. They'll receive an invitation to review and accept."
           },
           {
             "type": "Footer",
