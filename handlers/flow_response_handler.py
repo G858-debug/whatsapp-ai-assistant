@@ -220,9 +220,13 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
         if flow_token and 'trainer_add_client' in flow_token:
             log_info(f"Routing to trainer add client handler based on token: {flow_token}")
 
+            # Wrap the flow_data in the expected structure
+            # The handler expects the data to be passed as a flow_response dict
+            flow_response = flow_data  # The parsed data IS the flow response
+
             flow_handler = WhatsAppFlowHandler(supabase, whatsapp_service)
             result = flow_handler._handle_trainer_add_client_response(
-                flow_data,  # Pass the parsed data directly
+                flow_response,  # Pass as flow_response, not flow_data
                 phone_number,
                 flow_token
             )
