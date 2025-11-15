@@ -22,8 +22,6 @@ class ClientCreationButtonHandler:
                 return self._handle_approve_new_client(phone, button_id)
             elif button_id.startswith('reject_new_client_'):
                 return self._handle_reject_new_client(phone, button_id)
-            elif button_id == 'share_contact_instructions':
-                return self._handle_share_contact_instructions(phone)
             else:
                 return {'success': False, 'response': 'Unknown client creation button', 'handler': 'unknown_client_creation_button'}
 
@@ -155,35 +153,6 @@ class ClientCreationButtonHandler:
         except Exception as e:
             log_error(f"Error rejecting new client: {str(e)}")
             return {'success': False, 'response': 'Error processing rejection', 'handler': 'reject_new_client_error'}
-
-    def _handle_share_contact_instructions(self, phone: str) -> Dict:
-        """Handle share contact instructions button"""
-        try:
-            msg = (
-                "📱 *How to Share a Contact*\n\n"
-                "Here's how to share your client's contact with me:\n\n"
-                "1️⃣ Tap the 📎 or ➕ icon in WhatsApp\n"
-                "2️⃣ Select 'Contact' \n"
-                "3️⃣ Choose your client from your phone contacts\n"
-                "4️⃣ Send the contact to me\n\n"
-                "Once I receive their contact card, I'll extract their details and help you create their profile!"
-            )
-            self.whatsapp.send_message(phone, msg)
-
-            log_info(f"Sent contact sharing instructions to {phone}")
-            return {
-                'success': True,
-                'response': msg,
-                'handler': 'share_contact_instructions'
-            }
-
-        except Exception as e:
-            log_error(f"Error sending contact sharing instructions: {str(e)}")
-            return {
-                'success': False,
-                'response': 'Error sending instructions',
-                'handler': 'share_contact_instructions_error'
-            }
 
     def _create_client_account(self, phone: str, trainer_id: str, prefilled_data: dict, invitation_id: str) -> str:
         """Create a new client account with prefilled data"""
@@ -838,23 +807,18 @@ class ClientCreationButtonHandler:
                 }
             )
 
-            # Send instructions with button for more help
+            # Send detailed instructions immediately
             msg = (
                 "📱 *How to share a contact*\n\n"
-                "Here's how to share your client's contact with me:\n\nHere's how to share your client's contact with me:\n\n
-1️⃣ Tap the 📎 or ➕ icon in WhatsApp\n
-2️⃣ Select 'Contact'\n
-3️⃣ Choose your client from your phone contacts\n
-4️⃣ Send the contact to me\n\n
-Once I receive their contact card, I'll extract their details and help you create their profile!"
+                "Here's how to share your client's contact with me:\n\n"
+                "1️⃣ Tap the 📎 or ➕ icon in WhatsApp\n"
+                "2️⃣ Select 'Contact'\n"
+                "3️⃣ Choose your client from your phone contacts\n"
+                "4️⃣ Send the contact to me\n\n"
+                "Once I receive their contact card, I'll extract their details and help you create their profile!"
             )
 
-            # Add a help button
-            buttons = [
-                {'id': 'share_contact_instructions', 'title': 'How do I share?'}
-            ]
-
-            self.whatsapp.send_button_message(phone, msg, buttons)
+            self.whatsapp.send_message(phone, msg)
 
             log_info(f"Prompted trainer {user_id} to share contact for add client flow")
             return {'success': True, 'response': msg, 'handler': 'add_client_share_prompted'}
