@@ -441,18 +441,63 @@ class ClientCreationButtonHandler:
                 self.task_service.complete_task(task_id, role)
                 return {'success': False, 'response': msg, 'handler': 'client_fills_no_phone'}
 
-            # Get trainer UUID (we have trainer_id string, need UUID)
-            trainer_result = self.db.table('trainers').select('id').eq(
+            # Get trainer from users table first (which definitely exists)
+            log_info(f"Looking up trainer in users table: {user_id}")
+            user_result = self.db.table('users').select('id, trainer_id').eq(
+                'trainer_id', user_id
+            ).execute()
+
+            if not user_result.data:
+                log_error(f"Trainer not found in users table: {user_id}")
+                msg = "❌ Trainer account not found. Please contact support."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_not_in_users'}
+
+            trainer_user_uuid = user_result.data[0]['id']
+            log_info(f"Found trainer in users table with UUID: {trainer_user_uuid}")
+
+            # Check if trainer has a corresponding trainers table entry
+            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
                 'trainer_id', user_id
             ).execute()
 
             if not trainer_result.data:
-                msg = "❌ Trainer not found."
-                self.whatsapp.send_message(phone, msg)
-                self.task_service.complete_task(task_id, role)
-                return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_not_found'}
+                # Trainer doesn't exist in trainers table - create a minimal record
+                log_info(f"Trainer {user_id} not found in trainers table, creating basic record")
+                try:
+                    from datetime import datetime
+                    import pytz
+                    sa_tz = pytz.timezone('Africa/Johannesburg')
 
-            trainer_uuid = trainer_result.data[0]['id']
+                    trainer_insert_data = {
+                        'trainer_id': user_id,
+                        'whatsapp': phone,
+                        'created_at': datetime.now(sa_tz).isoformat(),
+                        'updated_at': datetime.now(sa_tz).isoformat()
+                    }
+
+                    trainer_create_result = self.db.table('trainers').insert(trainer_insert_data).execute()
+
+                    if trainer_create_result.data:
+                        trainer_uuid = trainer_create_result.data[0]['id']
+                        log_info(f"Created trainer record with UUID: {trainer_uuid}")
+                    else:
+                        log_error(f"Failed to create trainer record for {user_id}")
+                        msg = "❌ Error setting up trainer profile. Please contact support."
+                        self.whatsapp.send_message(phone, msg)
+                        self.task_service.complete_task(task_id, role)
+                        return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_creation_failed'}
+
+                except Exception as e:
+                    log_error(f"Error creating trainer record: {str(e)}")
+                    msg = "❌ Error setting up trainer profile. Please contact support."
+                    self.whatsapp.send_message(phone, msg)
+                    self.task_service.complete_task(task_id, role)
+                    return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_creation_error'}
+            else:
+                trainer_uuid = trainer_result.data[0]['id']
+                log_info(f"Found trainer in trainers table with UUID: {trainer_uuid}")
 
             # Send invitation to client using InvitationService
             from services.relationships.invitations.invitation_service import InvitationService
