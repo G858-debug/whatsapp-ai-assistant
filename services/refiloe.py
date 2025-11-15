@@ -1580,7 +1580,7 @@ class RefiloeService:
                     "type": "flow",
                     "header": {
                         "type": "text",
-                        "text": "Add New Client"
+                        "text": "Add new client"
                     },
                     "body": {
                         "text": "Let's add a new client to your training program! 👥"
@@ -1623,7 +1623,7 @@ class RefiloeService:
             })
             
             response = (
-                "➕ *Add New Client* (Text Mode)\n\n"
+                "➕ *Add new client* (Text Mode)\n\n"
                 "I'll help you add a client step by step.\n\n"
                 "📝 *Step 1 of 4*\n\n"
                 "What's your client's full name?"

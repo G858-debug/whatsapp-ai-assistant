@@ -2223,7 +2223,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     "type": "flow",
                     "header": {
                         "type": "text",
-                        "text": "Add New Client"
+                        "text": "Add new client"
                     },
                     "body": {
                         "text": "Populate " + (client_name if client_name else "your client") + "'s details to create their profile. They'll receive an invitation to review and accept."

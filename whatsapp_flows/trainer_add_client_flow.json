@@ -5,7 +5,7 @@
   "screens": [
     {
       "id": "WELCOME",
-      "title": "Add New Client",
+      "title": "Add new client",
       "terminal": false,
       "data": {
         "trainer_default_price": {
@@ -22,7 +22,7 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Add New Client Profile"
+            "text": "Add new client profile"
           },
           {
             "type": "TextBody",
