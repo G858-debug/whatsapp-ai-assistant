@@ -2226,10 +2226,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "text": "Add New Client"
                     },
                     "body": {
-                        "text": "Populate your client's details to create their profile. They'll receive an invitation to review and accept."
-                    },
-                    "footer": {
-                        "text": f"Your default rate: R{int(trainer_default_price)}/session"
+                        "text": f"Populate {client_name + \"'s\" if client_name else \"your client's\"} details to create their profile. They'll receive an invitation to review and accept."
                     },
                     "action": {
                         "name": "flow",
@@ -2267,7 +2264,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     'success': True,
                     'method': 'whatsapp_flow',
                     'flow_token': flow_token,
-                    'message': f"Flow sent! Your default rate (R{trainer_default_price}/session) will be shown."
+                    'message': "Flow sent!"
                 }
             else:
                 return {
