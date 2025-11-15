@@ -73,7 +73,7 @@ class ButtonHandler:
             elif button_id in ['register_trainer', 'register_client', 'login_trainer', 'login_client']:
                 return self.registration_handler.handle_registration_button(phone, button_id)
 
-            elif button_id.startswith('confirm_contact_'):
+            elif button_id.startswith('confirm_contact_') or button_id in ['edit_contact_name', 'edit_contact_phone', 'edit_contact_again']:
                 return self.contact_confirmation_handler.handle_contact_confirmation_button(phone, button_id)
 
             elif button_id in ['client_fills_profile', 'trainer_fills_profile', 'send_secondary_invitation', 'cancel_add_client', 'add_client_type', 'add_client_share']:
