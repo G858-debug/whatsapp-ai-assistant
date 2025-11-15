@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional
 
 from utils.logger import log_info, log_error, log_warning
 from services.flows.whatsapp_flow_trainer_onboarding import WhatsAppFlowTrainerOnboarding
+from services.whatsapp_flow_handler import WhatsAppFlowHandler
 
 
 def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict:
@@ -212,66 +213,59 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
                 'error_type': 'invalid_json_format'
             }
 
-        # Step 6: Route to appropriate flow handler
-        log_info(f"Step 2: Routing flow '{flow_name}' to appropriate handler")
+        # Step 6: Route to appropriate flow handler based on flow_token
+        log_info(f"Step 2: Routing flow '{flow_name}' with token '{flow_token}' to appropriate handler")
 
-        # Check if it's trainer onboarding (handles both specific name and generic "flow")
-        if flow_name == 'trainer_onboarding_flow' or flow_name == 'flow':
-            # If generic "flow" name, check if it's trainer onboarding based on flow_token
-            if flow_name == 'flow':
-                # Check if flow_token indicates trainer onboarding
-                if flow_token and 'trainer_onboarding' in flow_token:
-                    log_info(f"Detected trainer onboarding flow from generic 'flow' name via token: {flow_token}")
-                else:
-                    log_warning(f"Generic 'flow' name without trainer_onboarding token - may not be trainer onboarding")
+        # Route based on flow_token first (most reliable)
+        if flow_token and 'trainer_add_client' in flow_token:
+            log_info(f"Routing to trainer add client handler based on token: {flow_token}")
 
-            try:
-                log_info(f"Processing trainer onboarding flow completion for {phone_number}")
+            flow_handler = WhatsAppFlowHandler(supabase, whatsapp_service)
+            result = flow_handler._handle_trainer_add_client_response(
+                {'response_json': json.dumps(flow_data)},
+                phone_number,
+                flow_token
+            )
 
-                # Initialize the trainer onboarding flow handler
-                trainer_onboarding_service = WhatsAppFlowTrainerOnboarding(supabase, whatsapp_service)
-                result = trainer_onboarding_service.process_flow_completion(flow_data, phone_number)
-
-                if result.get('success'):
-                    log_info(f"✅ Trainer onboarding completed successfully for {phone_number}")
-                    log_info(f"Trainer ID: {result.get('trainer_id')}")
-
-                    return {
-                        'success': True,
-                        'message': 'Flow processed successfully',
-                        'data': result
-                    }
-                else:
-                    log_warning("⚠️ Flow completion failed")
-                    log_warning(f"Error: {result.get('error')}")
-
-                    return {
-                        'success': False,
-                        'message': result.get('error', 'Flow processing failed'),
-                        'data': result
-                    }
-
-            except Exception as e:
-                error_msg = f"Error processing trainer onboarding flow: {str(e)}"
-                log_error(error_msg, exc_info=True)
-
+            if result.get('success'):
+                log_info(f"✅ Trainer add client flow completed successfully")
+                return {
+                    'success': True,
+                    'message': result.get('message', 'Client invitation sent'),
+                    'trainer_id': result.get('trainer_id')
+                }
+            else:
+                log_error(f"❌ Trainer add client flow failed: {result.get('error')}")
                 return {
                     'success': False,
-                    'message': error_msg,
-                    'error_type': 'flow_processing_exception'
+                    'message': result.get('error', 'Flow processing failed')
+                }
+
+        elif flow_token and 'trainer_onboarding' in flow_token or flow_name == 'trainer_onboarding_flow':
+            log_info(f"Routing to trainer onboarding handler")
+            trainer_onboarding_service = WhatsAppFlowTrainerOnboarding(supabase, whatsapp_service)
+            result = trainer_onboarding_service.process_flow_completion(flow_data, phone_number)
+
+            if result.get('success'):
+                log_info(f"✅ Trainer onboarding completed successfully")
+                return {
+                    'success': True,
+                    'message': 'Trainer registered successfully',
+                    'trainer_id': result.get('trainer_id')
+                }
+            else:
+                log_warning(f"Flow validation failed: {result.get('error')}")
+                return {
+                    'success': False,
+                    'message': result.get('error', 'Validation failed')
                 }
 
         else:
             # Unknown flow type
-            error_msg = f"Unknown flow type: {flow_name}"
-            log_warning(error_msg)
-            log_warning("No handler registered for this flow type")
-
+            log_error(f"Unknown flow type - name: {flow_name}, token: {flow_token}")
             return {
                 'success': False,
-                'message': error_msg,
-                'error_type': 'unknown_flow_type',
-                'flow_name': flow_name
+                'message': f'Unknown flow type: {flow_name}'
             }
 
     except KeyError as e:
