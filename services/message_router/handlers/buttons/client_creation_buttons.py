@@ -351,6 +351,93 @@ class ClientCreationButtonHandler:
             log_error(f"Error handling decline invitation: {str(e)}")
             return {'success': False, 'response': 'Error declining invitation', 'handler': 'decline_invitation_error'}
 
+    def _ensure_trainer_record_exists(self, phone: str, trainer_id: str):
+        """
+        Ensure a trainer record exists in the trainers table.
+        If not, create one with basic information from the users table.
+
+        Args:
+            phone: Trainer's WhatsApp phone number
+            trainer_id: Trainer's string ID (e.g., 'TR001')
+
+        Returns:
+            tuple: (trainer_uuid, error_message) - trainer_uuid is the UUID from trainers table,
+                   error_message is None if successful, otherwise contains the error description
+        """
+        try:
+            log_info(f"Ensuring trainer record exists for: {trainer_id}")
+
+            # First, verify trainer exists in users table
+            user_result = self.db.table('users').select('id, trainer_id').eq(
+                'trainer_id', trainer_id
+            ).execute()
+
+            if not user_result.data:
+                log_error(f"Trainer not found in users table: {trainer_id}")
+                return None, "Trainer not found in users table"
+
+            trainer_user_uuid = user_result.data[0]['id']
+            log_info(f"Found trainer in users table with UUID: {trainer_user_uuid}")
+
+            # Check if trainer has a corresponding trainers table entry
+            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
+                'trainer_id', trainer_id
+            ).execute()
+
+            if trainer_result.data:
+                # Trainer already exists
+                trainer_uuid = trainer_result.data[0]['id']
+                log_info(f"Trainer already exists in trainers table with UUID: {trainer_uuid}")
+                return trainer_uuid, None
+
+            # Trainer doesn't exist in trainers table - create a record
+            log_info(f"Trainer {trainer_id} not found in trainers table, creating basic record")
+
+            try:
+                from datetime import datetime
+                import pytz
+                sa_tz = pytz.timezone('Africa/Johannesburg')
+
+                # Get any additional info from users table if available
+                user_full_result = self.db.table('users').select('*').eq(
+                    'trainer_id', trainer_id
+                ).execute()
+
+                user_data = user_full_result.data[0] if user_full_result.data else {}
+
+                # Prepare trainer record with available data
+                trainer_insert_data = {
+                    'trainer_id': trainer_id,
+                    'whatsapp': phone,
+                    'created_at': datetime.now(sa_tz).isoformat(),
+                    'updated_at': datetime.now(sa_tz).isoformat()
+                }
+
+                # Add optional fields if available from users table
+                if user_data.get('name'):
+                    trainer_insert_data['name'] = user_data['name']
+                if user_data.get('email'):
+                    trainer_insert_data['email'] = user_data['email']
+
+                # Create the trainer record
+                trainer_create_result = self.db.table('trainers').insert(trainer_insert_data).execute()
+
+                if trainer_create_result.data:
+                    trainer_uuid = trainer_create_result.data[0]['id']
+                    log_info(f"Successfully created trainer record with UUID: {trainer_uuid}")
+                    return trainer_uuid, None
+                else:
+                    log_error(f"Failed to create trainer record for {trainer_id} - no data returned")
+                    return None, "Failed to create trainer record"
+
+            except Exception as e:
+                log_error(f"Error creating trainer record: {str(e)}")
+                return None, f"Error creating trainer record: {str(e)}"
+
+        except Exception as e:
+            log_error(f"Error in _ensure_trainer_record_exists: {str(e)}")
+            return None, f"Unexpected error: {str(e)}"
+
     def handle_add_client_button(self, phone: str, button_id: str) -> Dict:
         """
         Handle add client flow buttons (profile filling and secondary invitation)
@@ -441,63 +528,15 @@ class ClientCreationButtonHandler:
                 self.task_service.complete_task(task_id, role)
                 return {'success': False, 'response': msg, 'handler': 'client_fills_no_phone'}
 
-            # Get trainer from users table first (which definitely exists)
-            log_info(f"Looking up trainer in users table: {user_id}")
-            user_result = self.db.table('users').select('id, trainer_id').eq(
-                'trainer_id', user_id
-            ).execute()
+            # Ensure trainer record exists in trainers table (create if needed)
+            trainer_uuid, error_msg = self._ensure_trainer_record_exists(phone, user_id)
 
-            if not user_result.data:
-                log_error(f"Trainer not found in users table: {user_id}")
-                msg = "❌ Trainer account not found. Please contact support."
+            if not trainer_uuid:
+                log_error(f"Failed to ensure trainer record exists: {error_msg}")
+                msg = "❌ Error setting up trainer profile. Please contact support."
                 self.whatsapp.send_message(phone, msg)
                 self.task_service.complete_task(task_id, role)
-                return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_not_in_users'}
-
-            trainer_user_uuid = user_result.data[0]['id']
-            log_info(f"Found trainer in users table with UUID: {trainer_user_uuid}")
-
-            # Check if trainer has a corresponding trainers table entry
-            trainer_result = self.db.table('trainers').select('id, trainer_id').eq(
-                'trainer_id', user_id
-            ).execute()
-
-            if not trainer_result.data:
-                # Trainer doesn't exist in trainers table - create a minimal record
-                log_info(f"Trainer {user_id} not found in trainers table, creating basic record")
-                try:
-                    from datetime import datetime
-                    import pytz
-                    sa_tz = pytz.timezone('Africa/Johannesburg')
-
-                    trainer_insert_data = {
-                        'trainer_id': user_id,
-                        'whatsapp': phone,
-                        'created_at': datetime.now(sa_tz).isoformat(),
-                        'updated_at': datetime.now(sa_tz).isoformat()
-                    }
-
-                    trainer_create_result = self.db.table('trainers').insert(trainer_insert_data).execute()
-
-                    if trainer_create_result.data:
-                        trainer_uuid = trainer_create_result.data[0]['id']
-                        log_info(f"Created trainer record with UUID: {trainer_uuid}")
-                    else:
-                        log_error(f"Failed to create trainer record for {user_id}")
-                        msg = "❌ Error setting up trainer profile. Please contact support."
-                        self.whatsapp.send_message(phone, msg)
-                        self.task_service.complete_task(task_id, role)
-                        return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_creation_failed'}
-
-                except Exception as e:
-                    log_error(f"Error creating trainer record: {str(e)}")
-                    msg = "❌ Error setting up trainer profile. Please contact support."
-                    self.whatsapp.send_message(phone, msg)
-                    self.task_service.complete_task(task_id, role)
-                    return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_creation_error'}
-            else:
-                trainer_uuid = trainer_result.data[0]['id']
-                log_info(f"Found trainer in trainers table with UUID: {trainer_uuid}")
+                return {'success': False, 'response': msg, 'handler': 'client_fills_trainer_record_error'}
 
             # Send invitation to client using InvitationService
             from services.relationships.invitations.invitation_service import InvitationService
