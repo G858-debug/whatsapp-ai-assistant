@@ -1413,129 +1413,97 @@ Welcome to the Refiloe family! 💪"""
             }
     
     def _extract_client_data_from_flow_response(self, flow_response: Dict, trainer_phone: str) -> Optional[Dict]:
-        """
-        Extract client data from flow response with proper type conversions.
-
-        IMPORTANT TYPE CONVERSIONS:
-        - has_package_deal: boolean (use directly from OptIn component)
-        - custom_price_amount: string -> convert to float for database
-        - sessions_per_week: string (keep as string or convert to int as needed)
-        - fitness_goals: array of strings (from CheckboxGroup)
-        - preferred_times: array of strings (from CheckboxGroup)
-        """
+        """Extract client data from flow response"""
         try:
-            # Get the response data
-            response_data = flow_response.get('response', {})
+            # Log what we receive for debugging
+            log_info(f"Extracting client data from response: {json.dumps(flow_response, indent=2)}")
 
-            log_info(f"Flow response data: {response_data}")
+            # The data comes directly in flow_response, not nested
+            response_data = flow_response
 
-            # Extract required client contact information
+            # Extract basic client information - these fields should be at the top level
             client_name = response_data.get('client_name', '').strip()
             client_phone = response_data.get('client_phone', '').strip()
             client_email = response_data.get('client_email', '').strip()
 
             if not client_name or not client_phone:
-                log_error("Missing required client data: name or phone")
+                log_error(f"Missing required client data: name={client_name}, phone={client_phone}")
+                log_error(f"Available keys in response_data: {list(response_data.keys())}")
                 return None
 
-            # Extract fitness information (NEW - comprehensive fields)
+            # Extract fitness-related fields
             fitness_goals = response_data.get('fitness_goals', [])
-            # fitness_goals comes as array from CheckboxGroup
             if isinstance(fitness_goals, str):
-                # Handle case where it might come as string
-                fitness_goals = [goal.strip() for goal in fitness_goals.split(',') if goal.strip()]
+                fitness_goals = [goal.strip() for goal in fitness_goals.split(',')]
 
-            specific_goals = response_data.get('specific_goals', '').strip()
-            experience_level = response_data.get('experience_level', '').strip()
+            experience_level = response_data.get('experience_level', 'beginner')
 
-            # sessions_per_week comes as string from RadioButtonsGroup
-            sessions_per_week = response_data.get('sessions_per_week', '').strip()
+            # IMPORTANT: sessions_per_week should be a small number (1-7), not a price
+            sessions_per_week = response_data.get('sessions_per_week', '2')
+            # Validate it's reasonable (if it's > 20, it's probably a data error)
+            try:
+                sessions_int = int(sessions_per_week)
+                if sessions_int > 20:
+                    log_warning(f"Sessions per week seems incorrect: {sessions_per_week}, defaulting to 2")
+                    sessions_per_week = '2'
+            except (ValueError, TypeError):
+                sessions_per_week = '2'
 
-            # preferred_times comes as array from CheckboxGroup
             preferred_times = response_data.get('preferred_times', [])
             if isinstance(preferred_times, str):
-                preferred_times = [time.strip() for time in preferred_times.split(',') if time.strip()]
+                preferred_times = [time.strip() for time in preferred_times.split(',')]
 
-            # Extract health information (NEW)
+            # Extract health information
             health_conditions = response_data.get('health_conditions', '').strip()
             medications = response_data.get('medications', '').strip()
             additional_notes = response_data.get('additional_notes', '').strip()
 
-            # Extract pricing information with CORRECTED TYPE HANDLING
+            # Extract pricing information
             pricing_choice = response_data.get('pricing_choice', 'use_default')
             custom_price_amount = response_data.get('custom_price_amount', '').strip()
-            calculated_price = response_data.get('calculated_price', '').strip()
 
-            # CRITICAL: Convert prices from string to float
-            # Priority 1: Use calculated_price (from calculate_pricing action)
-            # Priority 2: Fall back to old logic for backward compatibility
+            # Calculate final price
             final_price = None
-
-            if calculated_price:
-                # New flow: Use the calculated_price from the flow
-                try:
-                    final_price = float(calculated_price)
-                    log_info(f"Using calculated price from flow: {calculated_price} -> {final_price}")
-                except (ValueError, TypeError) as e:
-                    log_warning(f"Invalid calculated price: {calculated_price}, error: {str(e)}")
-            elif pricing_choice == 'custom_price' and custom_price_amount:
-                # Backward compatibility: Use custom_price_amount if calculated_price is not available
+            if pricing_choice == 'custom_price' and custom_price_amount:
                 try:
                     final_price = float(custom_price_amount)
-                    log_info(f"Using custom price (backward compatibility): {custom_price_amount} -> {final_price}")
-                except (ValueError, TypeError) as e:
-                    log_warning(f"Invalid custom price: {custom_price_amount}, error: {str(e)}")
+                    log_info(f"Using custom price: R{final_price}")
+                except (ValueError, TypeError):
+                    log_warning(f"Invalid custom price: {custom_price_amount}")
 
-            # CRITICAL: has_package_deal comes as BOOLEAN from OptIn component
+            # Handle package deal (boolean from OptIn component)
             has_package_deal = response_data.get('has_package_deal', False)
-            # Convert string 'true'/'false' to boolean if needed (defensive)
             if isinstance(has_package_deal, str):
                 has_package_deal = has_package_deal.lower() in ('true', 'yes', '1')
             else:
                 has_package_deal = bool(has_package_deal)
 
-            package_deal_details = response_data.get('package_deal_details', '').strip()
-
-            # Check if trainer_filled flag is present
-            trainer_filled = response_data.get('trainer_filled', 'true')
-
-            log_info(f"Extracted data - has_package_deal: {has_package_deal} (type: {type(has_package_deal)})")
-            log_info(f"Extracted data - custom_price: {final_price} (type: {type(final_price)})")
-            log_info(f"Extracted data - fitness_goals: {fitness_goals}")
-            log_info(f"Extracted data - preferred_times: {preferred_times}")
-
-            return {
-                # Contact information
+            # Build the extracted data - using keys expected by calling code
+            extracted_data = {
                 'name': client_name,
                 'phone': client_phone,
                 'email': client_email if client_email else None,
-
-                # Fitness information (NEW)
                 'fitness_goals': fitness_goals,
-                'specific_goals': specific_goals if specific_goals else None,
-                'experience_level': experience_level if experience_level else None,
-                'sessions_per_week': sessions_per_week if sessions_per_week else None,
+                'experience_level': experience_level,
+                'sessions_per_week': sessions_per_week,
                 'preferred_times': preferred_times,
-
-                # Health information (NEW)
                 'health_conditions': health_conditions if health_conditions else None,
                 'medications': medications if medications else None,
                 'additional_notes': additional_notes if additional_notes else None,
-
-                # Pricing information
                 'pricing_choice': pricing_choice,
-                'calculated_price': final_price,  # Final price (from calculated_price or custom_price for backward compatibility)
-                'custom_price': final_price,  # Kept for backward compatibility
-                'has_package_deal': has_package_deal,  # Boolean value
-                'package_deal_details': package_deal_details if package_deal_details else None,
-
-                # Metadata
-                'trainer_filled': trainer_filled == 'true',
-                'invitation_method': 'whatsapp_invite'  # Always send invitation for trainer-filled profiles
+                'custom_price': final_price,
+                'calculated_price': final_price,  # Same as custom_price for compatibility
+                'has_package_deal': has_package_deal,
+                'package_deal_details': None,  # Not included in new flow format
+                'invitation_method': 'whatsapp_invite'  # Default for trainer-filled profiles
             }
 
+            log_info(f"Successfully extracted client data: {client_name} ({client_phone})")
+            return extracted_data
+
         except Exception as e:
-            log_error(f"Error extracting client data from flow response: {str(e)}", exc_info=True)
+            log_error(f"Error extracting client data: {str(e)}")
+            log_error(f"Flow response keys: {list(flow_response.keys())}")
             return None
     
     def _create_and_send_invitation(self, trainer_id: str, client_data: Dict) -> Dict:
