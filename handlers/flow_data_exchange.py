@@ -139,6 +139,45 @@ def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -
             # Update timestamp
             session_timestamps[flow_token] = datetime.now()
 
+            # Check if this is a pricing calculation request from HEALTH_NOTES screen
+            if screen == "HEALTH_NOTES" and flow_data.get("operation") == "calculate_pricing":
+                logger.info(f"Processing pricing calculation from HEALTH_NOTES screen for session {flow_token}")
+
+                # Get pricing data
+                pricing_choice = flow_data.get("pricing_choice", "use_default")
+                trainer_default_price = flow_data.get("trainer_default_price", "R500")
+                custom_price_amount = flow_data.get("custom_price_amount", "")
+
+                logger.info(f"Pricing calculation - choice: {pricing_choice}, default: {trainer_default_price}, custom: {custom_price_amount}")
+
+                # Clean up price strings (remove "R" if present)
+                trainer_default_price = trainer_default_price.replace("R", "").strip()
+                custom_price_amount = custom_price_amount.replace("R", "").strip() if custom_price_amount else ""
+
+                # Calculate actual price
+                if pricing_choice == "use_default":
+                    calculated_price = f"R{trainer_default_price}"
+                else:
+                    calculated_price = f"R{custom_price_amount}" if custom_price_amount else f"R{trainer_default_price}"
+
+                logger.info(f"Calculated price: {calculated_price}")
+
+                # Add calculated price to the data
+                flow_data["calculated_price"] = calculated_price
+
+                # Update session with calculated price
+                flow_sessions[flow_token]["calculated_price"] = calculated_price
+
+                # Return navigation response to CONFIRMATION screen
+                response = {
+                    "version": version,
+                    "screen": "CONFIRMATION",
+                    "data": flow_data  # This includes all original data plus calculated_price
+                }
+
+                logger.info(f"Returning pricing calculation response: {json.dumps(response, indent=2)}")
+                return response
+
             return {
                 "version": version,
                 "data": {}
