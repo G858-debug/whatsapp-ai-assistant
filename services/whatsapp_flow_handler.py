@@ -1552,7 +1552,7 @@ Welcome to the Refiloe family! 💪"""
                 'client_name': client_data['name'],
                 'client_email': client_data.get('email'),
                 'invitation_token': invitation_token,
-                'invitation_method': 'whatsapp',
+                'invitation_method': 'type_details',  # Use allowed value: 'type_details' for WhatsApp Flow
                 'status': 'pending_client_acceptance',  # Special status for trainer-filled profiles
                 'profile_completion_method': 'trainer_fills',  # Track that trainer filled the profile
                 'trainer_provided_data': trainer_provided_data,  # JSONB with all data (includes pricing_choice, etc.)
