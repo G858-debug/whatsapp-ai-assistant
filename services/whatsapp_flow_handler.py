@@ -1271,11 +1271,26 @@ Welcome to the Refiloe family! 💪"""
         """Handle trainer add client flow response"""
         try:
             log_info(f"Processing trainer add client flow response for {phone_number}")
-            
-            # Extract client data from flow response
-            client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
-            
+            log_info(f"Flow response data: {json.dumps(flow_response, indent=2)}")
+
+            # Extract client data - handle both direct data and nested response_json format
+            if 'client_name' in flow_response or 'client_phone' in flow_response:
+                # Data is already at the top level (from flow_response_handler)
+                client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
+            elif 'response_json' in flow_response:
+                # Data is nested in response_json (legacy format)
+                response_json = flow_response.get('response_json', '{}')
+                if isinstance(response_json, str):
+                    parsed_data = json.loads(response_json)
+                else:
+                    parsed_data = response_json
+                client_data = self._extract_client_data_from_flow_response(parsed_data, phone_number)
+            else:
+                # Try to extract from whatever structure we have
+                client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
+
             if not client_data:
+                log_error("Failed to extract client data from flow response")
                 return {
                     'success': False,
                     'error': 'Failed to extract client data from flow response'
