@@ -1449,13 +1449,25 @@ Welcome to the Refiloe family! 💪"""
             # Extract pricing information with CORRECTED TYPE HANDLING
             pricing_choice = response_data.get('pricing_choice', 'use_default')
             custom_price_amount = response_data.get('custom_price_amount', '').strip()
+            calculated_price = response_data.get('calculated_price', '').strip()
 
-            # CRITICAL: Convert custom_price_amount from string to float
+            # CRITICAL: Convert prices from string to float
+            # Priority 1: Use calculated_price (from calculate_pricing action)
+            # Priority 2: Fall back to old logic for backward compatibility
             final_price = None
-            if pricing_choice == 'custom_price' and custom_price_amount:
+
+            if calculated_price:
+                # New flow: Use the calculated_price from the flow
+                try:
+                    final_price = float(calculated_price)
+                    log_info(f"Using calculated price from flow: {calculated_price} -> {final_price}")
+                except (ValueError, TypeError) as e:
+                    log_warning(f"Invalid calculated price: {calculated_price}, error: {str(e)}")
+            elif pricing_choice == 'custom_price' and custom_price_amount:
+                # Backward compatibility: Use custom_price_amount if calculated_price is not available
                 try:
                     final_price = float(custom_price_amount)
-                    log_info(f"Converted custom price: {custom_price_amount} -> {final_price}")
+                    log_info(f"Using custom price (backward compatibility): {custom_price_amount} -> {final_price}")
                 except (ValueError, TypeError) as e:
                     log_warning(f"Invalid custom price: {custom_price_amount}, error: {str(e)}")
 
@@ -1497,7 +1509,8 @@ Welcome to the Refiloe family! 💪"""
 
                 # Pricing information
                 'pricing_choice': pricing_choice,
-                'custom_price': final_price,  # Now properly converted to float
+                'calculated_price': final_price,  # Final price (from calculated_price or custom_price for backward compatibility)
+                'custom_price': final_price,  # Kept for backward compatibility
                 'has_package_deal': has_package_deal,  # Boolean value
                 'package_deal_details': package_deal_details if package_deal_details else None,
 
@@ -1534,12 +1547,16 @@ Welcome to the Refiloe family! 💪"""
                 'medications': client_data.get('medications'),
                 'additional_notes': client_data.get('additional_notes'),
                 'pricing_choice': client_data.get('pricing_choice'),
-                'custom_price': client_data.get('custom_price'),
+                'calculated_price': client_data.get('calculated_price'),  # Store the calculated price
+                'custom_price': client_data.get('custom_price'),  # Keep for backward compatibility
                 'has_package_deal': client_data.get('has_package_deal', False),
                 'package_deal_details': client_data.get('package_deal_details')
             }
 
             # Create invitation record with comprehensive data
+            # Use calculated_price as the primary price field, fall back to custom_price for backward compatibility
+            client_price = client_data.get('calculated_price') or client_data.get('custom_price')
+
             invitation_data = {
                 'trainer_id': trainer_id,
                 'client_phone': client_data['phone'],
@@ -1551,7 +1568,7 @@ Welcome to the Refiloe family! 💪"""
                 'profile_completion_method': 'trainer_fills',  # Track that trainer filled the profile
                 'trainer_provided_data': trainer_provided_data,  # JSONB with all data
                 'pricing_choice': client_data.get('pricing_choice', 'use_default'),
-                'custom_price': client_data.get('custom_price'),  # Already converted to float
+                'custom_price': client_price,  # Store calculated_price or custom_price
                 'has_package_deal': client_data.get('has_package_deal', False),  # Boolean
                 'package_deal_details': client_data.get('package_deal_details'),
                 'expires_at': (datetime.now() + timedelta(days=7)).isoformat(),
@@ -1605,8 +1622,11 @@ Hi {client_data['name']}! 👋
                 invitation_message += f"\n• Sessions/week: {client_data['sessions_per_week']}"
 
             # Add pricing information
-            if client_data.get('custom_price'):
-                invitation_message += f"\n• Price: R{client_data['custom_price']:.0f} per session (custom rate)"
+            # Use calculated_price (or custom_price for backward compatibility)
+            client_price = client_data.get('calculated_price') or client_data.get('custom_price')
+
+            if client_price:
+                invitation_message += f"\n• Price: R{client_price:.0f} per session"
             elif trainer_default_price:
                 invitation_message += f"\n• Price: R{trainer_default_price:.0f} per session"
 
@@ -1675,8 +1695,10 @@ Reply 'ACCEPT' to get started! 🚀"""
             }
 
             # Add custom pricing if provided
-            if client_data.get('custom_price'):
-                new_client_data['custom_price_per_session'] = client_data['custom_price']
+            # Use calculated_price as primary, fall back to custom_price for backward compatibility
+            client_price = client_data.get('calculated_price') or client_data.get('custom_price')
+            if client_price:
+                new_client_data['custom_price_per_session'] = client_price
             
             client_result = self.supabase.table('clients').insert(new_client_data).execute()
             
