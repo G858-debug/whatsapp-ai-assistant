@@ -292,7 +292,7 @@ class RelationshipTaskHandler:
             # Show the "new client" message
             msg = (
                 f"🎉 *New Client!*\n\n"
-                f"{client_name} ({client_phone}) is new to Refiloe!\n\n"
+                f"{client_name} ({client_phone}) is a new number on my database.\n\n"
                 f"Who should populate their fitness profile?"
             )
 
