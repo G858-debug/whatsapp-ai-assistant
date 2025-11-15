@@ -128,7 +128,7 @@ class ContactConfirmationButtonHandler:
                     f"Who should populate their fitness profile?"
                 )
                 buttons = [
-                    {'id': 'client_fills_profile', 'title': '📱 Client to populate'},
+                    {'id': 'client_fills_profile', 'title': '📱 Client populates'},
                     {'id': 'trainer_fills_profile', 'title': '✏️ I\'ll populate'}
                 ]
                 self.whatsapp.send_button_message(phone, msg, buttons)

@@ -2148,9 +2148,9 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
         Args:
             trainer_phone: Trainer's WhatsApp number
             trainer_id: Optional trainer ID (will lookup if not provided)
-            client_name: Optional client name to pre-fill in the flow
-            client_phone: Optional client phone to pre-fill in the flow
-            client_email: Optional client email to pre-fill in the flow
+            client_name: Optional client name to pre-populate in the flow
+            client_phone: Optional client phone to pre-populate in the flow
+            client_email: Optional client email to pre-populate in the flow
 
         Returns:
             Dict with success status and flow_token or error details
@@ -2226,7 +2226,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "text": "Add New Client"
                     },
                     "body": {
-                        "text": "Fill in your client's details to create their profile. They'll receive an invitation to review and accept."
+                        "text": "Populate your client's details to create their profile. They'll receive an invitation to review and accept."
                     },
                     "footer": {
                         "text": f"Your default rate: R{int(trainer_default_price)}/session"
