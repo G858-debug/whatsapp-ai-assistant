@@ -67,6 +67,19 @@ class ContactConfirmationButtonHandler:
             elif button_id == 'confirm_contact_edit':
                 return self._handle_edit_details(phone, role, task_id, contact_data)
 
+            elif button_id == 'edit_contact_name':
+                return self._handle_edit_name_choice(phone, role, task_id, task_data, contact_data)
+
+            elif button_id == 'edit_contact_phone':
+                return self._handle_edit_phone_choice(phone, role, task_id, task_data, contact_data)
+
+            elif button_id == 'confirm_edited_contact':
+                return self._handle_confirm_edited_contact(phone, role, user_id, task_id, contact_data)
+
+            elif button_id == 'edit_contact_again':
+                # Go back to choosing what to edit
+                return self._handle_edit_details(phone, role, task_id, contact_data)
+
             else:
                 log_error(f"Unknown contact confirmation button: {button_id}")
                 return {
@@ -264,4 +277,104 @@ class ContactConfirmationButtonHandler:
                 'success': False,
                 'response': "❌ Sorry, I encountered an error. Please try sharing the contact again.",
                 'handler': 'contact_edit_error'
+            }
+
+    def _handle_edit_name_choice(
+        self,
+        phone: str,
+        role: str,
+        task_id: str,
+        task_data: Dict,
+        contact_data: Dict
+    ) -> Dict:
+        """Handle 'Edit Name' button click"""
+        try:
+            current_name = contact_data.get('name', 'Unknown')
+
+            # Update task to collect new name
+            task_data['step'] = 'editing_name'
+            self.task_service.update_task(task_id, role, task_data)
+
+            msg = (
+                f"✏️ *Edit Name*\n\n"
+                f"Current name: *{current_name}*\n\n"
+                f"Please enter the correct full name:\n\n"
+                f"(Type /cancel to go back)"
+            )
+
+            self.whatsapp.send_message(phone, msg)
+
+            return {
+                'success': True,
+                'response': msg,
+                'handler': 'contact_edit_name_prompt'
+            }
+
+        except Exception as e:
+            log_error(f"Error handling edit name choice: {str(e)}")
+            return {
+                'success': False,
+                'response': "❌ Error. Please try again.",
+                'handler': 'contact_edit_name_choice_error'
+            }
+
+    def _handle_edit_phone_choice(
+        self,
+        phone: str,
+        role: str,
+        task_id: str,
+        task_data: Dict,
+        contact_data: Dict
+    ) -> Dict:
+        """Handle 'Edit Phone' button click"""
+        try:
+            current_phone = contact_data.get('phone', 'N/A')
+
+            # Update task to collect new phone
+            task_data['step'] = 'editing_phone'
+            self.task_service.update_task(task_id, role, task_data)
+
+            msg = (
+                f"📱 *Edit Phone Number*\n\n"
+                f"Current number: *{current_phone}*\n\n"
+                f"Please enter the correct phone number:\n"
+                f"(Include country code, e.g., +27 83 123 4567)\n\n"
+                f"(Type /cancel to go back)"
+            )
+
+            self.whatsapp.send_message(phone, msg)
+
+            return {
+                'success': True,
+                'response': msg,
+                'handler': 'contact_edit_phone_prompt'
+            }
+
+        except Exception as e:
+            log_error(f"Error handling edit phone choice: {str(e)}")
+            return {
+                'success': False,
+                'response': "❌ Error. Please try again.",
+                'handler': 'contact_edit_phone_choice_error'
+            }
+
+    def _handle_confirm_edited_contact(
+        self,
+        phone: str,
+        role: str,
+        user_id: str,
+        task_id: str,
+        contact_data: Dict
+    ) -> Dict:
+        """Handle confirmation of edited contact - proceed to add client flow"""
+        try:
+            # Use the same logic as _handle_confirm_yes to proceed
+            return self._handle_confirm_yes(phone, role, user_id, task_id, contact_data)
+
+        except Exception as e:
+            log_error(f"Error confirming edited contact: {str(e)}")
+            return {
+                'success': False,
+                'response': "❌ Error. Please try again.",
+                'handler': 'confirm_edited_contact_error'
             }
