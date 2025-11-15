@@ -1501,7 +1501,7 @@ Welcome to the Refiloe family! 💪"""
                 'calculated_price': final_price,  # Same as custom_price for compatibility
                 'has_package_deal': has_package_deal,
                 'package_deal_details': None,  # Not included in new flow format
-                'invitation_method': 'whatsapp_invite'  # Default for trainer-filled profiles
+                'invitation_method': 'type_details'  # FIXED: Use allowed database value
             }
 
             log_info(f"Successfully extracted client data: {client_name} ({client_phone})")
