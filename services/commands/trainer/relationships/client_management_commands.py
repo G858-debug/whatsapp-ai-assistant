@@ -97,8 +97,8 @@ def handle_add_client_command(phone: str, trainer_id: str, db, whatsapp, task_se
 
         # Create interactive buttons
         buttons = [
-            {'id': 'add_client_type', 'title': 'Type Details'},
-            {'id': 'add_client_share', 'title': 'Share Contact'}
+            {'id': 'add_client_type', 'title': 'Type details'},
+            {'id': 'add_client_share', 'title': 'Share contact'}
         ]
 
         # Send message with clickable buttons
@@ -130,14 +130,14 @@ def _offer_resume(phone: str, trainer_id: str, db, whatsapp, task_service, timeo
         client_name = collected_data.get('name', 'your client')
 
         msg = (
-            f"🔄 *Resume Previous Session?*\n\n"
+            f"🔄 *Resume previous session?*\n\n"
             f"You were adding {client_name}.\n\n"
             f"Would you like to:"
         )
 
         buttons = [
             {'id': 'resume_add_client', 'title': f'Resume {client_name}'},
-            {'id': 'start_fresh_add_client', 'title': 'Start Fresh'}
+            {'id': 'start_fresh_add_client', 'title': 'Start afresh'}
         ]
 
         whatsapp.send_button_message(phone, msg, buttons)
