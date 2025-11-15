@@ -144,6 +144,75 @@ def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -
                 "data": {}
             }
 
+        elif action == 'calculate_pricing':
+            # Handle pricing calculation from HEALTH_NOTES screen
+            logger.info(f"Processing calculate_pricing action for session {flow_token}")
+
+            # Get existing session or create new one
+            if flow_token not in flow_sessions:
+                flow_sessions[flow_token] = {}
+                session_timestamps[flow_token] = datetime.now()
+                logger.info(f"Created new session during calculate_pricing: {flow_token}")
+
+            # Merge all incoming data into session first
+            all_data = {}
+
+            # Get data from the decrypted_data root level (where form fields are sent)
+            for key, value in decrypted_data.items():
+                if key not in ['action', 'screen', 'flow_token', 'version', 'data']:
+                    all_data[key] = value
+
+            # Also get data from the nested 'data' object if present
+            if flow_data:
+                all_data.update(flow_data)
+
+            # Store in session
+            flow_sessions[flow_token].update(all_data)
+            session_timestamps[flow_token] = datetime.now()
+
+            # Extract pricing fields
+            pricing_choice = all_data.get('pricing_choice', '')
+            trainer_default_price = all_data.get('trainer_default_price', '')
+            custom_price_amount = all_data.get('custom_price_amount', '')
+
+            logger.info(f"Pricing calculation - choice: {pricing_choice}, default: {trainer_default_price}, custom: {custom_price_amount}")
+
+            # Calculate the actual price based on the pricing_choice
+            calculated_price = ""
+
+            if pricing_choice == "use_default":
+                # Use the trainer's default price
+                calculated_price = trainer_default_price
+            elif pricing_choice == "custom_price":
+                # Use custom price if provided, otherwise fall back to default
+                if custom_price_amount and custom_price_amount.strip():
+                    calculated_price = custom_price_amount
+                else:
+                    # Fallback to trainer default if custom is empty
+                    calculated_price = trainer_default_price
+            else:
+                # Fallback to default price if pricing_choice is unexpected
+                calculated_price = trainer_default_price
+
+            logger.info(f"Calculated price: {calculated_price}")
+
+            # Add calculated_price to the data
+            all_data['calculated_price'] = calculated_price
+
+            # Update session with calculated price
+            flow_sessions[flow_token]['calculated_price'] = calculated_price
+
+            # Return response navigating to CONFIRMATION screen with all data including calculated_price
+            response = {
+                "version": version,
+                "screen": "CONFIRMATION",
+                "data": all_data
+            }
+
+            logger.info(f"Returning calculate_pricing response: {json.dumps(response, indent=2)}")
+
+            return response
+
         else:
             # Any other action (like "navigate", "BACK", etc.)
             # Treat as data_exchange - store any data that came with it
