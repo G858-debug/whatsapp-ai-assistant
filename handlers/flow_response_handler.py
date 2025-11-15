@@ -222,7 +222,7 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
 
             flow_handler = WhatsAppFlowHandler(supabase, whatsapp_service)
             result = flow_handler._handle_trainer_add_client_response(
-                {'response_json': json.dumps(flow_data)},
+                flow_data,  # Pass the parsed data directly
                 phone_number,
                 flow_token
             )
