@@ -136,7 +136,7 @@ class ContactConfirmationButtonHandler:
             if scenario == 'SCENARIO_NEW' or scenario == 'new':
                 # New client - ask who fills the profile
                 msg = (
-                    f"🎉 *New Client!*\n\n"
+                    f"🎉 *New client!*\n\n"
                     f"{name} ({contact_phone}) is a new number on my database.\n\n"
                     f"Who should populate their fitness profile?"
                 )
@@ -249,7 +249,7 @@ class ContactConfirmationButtonHandler:
 
             # Ask what they want to edit with buttons
             msg = (
-                f"📝 *Edit Contact Details*\n\n"
+                f"📝 *Edit contact details*\n\n"
                 f"Current details:\n"
                 f"• Name: *{name}*\n"
                 f"• Phone: *{contact_phone}*\n\n"
@@ -257,8 +257,8 @@ class ContactConfirmationButtonHandler:
             )
 
             buttons = [
-                {'id': 'edit_contact_name', 'title': '👤 Full Name'},
-                {'id': 'edit_contact_phone', 'title': '📱 Phone Number'}
+                {'id': 'edit_contact_name', 'title': '👤 Full name'},
+                {'id': 'edit_contact_phone', 'title': '📱 Phone number'}
             ]
 
             self.whatsapp.send_button_message(phone, msg, buttons)
@@ -296,7 +296,7 @@ class ContactConfirmationButtonHandler:
             self.task_service.update_task(task_id, role, task_data)
 
             msg = (
-                f"✏️ *Edit Name*\n\n"
+                f"✏️ *Edit name*\n\n"
                 f"Current name: *{current_name}*\n\n"
                 f"Please enter the correct full name:\n\n"
                 f"(Type /cancel to go back)"
@@ -335,7 +335,7 @@ class ContactConfirmationButtonHandler:
             self.task_service.update_task(task_id, role, task_data)
 
             msg = (
-                f"📱 *Edit Phone Number*\n\n"
+                f"📱 *Edit phone number*\n\n"
                 f"Current number: *{current_phone}*\n\n"
                 f"Please enter the correct phone number:\n"
                 f"(Include country code, e.g., +27 83 123 4567)\n\n"
