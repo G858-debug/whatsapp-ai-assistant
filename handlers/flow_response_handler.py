@@ -181,11 +181,6 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
         flow_name = nfm_reply['name']
         log_info(f"Flow name: {flow_name}")
 
-        # Extract flow_token if present (optional field used for flow identification)
-        flow_token = nfm_reply.get('body', '')
-        if flow_token:
-            log_info(f"Flow token: {flow_token}")
-
         if 'response_json' not in nfm_reply:
             error_msg = "Invalid nfm_reply structure: missing 'response_json' field"
             log_error(f"NFM reply validation failed: {error_msg}")
@@ -212,6 +207,11 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
                 'message': error_msg,
                 'error_type': 'invalid_json_format'
             }
+
+        # Extract flow_token from INSIDE the parsed JSON (not from nfm_reply body)
+        flow_token = flow_data.get('flow_token', '')
+        if flow_token:
+            log_info(f"Flow token: {flow_token}")
 
         # Step 6: Route to appropriate flow handler based on flow_token
         log_info(f"Step 2: Routing flow '{flow_name}' with token '{flow_token}' to appropriate handler")
