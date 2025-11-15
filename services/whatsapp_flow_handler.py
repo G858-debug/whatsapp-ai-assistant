@@ -1271,7 +1271,10 @@ Welcome to the Refiloe family! 💪"""
         """Handle trainer add client flow response"""
         try:
             log_info(f"Processing trainer add client flow response for {phone_number}")
-            log_info(f"Flow response data: {json.dumps(flow_response, indent=2)}")
+            log_info(f"Flow token: {flow_token}")
+            log_info(f"Flow response type: {type(flow_response)}")
+            log_info(f"Flow response keys: {list(flow_response.keys())}")
+            log_info(f"Full flow response: {json.dumps(flow_response, indent=2)}")
 
             # Extract client data - handle both direct data and nested response_json format
             if 'client_name' in flow_response or 'client_phone' in flow_response:
@@ -1291,10 +1294,13 @@ Welcome to the Refiloe family! 💪"""
 
             if not client_data:
                 log_error("Failed to extract client data from flow response")
+                log_error(f"Flow response was: {json.dumps(flow_response, indent=2)}")
                 return {
                     'success': False,
                     'error': 'Failed to extract client data from flow response'
                 }
+
+            log_info(f"Extracted client data: {json.dumps(client_data, indent=2)}")
             
             # Validate trainer exists
             trainer_result = self.supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
