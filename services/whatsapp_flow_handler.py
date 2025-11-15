@@ -2226,7 +2226,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "text": "Add New Client"
                     },
                     "body": {
-                        "text": f"Populate {client_name or 'your client'}'s details to create their profile. They'll receive an invitation to review and accept."
+                        "text": f"Populate {client_name + \"'s\" if client_name else \"your client's\"} details to create their profile. They'll receive an invitation to review and accept."
                     },
                     "action": {
                         "name": "flow",

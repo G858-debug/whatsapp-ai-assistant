@@ -598,8 +598,7 @@ class PaymentCommandHandler:
                     'type': 'price_info',
                     'message': (
                         f"💰 Pricing for {client_data['name']}:\n\n"
-                        f"Custom rate: R{custom_price} per session\n"
-                        f"(Your default rate: R{default_price})"
+                        f"Custom rate: R{custom_price} per session"
                     )
                 }
             else:

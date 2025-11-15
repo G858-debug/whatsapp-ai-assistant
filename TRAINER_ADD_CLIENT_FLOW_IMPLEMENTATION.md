@@ -231,7 +231,6 @@ flow_action_payload = {
 ```
 
 This price cascades to:
-- WELCOME screen: Shows "Your default rate: R500 per session"
 - PRICING screen: Displays in RadioButton option "Use standard rate (R500)"
 
 ## Error Handling
