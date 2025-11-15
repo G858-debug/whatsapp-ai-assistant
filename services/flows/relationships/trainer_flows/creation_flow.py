@@ -653,13 +653,13 @@ class CreationFlow:
 
                     # TODO: Branch to Scenario 1B handler
                     # This should:
-                    # - Ask trainer to fill in fitness profile fields
+                    # - Ask trainer to populate fitness profile fields
                     # - Collect: fitness_goals, experience_level, health_conditions, etc.
                     # - Create complete client record with pricing
                     # - Send final invitation for client to accept
                     msg = (
                         "✅ *Great!*\n\n"
-                        f"You'll fill in the client's fitness details now.\n\n"
+                        f"You'll populate the client's fitness details now.\n\n"
                         f"📋 *Next Steps:*\n"
                         f"I'll ask you questions about the client's:\n"
                         f"• Fitness goals\n"
@@ -698,14 +698,14 @@ class CreationFlow:
             return {'success': False, 'response': error_msg, 'handler': 'new_client_error'}
 
     def _ask_profile_completion(self, trainer_phone: str, task: Dict, task_data: Dict) -> Dict:
-        """Ask who should fill in the fitness profile details"""
+        """Ask who should populate the fitness profile details"""
         try:
             selected_price = task_data.get('selected_price', 0)
 
             msg = (
                 f"✅ *Price Set: R{selected_price}*\n\n"
                 f"👤 *Profile Completion*\n\n"
-                f"Who should fill in the client's fitness details?\n\n"
+                f"Who should populate the client's fitness details?\n\n"
                 f"• *Client Fills Details:* Client completes their own fitness profile\n"
                 f"• *I'll Fill Details:* You complete the profile for them"
             )
@@ -1085,7 +1085,7 @@ class CreationFlow:
                     # Trainer fills details
                     msg = (
                         "✅ *Great!*\n\n"
-                        f"You'll fill in additional training details for this client.\n\n"
+                        f"You'll populate additional training details for this client.\n\n"
                         f"📋 *Note:* The client already has a profile. "
                         f"You're setting up your own training plan with them.\n\n"
                         f"_This feature is coming soon. For now, sending invitation..._"
@@ -1162,14 +1162,14 @@ class CreationFlow:
 
     def _ask_multi_trainer_profile_completion(self, trainer_phone: str,
                                              task: Dict, task_data: Dict) -> Dict:
-        """Ask who should fill in the profile details for multi-trainer scenario"""
+        """Ask who should populate the profile details for multi-trainer scenario"""
         try:
             selected_price = task_data.get('selected_price', 0)
 
             msg = (
                 f"✅ *Price Set: R{selected_price}*\n\n"
                 f"👤 *Profile Details*\n\n"
-                f"The client already has a profile. Who should fill in YOUR specific training details?\n\n"
+                f"The client already has a profile. Who should populate YOUR specific training details?\n\n"
                 f"• *Client Fills Details:* Client completes training preferences for you\n"
                 f"• *I'll Fill Details:* You set up your own training plan for them"
             )

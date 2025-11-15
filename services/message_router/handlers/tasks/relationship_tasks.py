@@ -293,7 +293,7 @@ class RelationshipTaskHandler:
             msg = (
                 f"🎉 *New Client!*\n\n"
                 f"{client_name} ({client_phone}) is new to Refiloe!\n\n"
-                f"Who should fill in their fitness profile?"
+                f"Who should populate their fitness profile?"
             )
 
             # Show buttons
