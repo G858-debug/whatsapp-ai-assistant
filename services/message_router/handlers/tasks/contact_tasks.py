@@ -179,15 +179,15 @@ class ContactTaskHandler:
 
             # Show updated details with confirmation buttons
             msg = (
-                f"✅ *Updated Contact Details*\n\n"
+                f"✅ *Updated contact details*\n\n"
                 f"• Name: *{name}*\n"
                 f"• Phone: *{phone_num}*\n\n"
                 f"Are these details now correct?"
             )
 
             buttons = [
-                {'id': 'confirm_edited_contact', 'title': '✅ Yes, Continue'},
-                {'id': 'edit_contact_again', 'title': '❌ Edit Again'}
+                {'id': 'confirm_edited_contact', 'title': '✅ Yes, continue'},
+                {'id': 'edit_contact_again', 'title': '❌ Edit again'}
             ]
 
             self.whatsapp.send_button_message(phone, msg, buttons)

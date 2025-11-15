@@ -203,7 +203,7 @@ def send_contact_confirmation_message(
 
         # Build confirmation message
         message = (
-            f"📇 *Contact Received*\n\n"
+            f"📇 *Contact received*\n\n"
             f"*Name:* {name}\n"
             f"*Phone:* {phone}\n"
         )
