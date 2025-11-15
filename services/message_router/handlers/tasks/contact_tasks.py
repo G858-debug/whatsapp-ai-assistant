@@ -69,7 +69,7 @@ class ContactTaskHandler:
         task_data: Dict,
         role: str
     ) -> Dict:
-        """Handle the contact editing flow"""
+        """Handle the contact editing flow with selective field editing"""
         try:
             step = task_data.get('step', '')
             contact_data = task_data.get('contact_data', {})
@@ -85,116 +85,64 @@ class ContactTaskHandler:
                     'handler': 'contact_edit_cancelled'
                 }
 
-            # Handle edit name step
-            if step == 'edit_contact_name':
-                # Save the name
-                contact_data['name'] = message.strip()
+            # Handle editing name step
+            if step == 'editing_name':
+                # Save the new name
+                new_name = message.strip()
+
+                # Basic validation - at least 2 characters
+                if len(new_name) < 2:
+                    msg = "❌ Name must be at least 2 characters. Please try again."
+                    self.whatsapp.send_message(phone, msg)
+                    return {
+                        'success': True,
+                        'response': msg,
+                        'handler': 'contact_edit_name_too_short'
+                    }
+
+                contact_data['name'] = new_name
 
                 # Extract first and last name
-                name_parts = message.strip().split(maxsplit=1)
-                contact_data['first_name'] = name_parts[0] if name_parts else message.strip()
+                name_parts = new_name.split(maxsplit=1)
+                contact_data['first_name'] = name_parts[0] if name_parts else new_name
                 contact_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
-
-                # Update task to next step
-                task_data['contact_data'] = contact_data
-                task_data['step'] = 'edit_contact_phone'
-                self.task_service.update_task(task_id, role, task_data)
-
-                # Ask for phone
-                msg = (
-                    f"✅ Got it! Name: *{contact_data['name']}*\n\n"
-                    f"Now, please send the contact's *phone number* (with country code, e.g., +27 73 123 4567):\n\n"
-                    f"(Type /cancel to go back)"
-                )
-                self.whatsapp.send_message(phone, msg)
-
-                return {
-                    'success': True,
-                    'response': msg,
-                    'handler': 'contact_edit_name_collected'
-                }
-
-            # Handle edit phone step
-            elif step == 'edit_contact_phone':
-                # Clean and save the phone number
-                phone_number = message.strip()
-
-                # Clean phone number if reg_service available
-                if self.reg_service:
-                    phone_number = self.reg_service.clean_phone_number(phone_number)
-                else:
-                    # Basic cleaning
-                    phone_number = ''.join(c for c in phone_number if c.isdigit() or c == '+')
-
-                contact_data['phone'] = phone_number
-                contact_data['phones'] = [phone_number]
-
-                # Update task to next step
-                task_data['contact_data'] = contact_data
-                task_data['step'] = 'edit_contact_email'
-                self.task_service.update_task(task_id, role, task_data)
-
-                # Ask for email (optional)
-                msg = (
-                    f"✅ Got it! Phone: *{phone_number}*\n\n"
-                    f"Lastly, please send the contact's *email address* (optional):\n\n"
-                    f"Type *SKIP* if they don't have an email, or */cancel* to abort."
-                )
-                self.whatsapp.send_message(phone, msg)
-
-                return {
-                    'success': True,
-                    'response': msg,
-                    'handler': 'contact_edit_phone_collected'
-                }
-
-            # Handle edit email step
-            elif step == 'edit_contact_email':
-                # Save email if provided
-                if message.strip().upper() != 'SKIP':
-                    email = message.strip()
-                    contact_data['emails'] = [email]
-                else:
-                    contact_data['emails'] = []
 
                 # Update task data
                 task_data['contact_data'] = contact_data
 
-                # Complete the task
-                self.task_service.complete_task(task_id, role)
+                # Send re-confirmation with buttons
+                return self._send_edit_confirmation(phone, role, task_id, task_data, contact_data)
 
-                # Send final confirmation
-                name = contact_data.get('name', 'Unknown')
-                phone_num = contact_data.get('phone', 'N/A')
-                emails = contact_data.get('emails', [])
+            # Handle editing phone step
+            elif step == 'editing_phone':
+                # Clean and validate the phone number
+                phone_input = message.strip()
 
-                msg = (
-                    f"✅ *Contact Updated!*\n\n"
-                    f"*Name:* {name}\n"
-                    f"*Phone:* {phone_num}\n"
-                )
+                # Clean phone number
+                if self.reg_service:
+                    cleaned_phone = self.reg_service.clean_phone_number(phone_input)
+                else:
+                    # Basic cleaning
+                    cleaned_phone = ''.join(c for c in phone_input if c.isdigit() or c == '+')
 
-                if emails:
-                    msg += f"*Email:* {emails[0]}\n"
+                # Basic validation - at least 10 digits
+                if len(cleaned_phone.replace('+', '')) < 10:
+                    msg = "❌ Invalid phone number. Please enter a valid phone number."
+                    self.whatsapp.send_message(phone, msg)
+                    return {
+                        'success': True,
+                        'response': msg,
+                        'handler': 'contact_edit_phone_invalid'
+                    }
 
-                msg += (
-                    f"\n"
-                    f"Great! I've saved the updated contact information.\n\n"
-                    f"What would you like to do next?\n"
-                    f"• /create-trainee - Add them as a client\n"
-                    f"• /invite-trainee - Send them an invitation"
-                )
+                contact_data['phone'] = cleaned_phone
+                contact_data['phones'] = [cleaned_phone]
 
-                self.whatsapp.send_message(phone, msg)
+                # Update task data
+                task_data['contact_data'] = contact_data
 
-                log_info(f"Contact edited by {phone}: {name}")
-
-                return {
-                    'success': True,
-                    'response': msg,
-                    'handler': 'contact_edit_completed',
-                    'contact_data': contact_data
-                }
+                # Send re-confirmation with buttons
+                return self._send_edit_confirmation(phone, role, task_id, task_data, contact_data)
 
             else:
                 log_error(f"Unknown contact edit step: {step}")
@@ -210,6 +158,54 @@ class ContactTaskHandler:
                 'success': False,
                 'response': "❌ Sorry, I encountered an error. Type /stop to cancel.",
                 'handler': 'contact_edit_flow_error'
+            }
+
+    def _send_edit_confirmation(
+        self,
+        phone: str,
+        role: str,
+        task_id: str,
+        task_data: Dict,
+        contact_data: Dict
+    ) -> Dict:
+        """Send confirmation message with updated contact details"""
+        try:
+            name = contact_data.get('name', 'Unknown')
+            phone_num = contact_data.get('phone', 'N/A')
+
+            # Update task to wait for confirmation
+            task_data['step'] = 'confirm_edited_contact'
+            self.task_service.update_task(task_id, role, task_data)
+
+            # Show updated details with confirmation buttons
+            msg = (
+                f"✅ *Updated Contact Details*\n\n"
+                f"• Name: *{name}*\n"
+                f"• Phone: *{phone_num}*\n\n"
+                f"Are these details now correct?"
+            )
+
+            buttons = [
+                {'id': 'confirm_edited_contact', 'title': '✅ Yes, Continue'},
+                {'id': 'edit_contact_again', 'title': '❌ Edit Again'}
+            ]
+
+            self.whatsapp.send_button_message(phone, msg, buttons)
+
+            log_info(f"Sent edit confirmation to {phone}")
+
+            return {
+                'success': True,
+                'response': msg,
+                'handler': 'contact_edit_confirmation_sent'
+            }
+
+        except Exception as e:
+            log_error(f"Error sending edit confirmation: {str(e)}")
+            return {
+                'success': False,
+                'response': "❌ Error. Please try again.",
+                'handler': 'contact_edit_confirmation_error'
             }
 
     def _handle_vcard_edge_case(
