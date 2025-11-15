@@ -220,45 +220,42 @@ class ContactConfirmationButtonHandler:
         task_id: str,
         contact_data: Dict
     ) -> Dict:
-        """Handle 'Edit Details' button click"""
+        """Handle 'Edit Details' button click - ask what to edit"""
         try:
             name = contact_data.get('name', 'Unknown')
             contact_phone = contact_data.get('phone', 'N/A')
-            emails = contact_data.get('emails', [])
 
-            # Update task to collect edited details
+            # Update task to wait for edit choice
             task_data = {
-                'step': 'edit_contact_name',
+                'step': 'choose_field_to_edit',
                 'contact_data': contact_data,
                 'original_data': contact_data.copy()
             }
 
             self.task_service.update_task(task_id, role, task_data)
 
-            # Ask for name
+            # Ask what they want to edit with buttons
             msg = (
                 f"📝 *Edit Contact Details*\n\n"
-                f"Current name: *{name}*\n"
-                f"Current phone: *{contact_phone}*\n"
+                f"Current details:\n"
+                f"• Name: *{name}*\n"
+                f"• Phone: *{contact_phone}*\n\n"
+                f"What would you like to edit?"
             )
 
-            if emails:
-                msg += f"Current email: *{emails[0]}*\n"
+            buttons = [
+                {'id': 'edit_contact_name', 'title': '👤 Full Name'},
+                {'id': 'edit_contact_phone', 'title': '📱 Phone Number'}
+            ]
 
-            msg += (
-                f"\n"
-                f"Let's update the details. First, please send the contact's *full name*:\n\n"
-                f"(Type /cancel to go back)"
-            )
+            self.whatsapp.send_button_message(phone, msg, buttons)
 
-            self.whatsapp.send_message(phone, msg)
-
-            log_info(f"User {phone} started editing contact: {name}")
+            log_info(f"User {phone} choosing field to edit for contact: {name}")
 
             return {
                 'success': True,
                 'response': msg,
-                'handler': 'contact_edit_started'
+                'handler': 'contact_edit_choice_shown'
             }
 
         except Exception as e:
