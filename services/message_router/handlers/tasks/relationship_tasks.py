@@ -3,7 +3,7 @@ Relationship Task Handler
 Handles trainer-client relationship tasks (Phase 2)
 """
 from typing import Dict
-from utils.logger import log_error
+from utils.logger import log_error, log_info
 
 
 class RelationshipTaskHandler:
@@ -90,6 +90,27 @@ class RelationshipTaskHandler:
 
             # Handle add_client_choice task - text-based contact collection
             if task_type == 'add_client_choice':
+                # Check for restart intent before processing the current step
+                message_lower = message.lower().strip()
+                restart_keywords = ['add', 'another', 'new', 'create', 'onboard', 'register', 'start over', 'restart']
+                client_keywords = ['client', 'trainee', 'user', 'member', 'different']
+
+                # Detect restart intent: message must contain at least one restart keyword AND one client keyword
+                has_restart_keyword = any(keyword in message_lower for keyword in restart_keywords)
+                has_client_keyword = any(keyword in message_lower for keyword in client_keywords)
+
+                if has_restart_keyword and has_client_keyword:
+                    # User wants to restart/add another client - complete stale task and restart flow
+                    log_info(f"Detected restart intent from trainer {phone} during {step}: {message}")
+
+                    # Complete the current stale task
+                    self.task_service.complete_task(task_id, role)
+
+                    # Call the add client command handler to restart the flow
+                    from services.commands import handle_create_client
+                    return handle_create_client(phone, user_id, self.db, self.whatsapp, self.reg_service, self.task_service)
+
+                # No restart intent - continue with the current step
                 if step == 'collecting_name':
                     return self._handle_collecting_name(phone, message, user_id, task_id, task_data, role)
                 elif step == 'collecting_phone':
@@ -103,7 +124,29 @@ class RelationshipTaskHandler:
             # Handle add_client_profile_choice task - already handled by buttons
             elif task_type == 'add_client_profile_choice':
                 # This task type is handled by buttons (client_fills_profile, trainer_fills_profile)
-                # If we get here via text, user might be confused
+                # If we get here via text, check if user wants to restart/add another client
+
+                # Check if message indicates intent to add a new/another client
+                message_lower = message.lower().strip()
+                restart_keywords = ['add', 'another', 'new', 'create', 'onboard', 'register']
+                client_keywords = ['client', 'trainee', 'user', 'member']
+
+                # Detect restart intent: message must contain at least one restart keyword AND one client keyword
+                has_restart_keyword = any(keyword in message_lower for keyword in restart_keywords)
+                has_client_keyword = any(keyword in message_lower for keyword in client_keywords)
+
+                if has_restart_keyword and has_client_keyword:
+                    # User wants to restart/add another client - complete stale task and restart flow
+                    log_info(f"Detected restart intent from trainer {phone}: {message}")
+
+                    # Complete the current stale task
+                    self.task_service.complete_task(task_id, role)
+
+                    # Call the add client command handler to restart the flow
+                    from services.commands import handle_create_client
+                    return handle_create_client(phone, user_id, self.db, self.whatsapp, self.reg_service, self.task_service)
+
+                # User sent text instead of clicking button - remind them to use buttons
                 msg = "Please select one of the buttons above to continue."
                 self.whatsapp.send_message(phone, msg)
                 return {'success': True, 'response': msg, 'handler': 'add_client_profile_awaiting_button'}
