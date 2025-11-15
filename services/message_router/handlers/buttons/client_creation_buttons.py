@@ -840,9 +840,13 @@ class ClientCreationButtonHandler:
 
             # Send instructions with button for more help
             msg = (
-                "📱 *Share Your Client's Contact*\n\n"
-                "Please share your client's contact card with me.\n\n"
-                "👉 Tap the 📎 or ➕ icon, select 'Contact', and send it here."
+                "📱 *How to share a contact*\n\n"
+                "Here's how to share your client's contact with me:\n\nHere's how to share your client's contact with me:\n\n
+1️⃣ Tap the 📎 or ➕ icon in WhatsApp\n
+2️⃣ Select 'Contact'\n
+3️⃣ Choose your client from your phone contacts\n
+4️⃣ Send the contact to me\n\n
+Once I receive their contact card, I'll extract their details and help you create their profile!"
             )
 
             # Add a help button
