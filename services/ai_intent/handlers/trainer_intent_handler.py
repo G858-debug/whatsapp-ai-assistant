@@ -145,8 +145,8 @@ class TrainerIntentHandler:
             f"2️⃣ Share their contact from your phone"
         )
         buttons = [
-            {'id': 'add_client_type', 'title': 'Type Details'},
-            {'id': 'add_client_share', 'title': 'Share Contact'}
+            {'id': 'add_client_type', 'title': 'Type details'},
+            {'id': 'add_client_share', 'title': 'Share contact'}
         ]
         self.whatsapp.send_button_message(phone, msg, buttons)
 

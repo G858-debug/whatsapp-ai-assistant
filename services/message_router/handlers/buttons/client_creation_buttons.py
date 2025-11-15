@@ -718,7 +718,7 @@ class ClientCreationButtonHandler:
 
     def _handle_add_client_type(self, phone: str) -> Dict:
         """
-        Handle 'Type Details' button (add_client_type)
+        Handle 'Type details' button (add_client_type)
         Start text-based collection for client details
         """
         try:
@@ -772,7 +772,7 @@ class ClientCreationButtonHandler:
 
     def _handle_add_client_share(self, phone: str) -> Dict:
         """
-        Handle 'Share Contact' button (add_client_share)
+        Handle 'Share contact' button (add_client_share)
         Prompt trainer to share a contact card
         """
         try:
