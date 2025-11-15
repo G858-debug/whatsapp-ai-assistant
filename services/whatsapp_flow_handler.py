@@ -1555,15 +1555,16 @@ Welcome to the Refiloe family! 💪"""
                 'invitation_method': 'whatsapp',
                 'status': 'pending_client_acceptance',  # Special status for trainer-filled profiles
                 'profile_completion_method': 'trainer_fills',  # Track that trainer filled the profile
-                'trainer_provided_data': trainer_provided_data,  # JSONB with all data
-                'pricing_choice': client_data.get('pricing_choice', 'use_default'),
+                'trainer_provided_data': trainer_provided_data,  # JSONB with all data (includes pricing_choice, etc.)
                 'custom_price': client_price,  # Store calculated_price or custom_price
-                'has_package_deal': client_data.get('has_package_deal', False),  # Boolean
-                'package_deal_details': client_data.get('package_deal_details'),
                 'expires_at': (datetime.now() + timedelta(days=7)).isoformat(),
                 'created_at': datetime.now().isoformat(),
                 'updated_at': datetime.now().isoformat()
             }
+
+            # If there's package deal info, store it separately in the package_deal field
+            if client_data.get('has_package_deal') and client_data.get('package_deal_details'):
+                invitation_data['package_deal'] = client_data.get('package_deal_details')
             
             invitation_result = self.supabase.table('client_invitations').insert(invitation_data).execute()
             
