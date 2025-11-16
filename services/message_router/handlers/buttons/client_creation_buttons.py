@@ -189,16 +189,20 @@ class ClientCreationButtonHandler:
             }
             
             # Insert into clients table
-            self.db.table('clients').insert(client_data).execute()
-            
-            # Create user entry
-            user_data = {
-                'phone_number': phone,
-                'client_id': client_id,
-                'login_status': 'client',
-                'created_at': datetime.now(sa_tz).isoformat()
-            }
-            self.db.table('users').insert(user_data).execute()
+            client_insert_result = self.db.table('clients').insert(client_data).execute()
+
+            # Get the UUID 'id' that was auto-generated
+            if client_insert_result.data:
+                client_uuid = client_insert_result.data[0]['id']
+
+                # Create user entry using the UUID 'id', not the VARCHAR 'client_id'
+                user_data = {
+                    'phone_number': phone,
+                    'client_id': str(client_uuid),  # Use the UUID 'id' from the insert result
+                    'login_status': 'client',
+                    'created_at': datetime.now(sa_tz).isoformat()
+                }
+                self.db.table('users').insert(user_data).execute()
             
             # Create relationship and immediately approve it (since client accepted invitation)
             from services.relationships.invitations.invitation_manager import InvitationManager
