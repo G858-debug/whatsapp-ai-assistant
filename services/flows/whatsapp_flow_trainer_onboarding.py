@@ -179,7 +179,7 @@ class WhatsAppFlowTrainerOnboarding:
                 return {
                     'success': False,
                     'error': 'Trainer already registered with this phone number',
-                    'trainer_id': existing_trainer.get('id')
+                    'trainer_id': existing_trainer.get('id')  # UUID from trainers.id
                 }
 
             # Check if email already in use
@@ -189,7 +189,7 @@ class WhatsAppFlowTrainerOnboarding:
                 return {
                     'success': False,
                     'error': 'This email is already registered',
-                    'trainer_id': existing_email.get('id')
+                    'trainer_id': existing_email.get('id')  # UUID from trainers.id
                 }
 
             # Prepare trainer data for database
@@ -245,6 +245,8 @@ class WhatsAppFlowTrainerOnboarding:
             result = self.db.table('trainers').insert(trainer_data).execute()
 
             if result.data and len(result.data) > 0:
+                # Get the UUID 'id' field (not 'trainer_id' VARCHAR) from insert result
+                # Database triggers ensure trainers.trainer_id VARCHAR stays synced with trainers.id UUID
                 trainer_id = result.data[0]['id']
                 trainer_whatsapp = result.data[0]['whatsapp']
 
@@ -259,6 +261,7 @@ class WhatsAppFlowTrainerOnboarding:
 
                     if existing_user.data:
                         # Update existing user entry
+                        # Use UUID from trainers.id (not trainers.trainer_id VARCHAR)
                         self.db.table('users').update({
                             'trainer_id': trainer_id,
                             'updated_at': datetime.now(self.sa_tz).isoformat()
@@ -266,6 +269,7 @@ class WhatsAppFlowTrainerOnboarding:
                         log_info(f"Updated users table for trainer: {trainer_whatsapp}")
                     else:
                         # Create new user entry
+                        # Use UUID from trainers.id (not trainers.trainer_id VARCHAR)
                         self.db.table('users').insert({
                             'phone_number': trainer_whatsapp,
                             'trainer_id': trainer_id,
