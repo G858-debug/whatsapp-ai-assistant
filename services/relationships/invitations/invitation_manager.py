@@ -137,16 +137,16 @@ class InvitationManager:
             trainer_result = self.db.table('trainers').select('*').eq(
                 'id', trainer_id
             ).execute()
-            
+
             if not trainer_result.data:
                 return False, "Trainer not found"
-            
+
             trainer = trainer_result.data[0]
             trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
-            
+
             # Generate invitation token
             invitation_token = self.generate_invitation_token()
-            
+
             # Store invitation in database with complete prefilled data
             invitation_data = {
                 'trainer_id': trainer['id'],  # Use UUID from trainer record
@@ -158,12 +158,12 @@ class InvitationManager:
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
-            
+
             # Insert or update invitation
             existing = self.db.table('client_invitations').select('id').eq(
                 'client_phone', client_phone
             ).eq('trainer_id', trainer['id']).eq('status', 'pending').execute()
-            
+
             if existing.data:
                 # Update existing invitation
                 self.db.table('client_invitations').update(invitation_data).eq(
@@ -172,10 +172,10 @@ class InvitationManager:
             else:
                 # Create new invitation
                 self.db.table('client_invitations').insert(invitation_data).execute()
-            
+
             # Create invitation message with prefilled data
             client_name = client_data.get('name') or client_data.get('full_name', 'there')
-            
+
             message = (
                 f"🎯 *Training Invitation*\n\n"
                 f"Hi {client_name}! 👋\n\n"
@@ -183,39 +183,129 @@ class InvitationManager:
                 f"📋 *Your Profile:*\n"
                 f"• Name: {client_name}\n"
             )
-            
+
             if client_data.get('email') and client_data['email'].lower() not in ['skip', 'none']:
                 message += f"• Email: {client_data['email']}\n"
             if client_data.get('fitness_goals'):
                 message += f"• Goals: {client_data['fitness_goals']}\n"
             if client_data.get('experience_level'):
                 message += f"• Experience: {client_data['experience_level']}\n"
-            
+
             message += (
                 f"\n👨‍🏫 *Your Trainer:*\n"
                 f"• Name: {trainer_name}\n"
                 f"• ID: {trainer_id}\n"
             )
-            
+
             if trainer.get('specialization'):
                 message += f"• Specialization: {trainer['specialization']}\n"
-            
+
             message += f"\n✅ Do you accept this invitation and want to train with {trainer_name}?"
-            
+
             # Send with buttons (use trainer_id string, not UUID)
             trainer_string_id = trainer.get('trainer_id')
             buttons = [
                 {'id': f'approve_new_client_{trainer_string_id}', 'title': '✅ Accept'},
                 {'id': f'reject_new_client_{trainer_string_id}', 'title': '❌ Decline'}
             ]
-            
+
             self.whatsapp.send_button_message(client_phone, message, buttons)
-            
+
             log_info(f"Sent new client invitation from trainer {trainer_id} to {client_phone}")
             return True, "Invitation sent"
-            
+
         except Exception as e:
             log_error(f"Error sending new client invitation: {str(e)}")
+            return False, str(e)
+
+    def send_client_fills_invitation(self, trainer_id: str, client_phone: str,
+                                     client_name: str, selected_price: Optional[float] = None) -> Tuple[bool, str]:
+        """Send invitation to client who will fill their own profile
+
+        Args:
+            trainer_id: UUID of the trainer
+            client_phone: Client's phone number
+            client_name: Client's name
+            selected_price: Price per session (None if "discuss later")
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            # Get trainer info
+            trainer_result = self.db.table('trainers').select('*').eq(
+                'id', trainer_id
+            ).execute()
+
+            if not trainer_result.data:
+                return False, "Trainer not found"
+
+            trainer = trainer_result.data[0]
+            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
+
+            # Generate invitation token
+            invitation_token = self.generate_invitation_token()
+
+            # Store invitation in database
+            invitation_data = {
+                'trainer_id': trainer['id'],  # Use UUID from trainer record
+                'client_phone': client_phone,
+                'client_name': client_name,
+                'invitation_token': invitation_token,
+                'status': 'pending_client_completion',
+                'profile_completion_method': 'client_fills',
+                'custom_price': selected_price,  # Can be None
+                'created_at': datetime.now(self.sa_tz).isoformat(),
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }
+
+            # Insert or update invitation
+            existing = self.db.table('client_invitations').select('id').eq(
+                'client_phone', client_phone
+            ).eq('trainer_id', trainer['id']).eq('status', 'pending_client_completion').execute()
+
+            if existing.data:
+                # Update existing invitation
+                self.db.table('client_invitations').update(invitation_data).eq(
+                    'id', existing.data[0]['id']
+                ).execute()
+            else:
+                # Create new invitation
+                self.db.table('client_invitations').insert(invitation_data).execute()
+
+            # Create price line based on whether price is set
+            if selected_price is not None:
+                price_line = f"💰 *Pricing:* R{selected_price:.2f} per session"
+            else:
+                price_line = "💰 *Pricing:* To be discussed"
+
+            # Create invitation message
+            message = (
+                f"🎯 *Training invitation*\n\n"
+                f"Hi {client_name}! 👋\n\n"
+                f"*{trainer_name}* has invited you to start training together!\n\n"
+                f"📋 *Next steps:*\n"
+                f"- Accept the invitation below\n"
+                f"- Complete your fitness profile (2-3 minutes)\n"
+                f"- Start your fitness journey!\n\n"
+                f"{price_line}\n\n"
+                f"Ready to get started? 💪"
+            )
+
+            # Create buttons
+            buttons = [
+                {'id': f'accept_client_fills_{invitation_token}', 'title': '✅ Accept invitation'},
+                {'id': f'decline_client_fills_{invitation_token}', 'title': '❌ Decline invitation'}
+            ]
+
+            # Send WhatsApp message
+            self.whatsapp.send_button_message(client_phone, message, buttons)
+
+            log_info(f"Sent client_fills invitation from trainer {trainer_id} to {client_phone}")
+            return True, "Invitation sent successfully"
+
+        except Exception as e:
+            log_error(f"Error sending client_fills invitation: {str(e)}")
             return False, str(e) 
    
     def create_relationship(self, trainer_id: str, client_id: str, 
