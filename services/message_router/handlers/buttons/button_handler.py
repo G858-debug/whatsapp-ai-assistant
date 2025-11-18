@@ -79,6 +79,9 @@ class ButtonHandler:
             elif button_id in ['client_fills_profile', 'trainer_fills_profile', 'send_secondary_invitation', 'cancel_add_client', 'add_client_type', 'add_client_share']:
                 return self.client_creation_handler.handle_add_client_button(phone, button_id)
 
+            elif button_id in ['use_standard', 'set_custom', 'discuss_later']:
+                return self.client_creation_handler.handle_pricing_button(phone, button_id)
+
             elif button_id in ['continue_task', 'start_over', 'resume_add_client', 'start_fresh_add_client']:
                 if self.timeout_handler:
                     return self.timeout_handler.handle_timeout_button(phone, button_id)
