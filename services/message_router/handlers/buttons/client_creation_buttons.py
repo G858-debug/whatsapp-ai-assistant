@@ -478,6 +478,33 @@ class ClientCreationButtonHandler:
             log_error(f"Error handling add client button: {str(e)}")
             return {'success': False, 'response': 'Error processing button', 'handler': 'add_client_button_error'}
 
+    def handle_pricing_button(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle pricing buttons for client creation flow
+
+        Buttons:
+        - use_standard: Use trainer's default price per session
+        - set_custom: Ask for custom price input
+        - discuss_later: Skip pricing, to be discussed with client
+        """
+        try:
+            if not self.task_service:
+                log_error("Task service not available")
+                return {'success': False, 'response': 'Service unavailable', 'handler': 'pricing_no_task_service'}
+
+            if button_id == 'use_standard':
+                return self._handle_use_standard_price(phone)
+            elif button_id == 'set_custom':
+                return self._handle_set_custom_price(phone)
+            elif button_id == 'discuss_later':
+                return self._handle_discuss_later(phone)
+            else:
+                return {'success': False, 'response': 'Unknown pricing button', 'handler': 'unknown_pricing_button'}
+
+        except Exception as e:
+            log_error(f"Error handling pricing button: {str(e)}")
+            return {'success': False, 'response': 'Error processing button', 'handler': 'pricing_button_error'}
+
     def _handle_client_fills_profile(self, phone: str) -> Dict:
         """
         Handle 'Client Fills Profile' button
@@ -916,3 +943,279 @@ class ClientCreationButtonHandler:
             msg = "❌ Sorry, I encountered an error. Please try again."
             self.whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'add_client_share_error'}
+
+    def _handle_use_standard_price(self, phone: str) -> Dict:
+        """
+        Handle 'Use Standard Rate' button
+        Get trainer's default_price_per_session and proceed with invitation
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'use_standard_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task:
+                msg = "❌ No client creation task in progress."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'use_standard_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+
+            # Get trainer's default price from database
+            trainer_result = self.db.table('trainers').select('default_price_per_session').eq(
+                'trainer_id', user_id
+            ).execute()
+
+            if not trainer_result.data:
+                msg = "❌ Trainer not found in database."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'use_standard_trainer_not_found'}
+
+            default_price = trainer_result.data[0].get('default_price_per_session')
+
+            if not default_price:
+                # No standard rate set, ask them to type their standard rate
+                msg = (
+                    "ℹ️ You don't have a standard rate set yet.\n\n"
+                    "Please type your standard rate per session:\n"
+                    "(Example: 450 for R450)"
+                )
+                self.whatsapp.send_message(phone, msg)
+
+                # Update task to wait for custom price input
+                task_data['new_client_step'] = 'await_custom_price'
+                self.task_service.update_task(task_id, role, task_data=task_data)
+
+                return {'success': True, 'response': msg, 'handler': 'use_standard_no_default_set'}
+
+            # Store the standard price in task_data
+            task_data['selected_price'] = default_price
+            self.task_service.update_task(task_id, role, task_data=task_data)
+
+            # Proceed to send invitation with pricing info
+            return self._send_client_fills_invitation(phone, user_id, task, task_data)
+
+        except Exception as e:
+            log_error(f"Error handling use standard price: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'use_standard_error'}
+
+    def _handle_set_custom_price(self, phone: str) -> Dict:
+        """
+        Handle 'Set Custom Rate' button
+        Ask trainer to input custom price for this client
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'set_custom_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task:
+                msg = "❌ No client creation task in progress."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'set_custom_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+
+            # Get client name from task data
+            contact_data = task_data.get('contact_data')
+            basic_contact_data = task_data.get('basic_contact_data')
+            client_data = task_data.get('client_data', {})
+
+            if contact_data:
+                client_name = contact_data.get('name', 'this client')
+            elif basic_contact_data:
+                client_name = basic_contact_data.get('name', 'this client')
+            elif client_data:
+                client_name = client_data.get('name', 'this client')
+            else:
+                client_name = 'this client'
+
+            # Send message asking for custom price
+            msg = (
+                f"💵 *Custom rate*\n\n"
+                f"Enter the price per session for {client_name}:\n"
+                f"(Example: 450 for R450)"
+            )
+            self.whatsapp.send_message(phone, msg)
+
+            # Update task to wait for custom price input
+            task_data['new_client_step'] = 'await_custom_price'
+            self.task_service.update_task(task_id, role, task_data=task_data)
+
+            log_info(f"Trainer {user_id} setting custom price for client {client_name}")
+            return {'success': True, 'response': msg, 'handler': 'set_custom_price_requested'}
+
+        except Exception as e:
+            log_error(f"Error handling set custom price: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'set_custom_error'}
+
+    def _handle_discuss_later(self, phone: str) -> Dict:
+        """
+        Handle 'Discuss with Client' button
+        Skip pricing for now and send invitation
+        """
+        try:
+            # Get trainer info
+            role = 'trainer'
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+
+            if not user_id:
+                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'discuss_later_no_user'}
+
+            # Get running task
+            task = self.task_service.get_running_task(phone, role)
+
+            if not task:
+                msg = "❌ No client creation task in progress."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'discuss_later_no_task'}
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+
+            # Set price to None and mark for discussion
+            task_data['selected_price'] = None
+            task_data['pricing_to_discuss'] = True
+            self.task_service.update_task(task_id, role, task_data=task_data)
+
+            # Proceed to send invitation without specific pricing
+            return self._send_client_fills_invitation(phone, user_id, task, task_data)
+
+        except Exception as e:
+            log_error(f"Error handling discuss later: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'discuss_later_error'}
+
+    def _send_client_fills_invitation(self, phone: str, trainer_id: str, task: Dict, task_data: Dict) -> Dict:
+        """
+        Send invitation to client after pricing has been set for client_fills flow
+
+        Args:
+            phone: Trainer's WhatsApp number
+            trainer_id: Trainer's ID (string ID like 'TR001')
+            task: Current task data
+            task_data: Task data dictionary
+
+        Returns:
+            Dict with success status and response details
+        """
+        try:
+            # Import creation flow to use its send_client_completion_invitation method
+            from services.flows.relationships.trainer_flows.creation_flow import TrainerClientCreationFlow
+
+            # Get client data from task_data
+            contact_data = task_data.get('contact_data')
+            basic_contact_data = task_data.get('basic_contact_data')
+
+            if contact_data:
+                # From shared contact
+                client_name = contact_data.get('name', 'Unknown')
+                client_phone = contact_data.get('phone')
+                # Extract email from emails array
+                emails = contact_data.get('emails', [])
+                client_email = emails[0] if emails else None
+            elif basic_contact_data:
+                # From typed input
+                client_name = basic_contact_data.get('name', 'Unknown')
+                client_phone = basic_contact_data.get('phone')
+                client_email = basic_contact_data.get('email')
+            else:
+                msg = "❌ Missing contact information. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task.get('id'), 'trainer')
+                return {'success': False, 'response': msg, 'handler': 'send_invitation_no_contact_data'}
+
+            if not client_phone:
+                msg = "❌ Missing phone number. Please share the contact again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task.get('id'), 'trainer')
+                return {'success': False, 'response': msg, 'handler': 'send_invitation_no_phone'}
+
+            # Prepare client data
+            client_data = {
+                'name': client_name,
+                'phone_number': client_phone,
+                'email': client_email
+            }
+
+            # Prepare pricing info
+            selected_price = task_data.get('selected_price')
+            pricing_to_discuss = task_data.get('pricing_to_discuss', False)
+
+            pricing_info = {
+                'custom_price': selected_price,
+                'pricing_to_discuss': pricing_to_discuss
+            }
+
+            # Create an instance of TrainerClientCreationFlow to use its method
+            creation_flow = TrainerClientCreationFlow(
+                self.db,
+                self.whatsapp,
+                self.auth_service,
+                self.task_service
+            )
+
+            # Send client completion invitation
+            success, error_msg = creation_flow.send_client_completion_invitation(
+                phone, trainer_id, client_data, pricing_info
+            )
+
+            if success:
+                # Build success message
+                if pricing_to_discuss:
+                    pricing_text = "To be discussed with client"
+                elif selected_price:
+                    pricing_text = f"R{selected_price} per session"
+                else:
+                    pricing_text = "Not specified"
+
+                msg = (
+                    "✅ *Invitation Sent!*\n\n"
+                    f"I've sent an invitation to *{client_name}* to complete their fitness profile.\n\n"
+                    f"📋 *What happens next:*\n"
+                    f"• Client receives WhatsApp Flow to fill fitness details\n"
+                    f"• Pricing: {pricing_text}\n"
+                    f"• They can accept or decline the invitation\n\n"
+                    f"I'll notify you when they respond. 🔔"
+                )
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task.get('id'), 'trainer')
+
+                log_info(f"Sent client-fills invitation from trainer {trainer_id} to {client_name} ({client_phone}) with pricing: {pricing_text}")
+                return {'success': True, 'response': msg, 'handler': 'send_invitation_success'}
+            else:
+                error_msg_text = f"❌ Failed to send invitation: {error_msg}"
+                self.whatsapp.send_message(phone, error_msg_text)
+                self.task_service.complete_task(task.get('id'), 'trainer')
+                return {'success': False, 'response': error_msg_text, 'handler': 'send_invitation_failed'}
+
+        except Exception as e:
+            log_error(f"Error sending client fills invitation: {str(e)}")
+            msg = "❌ Sorry, I encountered an error sending the invitation. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'send_invitation_error'}
