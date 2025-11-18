@@ -39,12 +39,17 @@ class InvitationService:
         """Send invitation from client to trainer"""
         return self.invitation_manager.send_client_to_trainer_invitation(client_id, trainer_id, trainer_phone)
     
-    def send_new_client_invitation(self, trainer_id: str, client_data: Dict, 
+    def send_new_client_invitation(self, trainer_id: str, client_data: Dict,
                                    client_phone: str) -> Tuple[bool, str]:
         """Send invitation to new client with prefilled data"""
         return self.invitation_manager.send_new_client_invitation(trainer_id, client_data, client_phone)
-    
-    def create_relationship(self, trainer_id: str, client_id: str, 
+
+    def send_client_fills_invitation(self, trainer_id: str, client_phone: str,
+                                     client_name: str, selected_price: Optional[float] = None) -> Tuple[bool, str]:
+        """Send invitation to client who will fill their own profile"""
+        return self.invitation_manager.send_client_fills_invitation(trainer_id, client_phone, client_name, selected_price)
+
+    def create_relationship(self, trainer_id: str, client_id: str,
                           invited_by: str, invitation_token: str = None) -> Tuple[bool, str]:
         """Create bidirectional trainer-client relationship"""
         return self.invitation_manager.create_relationship(trainer_id, client_id, invited_by, invitation_token)
