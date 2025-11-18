@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from utils.logger import log_info, log_error, log_warning
 from services.flows.whatsapp_flow_trainer_onboarding import WhatsAppFlowTrainerOnboarding
 from services.whatsapp_flow_handler import WhatsAppFlowHandler
+from services.webhooks.flow_endpoint import FlowEndpointHandler
 
 
 def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict:
@@ -217,7 +218,31 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
         log_info(f"Step 2: Routing flow '{flow_name}' with token '{flow_token}' to appropriate handler")
 
         # Route based on flow_token first (most reliable)
-        if flow_token and 'trainer_add_client' in flow_token:
+        if flow_token and 'client_onboarding_invitation' in flow_token:
+            log_info(f"Routing to client profile completion handler based on token: {flow_token}")
+
+            # Handle client profile completion flow
+            flow_endpoint_handler = FlowEndpointHandler(supabase, whatsapp_service)
+            result = flow_endpoint_handler.handle_client_profile_completion(
+                flow_data,
+                phone_number
+            )
+
+            if result.get('success'):
+                log_info(f"✅ Client profile completion flow completed successfully")
+                return {
+                    'success': True,
+                    'message': result.get('message', 'Client profile completed'),
+                    'client_id': result.get('client_id')
+                }
+            else:
+                log_error(f"❌ Client profile completion flow failed: {result.get('error')}")
+                return {
+                    'success': False,
+                    'message': result.get('error', 'Flow processing failed')
+                }
+
+        elif flow_token and 'trainer_add_client' in flow_token:
             log_info(f"Routing to trainer add client handler based on token: {flow_token}")
 
             # Wrap the flow_data in the expected structure
