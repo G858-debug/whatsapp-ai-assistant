@@ -542,35 +542,84 @@ class CreationFlow:
             elif step == 'await_pricing_choice':
                 choice = message.strip()
 
-                if choice.startswith('use_default_'):
-                    # Use default price
-                    default_price = task_data.get('default_price', 300)
-                    task_data['selected_price'] = default_price
-                    task_data['new_client_step'] = 'ask_profile_completion'
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
+                # Check if we're in the client_fills pricing context (after profile completion choice)
+                if task_data.get('profile_completion_by') == 'client':
+                    # Handle new client_fills pricing buttons
+                    if choice == 'use_standard':
+                        # Use trainer's standard rate
+                        default_price = task_data.get('trainer_default_price')
+                        if not default_price:
+                            # If no default price, ask them to set one
+                            msg = (
+                                "ℹ️ You don't have a standard rate set yet.\n\n"
+                                "Please enter a custom price for this client:"
+                            )
+                            self.whatsapp.send_message(trainer_phone, msg)
+                            task_data['new_client_step'] = 'await_client_custom_price'
+                            self.task_service.update_task(task['id'], 'trainer', task_data)
+                            return {'success': True, 'response': msg, 'handler': 'new_client_no_standard_rate'}
 
-                    # Proceed to profile completion choice
-                    return self._ask_profile_completion(trainer_phone, task, task_data)
+                        # Store selected price and send invitation
+                        task_data['selected_price'] = default_price
+                        return self._send_client_fills_invitation(trainer_phone, trainer_id, task, task_data)
 
-                elif choice == 'custom_price':
-                    # Ask for custom price
-                    msg = (
-                        "💰 *Custom Price*\n\n"
-                        "What's your price per session for this client?\n\n"
-                        "Please enter the amount in Rands (e.g., 350)"
-                    )
-                    self.whatsapp.send_message(trainer_phone, msg)
+                    elif choice == 'set_custom':
+                        # Ask for custom price
+                        msg = (
+                            "💰 *Custom Price*\n\n"
+                            "What's your price per session for this client?\n\n"
+                            "Please enter the amount in Rands (e.g., 350)"
+                        )
+                        self.whatsapp.send_message(trainer_phone, msg)
 
-                    task_data['new_client_step'] = 'await_custom_price'
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
+                        task_data['new_client_step'] = 'await_client_custom_price'
+                        self.task_service.update_task(task['id'], 'trainer', task_data)
 
-                    return {'success': True, 'response': msg, 'handler': 'new_client_custom_price'}
+                        return {'success': True, 'response': msg, 'handler': 'new_client_set_custom_price'}
+
+                    elif choice == 'discuss_later':
+                        # Send invitation without specific pricing (to be discussed)
+                        task_data['selected_price'] = None
+                        task_data['pricing_to_discuss'] = True
+                        return self._send_client_fills_invitation(trainer_phone, trainer_id, task, task_data)
+
+                    else:
+                        # Invalid choice
+                        msg = "❌ Invalid choice. Please use the buttons provided."
+                        self.whatsapp.send_message(trainer_phone, msg)
+                        return {'success': True, 'response': msg, 'handler': 'new_client_invalid_pricing_choice'}
 
                 else:
-                    # Invalid choice
-                    msg = "❌ Invalid choice. Please use the buttons provided."
-                    self.whatsapp.send_message(trainer_phone, msg)
-                    return {'success': True, 'response': msg, 'handler': 'new_client_invalid_choice'}
+                    # Original pricing flow (before profile completion choice)
+                    if choice.startswith('use_default_'):
+                        # Use default price
+                        default_price = task_data.get('default_price', 300)
+                        task_data['selected_price'] = default_price
+                        task_data['new_client_step'] = 'ask_profile_completion'
+                        self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                        # Proceed to profile completion choice
+                        return self._ask_profile_completion(trainer_phone, task, task_data)
+
+                    elif choice == 'custom_price':
+                        # Ask for custom price
+                        msg = (
+                            "💰 *Custom Price*\n\n"
+                            "What's your price per session for this client?\n\n"
+                            "Please enter the amount in Rands (e.g., 350)"
+                        )
+                        self.whatsapp.send_message(trainer_phone, msg)
+
+                        task_data['new_client_step'] = 'await_custom_price'
+                        self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                        return {'success': True, 'response': msg, 'handler': 'new_client_custom_price'}
+
+                    else:
+                        # Invalid choice
+                        msg = "❌ Invalid choice. Please use the buttons provided."
+                        self.whatsapp.send_message(trainer_phone, msg)
+                        return {'success': True, 'response': msg, 'handler': 'new_client_invalid_choice'}
 
             # Step 2b: Handle custom price input
             elif step == 'await_custom_price':
@@ -597,47 +646,80 @@ class CreationFlow:
                 # Proceed to profile completion choice
                 return self._ask_profile_completion(trainer_phone, task, task_data)
 
+            # Step 2c: Handle custom price input for client_fills flow
+            elif step == 'await_client_custom_price':
+                # Validate price input using comprehensive validator
+                validator = get_validator()
+                is_valid, error_msg, custom_price = validator.validate_price(message, trainer_phone)
+
+                if not is_valid:
+                    # Check for max retries
+                    if validator.has_exceeded_max_retries(trainer_phone, 'price'):
+                        restart_msg = validator.get_restart_prompt('price')
+                        self.whatsapp.send_message(trainer_phone, restart_msg)
+                        return {'success': True, 'response': restart_msg, 'handler': 'new_client_max_retries'}
+
+                    # Send validation error
+                    self.whatsapp.send_message(trainer_phone, error_msg)
+                    return {'success': True, 'response': error_msg, 'handler': 'new_client_invalid_price'}
+
+                # Store custom price and send invitation
+                task_data['selected_price'] = custom_price
+                return self._send_client_fills_invitation(trainer_phone, trainer_id, task, task_data)
+
             # Step 3: Handle profile completion choice
             elif step == 'await_profile_completion_choice':
                 choice = message.strip()
 
                 if choice == 'client_fills':
                     # Client fills details (Scenario 1A)
+                    # Store the choice and ask about pricing before sending invitation
                     task_data['profile_completion_by'] = 'client'
-                    task_data['new_client_step'] = 'scenario_1a'
+                    task_data['new_client_step'] = 'await_pricing_choice'
 
-                    # Add pricing to client_data for invitation
+                    # Get client name for the message
                     stored_client_data = task_data.get('client_data', client_data)
-                    pricing_info = {
-                        'custom_price': task_data.get('selected_price'),
-                        'is_default': task_data.get('selected_price') == task_data.get('default_price')
-                    }
+                    client_name = stored_client_data.get('name', 'this client')
 
-                    self.task_service.update_task(task['id'], 'trainer', task_data)
+                    # Get trainer's default price
+                    trainer_result = self.db.table('trainers').select('default_price_per_session').eq(
+                        'trainer_id', trainer_id
+                    ).execute()
 
-                    # Send client completion invitation
-                    success, error_msg = self.send_client_completion_invitation(
-                        trainer_phone, trainer_id, stored_client_data, pricing_info
+                    default_price = None
+                    if trainer_result.data and trainer_result.data[0].get('default_price_per_session'):
+                        default_price = trainer_result.data[0]['default_price_per_session']
+
+                    # Build pricing message
+                    msg = (
+                        f"💰 *Pricing for this client*\n\n"
+                        f"What rate will you charge {client_name}?\n\n"
+                        f"Choose an option below:"
                     )
 
-                    if success:
-                        msg = (
-                            "✅ *Invitation Sent!*\n\n"
-                            f"I've sent an invitation to *{stored_client_data.get('name')}* to complete their fitness profile.\n\n"
-                            f"📋 *What happens next:*\n"
-                            f"• Client receives WhatsApp Flow to fill fitness details\n"
-                            f"• Pricing: R{task_data.get('selected_price', 0)} per session\n"
-                            f"• They can accept or decline the invitation\n\n"
-                            f"I'll notify you when they respond. 🔔"
-                        )
-                        self.whatsapp.send_message(trainer_phone, msg)
-                        self.task_service.complete_task(task['id'], 'trainer')
-                        return {'success': True, 'response': msg, 'handler': 'new_client_scenario_1a_sent'}
+                    # Build buttons
+                    buttons = []
+                    if default_price:
+                        buttons.append({
+                            'id': 'use_standard',
+                            'title': f'Use my standard rate (R{default_price})'
+                        })
                     else:
-                        msg = f"❌ Failed to send invitation: {error_msg}"
-                        self.whatsapp.send_message(trainer_phone, msg)
-                        self.task_service.complete_task(task['id'], 'trainer')
-                        return {'success': False, 'response': msg, 'handler': 'new_client_scenario_1a_failed'}
+                        buttons.append({
+                            'id': 'use_standard',
+                            'title': 'Use my standard rate'
+                        })
+
+                    buttons.append({'id': 'set_custom', 'title': 'Set custom rate'})
+                    buttons.append({'id': 'discuss_later', 'title': 'Discuss with client'})
+
+                    # Store default price in task data for later use
+                    task_data['trainer_default_price'] = default_price
+
+                    self.whatsapp.send_button_message(trainer_phone, msg, buttons)
+                    self.task_service.update_task(task['id'], 'trainer', task_data)
+
+                    return {'success': True, 'response': msg, 'handler': 'new_client_ask_pricing'}
 
                 elif choice == 'trainer_fills':
                     # Trainer fills details (Scenario 1B)
@@ -726,6 +808,75 @@ class CreationFlow:
         except Exception as e:
             log_error(f"Error in _ask_profile_completion: {str(e)}")
             return {'success': False, 'response': str(e), 'handler': 'profile_completion_error'}
+
+    def _send_client_fills_invitation(self, trainer_phone: str, trainer_id: str,
+                                       task: Dict, task_data: Dict) -> Dict:
+        """
+        Send invitation to client after pricing has been set for client_fills flow
+
+        Args:
+            trainer_phone: Trainer's WhatsApp number
+            trainer_id: Trainer's ID
+            task: Current task data
+            task_data: Task data dictionary
+
+        Returns:
+            Dict with success status and response details
+        """
+        try:
+            # Get stored client data
+            client_data = task_data.get('client_data', {})
+            selected_price = task_data.get('selected_price')
+            pricing_to_discuss = task_data.get('pricing_to_discuss', False)
+
+            # Prepare pricing info
+            pricing_info = {
+                'custom_price': selected_price,
+                'pricing_to_discuss': pricing_to_discuss
+            }
+
+            # Send client completion invitation
+            success, error_msg = self.send_client_completion_invitation(
+                trainer_phone, trainer_id, client_data, pricing_info
+            )
+
+            if success:
+                # Build success message
+                if pricing_to_discuss:
+                    pricing_text = "To be discussed with client"
+                elif selected_price:
+                    pricing_text = f"R{selected_price} per session"
+                else:
+                    pricing_text = "Not specified"
+
+                msg = (
+                    "✅ *Invitation Sent!*\n\n"
+                    f"I've sent an invitation to *{client_data.get('name')}* to complete their fitness profile.\n\n"
+                    f"📋 *What happens next:*\n"
+                    f"• Client receives WhatsApp Flow to fill fitness details\n"
+                    f"• Pricing: {pricing_text}\n"
+                    f"• They can accept or decline the invitation\n\n"
+                    f"I'll notify you when they respond. 🔔"
+                )
+                self.whatsapp.send_message(trainer_phone, msg)
+                self.task_service.complete_task(task['id'], 'trainer')
+                return {'success': True, 'response': msg, 'handler': 'new_client_scenario_1a_sent'}
+            else:
+                msg = f"❌ Failed to send invitation: {error_msg}"
+                self.whatsapp.send_message(trainer_phone, msg)
+                self.task_service.complete_task(task['id'], 'trainer')
+                return {'success': False, 'response': msg, 'handler': 'new_client_scenario_1a_failed'}
+
+        except Exception as e:
+            log_error(f"Error in _send_client_fills_invitation: {str(e)}")
+
+            # Complete the task
+            self.task_service.complete_task(task['id'], 'trainer')
+
+            error_msg = f"❌ Failed to send invitation: {str(e)}"
+            self.whatsapp.send_message(trainer_phone, error_msg)
+
+            return {'success': False, 'response': error_msg, 'handler': 'send_client_fills_invitation_error'}
 
     def send_client_completion_invitation(self, trainer_phone: str, trainer_id: str,
                                          client_data: Dict, pricing_info: Dict) -> tuple:
