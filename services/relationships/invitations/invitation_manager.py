@@ -266,12 +266,14 @@ class InvitationManager:
 
             if existing.data:
                 # Update existing invitation
-                self.db.table('client_invitations').update(invitation_data).eq(
+                invitation_result = self.db.table('client_invitations').update(invitation_data).eq(
                     'id', existing.data[0]['id']
                 ).execute()
+                invitation_id = existing.data[0]['id']
             else:
                 # Create new invitation
-                self.db.table('client_invitations').insert(invitation_data).execute()
+                invitation_result = self.db.table('client_invitations').insert(invitation_data).execute()
+                invitation_id = invitation_result.data[0]['id']
 
             # Create price line based on whether price is set
             if selected_price is not None:
@@ -292,10 +294,10 @@ class InvitationManager:
                 f"Ready to get started? 💪"
             )
 
-            # Create buttons
+            # Create buttons using invitation_id
             buttons = [
-                {'id': f'accept_client_fills_{invitation_token}', 'title': '✅ Accept invitation'},
-                {'id': f'decline_client_fills_{invitation_token}', 'title': '❌ Decline invitation'}
+                {'id': f'accept_client_{invitation_id}', 'title': '✅ Accept invitation'},
+                {'id': f'decline_client_{invitation_id}', 'title': '❌ Decline invitation'}
             ]
 
             # Send WhatsApp message
