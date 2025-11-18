@@ -275,33 +275,30 @@ class InvitationManager:
                 invitation_result = self.db.table('client_invitations').insert(invitation_data).execute()
                 invitation_id = invitation_result.data[0]['id']
 
-            # Create price line based on whether price is set
-            if selected_price is not None:
-                price_line = f"💰 *Pricing:* R{selected_price:.2f} per session"
-            else:
-                price_line = "💰 *Pricing:* To be discussed"
-
-            # Create invitation message
-            message = (
-                f"🎯 *Training invitation*\n\n"
-                f"Hi {client_name}! 👋\n\n"
-                f"*{trainer_name}* has invited you to start training together!\n\n"
-                f"📋 *Next steps:*\n"
-                f"- Accept the invitation below\n"
-                f"- Complete your fitness profile (2-3 minutes)\n"
-                f"- Start your fitness journey!\n\n"
-                f"{price_line}\n\n"
-                f"Ready to get started? 💪"
-            )
-
-            # Create buttons using invitation_id
-            buttons = [
-                {'id': f'accept_client_{invitation_id}', 'title': '✅ Accept invitation'},
-                {'id': f'decline_client_{invitation_id}', 'title': '❌ Decline invitation'}
+            # Prepare template components
+            template_components = [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": client_name or "there"},
+                        {"type": "text", "text": trainer_name},
+                        {"type": "text", "text": "R"},  # Currency symbol
+                        {"type": "text", "text": str(int(selected_price)) if selected_price else "To be discussed"}
+                    ]
+                }
             ]
 
-            # Send WhatsApp message
-            self.whatsapp.send_button_message(client_phone, message, buttons)
+            # Send template message
+            success = self.whatsapp.send_template_message(
+                to_phone=client_phone,
+                template_name="client_training_invitation",
+                language_code="en",
+                components=template_components
+            )
+
+            if not success:
+                log_error(f"Failed to send template message to {client_phone}")
+                return False, "Failed to send template message"
 
             log_info(f"Sent client_fills invitation from trainer {trainer_id} to {client_phone}")
             return True, "Invitation sent successfully"
