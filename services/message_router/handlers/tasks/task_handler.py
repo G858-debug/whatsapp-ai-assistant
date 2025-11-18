@@ -48,7 +48,7 @@ class TaskHandler:
             
             elif task_type in ['invite_trainee', 'create_trainee', 'remove_trainee',
                               'search_trainer', 'invite_trainer', 'remove_trainer',
-                              'add_client_choice', 'add_client_profile_choice']:
+                              'add_client_choice', 'add_client_profile_choice', 'decline_reason']:
                 return self.relationship_handler.handle_relationship_task(phone, message, user_id, task)
 
             elif task_type in ['create_habit', 'edit_habit', 'delete_habit', 'assign_habit', 'unassign_habit',

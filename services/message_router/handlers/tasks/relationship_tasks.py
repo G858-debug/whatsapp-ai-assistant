@@ -32,6 +32,10 @@ class RelationshipTaskHandler:
             elif task_type in ['add_client_choice', 'add_client_profile_choice']:
                 return self._handle_add_client_task(phone, message, user_id, task)
 
+            # Invitation decline reason task
+            elif task_type == 'decline_reason':
+                return self._handle_decline_reason_task(phone, message, user_id, task)
+
             else:
                 return {'success': False, 'response': 'Unknown relationship task', 'handler': 'unknown_relationship_task'}
 
@@ -331,3 +335,67 @@ class RelationshipTaskHandler:
         except Exception as e:
             log_error(f"Error handling collecting_email: {str(e)}")
             return {'success': False, 'response': 'Error collecting email', 'handler': 'collecting_email_error'}
+
+    def _handle_decline_reason_task(self, phone: str, message: str, user_id: str, task: Dict) -> Dict:
+        """Handle client providing reason for declining invitation"""
+        try:
+            from datetime import datetime
+            import pytz
+
+            task_id = task.get('id')
+            task_data = task.get('task_data', {})
+            invitation_id = task_data.get('invitation_id')
+            trainer_id = task_data.get('trainer_id')
+
+            # Check if user wants to skip
+            if message.strip().lower() in ['/skip', 'skip']:
+                msg = "Thanks for letting me know. If you change your mind, feel free to reach out!"
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, 'client')
+                return {'success': True, 'response': msg, 'handler': 'decline_reason_skipped'}
+
+            # Store the reason in the invitation record
+            sa_tz = pytz.timezone('Africa/Johannesburg')
+            self.db.table('client_invitations').update({
+                'decline_reason': message,
+                'updated_at': datetime.now(sa_tz).isoformat()
+            }).eq('id', invitation_id).execute()
+
+            # Get trainer info to notify
+            trainer_result = self.db.table('trainers').select('whatsapp, name, first_name, last_name').eq(
+                'id', trainer_id
+            ).execute()
+
+            if trainer_result.data:
+                trainer = trainer_result.data[0]
+                trainer_phone = trainer.get('whatsapp') or trainer.get('phone')
+
+                # Get invitation details for client name
+                invitation_result = self.db.table('client_invitations').select('client_name').eq(
+                    'id', invitation_id
+                ).execute()
+
+                client_name = invitation_result.data[0].get('client_name', 'The client') if invitation_result.data else 'The client'
+
+                # Notify trainer with the reason
+                if trainer_phone:
+                    trainer_msg = (
+                        f"ℹ️ {client_name} declined your invitation.\n\n"
+                        f"*Reason:*\n{message}"
+                    )
+                    self.whatsapp.send_message(trainer_phone, trainer_msg)
+
+            # Thank the client
+            msg = "Thanks for sharing that feedback. If you change your mind about training, feel free to reach out!"
+            self.whatsapp.send_message(phone, msg)
+
+            # Complete the task
+            self.task_service.complete_task(task_id, 'client')
+
+            return {'success': True, 'response': msg, 'handler': 'decline_reason_provided'}
+
+        except Exception as e:
+            log_error(f"Error handling decline reason: {str(e)}")
+            # Complete task even if there's an error
+            self.task_service.complete_task(task.get('id'), 'client')
+            return {'success': False, 'response': 'Error processing your response', 'handler': 'decline_reason_error'}

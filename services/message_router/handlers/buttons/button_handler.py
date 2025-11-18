@@ -10,6 +10,7 @@ from .registration_buttons import RegistrationButtonHandler
 from .client_creation_buttons import ClientCreationButtonHandler
 from .contact_confirmation_buttons import ContactConfirmationButtonHandler
 from .timeout_buttons import TimeoutButtonHandler
+from .invitation_buttons import InvitationButtonHandler
 
 
 class ButtonHandler:
@@ -36,6 +37,9 @@ class ButtonHandler:
         self.contact_confirmation_handler = ContactConfirmationButtonHandler(
             self.db, self.whatsapp, self.auth_service, self.task_service
         )
+        self.invitation_handler = InvitationButtonHandler(
+            self.db, self.whatsapp, self.auth_service
+        )
 
         # Initialize timeout handler if timeout service is available
         if self.timeout_service and self.task_service:
@@ -61,7 +65,24 @@ class ButtonHandler:
                 return router.route_message(phone, button_id, button_id=None)
             
             # Delegate to appropriate handler based on button type
-            if button_id.startswith(('accept_trainer_', 'decline_trainer_', 'accept_client_', 'decline_client_', 'send_invitation_', 'cancel_invitation_', 'resend_invite_', 'cancel_invite_', 'contact_client_')):
+            # Check for invitation buttons first (accept_client_{invitation_id} / decline_client_{invitation_id})
+            if button_id.startswith(('accept_client_', 'decline_client_')):
+                # Extract the ID and check if it's a numeric invitation_id
+                id_part = button_id.replace('accept_client_', '').replace('decline_client_', '')
+                try:
+                    invitation_id = int(id_part)
+                    # Check if this is an invitation ID (from client_invitations table)
+                    invitation_check = self.db.table('client_invitations').select('id').eq('id', invitation_id).execute()
+                    if invitation_check.data:
+                        # This is an invitation button, route to invitation handler
+                        return self.invitation_handler.handle_invitation_button(phone, button_id)
+                except (ValueError, TypeError):
+                    pass  # Not a numeric ID, fall through to relationship handler
+
+                # Fall through to relationship handler for client_id based buttons
+                return self.relationship_handler.handle_relationship_button(phone, button_id)
+
+            elif button_id.startswith(('accept_trainer_', 'decline_trainer_', 'send_invitation_', 'cancel_invitation_', 'resend_invite_', 'cancel_invite_', 'contact_client_')):
                 return self.relationship_handler.handle_relationship_button(phone, button_id)
 
             elif button_id.startswith(('approve_new_client_', 'reject_new_client_')) or button_id == 'share_contact_instructions':
