@@ -108,7 +108,7 @@ class ClientProfileTaskHandler:
             # Get contact data
             contact_data = task_data.get('contact_data') or task_data.get('basic_contact_data')
             if not contact_data:
-                msg = "❌ Missing contact information. Please try again."
+                msg = "❌ Missing contact information. Please try adding the client again."
                 self.whatsapp.send_message(phone, msg)
                 self.task_service.complete_task(task_id, role)
                 return {'success': False, 'response': msg, 'handler': 'custom_price_no_contact'}
@@ -122,26 +122,36 @@ class ClientProfileTaskHandler:
                 self.task_service.complete_task(task_id, role)
                 return {'success': False, 'response': msg, 'handler': 'custom_price_no_phone'}
 
-            # Send invitation to client
-            from services.flows.relationships.trainer_flows.creation_flow import TrainerClientCreationFlow
+            # Send invitation using invitation service
+            from services.relationships.invitations.invitation_service import InvitationService
 
-            creation_flow = TrainerClientCreationFlow(self.db, self.whatsapp, self.task_service)
+            invitation_service = InvitationService(self.db, self.whatsapp)
 
-            # Build task dict
-            task_dict = {
-                'id': task_id,
-                'task_data': task_data
-            }
-
-            # Send the invitation
-            result = creation_flow._send_client_fills_invitation(
-                trainer_phone=phone,
+            success, invitation_msg = invitation_service.send_client_fills_invitation(
                 trainer_id=trainer_id,
-                task=task_dict,
-                task_data=task_data
+                client_phone=client_phone,
+                client_name=client_name,
+                selected_price=validated_price
             )
 
-            return result
+            if success:
+                # Notify trainer
+                trainer_msg = (
+                    f"✅ *Invitation sent!*\n\n"
+                    f"I've sent {client_name} a training invitation.\n\n"
+                    f"💰 Rate: R{validated_price} per session\n\n"
+                    f"They'll receive a message with options to accept or decline."
+                )
+                self.whatsapp.send_message(phone, trainer_msg)
+                self.task_service.complete_task(task_id, role)
+
+                log_info(f"Sent client-fills invitation from trainer {trainer_id} to {client_name} ({client_phone}) with price: {validated_price}")
+                return {'success': True, 'response': trainer_msg, 'handler': 'custom_price_invitation_sent'}
+            else:
+                error_msg = f"❌ Failed to send invitation: {invitation_msg}"
+                self.whatsapp.send_message(phone, error_msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': error_msg, 'handler': 'custom_price_invitation_failed'}
 
         except Exception as e:
             log_error(f"Error handling custom price input: {str(e)}")
