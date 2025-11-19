@@ -73,7 +73,7 @@ class ClientProfileTaskHandler:
     def _handle_custom_price_input(self, phone: str, message: str, task_id: str, task_data: Dict, role: str) -> Dict:
         """Handle custom price input for client onboarding"""
         try:
-            from services.validation.price_validator import get_validator
+            from services.validation import get_validator
 
             # Get the trainer's UUID from the users table
             user_result = self.db.table('users').select('id, trainer_id').eq('phone_number', phone).execute()
