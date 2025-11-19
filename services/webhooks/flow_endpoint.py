@@ -143,18 +143,31 @@ class FlowEndpointHandler:
             # Try to get from flow_token
             if not invitation_id and 'flow_token' in flow_data:
                 flow_token = flow_data['flow_token']
-                # flow_token format: "client_onboarding_invitation_{UUID}_{phone}_{timestamp}"
-                # UUID format: "5c6e10c6-9201-407f-9559-102bcb0c4350" (becomes parts[3:8] when split by underscore)
+                # flow_token format: "client_onboarding_invitation_{uuid_part1}-{uuid_part2}-{uuid_part3}-{uuid_part4}-{uuid_part5}_{phone}_{timestamp}"
+                # After split: [client, onboarding, invitation, uuid_part1, uuid_part2, uuid_part3, uuid_part4, uuid_part5, phone, timestamp]
                 if 'client_onboarding_invitation_' in flow_token:
                     parts = flow_token.split('_')
-                    # Reconstruct UUID from parts[3:8] by joining with hyphens
                     if len(parts) >= 8:
                         try:
-                            # UUID is split across parts[3] through parts[7]
-                            invitation_id = '-'.join(parts[3:8])
+                            # Reconstruct UUID from parts 3-7 (5 parts with hyphens)
+                            invitation_id = f"{parts[3]}-{parts[4]}-{parts[5]}-{parts[6]}-{parts[7]}"
                             log_info(f"Extracted invitation_id (UUID): {invitation_id}")
                         except (ValueError, IndexError) as e:
                             log_warning(f"Failed to parse invitation_id UUID from flow_token: {flow_token}, error: {str(e)}")
+
+            # If still no invitation_id, try to get from flow_tokens table
+            if not invitation_id and 'flow_token' in flow_data:
+                try:
+                    flow_token_query = self.db.table('flow_tokens').select('data').eq(
+                        'flow_token', flow_data['flow_token']
+                    ).execute()
+
+                    if flow_token_query.data and flow_token_query.data[0].get('data'):
+                        token_data = flow_token_query.data[0]['data']
+                        invitation_id = token_data.get('invitation_id')
+                        log_info(f"Retrieved invitation_id from flow_tokens table: {invitation_id}")
+                except Exception as e:
+                    log_warning(f"Failed to retrieve invitation_id from flow_tokens table: {str(e)}")
 
             # Extract profile fields
             profile_data = {
