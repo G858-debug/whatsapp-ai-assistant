@@ -314,12 +314,7 @@ class InvitationManager:
                             "type": "action",
                             "action": {
                                 "flow_token": flow_token,
-                                "flow_action_data": {
-                                    "invitation_id": str(invitation_id),
-                                    "trainer_id": str(trainer_id),
-                                    "trainer_name": trainer_name,
-                                    "selected_price": str(selected_price) if selected_price else None
-                                }
+                                "flow_id": client_flow_id
                             }
                         }
                     ]
@@ -345,9 +340,10 @@ class InvitationManager:
                     'phone_number': client_phone,
                     'flow_type': 'client_onboarding',
                     'data': {
-                        'invitation_id': invitation_id,
+                        'invitation_id': str(invitation_id),
                         'trainer_id': str(trainer_id),
-                        'trainer_name': trainer_name
+                        'trainer_name': trainer_name,
+                        'selected_price': str(selected_price) if selected_price else None
                     },
                     'created_at': datetime.now(self.sa_tz).isoformat(),
                     'expires_at': (datetime.now(self.sa_tz) + timedelta(days=7)).isoformat()
