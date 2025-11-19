@@ -1118,7 +1118,7 @@ class ClientCreationButtonHandler:
             self.whatsapp.send_message(phone, msg)
 
             # Update task to wait for custom price input
-            task_data['new_client_step'] = 'await_custom_price'
+            task_data['step'] = 'awaiting_custom_price'
             self.task_service.update_task(task_id, role, task_data=task_data)
 
             log_info(f"Trainer {user_id} setting custom price for client {client_name}")
