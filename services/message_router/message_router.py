@@ -47,10 +47,16 @@ class MessageRouter:
         """
         try:
             log_info(f"Routing message from {phone}: {message[:50]}")
-            
+
             # Step 0: Check for button responses (Phase 2 invitations)
             if button_id:
                 return self.button_handler.handle_button_response(phone, button_id)
+
+            # Step 0.1: Check for WhatsApp template quick reply buttons
+            # These come as regular messages with specific text patterns
+            if message.strip() in ['✅ Accept invitation', '❌ Decline']:
+                log_info(f"Detected template button response: {message.strip()}")
+                return self._handle_template_response(phone, message.strip())
 
             # Step 0.5: Check for /reset_me command (highest priority - works in any state)
             if message.strip().lower() == '/reset_me':
@@ -117,3 +123,148 @@ class MessageRouter:
                 'response': "Sorry, I encountered an error. Please try again.",
                 'handler': 'error'
             }
+
+    def _handle_template_response(self, phone: str, button_text: str) -> Dict:
+        """Handle responses to template quick reply buttons"""
+        try:
+            log_info(f"Handling template response from {phone}: {button_text}")
+
+            # Find pending invitation for this phone number
+            invitation = self.db.table('client_invitations').select('*').eq(
+                'client_phone', phone
+            ).eq('status', 'pending_client_completion').execute()
+
+            if not invitation.data:
+                log_error(f"No pending invitation found for {phone}")
+                return {
+                    'success': False,
+                    'response': "No pending invitation found. If you have an invitation, please use the link in the message.",
+                    'handler': 'template_no_invitation'
+                }
+
+            invitation_data = invitation.data[0]
+            invitation_id = invitation_data['id']
+
+            if button_text == '✅ Accept invitation':
+                log_info(f"Client {phone} accepting invitation {invitation_id} via template")
+
+                # Update invitation status
+                self.db.table('client_invitations').update({
+                    'status': 'accepted'
+                }).eq('id', invitation_id).execute()
+
+                # Get trainer details
+                trainer = self._get_trainer(invitation_data['trainer_id'])
+                trainer_name = 'your trainer'
+                if trainer:
+                    trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip() or 'your trainer'
+
+                # Launch WhatsApp Flow for profile completion
+                flow_message = (
+                    f"Great! Let's set up your fitness profile 📝\n\n"
+                    f"This helps {trainer_name} create the perfect program for you."
+                )
+
+                # Use the invitation handler's flow launch method
+                from .handlers.buttons.invitation_buttons import InvitationButtonHandler
+                invitation_handler = InvitationButtonHandler(self.db, self.whatsapp, self.auth_service)
+
+                flow_result = invitation_handler._launch_client_onboarding_flow(
+                    phone=phone,
+                    invitation_id=invitation_id,
+                    trainer_id=invitation_data['trainer_id'],
+                    trainer_name=trainer_name
+                )
+
+                if flow_result.get('success'):
+                    return {
+                        'success': True,
+                        'response': flow_message,
+                        'handler': 'template_accept_invitation'
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'response': 'Failed to launch onboarding flow. Please try again.',
+                        'handler': 'template_flow_failed',
+                        'error': flow_result.get('error')
+                    }
+
+            elif button_text == '❌ Decline':
+                log_info(f"Client {phone} declining invitation {invitation_id} via template")
+
+                # Update invitation status
+                self.db.table('client_invitations').update({
+                    'status': 'declined'
+                }).eq('id', invitation_id).execute()
+
+                # Ask for optional reason
+                response = (
+                    "Thanks for letting us know.\n\n"
+                    "Mind sharing why? (Optional)\n"
+                    "• Not interested right now\n"
+                    "• Found another trainer\n"
+                    "• Too expensive\n"
+                    "• Other reason\n\n"
+                    "You can type your reason or type /skip to finish."
+                )
+
+                # Create task for collecting decline reason
+                self.task_service.create_task(
+                    phone=phone,
+                    user_type='client',
+                    task_type='decline_reason',
+                    task_data={
+                        'invitation_id': invitation_id,
+                        'trainer_id': str(invitation_data['trainer_id'])
+                    }
+                )
+
+                # Notify trainer
+                trainer_phone = self._get_trainer_phone(invitation_data['trainer_id'])
+                if trainer_phone:
+                    client_name = invitation_data.get('client_name', 'A client')
+                    trainer_msg = f"ℹ️ {client_name} declined your invitation."
+                    self.whatsapp.send_message(trainer_phone, trainer_msg)
+
+                return {
+                    'success': True,
+                    'response': response,
+                    'handler': 'template_decline_invitation'
+                }
+
+            return {
+                'success': False,
+                'response': "Unknown template button action",
+                'handler': 'template_unknown'
+            }
+
+        except Exception as e:
+            log_error(f"Error handling template response: {str(e)}")
+            return {
+                'success': False,
+                'response': "Sorry, I encountered an error processing your response. Please try again.",
+                'handler': 'template_error'
+            }
+
+    def _get_trainer(self, trainer_id: str) -> Optional[Dict]:
+        """Get trainer details by ID"""
+        try:
+            result = self.db.table('trainers').select('*').eq('id', trainer_id).execute()
+            if result.data:
+                return result.data[0]
+            return None
+        except Exception as e:
+            log_error(f"Error getting trainer: {str(e)}")
+            return None
+
+    def _get_trainer_phone(self, trainer_id: str) -> Optional[str]:
+        """Get trainer phone number by ID"""
+        try:
+            trainer = self._get_trainer(trainer_id)
+            if trainer:
+                return trainer.get('whatsapp') or trainer.get('phone')
+            return None
+        except Exception as e:
+            log_error(f"Error getting trainer phone: {str(e)}")
+            return None
