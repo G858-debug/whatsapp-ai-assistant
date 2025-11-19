@@ -3,7 +3,7 @@ Relationship Task Handler
 Handles trainer-client relationship tasks (Phase 2)
 """
 from typing import Dict
-from utils.logger import log_error
+from utils.logger import log_info, log_error, log_debug
 
 
 class RelationshipTaskHandler:
@@ -104,13 +104,16 @@ class RelationshipTaskHandler:
                     log_error(f"Unknown add_client_choice step: {step}")
                     return {'success': False, 'response': 'Unknown step', 'handler': 'add_client_unknown_step'}
 
-            # Handle add_client_profile_choice task - already handled by buttons
+            # Handle add_client_profile_choice task
             elif task_type == 'add_client_profile_choice':
-                # This task type is handled by buttons (client_fills_profile, trainer_fills_profile)
-                # If we get here via text, user might be confused
-                msg = "Please select one of the buttons above to continue."
-                self.whatsapp.send_message(phone, msg)
-                return {'success': True, 'response': msg, 'handler': 'add_client_profile_awaiting_button'}
+                # Check if we're awaiting custom price input
+                if step == 'awaiting_custom_price':
+                    return self._handle_custom_price_input(phone, message, user_id, task_id, task_data, role)
+                else:
+                    # For other steps, this task type is handled by buttons
+                    msg = "Please select one of the buttons above to continue."
+                    self.whatsapp.send_message(phone, msg)
+                    return {'success': True, 'response': msg, 'handler': 'add_client_profile_awaiting_button'}
 
             else:
                 return {'success': False, 'response': 'Unknown add client task type', 'handler': 'add_client_unknown_type'}
@@ -399,3 +402,68 @@ class RelationshipTaskHandler:
             # Complete task even if there's an error
             self.task_service.complete_task(task.get('id'), 'client')
             return {'success': False, 'response': 'Error processing your response', 'handler': 'decline_reason_error'}
+
+    def _handle_custom_price_input(self, phone: str, message: str, user_id: str, task_id: str, task_data: Dict, role: str) -> Dict:
+        """Handle custom price input for client onboarding"""
+        try:
+            from services.validation.price_validator import get_validator
+
+            # Validate the price
+            validator = get_validator()
+            is_valid, error_msg, validated_price = validator.validate_price(message, phone)
+
+            if not is_valid:
+                # Send validation error
+                self.whatsapp.send_message(phone, error_msg)
+                return {'success': True, 'response': error_msg, 'handler': 'custom_price_invalid'}
+
+            # Store the price in task_data
+            task_data['selected_price'] = validated_price
+            task_data['step'] = 'price_confirmed'  # Update step
+
+            # Update the task
+            self.task_service.update_task(task_id, role, task_data)
+
+            # Get contact data
+            contact_data = task_data.get('contact_data') or task_data.get('basic_contact_data')
+            if not contact_data:
+                msg = "❌ Missing contact information. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'custom_price_no_contact'}
+
+            client_name = contact_data.get('name', 'the client')
+            client_phone = contact_data.get('phone')
+
+            if not client_phone:
+                msg = "❌ Missing phone number. Please share the contact again."
+                self.whatsapp.send_message(phone, msg)
+                self.task_service.complete_task(task_id, role)
+                return {'success': False, 'response': msg, 'handler': 'custom_price_no_phone'}
+
+            # Send invitation to client with the custom price
+            # Import here to avoid circular dependencies
+            from services.flows.relationships.trainer_flows.creation_flow import TrainerClientCreationFlow
+
+            creation_flow = TrainerClientCreationFlow(self.db, self.whatsapp, self.task_service)
+
+            # Use the existing _send_client_fills_invitation method
+            task_dict = {
+                'id': task_id,
+                'task_data': task_data
+            }
+
+            result = creation_flow._send_client_fills_invitation(
+                trainer_phone=phone,
+                trainer_id=user_id,
+                task=task_dict,
+                task_data=task_data
+            )
+
+            return result
+
+        except Exception as e:
+            log_error(f"Error handling custom price input: {str(e)}")
+            msg = "❌ Sorry, I encountered an error. Type /stop to cancel."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'custom_price_error'}
