@@ -812,20 +812,29 @@ class CreationFlow:
     def _send_client_fills_invitation(self, trainer_phone: str, trainer_id: str,
                                        task: Dict, task_data: Dict) -> Dict:
         """
-        Send invitation to client after pricing has been set for client_fills flow
+        Send WhatsApp Flow invitation to client to complete their fitness profile.
+
+        This method creates an invitation in the client_invitations table and sends a
+        WhatsApp Flow button to the client to fill their fitness profile.
 
         Args:
             trainer_phone: Trainer's WhatsApp number
             trainer_id: Trainer's ID
             task: Current task data
-            task_data: Task data dictionary
+            task_data: Task data dictionary containing client info and pricing
 
         Returns:
             Dict with success status and response details
         """
         try:
-            # Get stored client data
-            client_data = task_data.get('client_data', {})
+            # Extract client info from task_data (check multiple possible keys)
+            client_data = (
+                task_data.get('contact_data') or
+                task_data.get('basic_contact_data') or
+                task_data.get('client_data', {})
+            )
+
+            # Get selected price
             selected_price = task_data.get('selected_price')
             pricing_to_discuss = task_data.get('pricing_to_discuss', False)
 
