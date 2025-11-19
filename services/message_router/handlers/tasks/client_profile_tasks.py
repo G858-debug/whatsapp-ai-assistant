@@ -70,164 +70,84 @@ class ClientProfileTaskHandler:
                 'handler': 'client_profile_error'
             }
 
-    def _handle_custom_price_input(self, phone: str, message: str, task_id: str,
-                                   task_data: Dict, role: str) -> Dict:
-        """
-        Handle custom price input from trainer
-
-        Args:
-            phone: Trainer's phone number
-            message: Price input from trainer
-            task_id: Current task ID
-            task_data: Task data dictionary
-            role: User role ('trainer')
-
-        Returns:
-            Dict with success status and response
-        """
+    def _handle_custom_price_input(self, phone: str, message: str, task_id: str, task_data: Dict, role: str) -> Dict:
+        """Handle custom price input for client onboarding"""
         try:
-            # Check for cancel command
-            if message.strip().lower() in ['/cancel', '/stop']:
-                self.task_service.complete_task(task_id, role)
-                msg = "❌ Cancelled. The client invitation was not sent."
+            from services.validation.price_validator import get_validator
+
+            # Get the trainer's UUID from the users table
+            user_result = self.db.table('users').select('id, trainer_id').eq('phone_number', phone).execute()
+
+            if not user_result.data or len(user_result.data) == 0:
+                msg = "❌ Could not find your account. Please try again."
                 self.whatsapp.send_message(phone, msg)
-                return {
-                    'success': True,
-                    'response': msg,
-                    'handler': 'custom_price_cancelled'
-                }
+                return {'success': False, 'response': msg, 'handler': 'custom_price_no_user'}
 
-            # Get trainer user ID for validation tracking
-            user_id = self.auth_service.get_user_id_by_role(phone, role)
-
-            if not user_id:
-                msg = "❌ Sorry, I couldn't find your account. Please log in again."
+            trainer_id = user_result.data[0].get('trainer_id')
+            if not trainer_id:
+                msg = "❌ Could not find your trainer account. Please contact support."
                 self.whatsapp.send_message(phone, msg)
-                self.task_service.complete_task(task_id, role)
-                return {
-                    'success': False,
-                    'response': msg,
-                    'handler': 'custom_price_no_user'
-                }
+                return {'success': False, 'response': msg, 'handler': 'custom_price_no_trainer_id'}
 
-            # Validate price input
+            # Validate the price
             validator = get_validator()
-            is_valid, error_msg, price_value = validator.validate_price(message.strip(), user_id)
+            is_valid, error_msg, validated_price = validator.validate_price(message, phone)
 
             if not is_valid:
-                # Send validation error to trainer
+                # Send validation error
                 self.whatsapp.send_message(phone, error_msg)
-                return {
-                    'success': True,
-                    'response': error_msg,
-                    'handler': 'custom_price_validation_error'
-                }
+                return {'success': True, 'response': error_msg, 'handler': 'custom_price_invalid'}
 
-            # Store validated price (rounded to 2 decimals)
-            selected_price = round(price_value, 2)
-            task_data['selected_price'] = selected_price
-            log_info(f"Trainer {user_id} set custom price: R{selected_price}")
+            # Store the price in task_data
+            task_data['selected_price'] = validated_price
+            task_data['step'] = 'price_confirmed'
 
-            # Get contact data (from either contact_data or basic_contact_data)
-            contact_data = task_data.get('contact_data')
-            basic_contact_data = task_data.get('basic_contact_data')
+            # Update the task
+            self.task_service.update_task(task_id, role, task_data)
 
-            if contact_data:
-                # From shared contact
-                client_name = contact_data.get('name', 'Unknown')
-                client_phone = contact_data.get('phone')
-            elif basic_contact_data:
-                # From typed input
-                client_name = basic_contact_data.get('name', 'Unknown')
-                client_phone = basic_contact_data.get('phone')
-            else:
+            # Get contact data
+            contact_data = task_data.get('contact_data') or task_data.get('basic_contact_data')
+            if not contact_data:
                 msg = "❌ Missing contact information. Please try again."
                 self.whatsapp.send_message(phone, msg)
                 self.task_service.complete_task(task_id, role)
-                return {
-                    'success': False,
-                    'response': msg,
-                    'handler': 'custom_price_no_contact_data'
-                }
+                return {'success': False, 'response': msg, 'handler': 'custom_price_no_contact'}
+
+            client_name = contact_data.get('name', 'the client')
+            client_phone = contact_data.get('phone')
 
             if not client_phone:
                 msg = "❌ Missing phone number. Please share the contact again."
                 self.whatsapp.send_message(phone, msg)
                 self.task_service.complete_task(task_id, role)
-                return {
-                    'success': False,
-                    'response': msg,
-                    'handler': 'custom_price_no_phone'
-                }
+                return {'success': False, 'response': msg, 'handler': 'custom_price_no_phone'}
 
-            # Ensure trainer record exists in trainers table (get UUID)
-            trainer_uuid, error_msg = self._ensure_trainer_record_exists(phone, user_id)
+            # Send invitation to client
+            from services.flows.relationships.trainer_flows.creation_flow import TrainerClientCreationFlow
 
-            if not trainer_uuid:
-                log_error(f"Failed to ensure trainer record exists: {error_msg}")
-                msg = "❌ Error setting up trainer profile. Please contact support."
-                self.whatsapp.send_message(phone, msg)
-                self.task_service.complete_task(task_id, role)
-                return {
-                    'success': False,
-                    'response': msg,
-                    'handler': 'custom_price_trainer_record_error'
-                }
+            creation_flow = TrainerClientCreationFlow(self.db, self.whatsapp, self.task_service)
 
-            # Send invitation to client using InvitationService
-            from services.relationships.invitations.invitation_service import InvitationService
+            # Build task dict
+            task_dict = {
+                'id': task_id,
+                'task_data': task_data
+            }
 
-            invitation_service = InvitationService(self.db, self.whatsapp)
-
-            success, invitation_error = invitation_service.send_client_fills_invitation(
-                trainer_id=trainer_uuid,
-                client_phone=client_phone,
-                client_name=client_name,
-                selected_price=selected_price
+            # Send the invitation
+            result = creation_flow._send_client_fills_invitation(
+                trainer_phone=phone,
+                trainer_id=trainer_id,
+                task=task_dict,
+                task_data=task_data
             )
 
-            if success:
-                # Send success message to trainer
-                msg = (
-                    f"✅ *Invitation sent!*\n\n"
-                    f"I've sent {client_name} a training invitation.\n\n"
-                    f"💰 Rate: R{int(selected_price)} per session\n\n"
-                    f"They'll receive a message to complete their fitness profile and review the details."
-                )
-                self.whatsapp.send_message(phone, msg)
-
-                # Complete the task
-                self.task_service.complete_task(task_id, role)
-
-                log_info(f"Successfully sent client invitation from {user_id} to {client_phone} with price R{selected_price}")
-
-                return {
-                    'success': True,
-                    'response': msg,
-                    'handler': 'custom_price_invitation_sent'
-                }
-            else:
-                # Invitation failed
-                log_error(f"Failed to send invitation: {invitation_error}")
-                msg = f"❌ Failed to send invitation: {invitation_error}\n\nPlease try again or contact support."
-                self.whatsapp.send_message(phone, msg)
-                self.task_service.complete_task(task_id, role)
-
-                return {
-                    'success': False,
-                    'response': msg,
-                    'handler': 'custom_price_invitation_failed'
-                }
+            return result
 
         except Exception as e:
             log_error(f"Error handling custom price input: {str(e)}")
             msg = "❌ Sorry, I encountered an error. Please try again."
             self.whatsapp.send_message(phone, msg)
-            return {
-                'success': False,
-                'response': msg,
-                'handler': 'custom_price_input_error'
-            }
+            return {'success': False, 'response': msg, 'handler': 'custom_price_input_error'}
 
     def _ensure_trainer_record_exists(self, phone: str, trainer_id: str):
         """
