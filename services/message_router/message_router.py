@@ -50,12 +50,15 @@ class MessageRouter:
 
             # Step 0: Check for button responses (Phase 2 invitations)
             if button_id:
+                log_info(f"Button message received - phone: {phone}, button_id: {button_id}")
+                log_info(f"Routing to button_handler.handle_button_response")
                 return self.button_handler.handle_button_response(phone, button_id)
 
             # Step 0.1: Check for WhatsApp template quick reply buttons
             # These come as regular messages with specific text patterns
             if message.strip() in ['✅ Accept invitation', '❌ Decline']:
-                log_info(f"Detected template button response: {message.strip()}")
+                log_info(f"Template button message received - phone: {phone}, button_text: '{message.strip()}'")
+                log_info(f"Routing to _handle_template_response")
                 return self._handle_template_response(phone, message.strip())
 
             # Step 0.5: Check for /reset_me command (highest priority - works in any state)
@@ -127,7 +130,7 @@ class MessageRouter:
     def _handle_template_response(self, phone: str, button_text: str) -> Dict:
         """Handle responses to template quick reply buttons"""
         try:
-            log_info(f"Handling template response from {phone}: {button_text}")
+            log_info(f"[_handle_template_response] START - phone: {phone}, button_text: '{button_text}'")
 
             # Find pending invitation for this phone number
             # Check for multiple statuses to handle both Flow button and quick reply button clicks
@@ -137,8 +140,10 @@ class MessageRouter:
                 'created_at', desc=True
             ).limit(1).execute()
 
+            log_info(f"[_handle_template_response] Invitation query result - found: {len(invitation.data) > 0}, count: {len(invitation.data) if invitation.data else 0}")
+
             if not invitation.data:
-                log_error(f"No pending invitation found for {phone}")
+                log_error(f"[_handle_template_response] No pending invitation found for {phone}")
                 return {
                     'success': False,
                     'response': "No pending invitation found. If you have an invitation, please use the link in the message.",
@@ -147,9 +152,10 @@ class MessageRouter:
 
             invitation_data = invitation.data[0]
             invitation_id = invitation_data['id']
+            log_info(f"[_handle_template_response] Invitation found - id: {invitation_id}, status: {invitation_data.get('status')}, trainer_id: {invitation_data.get('trainer_id')}")
 
             if button_text == '✅ Accept invitation':
-                log_info(f"Client {phone} accepting invitation {invitation_id} via template")
+                log_info(f"[_handle_template_response] Client {phone} accepting invitation {invitation_id} via template")
 
                 # Update invitation status
                 self.db.table('client_invitations').update({
@@ -172,12 +178,16 @@ class MessageRouter:
                 from .handlers.buttons.invitation_buttons import InvitationButtonHandler
                 invitation_handler = InvitationButtonHandler(self.db, self.whatsapp, self.auth_service)
 
+                log_info(f"[_handle_template_response] Launching client onboarding flow - invitation_id: {invitation_id}, trainer_id: {invitation_data['trainer_id']}, trainer_name: '{trainer_name}', phone: {phone}")
+
                 flow_result = invitation_handler._launch_client_onboarding_flow(
                     phone=phone,
                     invitation_id=invitation_id,
                     trainer_id=invitation_data['trainer_id'],
                     trainer_name=trainer_name
                 )
+
+                log_info(f"[_handle_template_response] Flow launch result - success: {flow_result.get('success')}, error: {flow_result.get('error', 'None')}")
 
                 if flow_result.get('success'):
                     return {
@@ -194,7 +204,7 @@ class MessageRouter:
                     }
 
             elif button_text == '❌ Decline':
-                log_info(f"Client {phone} declining invitation {invitation_id} via template")
+                log_info(f"[_handle_template_response] Client {phone} declining invitation {invitation_id} via template")
 
                 # Update invitation status
                 self.db.table('client_invitations').update({
