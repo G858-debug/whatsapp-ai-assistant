@@ -6,7 +6,7 @@ from typing import Dict, Optional, Tuple
 from datetime import datetime
 import pytz
 import secrets
-from utils.logger import log_info, log_error
+from utils.logger import log_info, log_error, log_warning
 
 
 class InvitationManager:
@@ -275,18 +275,86 @@ class InvitationManager:
                 invitation_result = self.db.table('client_invitations').insert(invitation_data).execute()
                 invitation_id = invitation_result.data[0]['id']
 
-            # Prepare template components
+            # Get invitation ID for button payloads
+            invitation_query = self.db.table('client_invitations').select('id').eq(
+                'client_phone', client_phone
+            ).eq('trainer_id', trainer['id']).eq('status', 'pending_client_completion').execute()
+
+            if not invitation_query.data:
+                log_error(f"Could not find invitation for buttons: {client_phone}")
+                return False, "Invitation created but missing ID"
+
+            invitation_id = invitation_query.data[0]['id']
+
+            # Generate flow token for the client onboarding flow
+            flow_token = f"client_onboarding_invitation_{invitation_id}_{client_phone}_{int(datetime.now().timestamp())}"
+
+            # Client onboarding flow ID from Meta Business Manager
+            client_flow_id = "808683325277166"
+
+            # Prepare template components with body, flow button, and quick reply button
+            # Button 1 (index 0): "Accept invitation" -> launches WhatsApp Flow
+            # Button 2 (index 1): "Decline invitation" -> quick reply
             template_components = [
                 {
                     "type": "body",
                     "parameters": [
                         {"type": "text", "text": client_name or "there"},
                         {"type": "text", "text": trainer_name},
-                        {"type": "text", "text": "R"},  # Currency symbol
+                        {"type": "text", "text": "R"},
                         {"type": "text", "text": str(int(selected_price)) if selected_price else "To be discussed"}
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "flow",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "action",
+                            "action": {
+                                "flow_token": flow_token,
+                                "flow_action_data": {
+                                    "invitation_id": str(invitation_id),
+                                    "trainer_id": str(trainer_id),
+                                    "trainer_name": trainer_name,
+                                    "selected_price": str(selected_price) if selected_price else None
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "1",
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": f"decline_client_{invitation_id}"
+                        }
                     ]
                 }
             ]
+
+            # Store flow token for tracking
+            try:
+                from datetime import timedelta
+                self.db.table('flow_tokens').insert({
+                    'token': flow_token,
+                    'phone_number': client_phone,
+                    'flow_type': 'client_onboarding',
+                    'data': {
+                        'invitation_id': invitation_id,
+                        'trainer_id': str(trainer_id),
+                        'trainer_name': trainer_name
+                    },
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'expires_at': (datetime.now(self.sa_tz) + timedelta(days=7)).isoformat()
+                }).execute()
+                log_info(f"Stored flow token: {flow_token}")
+            except Exception as e:
+                log_warning(f"Could not store flow token: {str(e)}")
 
             # Send template message
             success = self.whatsapp.send_template_message(
