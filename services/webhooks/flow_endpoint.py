@@ -143,14 +143,18 @@ class FlowEndpointHandler:
             # Try to get from flow_token
             if not invitation_id and 'flow_token' in flow_data:
                 flow_token = flow_data['flow_token']
-                # flow_token format: "client_onboarding_invitation_{invitation_id}_{phone}_{timestamp}"
+                # flow_token format: "client_onboarding_invitation_{UUID}_{phone}_{timestamp}"
+                # UUID format: "5c6e10c6-9201-407f-9559-102bcb0c4350" (becomes parts[3:8] when split by underscore)
                 if 'client_onboarding_invitation_' in flow_token:
                     parts = flow_token.split('_')
-                    if len(parts) >= 4:
+                    # Reconstruct UUID from parts[3:8] by joining with hyphens
+                    if len(parts) >= 8:
                         try:
-                            invitation_id = int(parts[3])
-                        except (ValueError, IndexError):
-                            log_warning(f"Failed to parse invitation_id from flow_token: {flow_token}")
+                            # UUID is split across parts[3] through parts[7]
+                            invitation_id = '-'.join(parts[3:8])
+                            log_info(f"Extracted invitation_id (UUID): {invitation_id}")
+                        except (ValueError, IndexError) as e:
+                            log_warning(f"Failed to parse invitation_id UUID from flow_token: {flow_token}, error: {str(e)}")
 
             # Extract profile fields
             profile_data = {
@@ -174,15 +178,16 @@ class FlowEndpointHandler:
             log_error(f"Error extracting profile data: {str(e)}")
             return None
 
-    def _get_invitation(self, invitation_id: int) -> Optional[Dict]:
-        """Get invitation by ID"""
+    def _get_invitation(self, invitation_id: str) -> Optional[Dict]:
+        """Get invitation by ID (UUID string)"""
         try:
+            log_info(f"Getting invitation with UUID: {invitation_id}")
             result = self.db.table('client_invitations').select('*').eq('id', invitation_id).execute()
             if result.data:
                 return result.data[0]
             return None
         except Exception as e:
-            log_error(f"Error getting invitation: {str(e)}")
+            log_error(f"Error getting invitation {invitation_id}: {str(e)}")
             return None
 
     def _create_or_update_client(self, invitation: Dict, profile_data: Dict, phone_number: str) -> Dict:
@@ -310,15 +315,16 @@ class FlowEndpointHandler:
                 'error': str(e)
             }
 
-    def _update_invitation_status(self, invitation_id: int, status: str):
-        """Update invitation status"""
+    def _update_invitation_status(self, invitation_id: str, status: str):
+        """Update invitation status (invitation_id is UUID string)"""
         try:
+            log_info(f"Updating invitation {invitation_id} to status: {status}")
             self.db.table('client_invitations').update({
                 'status': status,
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }).eq('id', invitation_id).execute()
         except Exception as e:
-            log_error(f"Error updating invitation status: {str(e)}")
+            log_error(f"Error updating invitation {invitation_id} status: {str(e)}")
 
     def _get_trainer_name(self, trainer_id: str) -> str:
         """Get trainer name"""
