@@ -130,9 +130,12 @@ class MessageRouter:
             log_info(f"Handling template response from {phone}: {button_text}")
 
             # Find pending invitation for this phone number
+            # Check for multiple statuses to handle both Flow button and quick reply button clicks
             invitation = self.db.table('client_invitations').select('*').eq(
                 'client_phone', phone
-            ).eq('status', 'pending_client_completion').execute()
+            ).in_('status', ['pending', 'pending_client_completion', 'sent', 'accepted']).order(
+                'created_at', desc=True
+            ).limit(1).execute()
 
             if not invitation.data:
                 log_error(f"No pending invitation found for {phone}")
