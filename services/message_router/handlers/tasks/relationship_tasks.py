@@ -447,15 +447,16 @@ class RelationshipTaskHandler:
 
             creation_flow = TrainerClientCreationFlow(self.db, self.whatsapp, self.task_service)
 
-            # Use the existing _send_client_fills_invitation method
+            # Build task dict for the creation flow
             task_dict = {
                 'id': task_id,
                 'task_data': task_data
             }
 
+            # Call the method to send invitation
             result = creation_flow._send_client_fills_invitation(
                 trainer_phone=phone,
-                trainer_id=user_id,
+                trainer_id=user_id,  # user_id is the trainer's UUID
                 task=task_dict,
                 task_data=task_data
             )
@@ -464,6 +465,6 @@ class RelationshipTaskHandler:
 
         except Exception as e:
             log_error(f"Error handling custom price input: {str(e)}")
-            msg = "❌ Sorry, I encountered an error. Type /stop to cancel."
+            msg = "❌ Sorry, I encountered an error. Please try again."
             self.whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'custom_price_error'}
+            return {'success': False, 'response': msg, 'handler': 'custom_price_input_error'}
