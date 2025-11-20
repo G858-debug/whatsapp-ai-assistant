@@ -38,12 +38,9 @@ class InvitationButtonHandler:
             # Extract invitation_id from button_id
             invitation_id = button_id.replace('accept_client_', '')
 
-            # Verify it's a valid integer ID
-            try:
-                invitation_id = int(invitation_id)
-            except ValueError:
-                log_error(f"Invalid invitation ID format: {invitation_id}")
-                return {'success': False, 'response': 'Invalid invitation ID', 'handler': 'accept_invitation_invalid_id'}
+            # invitation_id is already a UUID string from the button payload
+            # No conversion needed
+            log_info(f"Processing accept invitation for invitation_id: {invitation_id}")
 
             # Get invitation details
             invitation = self._get_invitation(invitation_id)
@@ -106,12 +103,9 @@ class InvitationButtonHandler:
             # Extract invitation_id from button_id
             invitation_id = button_id.replace('decline_client_', '')
 
-            # Verify it's a valid integer ID
-            try:
-                invitation_id = int(invitation_id)
-            except ValueError:
-                log_error(f"Invalid invitation ID format: {invitation_id}")
-                return {'success': False, 'response': 'Invalid invitation ID', 'handler': 'decline_invitation_invalid_id'}
+            # invitation_id is already a UUID string from the button payload
+            # No conversion needed
+            log_info(f"Processing decline invitation for invitation_id: {invitation_id}")
 
             # Get invitation details
             invitation = self._get_invitation(invitation_id)
@@ -173,7 +167,7 @@ class InvitationButtonHandler:
             log_error(f"Error declining client invitation: {str(e)}")
             return {'success': False, 'response': 'Error declining invitation', 'handler': 'decline_invitation_error'}
 
-    def _get_invitation(self, invitation_id: int) -> Optional[Dict]:
+    def _get_invitation(self, invitation_id: str) -> Optional[Dict]:
         """Get invitation by ID"""
         try:
             result = self.db.table('client_invitations').select('*').eq('id', invitation_id).execute()
@@ -195,7 +189,7 @@ class InvitationButtonHandler:
             log_error(f"Error getting trainer: {str(e)}")
             return None
 
-    def _launch_client_onboarding_flow(self, phone: str, invitation_id: int, trainer_id: str, trainer_name: str) -> Dict:
+    def _launch_client_onboarding_flow(self, phone: str, invitation_id: str, trainer_id: str, trainer_name: str) -> Dict:
         """Launch WhatsApp Flow for client profile completion"""
         try:
             # Create flow token with invitation context
@@ -251,7 +245,7 @@ class InvitationButtonHandler:
             log_error(f"Error launching client onboarding flow: {str(e)}")
             return {'success': False, 'error': str(e)}
 
-    def _store_flow_token(self, phone: str, flow_token: str, invitation_id: int):
+    def _store_flow_token(self, phone: str, flow_token: str, invitation_id: str):
         """Store flow token for tracking"""
         try:
             self.db.table('flow_tokens').insert({
