@@ -258,7 +258,7 @@ class InvitationButtonHandler:
                 'phone_number': phone,
                 'flow_token': flow_token,
                 'flow_type': 'client_onboarding',
-                'metadata': {
+                'flow_data': {
                     'invitation_id': invitation_id
                 },
                 'created_at': datetime.now(self.sa_tz).isoformat()
