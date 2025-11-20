@@ -195,10 +195,24 @@ class FlowEndpointHandler:
         """Get invitation by ID (UUID string)"""
         try:
             log_info(f"Getting invitation with UUID: {invitation_id}")
-            result = self.db.table('client_invitations').select('*').eq('id', invitation_id).execute()
-            if result.data:
-                return result.data[0]
-            return None
+
+            # Get invitation details - invitation_id is already a UUID string
+            invitation_result = self.db.table('client_invitations').select('*').eq(
+                'id', invitation_id
+            ).execute()
+
+            if not invitation_result.data:
+                log_error(f"No invitation found with id {invitation_id}")
+                return None
+
+            invitation = invitation_result.data[0]
+            log_info(f"Found invitation with UUID {invitation_id}")
+            log_info(f"Invitation status: {invitation.get('status')}")
+            log_info(f"Invitation trainer_id: {invitation.get('trainer_id')}")
+            log_info(f"Invitation client_phone: {invitation.get('client_phone')}")
+
+            return invitation
+
         except Exception as e:
             log_error(f"Error getting invitation {invitation_id}: {str(e)}")
             return None
@@ -207,6 +221,7 @@ class FlowEndpointHandler:
         """Create or update client record"""
         try:
             trainer_id = invitation['trainer_id']
+            log_info(f"Creating/updating client for phone {phone_number}, trainer_id: {trainer_id}")
 
             # Check if client already exists
             existing = self.db.table('clients').select('*').eq(
@@ -231,21 +246,24 @@ class FlowEndpointHandler:
             if existing.data:
                 # Update existing client
                 client_id = existing.data[0]['id']
+                log_info(f"Updating existing client {client_id} with new profile data")
                 self.db.table('clients').update(client_data).eq('id', client_id).execute()
-                log_info(f"Updated existing client {client_id}")
+                log_info(f"Successfully updated client {client_id}")
             else:
                 # Create new client
+                log_info(f"Creating new client account for {phone_number}")
                 client_data['created_at'] = datetime.now(self.sa_tz).isoformat()
                 result = self.db.table('clients').insert(client_data).execute()
 
                 if not result.data:
+                    log_error(f"Failed to create client record for {phone_number}")
                     return {
                         'success': False,
                         'error': 'Failed to create client record'
                     }
 
                 client_id = result.data[0]['id']
-                log_info(f"Created new client {client_id}")
+                log_info(f"Successfully created new client {client_id}")
 
             return {
                 'success': True,
@@ -264,6 +282,9 @@ class FlowEndpointHandler:
                                            invitation_token: Optional[str]) -> Dict:
         """Create bidirectional trainer-client relationship"""
         try:
+            log_info(f"Creating trainer-client relationship: trainer_id={trainer_id}, client_id={client_id}")
+            log_info(f"Relationship details: custom_price={selected_price}, invitation_token={invitation_token}")
+
             now = datetime.now(self.sa_tz).isoformat()
 
             # Check if relationship already exists
@@ -280,13 +301,15 @@ class FlowEndpointHandler:
 
             if existing_trainer.data:
                 # Update existing relationship
+                log_info(f"Updating existing trainer_client_list relationship")
                 self.db.table('trainer_client_list').update(relationship_data).eq(
                     'trainer_id', trainer_id
                 ).eq('client_id', client_id).execute()
 
-                log_info(f"Updated existing trainer_client_list relationship")
+                log_info(f"Successfully updated trainer_client_list relationship")
             else:
                 # Create new relationship
+                log_info(f"Creating new trainer_client_list relationship")
                 trainer_list_data = {
                     'trainer_id': trainer_id,
                     'client_id': client_id,
@@ -295,18 +318,22 @@ class FlowEndpointHandler:
                 }
 
                 self.db.table('trainer_client_list').insert(trainer_list_data).execute()
-                log_info(f"Created new trainer_client_list relationship")
+                log_info(f"Successfully created trainer_client_list relationship")
 
             # Also create/update client_trainer_list (bidirectional)
+            log_info(f"Creating/updating bidirectional client_trainer_list relationship")
             existing_client = self.db.table('client_trainer_list').select('*').eq(
                 'client_id', client_id
             ).eq('trainer_id', trainer_id).execute()
 
             if existing_client.data:
+                log_info(f"Updating existing client_trainer_list relationship")
                 self.db.table('client_trainer_list').update(relationship_data).eq(
                     'client_id', client_id
                 ).eq('trainer_id', trainer_id).execute()
+                log_info(f"Successfully updated client_trainer_list relationship")
             else:
+                log_info(f"Creating new client_trainer_list relationship")
                 client_list_data = {
                     'client_id': client_id,
                     'trainer_id': trainer_id,
@@ -315,6 +342,7 @@ class FlowEndpointHandler:
                 }
 
                 self.db.table('client_trainer_list').insert(client_list_data).execute()
+                log_info(f"Successfully created client_trainer_list relationship")
 
             return {
                 'success': True,
