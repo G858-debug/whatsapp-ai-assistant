@@ -309,12 +309,13 @@ class InvitationManager:
                     "type": "button",
                     "sub_type": "flow",
                     "index": "0",
+                    # NOTE: flow_id is pre-configured in the Meta Business Manager template
+                    # Only flow_token should be passed here; including flow_id causes API rejection
                     "parameters": [
                         {
                             "type": "action",
                             "action": {
-                                "flow_token": flow_token,
-                                "flow_id": client_flow_id
+                                "flow_token": flow_token
                             }
                         }
                     ]
