@@ -67,19 +67,16 @@ class ButtonHandler:
             # Delegate to appropriate handler based on button type
             # Check for invitation buttons first (accept_client_{invitation_id} / decline_client_{invitation_id})
             if button_id.startswith(('accept_client_', 'decline_client_')):
-                # Extract the ID and check if it's a numeric invitation_id
+                # Extract the ID part (could be UUID invitation_id or numeric client_id)
                 id_part = button_id.replace('accept_client_', '').replace('decline_client_', '')
-                try:
-                    invitation_id = int(id_part)
-                    # Check if this is an invitation ID (from client_invitations table)
-                    invitation_check = self.db.table('client_invitations').select('id').eq('id', invitation_id).execute()
-                    if invitation_check.data:
-                        # This is an invitation button, route to invitation handler
-                        return self.invitation_handler.handle_invitation_button(phone, button_id)
-                except (ValueError, TypeError):
-                    pass  # Not a numeric ID, fall through to relationship handler
 
-                # Fall through to relationship handler for client_id based buttons
+                # Check if this is a UUID invitation_id (from client_invitations table)
+                # UUIDs contain hyphens, numeric client_ids do not
+                if '-' in id_part:
+                    # This is likely a UUID invitation_id, route to invitation handler
+                    return self.invitation_handler.handle_invitation_button(phone, button_id)
+
+                # Otherwise, this is a numeric client_id, route to relationship handler
                 return self.relationship_handler.handle_relationship_button(phone, button_id)
 
             elif button_id.startswith(('accept_trainer_', 'decline_trainer_', 'send_invitation_', 'cancel_invitation_', 'resend_invite_', 'cancel_invite_', 'contact_client_')):

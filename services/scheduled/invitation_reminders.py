@@ -297,8 +297,8 @@ class InvitationReminderService:
             log_error(f"Error in process_7d_expiries: {str(e)}")
             return {'sent': 0, 'expired': 0, 'errors': 1, 'error': str(e)}
 
-    def resend_invitation(self, invitation_id: int) -> Dict:
-        """Resend an invitation (used for manual resend and 72h action button)"""
+    def resend_invitation(self, invitation_id: str) -> Dict:
+        """Resend an invitation (used for manual resend and 72h action button, invitation_id is UUID)"""
         try:
             # Get invitation details
             result = self.db.table('client_invitations').select(
@@ -374,8 +374,8 @@ class InvitationReminderService:
             log_error(f"Error resending invitation {invitation_id}: {str(e)}")
             return {'success': False, 'error': str(e)}
 
-    def cancel_invitation(self, invitation_id: int) -> Dict:
-        """Cancel an invitation (used for 72h action button)"""
+    def cancel_invitation(self, invitation_id: str) -> Dict:
+        """Cancel an invitation (used for 72h action button, invitation_id is UUID)"""
         try:
             # Update invitation status
             now = datetime.now(self.sa_tz)
@@ -394,8 +394,8 @@ class InvitationReminderService:
             log_error(f"Error cancelling invitation {invitation_id}: {str(e)}")
             return {'success': False, 'error': str(e)}
 
-    def _check_reminder_sent(self, invitation_id: int, reminder_type: str) -> bool:
-        """Check if a reminder has already been sent for this invitation"""
+    def _check_reminder_sent(self, invitation_id: str, reminder_type: str) -> bool:
+        """Check if a reminder has already been sent for this invitation (invitation_id is UUID)"""
         try:
             result = self.db.table('invitation_reminder_logs').select('id').eq(
                 'invitation_id', invitation_id
@@ -407,8 +407,8 @@ class InvitationReminderService:
             log_error(f"Error checking reminder sent: {str(e)}")
             return False
 
-    def _log_reminder_sent(self, invitation_id: int, reminder_type: str, sent_to: str):
-        """Log that a reminder was sent"""
+    def _log_reminder_sent(self, invitation_id: str, reminder_type: str, sent_to: str):
+        """Log that a reminder was sent (invitation_id is UUID)"""
         try:
             now = datetime.now(self.sa_tz)
             log_data = {

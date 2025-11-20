@@ -330,7 +330,8 @@ class RelationshipButtonHandler:
         try:
             from services.scheduled.invitation_reminders import InvitationReminderService
 
-            invitation_id = int(button_id.replace('resend_invite_', ''))
+            # Extract UUID invitation_id from button_id (client_invitations.id is UUID)
+            invitation_id = button_id.replace('resend_invite_', '')
 
             # Verify trainer owns this invitation
             user = self.auth_service.check_user_exists(phone)
@@ -367,7 +368,8 @@ class RelationshipButtonHandler:
         try:
             from services.scheduled.invitation_reminders import InvitationReminderService
 
-            invitation_id = int(button_id.replace('cancel_invite_', ''))
+            # Extract UUID invitation_id from button_id (client_invitations.id is UUID)
+            invitation_id = button_id.replace('cancel_invite_', '')
 
             # Verify trainer owns this invitation
             user = self.auth_service.check_user_exists(phone)
@@ -402,7 +404,8 @@ class RelationshipButtonHandler:
     def _handle_contact_client(self, phone: str, button_id: str) -> Dict:
         """Trainer requesting client contact info (from 72h reminder)"""
         try:
-            invitation_id = int(button_id.replace('contact_client_', ''))
+            # Extract UUID invitation_id from button_id (client_invitations.id is UUID)
+            invitation_id = button_id.replace('contact_client_', '')
 
             # Get invitation details
             invitation = self.db.table('client_invitations').select(
