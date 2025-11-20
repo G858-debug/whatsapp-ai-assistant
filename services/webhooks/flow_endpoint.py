@@ -143,14 +143,14 @@ class FlowEndpointHandler:
             # Try to get from flow_token
             if not invitation_id and 'flow_token' in flow_data:
                 flow_token = flow_data['flow_token']
-                # flow_token format: "client_onboarding_invitation_{uuid_part1}-{uuid_part2}-{uuid_part3}-{uuid_part4}-{uuid_part5}_{phone}_{timestamp}"
-                # After split: [client, onboarding, invitation, uuid_part1, uuid_part2, uuid_part3, uuid_part4, uuid_part5, phone, timestamp]
+                # flow_token format: "client_onboarding_invitation_{uuid}_{phone}_{timestamp}"
+                # After split: ["client", "onboarding", "invitation", "{uuid}", "{phone}", "{timestamp}"]
                 if 'client_onboarding_invitation_' in flow_token:
                     parts = flow_token.split('_')
-                    if len(parts) >= 8:
+                    if len(parts) >= 6:  # Minimum: prefix parts (3) + uuid + phone + timestamp
                         try:
-                            # Reconstruct UUID from parts 3-7 (5 parts with hyphens)
-                            invitation_id = f"{parts[3]}-{parts[4]}-{parts[5]}-{parts[6]}-{parts[7]}"
+                            # UUID is at index 3 (already contains hyphens)
+                            invitation_id = parts[3]
                             log_info(f"Extracted invitation_id (UUID): {invitation_id}")
                         except (ValueError, IndexError) as e:
                             log_warning(f"Failed to parse invitation_id UUID from flow_token: {flow_token}, error: {str(e)}")
