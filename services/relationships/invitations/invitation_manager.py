@@ -314,12 +314,7 @@ class InvitationManager:
                             "type": "action",
                             "action": {
                                 "flow_token": flow_token,
-                                "flow_action_data": {
-                                    "invitation_id": str(invitation_id),
-                                    "trainer_id": str(trainer_id),
-                                    "trainer_name": trainer_name,
-                                    "selected_price": str(selected_price) if selected_price else None
-                                }
+                                "flow_id": client_flow_id
                             }
                         }
                     ]
