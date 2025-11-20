@@ -2255,15 +2255,20 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
 
             # Store flow token for tracking
-            self._store_flow_token(flow_token, {
-                'type': 'trainer_add_client',
-                'trainer_id': trainer_id,
-                'trainer_phone': trainer_phone,
-                'trainer_default_price': trainer_default_price,
-                'client_name': client_name,
-                'client_phone': client_phone,
-                'client_email': client_email
-            })
+            self._store_flow_token_with_data(
+                phone_number=trainer_phone,
+                flow_token=flow_token,
+                flow_type='trainer_onboarding',
+                flow_data={
+                    'type': 'trainer_add_client',
+                    'trainer_id': trainer_id,
+                    'trainer_phone': trainer_phone,
+                    'trainer_default_price': trainer_default_price,
+                    'client_name': client_name,
+                    'client_phone': client_phone,
+                    'client_email': client_email
+                }
+            )
 
             log_info(f"Sending flow with payload: {flow_action_payload}")
 
@@ -2505,12 +2510,17 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
             
             # Store flow token
-            self._store_flow_token(flow_token, {
-                'type': 'trainer_habit_setup',
-                'trainer_id': trainer_data['id'],
-                'phone': phone_number,
-                'clients': clients_result.data
-            })
+            self._store_flow_token_with_data(
+                phone_number=phone_number,
+                flow_token=flow_token,
+                flow_type='assessment_flow',
+                flow_data={
+                    'type': 'trainer_habit_setup',
+                    'trainer_id': trainer_data['id'],
+                    'phone': phone_number,
+                    'clients': clients_result.data
+                }
+            )
             
             # Send the flow
             result = self.whatsapp_service.send_flow_message(message)
@@ -2632,12 +2642,17 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
             
             # Store flow token
-            self._store_flow_token(flow_token, {
-                'type': 'client_habit_logging',
-                'client_id': client_data['id'],
-                'phone': phone_number,
-                'active_habits': active_habits
-            })
+            self._store_flow_token_with_data(
+                phone_number=phone_number,
+                flow_token=flow_token,
+                flow_type='assessment_flow',
+                flow_data={
+                    'type': 'client_habit_logging',
+                    'client_id': client_data['id'],
+                    'phone': phone_number,
+                    'active_habits': active_habits
+                }
+            )
             
             # Send the flow
             result = self.whatsapp_service.send_flow_message(message)
@@ -2715,11 +2730,16 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
             
             # Store flow token
-            self._store_flow_token(flow_token, {
-                'type': 'habit_progress',
-                'client_id': client_data['id'],
-                'phone': phone_number
-            })
+            self._store_flow_token_with_data(
+                phone_number=phone_number,
+                flow_token=flow_token,
+                flow_type='assessment_flow',
+                flow_data={
+                    'type': 'habit_progress',
+                    'client_id': client_data['id'],
+                    'phone': phone_number
+                }
+            )
             
             # Send the flow
             result = self.whatsapp_service.send_flow_message(message)
@@ -3085,18 +3105,19 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'message': '❌ Error processing your request. Please try again.'
             }
     
-    def _store_flow_token(self, token: str, data: Dict) -> bool:
+    def _store_flow_token_with_data(self, phone_number: str, flow_token: str, flow_type: str, flow_data: Dict) -> bool:
         """Store flow token data for later retrieval"""
         try:
             result = self.supabase.table('flow_tokens').insert({
-                'token': token,
-                'data': data,
-                'created_at': datetime.now().isoformat(),
-                'expires_at': (datetime.now() + timedelta(hours=1)).isoformat()
+                'phone_number': phone_number,
+                'flow_token': flow_token,
+                'flow_type': flow_type,
+                'flow_data': flow_data,
+                'created_at': datetime.now().isoformat()
             }).execute()
-            
+
             return bool(result.data)
-            
+
         except Exception as e:
             log_error(f"Error storing flow token: {str(e)}")
             return False
