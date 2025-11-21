@@ -150,7 +150,7 @@ class InvitationReminderService:
             window_end = (notification_time + timedelta(hours=1)).isoformat()
 
             invitations = self.db.table('client_invitations').select(
-                '*, trainers!client_invitations_trainer_id_fkey(trainer_id, name, first_name, last_name, phone)'
+                '*, trainers!client_invitations_trainer_id_fkey(trainer_id, name, first_name, last_name, whatsapp)'
             ).eq('status', 'pending').gte(
                 'created_at', window_start
             ).lte(
@@ -168,7 +168,7 @@ class InvitationReminderService:
 
                 try:
                     trainer = invitation.get('trainers', {})
-                    trainer_phone = trainer.get('phone')
+                    trainer_phone = trainer.get('whatsapp')
                     client_name = invitation.get('client_name', 'your client')
 
                     if not trainer_phone:
@@ -226,7 +226,7 @@ class InvitationReminderService:
             window_end = (expiry_time + timedelta(hours=2)).isoformat()
 
             invitations = self.db.table('client_invitations').select(
-                '*, trainers!client_invitations_trainer_id_fkey(trainer_id, name, first_name, last_name, phone)'
+                '*, trainers!client_invitations_trainer_id_fkey(trainer_id, name, first_name, last_name, whatsapp)'
             ).eq('status', 'pending').gte(
                 'created_at', window_start
             ).lte(
@@ -253,7 +253,7 @@ class InvitationReminderService:
                     expired_count += 1
 
                     trainer = invitation.get('trainers', {})
-                    trainer_phone = trainer.get('phone')
+                    trainer_phone = trainer.get('whatsapp')
                     client_name = invitation.get('client_name', 'your client')
 
                     if not trainer_phone:
