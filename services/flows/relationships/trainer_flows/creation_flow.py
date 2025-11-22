@@ -3,10 +3,12 @@ Trainer Client Creation Flow
 Handles trainer creating new client accounts
 """
 from typing import Dict
+import json
+
 from utils.logger import log_info, log_error, log_warning
 from services.relationships import RelationshipService, InvitationService
 from services.validation import get_validator
-import json
+from config import Config
 
 
 class CreationFlow:
@@ -991,7 +993,6 @@ class CreationFlow:
             bool: Success status
         """
         try:
-            import os
             from datetime import datetime
 
             # Create invitation message
@@ -1005,9 +1006,8 @@ class CreationFlow:
                 f"Complete your fitness profile to get started, or decline if you're not interested."
             )
 
-            # Get flow ID from environment or use placeholder
-            # Note: This needs to be the actual Facebook-approved flow ID
-            flow_id = os.getenv('CLIENT_ONBOARDING_FLOW_ID', '1234567890')  # TODO: Replace with actual flow ID
+            # Use configured client onboarding flow ID
+            flow_id = Config.CLIENT_ONBOARDING_FLOW_ID
 
             # Generate flow token
             flow_token = f"client_invitation_{invitation_token}_{int(datetime.now().timestamp())}"

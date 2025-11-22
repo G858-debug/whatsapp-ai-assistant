@@ -2380,7 +2380,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "parameters": {
                             "flow_message_version": "3",
                             "flow_token": flow_token,
-                            "flow_id": "CLIENT_ONBOARDING_FLOW",  # This should match your Facebook Console flow ID
+                            "flow_id": Config.CLIENT_ONBOARDING_FLOW_ID,  # Actual client onboarding flow ID
                             "flow_cta": "Get Started",
                             "flow_action": "navigate",
                             "flow_action_payload": {

@@ -122,14 +122,15 @@ def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -
 
                     logger.info(f"Querying flow_tokens for: {flow_token}")
 
-                    token_result = db.table('flow_tokens').select('data').eq(
+                    token_result = db.table('flow_tokens').select('*').eq(
                         'flow_token', flow_token
                     ).execute()
 
                     logger.info(f"Query returned: {len(token_result.data) if token_result.data else 0} rows")
 
                     if token_result.data and len(token_result.data) > 0:
-                        token_data = token_result.data[0].get('data', {})
+                        token_row = token_result.data[0]
+                        token_data = token_row.get('flow_data') or token_row.get('data') or {}
                         trainer_name = token_data.get('trainer_name', '')
                         selected_price = token_data.get('selected_price')
 

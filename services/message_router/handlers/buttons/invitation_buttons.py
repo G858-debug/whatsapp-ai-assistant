@@ -3,10 +3,11 @@ Invitation Button Handler
 Handles client accepting/declining trainer invitations (client_fills flow)
 """
 from typing import Dict, Optional
-from utils.logger import log_info, log_error
 from datetime import datetime
 import pytz
-import os
+
+from utils.logger import log_info, log_error
+from config import Config
 
 
 class InvitationButtonHandler:
@@ -201,9 +202,8 @@ class InvitationButtonHandler:
             # Create flow token with invitation context
             flow_token = f"client_onboarding_invitation_{invitation_id}_{phone}_{int(datetime.now().timestamp())}"
 
-            # Get the client_onboarding_flow ID from environment or use placeholder
-            # Note: This needs to be the actual Facebook-approved flow ID
-            flow_id = os.getenv('CLIENT_ONBOARDING_FLOW_ID', '1234567890')  # TODO: Replace with actual flow ID from WhatsApp Business Manager
+            # Use the configured client onboarding flow ID
+            flow_id = Config.CLIENT_ONBOARDING_FLOW_ID
 
             # Create flow message
             flow_message = {
