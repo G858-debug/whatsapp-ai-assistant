@@ -286,55 +286,10 @@ class InvitationManager:
 
             invitation_id = invitation_query.data[0]['id']
 
-            # Generate flow token for the client onboarding flow
+            # Generate flow token
             flow_token = f"client_onboarding_invitation_{invitation_id}_{client_phone}_{int(datetime.now().timestamp())}"
 
-            # Client onboarding flow ID from Meta Business Manager
-            client_flow_id = "808683325277166"
-
-            # Prepare template components with body, flow button, and quick reply button
-            # Button 1 (index 0): "Accept invitation" -> launches WhatsApp Flow
-            # Button 2 (index 1): "Decline invitation" -> quick reply
-            template_components = [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": client_name or "there"},
-                        {"type": "text", "text": trainer_name},
-                        {"type": "text", "text": "R"},
-                        {"type": "text", "text": str(int(selected_price)) if selected_price else "To be discussed"}
-                    ]
-                },
-                {
-                    "type": "button",
-                    "sub_type": "flow",
-                    "index": "0",
-                    # NOTE: flow_id is pre-configured in the Meta Business Manager template
-                    # Template messages with flow buttons ONLY accept flow_token
-                    # The flow_action_payload is retrieved from flow_tokens table when flow opens
-                    "parameters": [
-                        {
-                            "type": "action",
-                            "action": {
-                                "flow_token": flow_token
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "button",
-                    "sub_type": "quick_reply",
-                    "index": "1",
-                    "parameters": [
-                        {
-                            "type": "payload",
-                            "payload": f"decline_client_{invitation_id}"
-                        }
-                    ]
-                }
-            ]
-
-            # Store flow token for tracking
+            # Store flow token with trainer data
             try:
                 from datetime import timedelta
                 self.db.table('flow_tokens').insert({
@@ -354,17 +309,55 @@ class InvitationManager:
             except Exception as e:
                 log_warning(f"Could not store flow token: {str(e)}")
 
-            # Send template message
-            success = self.whatsapp.send_template_message(
-                to_phone=client_phone,
-                template_name="client_training_invitation",
-                language_code="en",
-                components=template_components
-            )
+            # Get client onboarding flow ID from environment
+            import os
+            flow_id = os.getenv('CLIENT_ONBOARDING_FLOW_ID', '808683325277136')
+
+            # Create interactive flow message (NOT template)
+            flow_message = {
+                "recipient_type": "individual",
+                "messaging_product": "whatsapp",
+                "to": client_phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": f"Training invitation from {trainer_name}"
+                    },
+                    "body": {
+                        "text": f"Hi {client_name or 'there'}! 👋\n\n{trainer_name} has invited you to start training together.\n\n💰 Price: R{int(selected_price) if selected_price else 'TBD'} per session\n\nTap below to complete your fitness profile."
+                    },
+                    "footer": {
+                        "text": "Powered by Refiloe"
+                    },
+                    "action": {
+                        "name": "flow",
+                        "parameters": {
+                            "flow_message_version": "3",
+                            "flow_token": flow_token,
+                            "flow_id": flow_id,
+                            "flow_cta": "Complete profile",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "welcome",
+                                "data": {
+                                    "flow_token": flow_token,
+                                    "trainer_name": trainer_name,
+                                    "selected_price": str(selected_price) if selected_price else "500"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            # Send interactive flow message
+            success = self.whatsapp.send_flow_message(flow_message)
 
             if not success:
-                log_error(f"Failed to send template message to {client_phone}")
-                return False, "Failed to send template message"
+                log_error(f"Failed to send flow message to {client_phone}")
+                return False, "Failed to send flow message"
 
             log_info(f"Sent client_fills invitation from trainer {trainer_id} to {client_phone}")
             return True, "Invitation sent successfully"
