@@ -283,14 +283,15 @@ def handle_whatsapp_flow():
 
                         log_info(f"Querying flow_tokens table for: {flow_token}")
 
-                        token_result = db.table('flow_tokens').select('data').eq(
+                        token_result = db.table('flow_tokens').select('*').eq(
                             'flow_token', flow_token
                         ).execute()
 
                         log_info(f"Query result: {len(token_result.data) if token_result.data else 0} rows")
 
                         if token_result.data and len(token_result.data) > 0:
-                            token_data = token_result.data[0].get('data', {})
+                            token_row = token_result.data[0]
+                            token_data = token_row.get('flow_data') or token_row.get('data', {})
                             trainer_name = token_data.get('trainer_name', '')
                             selected_price = token_data.get('selected_price')
 

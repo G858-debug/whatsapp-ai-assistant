@@ -7,6 +7,7 @@ from datetime import datetime
 import pytz
 import secrets
 from utils.logger import log_info, log_error, log_warning
+from config import Config
 
 
 class InvitationManager:
@@ -296,7 +297,7 @@ class InvitationManager:
                     'flow_token': flow_token,
                     'phone_number': client_phone,
                     'flow_type': 'client_onboarding',
-                    'data': {
+                    'flow_data': {
                         'invitation_id': str(invitation_id),
                         'trainer_id': str(trainer_id),
                         'trainer_name': trainer_name,
@@ -309,9 +310,8 @@ class InvitationManager:
             except Exception as e:
                 log_warning(f"Could not store flow token: {str(e)}")
 
-            # Get client onboarding flow ID from environment
-            import os
-            flow_id = os.getenv('CLIENT_ONBOARDING_FLOW_ID', '808683325277136')
+            # Use configured client onboarding flow ID
+            flow_id = Config.CLIENT_ONBOARDING_FLOW_ID
 
             # Create interactive flow message (NOT template)
             flow_message = {

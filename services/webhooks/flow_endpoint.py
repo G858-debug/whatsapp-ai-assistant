@@ -158,14 +158,16 @@ class FlowEndpointHandler:
             # If still no invitation_id, try to get from flow_tokens table
             if not invitation_id and 'flow_token' in flow_data:
                 try:
-                    flow_token_query = self.db.table('flow_tokens').select('data').eq(
+                    flow_token_query = self.db.table('flow_tokens').select('*').eq(
                         'flow_token', flow_data['flow_token']
                     ).execute()
 
-                    if flow_token_query.data and flow_token_query.data[0].get('data'):
-                        token_data = flow_token_query.data[0]['data']
-                        invitation_id = token_data.get('invitation_id')
-                        log_info(f"Retrieved invitation_id from flow_tokens table: {invitation_id}")
+                    if flow_token_query.data:
+                        token_row = flow_token_query.data[0]
+                        token_data = token_row.get('flow_data') or token_row.get('data')
+                        if token_data:
+                            invitation_id = token_data.get('invitation_id')
+                            log_info(f"Retrieved invitation_id from flow_tokens table: {invitation_id}")
                 except Exception as e:
                     log_warning(f"Failed to retrieve invitation_id from flow_tokens table: {str(e)}")
 
