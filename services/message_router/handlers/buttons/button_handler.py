@@ -53,7 +53,8 @@ class ButtonHandler:
         """Handle button responses by delegating to appropriate handler"""
         try:
             log_info(f"Handling button response: {button_id} from {phone}")
-            
+            log_info(f"Button pattern matching for button_id: {button_id}")
+
             # Check if button_id is a command (starts with /)
             if button_id.startswith('/'):
                 log_info(f"Button is a command: {button_id} - routing through command processing")
@@ -63,9 +64,15 @@ class ButtonHandler:
                 router = MessageRouter(self.db, self.whatsapp)
                 # Process as a regular message (no button_id to avoid infinite loop)
                 return router.route_message(phone, button_id, button_id=None)
-            
+
+            # CRITICAL: Check for accept_invitation_/decline_invitation_ FIRST
+            # These must be checked before accept_client_/decline_client_ to avoid conflicts
+            if button_id.startswith(('accept_invitation_', 'decline_invitation_')):
+                log_info(f"Routing {button_id} to InvitationButtonHandler for WhatsApp Flow launch")
+                return self.invitation_handler.handle_invitation_button(phone, button_id)
+
             # Delegate to appropriate handler based on button type
-            # Check for invitation buttons first (accept_client_{invitation_id} / decline_client_{invitation_id})
+            # Check for client relationship buttons (accept_client_{invitation_id} / decline_client_{invitation_id})
             if button_id.startswith(('accept_client_', 'decline_client_')):
                 # Extract the ID part (could be UUID invitation_id or numeric client_id)
                 id_part = button_id.replace('accept_client_', '').replace('decline_client_', '')
@@ -84,9 +91,6 @@ class ButtonHandler:
 
             elif button_id.startswith(('approve_new_client_', 'reject_new_client_')) or button_id == 'share_contact_instructions':
                 return self.client_creation_handler.handle_client_creation_button(phone, button_id)
-
-            elif button_id.startswith(('accept_invitation_', 'decline_invitation_')):
-                return self.client_creation_handler.handle_invitation_button(phone, button_id)
 
             elif button_id in ['register_trainer', 'register_client', 'login_trainer', 'login_client']:
                 return self.registration_handler.handle_registration_button(phone, button_id)
