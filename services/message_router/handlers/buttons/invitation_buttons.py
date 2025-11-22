@@ -233,7 +233,7 @@ class InvitationButtonHandler:
                             "flow_token": flow_token,
                             "flow_id": flow_id,
                             "flow_cta": "Start Profile",
-                            "flow_action": "data_exchange",
+                            "flow_action": "navigate",
                             "flow_action_payload": {
                                 "screen": "welcome",
                                 "data": {
