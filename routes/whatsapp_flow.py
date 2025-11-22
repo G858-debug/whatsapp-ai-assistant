@@ -268,6 +268,42 @@ def handle_whatsapp_flow():
                 response_data = handle_flow_data_exchange(decrypted_data, flow_token)
                 log_info(f"Handler returned response: {json.dumps(response_data, indent=2)}")
 
+                # For client onboarding flows on INIT, inject trainer_name and selected_price
+                if action.lower() == 'init' and 'client_onboarding_invitation' in flow_token:
+                    log_info(f"Client onboarding INIT detected, fetching trainer data from flow_tokens")
+                    try:
+                        from app import app
+                        db = app.config['supabase']
+
+                        # Query flow_tokens table to get stored data
+                        token_result = db.table('flow_tokens').select('data').eq(
+                            'flow_token', flow_token
+                        ).execute()
+
+                        if token_result.data and token_result.data[0].get('data'):
+                            token_data = token_result.data[0]['data']
+                            trainer_name = token_data.get('trainer_name', '')
+                            selected_price = token_data.get('selected_price')
+
+                            log_info(f"Retrieved from flow_tokens: trainer_name={trainer_name}, selected_price={selected_price}")
+
+                            # Inject the data into the response
+                            if 'data' not in response_data:
+                                response_data['data'] = {}
+
+                            response_data['data']['trainer_name'] = trainer_name
+                            # Ensure selected_price is passed as a string
+                            if selected_price is not None:
+                                response_data['data']['selected_price'] = str(selected_price)
+                            else:
+                                response_data['data']['selected_price'] = ''
+
+                            log_info(f"Injected trainer_name and selected_price into flow response: {response_data['data']}")
+                        else:
+                            log_warning(f"No flow_tokens data found for token: {flow_token}")
+                    except Exception as token_error:
+                        log_error(f"Error fetching flow_tokens data: {str(token_error)}")
+
                 # Handle "complete" action - extract and return all form data
                 if action.lower() == 'complete':
                     log_info(f"Flow complete action detected for token: {flow_token}")
