@@ -179,7 +179,7 @@ class FlowEndpointHandler:
                 'fitness_goals': flow_data.get('fitness_goals') or flow_data.get('goals'),
                 'experience_level': flow_data.get('experience_level') or flow_data.get('experience'),
                 'availability': flow_data.get('availability'),
-                'injuries_conditions': flow_data.get('injuries_conditions') or flow_data.get('injuries'),
+                'health_conditions': flow_data.get('health_conditions') or flow_data.get('injuries'),
                 'preferred_workout_type': flow_data.get('preferred_workout_type'),
                 'additional_notes': flow_data.get('additional_notes') or flow_data.get('notes')
             }
@@ -238,7 +238,7 @@ class FlowEndpointHandler:
                 'fitness_goals': profile_data.get('fitness_goals'),
                 'experience_level': profile_data.get('experience_level'),
                 'availability': profile_data.get('availability'),
-                'injuries_conditions': profile_data.get('injuries_conditions'),
+                'health_conditions': profile_data.get('health_conditions'),
                 'preferred_workout_type': profile_data.get('preferred_workout_type'),
                 'additional_notes': profile_data.get('additional_notes'),
                 'status': 'active',
@@ -430,8 +430,8 @@ class FlowEndpointHandler:
             if profile_data.get('availability'):
                 message += f"• *Availability:* {profile_data['availability']}\n"
 
-            if profile_data.get('injuries_conditions'):
-                message += f"• *Injuries/Conditions:* {profile_data['injuries_conditions']}\n"
+            if profile_data.get('health_conditions'):
+                message += f"• *Injuries/Conditions:* {profile_data['health_conditions']}\n"
 
             if profile_data.get('preferred_workout_type'):
                 message += f"• *Preferred Workout:* {profile_data['preferred_workout_type']}\n"
