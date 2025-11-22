@@ -1681,7 +1681,8 @@ Reply 'ACCEPT' to get started! 🚀"""
                 'connection_status': 'active',
                 'requested_by': 'trainer',
                 'approved_at': datetime.now().isoformat(),
-                'created_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
             }
 
             # Add custom pricing if provided
@@ -1873,20 +1874,83 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             trainer_whatsapp = trainer['whatsapp']
             trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
 
-            # Create client record
+            # Extract and format data from flow response
+            flow_data = flow_response.get('response', {})
+
+            # Extract fitness goals and format as comma-separated string
+            fitness_goals = flow_data.get('fitness_goals', [])
+            if isinstance(fitness_goals, list):
+                # Map goal IDs to readable text
+                goals_map = {
+                    'lose_weight': 'Lose weight',
+                    'build_muscle': 'Build muscle',
+                    'get_stronger': 'Get stronger',
+                    'improve_fitness': 'Improve fitness',
+                    'train_for_event': 'Train for event'
+                }
+                processed_goals = [goals_map.get(goal, goal) for goal in fitness_goals]
+                fitness_goals_str = ', '.join(processed_goals)
+            else:
+                fitness_goals_str = str(fitness_goals)
+
+            # Extract preferred times and format as comma-separated string
+            preferred_times = flow_data.get('availability', [])
+            if isinstance(preferred_times, list):
+                # Map time IDs to readable text
+                availability_map = {
+                    'early_morning': 'Early morning (5-8am)',
+                    'morning': 'Morning (8-12pm)',
+                    'afternoon': 'Afternoon (12-5pm)',
+                    'evening': 'Evening (5-8pm)',
+                    'flexible': 'Flexible'
+                }
+                processed_times = [availability_map.get(time, time) for time in preferred_times]
+                preferred_times_str = ', '.join(processed_times)
+            else:
+                preferred_times_str = str(preferred_times)
+
+            # Extract other fields
+            experience_level = flow_data.get('experience_level', 'beginner')
+            health_conditions = flow_data.get('health_conditions', '').strip()
+            medications = flow_data.get('medications', '').strip()
+            additional_notes = flow_data.get('additional_notes', '').strip()
+
+            # Combine health conditions and medications if both exist
+            health_info = health_conditions
+            if medications:
+                if health_info:
+                    health_info += f"\n\nMedications: {medications}"
+                else:
+                    health_info = f"Medications: {medications}"
+
+            # Get custom pricing from invitation
+            custom_price = invitation.get('custom_price_per_session')
+
+            # Create client record with ONLY columns that exist in Supabase schema
             client_data = {
-                'client_id': client_id,
-                'whatsapp': phone_number,
+                'trainer_id': trainer_id,
                 'name': client_name,
-                'email': client_email if client_email and client_email.lower() not in ['skip', 'none'] else None,
-                'fitness_goals': flow_client_data.get('fitness_goals'),
-                'experience_level': flow_client_data.get('experience_level'),
-                'health_conditions': flow_client_data.get('health_conditions'),
-                'availability': flow_client_data.get('availability'),
+                'whatsapp': phone_number,
                 'status': 'active',
+                'fitness_goals': fitness_goals_str,
+                'availability': preferred_times_str,
+                'experience_level': experience_level,
+                'health_conditions': health_info,
+                'preferred_training_times': preferred_times_str,
+                'connection_status': 'active',
+                'requested_by': 'client',
+                'additional_notes': additional_notes,
+                'client_id': client_id,
                 'created_at': datetime.now(sa_tz).isoformat(),
                 'updated_at': datetime.now(sa_tz).isoformat()
             }
+
+            # Add optional fields only if they have values
+            if client_email and client_email.strip() and client_email.lower() not in ['skip', 'none']:
+                client_data['email'] = client_email
+
+            if custom_price:
+                client_data['custom_price_per_session'] = custom_price
 
             # Insert into clients table
             self.supabase.table('clients').insert(client_data).execute()
