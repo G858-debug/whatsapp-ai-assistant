@@ -310,20 +310,13 @@ class InvitationManager:
                     "sub_type": "flow",
                     "index": "0",
                     # NOTE: flow_id is pre-configured in the Meta Business Manager template
-                    # Only flow_token should be passed here; including flow_id causes API rejection
+                    # Template messages with flow buttons ONLY accept flow_token
+                    # The flow_action_payload is retrieved from flow_tokens table when flow opens
                     "parameters": [
                         {
                             "type": "action",
                             "action": {
-                                "flow_token": flow_token,
-                                "flow_action_payload": {
-                                    "screen": "welcome",
-                                    "data": {
-                                        "flow_token": flow_token,
-                                        "trainer_name": trainer_name,
-                                        "selected_price": str(selected_price) if selected_price else "500"
-                                    }
-                                }
+                                "flow_token": flow_token
                             }
                         }
                     ]
