@@ -180,7 +180,6 @@ class FlowEndpointHandler:
                 'experience_level': flow_data.get('experience_level') or flow_data.get('experience'),
                 'availability': flow_data.get('availability'),
                 'health_conditions': flow_data.get('health_conditions') or flow_data.get('injuries'),
-                'preferred_workout_type': flow_data.get('preferred_workout_type'),
                 'additional_notes': flow_data.get('additional_notes') or flow_data.get('notes')
             }
 
@@ -239,7 +238,6 @@ class FlowEndpointHandler:
                 'experience_level': profile_data.get('experience_level'),
                 'availability': profile_data.get('availability'),
                 'health_conditions': profile_data.get('health_conditions'),
-                'preferred_workout_type': profile_data.get('preferred_workout_type'),
                 'additional_notes': profile_data.get('additional_notes'),
                 'status': 'active',
                 'updated_at': datetime.now(self.sa_tz).isoformat()
@@ -432,9 +430,6 @@ class FlowEndpointHandler:
 
             if profile_data.get('health_conditions'):
                 message += f"• *Injuries/Conditions:* {profile_data['health_conditions']}\n"
-
-            if profile_data.get('preferred_workout_type'):
-                message += f"• *Preferred Workout:* {profile_data['preferred_workout_type']}\n"
 
             if profile_data.get('additional_notes'):
                 message += f"• *Notes:* {profile_data['additional_notes']}\n"
