@@ -526,8 +526,8 @@ class CreationFlow:
                 )
 
                 buttons = [
-                    {'id': f'use_default_{default_price}', 'title': f'Use Default R{default_price}'},
-                    {'id': 'custom_price', 'title': 'Custom Price'}
+                    {'id': f'use_default_{default_price}', 'title': 'Use standard rate'},
+                    {'id': 'custom_price', 'title': 'Set custom rate'}
                 ]
 
                 self.whatsapp.send_button_message(trainer_phone, msg, buttons)
@@ -699,16 +699,10 @@ class CreationFlow:
 
                     # Build buttons
                     buttons = []
-                    if default_price:
-                        buttons.append({
-                            'id': 'use_standard',
-                            'title': f'Use my standard rate (R{default_price})'
-                        })
-                    else:
-                        buttons.append({
-                            'id': 'use_standard',
-                            'title': 'Use my standard rate'
-                        })
+                    buttons.append({
+                        'id': 'use_standard',
+                        'title': 'Use standard rate'
+                    })
 
                     buttons.append({'id': 'set_custom', 'title': 'Set custom rate'})
                     buttons.append({'id': 'discuss_later', 'title': 'Discuss with client'})
@@ -1304,8 +1298,8 @@ class CreationFlow:
             )
 
             buttons = [
-                {'id': f'use_default_{default_price}', 'title': f'Use Default R{default_price}'},
-                {'id': 'custom_price', 'title': 'Custom Price'}
+                {'id': f'use_default_{default_price}', 'title': 'Use standard rate'},
+                {'id': 'custom_price', 'title': 'Set custom rate'}
             ]
 
             self.whatsapp.send_button_message(trainer_phone, msg, buttons)
