@@ -1844,6 +1844,15 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
 
             invitation = invitation_result.data[0]
 
+            # Extract trainer_id from invitation FIRST
+            trainer_id = invitation.get('trainer_id')
+
+            if not trainer_id:
+                log_error(f"Missing trainer_id in invitation: {invitation}")
+                return {'success': False, 'error': 'Missing trainer_id'}
+
+            log_info(f"Creating client with trainer_id: {trainer_id}")
+
             # Extract client data from flow response
             flow_client_data = self._extract_client_data_from_onboarding_response(flow_response, phone_number)
 
@@ -1860,17 +1869,16 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             auth_service = AuthenticationService(self.supabase)
             client_id = auth_service.generate_unique_id(client_name, 'client')
 
-            # Get trainer info for relationship
+            # Get trainer info for relationship (query by trainer_id, not id)
             trainer_result = self.supabase.table('trainers').select('trainer_id, name, first_name, last_name, whatsapp').eq(
-                'id', invitation['trainer_id']
+                'trainer_id', trainer_id
             ).execute()
 
             if not trainer_result.data:
-                log_error(f"Trainer not found for invitation {invitation['id']}")
+                log_error(f"Trainer not found for trainer_id {trainer_id}")
                 return {'success': False, 'error': 'Trainer not found'}
 
             trainer = trainer_result.data[0]
-            trainer_id = trainer['trainer_id']
             trainer_whatsapp = trainer['whatsapp']
             trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
 
@@ -1927,19 +1935,20 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             custom_price = invitation.get('custom_price_per_session')
 
             # Create client record with ONLY columns that exist in Supabase schema
+            # CRITICAL: trainer_id must be first and converted to string
             client_data = {
-                'trainer_id': trainer_id,
+                'trainer_id': str(trainer_id),  # CRITICAL: Must be present and first
                 'name': client_name,
                 'whatsapp': phone_number,
                 'status': 'active',
                 'fitness_goals': fitness_goals_str,
                 'availability': preferred_times_str,
                 'experience_level': experience_level,
-                'health_conditions': health_info,
+                'health_conditions': health_info if health_info else None,
                 'preferred_training_times': preferred_times_str,
                 'connection_status': 'active',
                 'requested_by': 'client',
-                'additional_notes': additional_notes,
+                'additional_notes': additional_notes if additional_notes else None,
                 'client_id': client_id,
                 'created_at': datetime.now(sa_tz).isoformat(),
                 'updated_at': datetime.now(sa_tz).isoformat()
@@ -1951,6 +1960,9 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
 
             if custom_price:
                 client_data['custom_price_per_session'] = custom_price
+
+            # Log the data being inserted for debugging
+            log_info(f"Inserting client with data: trainer_id={trainer_id}, name={client_name}, phone={phone_number}")
 
             # Insert into clients table
             self.supabase.table('clients').insert(client_data).execute()
