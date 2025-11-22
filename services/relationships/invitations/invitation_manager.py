@@ -260,21 +260,23 @@ class InvitationManager:
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }
 
-            # Insert or update invitation
+            # Check for ANY existing invitation for this trainer-client pair (regardless of status)
             existing = self.db.table('client_invitations').select('id').eq(
                 'client_phone', client_phone
-            ).eq('trainer_id', trainer['id']).eq('status', 'pending_client_completion').execute()
+            ).eq('trainer_id', trainer['id']).execute()
 
-            if existing.data:
+            if existing.data and len(existing.data) > 0:
                 # Update existing invitation
-                invitation_result = self.db.table('client_invitations').update(invitation_data).eq(
-                    'id', existing.data[0]['id']
-                ).execute()
                 invitation_id = existing.data[0]['id']
+                self.db.table('client_invitations').update(invitation_data).eq(
+                    'id', invitation_id
+                ).execute()
+                log_info(f"Updated existing invitation {invitation_id} for client {client_phone}")
             else:
                 # Create new invitation
                 invitation_result = self.db.table('client_invitations').insert(invitation_data).execute()
                 invitation_id = invitation_result.data[0]['id']
+                log_info(f"Created new invitation {invitation_id} for client {client_phone}")
 
             # Get invitation ID for button payloads
             invitation_query = self.db.table('client_invitations').select('id').eq(
