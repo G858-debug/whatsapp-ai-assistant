@@ -313,51 +313,31 @@ class InvitationManager:
             # Use configured client onboarding flow ID
             flow_id = Config.CLIENT_ONBOARDING_FLOW_ID
 
-            # Create interactive flow message (NOT template)
-            flow_message = {
-                "recipient_type": "individual",
-                "messaging_product": "whatsapp",
-                "to": client_phone,
-                "type": "interactive",
-                "interactive": {
-                    "type": "flow",
-                    "header": {
-                        "type": "text",
-                        "text": f"Training invitation!\n"
-                    },
-                    "body": {
-                        "text": f"Hi {client_name or 'there'}! 👋\n\n*{trainer_name}* has invited you to start training together!\n\n📋 *Next steps:*\n - Accept the invitation below\n - Complete your fitness profile (2 minutes)\n - Start yoru fitness journey!\n\n💰 *Pricing*: R{int(selected_price) if selected_price else 'TBD'} per session\n\nReady to get started?"
-                    },
-                    "footer": {
-                        "text": "Powered by Refiloe"
-                    },
-                    "action": {
-                        "name": "flow",
-                        "parameters": {
-                            "flow_message_version": "3",
-                            "flow_token": flow_token,
-                            "flow_id": flow_id,
-                            "flow_cta": "Complete profile",
-                            "flow_action": "navigate",
-                            "flow_action_payload": {
-                                "screen": "welcome",
-                                "data": {
-                                    "flow_token": flow_token,
-                                    "trainer_name": trainer_name,
-                                    "selected_price": str(selected_price) if selected_price else "500"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            # Create invitation message
+            message = (
+                f"🎯 *Training Invitation*\n\n"
+                f"Hi {client_name or 'there'}! 👋\n\n"
+                f"*{trainer_name}* has invited you to start training together!\n\n"
+                f"📋 *Next steps:*\n"
+                f" - Accept the invitation below\n"
+                f" - Complete your fitness profile (2 minutes)\n"
+                f" - Start your fitness journey!\n\n"
+                f"💰 *Pricing*: R{int(selected_price) if selected_price else 'TBD'} per session\n\n"
+                f"Ready to get started?"
+            )
 
-            # Send interactive flow message
-            success = self.whatsapp.send_flow_message(flow_message)
+            # Send button message with accept/decline options
+            buttons = [
+                {'id': f'accept_invitation_{invitation_id}', 'title': '✅ Accept invitation'},
+                {'id': f'decline_invitation_{invitation_id}', 'title': '❌ Decline invitation'}
+            ]
+
+            self.whatsapp.send_button_message(client_phone, message, buttons)
+            success = True  # Button message sent successfully
 
             if not success:
-                log_error(f"Failed to send flow message to {client_phone}")
-                return False, "Failed to send flow message"
+                log_error(f"Failed to send button message to {client_phone}")
+                return False, "Failed to send button message"
 
             log_info(f"Sent client_fills invitation from trainer {trainer_id} to {client_phone}")
             return True, "Invitation sent successfully"
