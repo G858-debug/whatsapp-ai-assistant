@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from utils.logger import log_info, log_error
+from utils.logger import log_info, log_error, log_warning
 from datetime import datetime
 import hashlib
 import hmac
@@ -268,41 +268,50 @@ def handle_whatsapp_flow():
                 response_data = handle_flow_data_exchange(decrypted_data, flow_token)
                 log_info(f"Handler returned response: {json.dumps(response_data, indent=2)}")
 
+                # DEBUG: Log before INIT check
+                log_info(f"=== INIT ACTION DEBUG ===")
+                log_info(f"Action: {action}")
+                log_info(f"Flow token: {flow_token}")
+                log_info(f"Response data BEFORE injection: {json.dumps(response_data, indent=2)}")
+
                 # For client onboarding flows on INIT, inject trainer_name and selected_price
-                if action.lower() == 'init' and 'client_onboarding_invitation' in flow_token:
-                    log_info(f"Client onboarding INIT detected, fetching trainer data from flow_tokens")
+                if action.lower() == 'init' and flow_token and 'client_onboarding_invitation' in flow_token:
+                    log_info(f"Client onboarding INIT detected for token: {flow_token}")
                     try:
                         from app import app
                         db = app.config['supabase']
 
-                        # Query flow_tokens table to get stored data
+                        log_info(f"Querying flow_tokens table for: {flow_token}")
+
                         token_result = db.table('flow_tokens').select('data').eq(
                             'flow_token', flow_token
                         ).execute()
 
-                        if token_result.data and token_result.data[0].get('data'):
-                            token_data = token_result.data[0]['data']
+                        log_info(f"Query result: {len(token_result.data) if token_result.data else 0} rows")
+
+                        if token_result.data and len(token_result.data) > 0:
+                            token_data = token_result.data[0].get('data', {})
                             trainer_name = token_data.get('trainer_name', '')
                             selected_price = token_data.get('selected_price')
 
-                            log_info(f"Retrieved from flow_tokens: trainer_name={trainer_name}, selected_price={selected_price}")
+                            log_info(f"Retrieved data - trainer_name: '{trainer_name}', selected_price: '{selected_price}'")
 
-                            # Inject the data into the response
+                            # CRITICAL: Ensure response_data has a 'data' key
                             if 'data' not in response_data:
                                 response_data['data'] = {}
+                                log_info("Created 'data' key in response_data")
 
+                            # Inject the trainer data
+                            response_data['data']['flow_token'] = flow_token
                             response_data['data']['trainer_name'] = trainer_name
-                            # Ensure selected_price is passed as a string
-                            if selected_price is not None:
-                                response_data['data']['selected_price'] = str(selected_price)
-                            else:
-                                response_data['data']['selected_price'] = ''
+                            response_data['data']['selected_price'] = str(selected_price) if selected_price else '500'
 
-                            log_info(f"Injected trainer_name and selected_price into flow response: {response_data['data']}")
+                            log_info(f"=== FINAL response_data ===")
+                            log_info(json.dumps(response_data, indent=2))
                         else:
                             log_warning(f"No flow_tokens data found for token: {flow_token}")
                     except Exception as token_error:
-                        log_error(f"Error fetching flow_tokens data: {str(token_error)}")
+                        log_error(f"Error fetching flow_tokens data: {str(token_error)}", exc_info=True)
 
                 # Handle "complete" action - extract and return all form data
                 if action.lower() == 'complete':
