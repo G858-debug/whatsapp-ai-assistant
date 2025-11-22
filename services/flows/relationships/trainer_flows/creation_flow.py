@@ -120,7 +120,7 @@ class CreationFlow:
                     elif field_name == 'custom_price_amount' or 'price' in field_name.lower():
                         is_valid, error_msg, price_value = validator.validate_price(message, phone)
                         if is_valid:
-                            parsed_value = price_value
+                            parsed_value = int(float(price_value))
 
                         # Check for max retries
                         if not is_valid and validator.has_exceeded_max_retries(phone, 'price'):
@@ -639,7 +639,7 @@ class CreationFlow:
                     return {'success': True, 'response': error_msg, 'handler': 'new_client_invalid_price'}
 
                 # Store custom price
-                task_data['selected_price'] = custom_price
+                task_data['selected_price'] = int(float(custom_price))
                 task_data['new_client_step'] = 'ask_profile_completion'
                 self.task_service.update_task(task['id'], 'trainer', task_data)
 
@@ -664,7 +664,7 @@ class CreationFlow:
                     return {'success': True, 'response': error_msg, 'handler': 'new_client_invalid_price'}
 
                 # Store custom price and send invitation
-                task_data['selected_price'] = custom_price
+                task_data['selected_price'] = int(float(custom_price))
                 return self._send_client_fills_invitation(trainer_phone, trainer_id, task, task_data)
 
             # Step 3: Handle profile completion choice
@@ -1218,7 +1218,7 @@ class CreationFlow:
                     return {'success': True, 'response': error_msg, 'handler': 'multi_trainer_invalid_price'}
 
                 # Store custom price
-                task_data['selected_price'] = custom_price
+                task_data['selected_price'] = int(float(custom_price))
                 task_data['multi_trainer_step'] = 'ask_profile_completion'
                 self.task_service.update_task(task['id'], 'trainer', task_data)
 

@@ -219,14 +219,14 @@ class InvitationManager:
             return False, str(e)
 
     def send_client_fills_invitation(self, trainer_id: str, client_phone: str,
-                                     client_name: str, selected_price: Optional[float] = None) -> Tuple[bool, str]:
+                                     client_name: str, selected_price: Optional[int] = None) -> Tuple[bool, str]:
         """Send invitation to client who will fill their own profile
 
         Args:
             trainer_id: UUID of the trainer
             client_phone: Client's phone number
             client_name: Client's name
-            selected_price: Price per session (None if "discuss later")
+            selected_price: Price per session as integer (None if "discuss later")
 
         Returns:
             Tuple of (success: bool, message: str)
