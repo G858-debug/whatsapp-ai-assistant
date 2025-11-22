@@ -326,7 +326,7 @@ class InvitationManager:
                         "text": f"Training invitation from {trainer_name}"
                     },
                     "body": {
-                        "text": f"Hi {client_name or 'there'}! 👋\n\n{trainer_name} has invited you to start training together.\n\n💰 Price: R{int(selected_price) if selected_price else 'TBD'} per session\n\nTap below to complete your fitness profile."
+                        "text": f"Hi {client_name or 'there'}! 👋\n\n*Your trainer:* {trainer_name}\n\n{trainer_name} has invited you to start training together.\n\n💰 Price: R{int(selected_price) if selected_price else 'TBD'} per session\n\nTap below to complete your fitness profile."
                     },
                     "footer": {
                         "text": "Powered by Refiloe"
