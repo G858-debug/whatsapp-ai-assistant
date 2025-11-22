@@ -323,10 +323,10 @@ class InvitationManager:
                     "type": "flow",
                     "header": {
                         "type": "text",
-                        "text": f"Training invitation from {trainer_name}"
+                        "text": f"Training invitation!\n"
                     },
                     "body": {
-                        "text": f"Hi {client_name or 'there'}! 👋\n\n*Your trainer:* {trainer_name}\n\n{trainer_name} has invited you to start training together.\n\n💰 Price: R{int(selected_price) if selected_price else 'TBD'} per session\n\nTap below to complete your fitness profile."
+                        "text": f"Hi {client_name or 'there'}! 👋\n\n*{trainer_name}* has invited you to start training together!\n\n📋 *Next steps:*\n - Accept the invitation below\n - Complete your fitness profile (2 minutes)\n - Start yoru fitness journey!\n\n💰 *Pricing*: R{int(selected_price) if selected_price else 'TBD'} per session\n\nReady to get started?"
                     },
                     "footer": {
                         "text": "Powered by Refiloe"
