@@ -19,15 +19,25 @@ class InvitationButtonHandler:
         self.auth_service = auth_service
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
 
+        # Button pattern routing
+        self.button_patterns = {
+            'accept_invitation_': self._handle_accept_client_invitation,
+            'decline_invitation_': self._handle_decline_client_invitation,
+            # Legacy patterns for backwards compatibility
+            'accept_client_': self._handle_accept_client_invitation,
+            'decline_client_': self._handle_decline_client_invitation,
+        }
+
     def handle_invitation_button(self, phone: str, button_id: str) -> Dict:
-        """Handle invitation buttons"""
+        """Handle invitation buttons using pattern routing"""
         try:
-            if button_id.startswith('accept_client_'):
-                return self._handle_accept_client_invitation(phone, button_id)
-            elif button_id.startswith('decline_client_'):
-                return self._handle_decline_client_invitation(phone, button_id)
-            else:
-                return {'success': False, 'response': 'Unknown invitation button', 'handler': 'unknown_invitation_button'}
+            # Check button_patterns for matching prefix
+            for pattern, handler in self.button_patterns.items():
+                if button_id.startswith(pattern):
+                    return handler(phone, button_id)
+
+            # No matching pattern found
+            return {'success': False, 'response': 'Unknown invitation button', 'handler': 'unknown_invitation_button'}
 
         except Exception as e:
             log_error(f"Error handling invitation button: {str(e)}")
@@ -36,8 +46,8 @@ class InvitationButtonHandler:
     def _handle_accept_client_invitation(self, phone: str, button_id: str) -> Dict:
         """Client accepting trainer invitation"""
         try:
-            # Extract invitation_id from button_id
-            invitation_id = button_id.replace('accept_client_', '')
+            # Extract invitation_id from button_id (support both new and legacy patterns)
+            invitation_id = button_id.replace('accept_invitation_', '').replace('accept_client_', '')
 
             # invitation_id is already a UUID string from the button payload
             # No conversion needed
@@ -101,8 +111,8 @@ class InvitationButtonHandler:
     def _handle_decline_client_invitation(self, phone: str, button_id: str) -> Dict:
         """Client declining trainer invitation"""
         try:
-            # Extract invitation_id from button_id
-            invitation_id = button_id.replace('decline_client_', '')
+            # Extract invitation_id from button_id (support both new and legacy patterns)
+            invitation_id = button_id.replace('decline_invitation_', '').replace('decline_client_', '')
 
             # invitation_id is already a UUID string from the button payload
             # No conversion needed
