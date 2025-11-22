@@ -1039,7 +1039,12 @@ class CreationFlow:
                             "flow_cta": "Complete Profile",
                             "flow_action": "navigate",
                             "flow_action_payload": {
-                                "screen": "WELCOME"
+                                "screen": "welcome",
+                                "data": {
+                                    "flow_token": flow_token,
+                                    "trainer_name": trainer_name,
+                                    "selected_price": str(price_per_session) if price_per_session else "500"
+                                }
                             }
                         }
                     }

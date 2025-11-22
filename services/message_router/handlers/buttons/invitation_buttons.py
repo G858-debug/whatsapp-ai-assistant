@@ -192,6 +192,12 @@ class InvitationButtonHandler:
     def _launch_client_onboarding_flow(self, phone: str, invitation_id: str, trainer_id: str, trainer_name: str) -> Dict:
         """Launch WhatsApp Flow for client profile completion"""
         try:
+            # Get invitation details to fetch selected_price
+            invitation = self._get_invitation(invitation_id)
+            selected_price = None
+            if invitation:
+                selected_price = invitation.get('custom_price') or invitation.get('custom_price_per_session')
+
             # Create flow token with invitation context
             flow_token = f"client_onboarding_invitation_{invitation_id}_{phone}_{int(datetime.now().timestamp())}"
 
@@ -219,9 +225,12 @@ class InvitationButtonHandler:
                             "flow_cta": "Start Profile",
                             "flow_action": "data_exchange",
                             "flow_action_payload": {
-                                "invitation_id": invitation_id,
-                                "trainer_id": str(trainer_id),
-                                "trainer_name": trainer_name
+                                "screen": "welcome",
+                                "data": {
+                                    "flow_token": flow_token,
+                                    "trainer_name": trainer_name,
+                                    "selected_price": str(selected_price) if selected_price else "500"
+                                }
                             }
                         }
                     }
