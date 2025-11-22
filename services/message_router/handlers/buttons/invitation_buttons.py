@@ -234,7 +234,7 @@ class InvitationButtonHandler:
                             "flow_message_version": "3",
                             "flow_token": flow_token,
                             "flow_id": flow_id,
-                            "flow_cta": "Start Profile",
+                            "flow_cta": "Start profile",
                             "flow_action": "navigate",
                             "flow_action_payload": {
                                 "screen": "welcome",
