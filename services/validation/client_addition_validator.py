@@ -412,7 +412,7 @@ class ClientAdditionValidator:
 
     # ==================== PRICE VALIDATION ====================
 
-    def validate_price(self, price_str: str, user_id: str = None) -> Tuple[bool, str, Optional[float]]:
+    def validate_price(self, price_str: str, user_id: str = None) -> Tuple[bool, str, Optional[int]]:
         """
         Validate price per session.
 
@@ -421,7 +421,7 @@ class ClientAdditionValidator:
             user_id: User ID for retry tracking (optional)
 
         Returns:
-            Tuple of (is_valid, error_message, price_float)
+            Tuple of (is_valid, error_message, price_int)
         """
         try:
             log_debug(f"Validating price: {price_str}")
@@ -439,9 +439,9 @@ class ClientAdditionValidator:
             cleaned = price_str.strip().upper()
             cleaned = cleaned.replace('R', '').replace(',', '').replace(' ', '').strip()
 
-            # Try to convert to float
+            # Try to convert to int (via float to handle decimal input)
             try:
-                price_value = float(cleaned)
+                price_value = int(float(cleaned))
             except ValueError:
                 error_msg = (
                     "💰 Hmm, that doesn't look like a valid price.\n\n"
@@ -484,9 +484,6 @@ class ClientAdditionValidator:
                 )
                 log_warning(f"Price above maximum: {price_str} -> {price_value}")
                 return False, error_msg, None
-
-            # Round to 2 decimal places
-            price_value = round(price_value, 2)
 
             log_info(f"Price validated successfully: {price_str} -> R{price_value}")
 
@@ -821,7 +818,7 @@ Be helpful - if it's close to valid but missing info, mark invalid and ask for c
 
             if 'price' in validated_data:
                 price = validated_data['price']
-                summary += f"*Price per session:* R{price:.2f}\n"
+                summary += f"*Price per session:* R{price}\n"
 
             if 'package_deal' in validated_data and validated_data['package_deal']:
                 package = validated_data['package_deal']
