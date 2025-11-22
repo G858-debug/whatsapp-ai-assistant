@@ -639,14 +639,14 @@ class ClientCreationButtonHandler:
             # Build pricing message
             if default_price:
                 msg = (
-                    f"💰 *Pricing Setup*\n\n"
+                    f"💰 *Pricing setup*\n\n"
                     f"What rate would you like to set for {client_name}?\n\n"
                     f"Your standard rate: R{default_price} per session\n\n"
                     f"Choose an option below:"
                 )
             else:
                 msg = (
-                    f"💰 *Pricing Setup*\n\n"
+                    f"💰 *Pricing setup*\n\n"
                     f"What rate would you like to set for {client_name}?\n\n"
                     f"Choose an option below:"
                 )
