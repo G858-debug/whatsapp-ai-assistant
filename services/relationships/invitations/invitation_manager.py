@@ -315,7 +315,15 @@ class InvitationManager:
                         {
                             "type": "action",
                             "action": {
-                                "flow_token": flow_token
+                                "flow_token": flow_token,
+                                "flow_action_payload": {
+                                    "screen": "welcome",
+                                    "data": {
+                                        "flow_token": flow_token,
+                                        "trainer_name": trainer_name,
+                                        "selected_price": str(selected_price) if selected_price else "500"
+                                    }
+                                }
                             }
                         }
                     ]
