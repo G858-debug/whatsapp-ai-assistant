@@ -111,11 +111,41 @@ def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -
             session_timestamps[flow_token] = datetime.now()
             logger.info(f"Initialized flow session: {flow_token}")
 
-            # Return screen routing information for the flow
+            # For client onboarding flows, retrieve trainer data from flow_tokens table
+            initial_data = {}
+            if flow_token and 'client_onboarding_invitation' in flow_token:
+                try:
+                    from app import app
+                    db = app.config['supabase']
+
+                    # Query flow_tokens table to get stored trainer data
+                    token_result = db.table('flow_tokens').select('data').eq(
+                        'flow_token', flow_token
+                    ).execute()
+
+                    if token_result.data and token_result.data[0].get('data'):
+                        token_data = token_result.data[0]['data']
+                        trainer_name = token_data.get('trainer_name', '')
+                        selected_price = token_data.get('selected_price')
+
+                        logger.info(f"Retrieved client onboarding data: trainer_name={trainer_name}, selected_price={selected_price}")
+
+                        # Add to initial data
+                        initial_data['trainer_name'] = trainer_name
+                        initial_data['selected_price'] = str(selected_price) if selected_price else '500'
+                        initial_data['flow_token'] = flow_token
+
+                        logger.info(f"Injected initial data for client onboarding: {initial_data}")
+                    else:
+                        logger.warning(f"No flow_tokens data found for token: {flow_token}")
+                except Exception as e:
+                    logger.error(f"Error retrieving flow_tokens data: {str(e)}")
+
+            # Return screen routing information with initial data
             return {
                 "version": version,
                 "screen": "welcome",
-                "data": {}
+                "data": initial_data
             }
 
         elif action == 'data_exchange':
