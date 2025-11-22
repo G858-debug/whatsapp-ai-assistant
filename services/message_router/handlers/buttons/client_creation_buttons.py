@@ -639,23 +639,23 @@ class ClientCreationButtonHandler:
             # Build pricing message
             if default_price:
                 msg = (
-                    f"💰 *Pricing Setup*\n\n"
+                    f"💰 *Pricing setup*\n\n"
                     f"What rate would you like to set for {client_name}?\n\n"
                     f"Your standard rate: R{default_price} per session\n\n"
                     f"Choose an option below:"
                 )
             else:
                 msg = (
-                    f"💰 *Pricing Setup*\n\n"
+                    f"💰 *Pricing setup*\n\n"
                     f"What rate would you like to set for {client_name}?\n\n"
                     f"Choose an option below:"
                 )
 
             # Create pricing buttons
             buttons = [
-                {'id': 'use_standard', 'title': f'Use Standard (R{default_price})' if default_price else 'Set Standard Rate'},
-                {'id': 'set_custom', 'title': 'Set Custom Rate'},
-                {'id': 'discuss_later', 'title': 'Discuss with Client'}
+                {'id': 'use_standard', 'title': 'Use standard rate'},
+                {'id': 'set_custom', 'title': 'Set custom rate'},
+                {'id': 'discuss_later', 'title': 'Discuss with client'}
             ]
 
             self.whatsapp.send_button_message(phone, msg, buttons)
