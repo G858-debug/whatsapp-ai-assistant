@@ -90,11 +90,13 @@ class InvitationButtonHandler:
                 trainer_name=trainer_name
             )
 
+            # Return without sending any additional message - the flow message is already sent
             if flow_result.get('success'):
+                log_info(f"Flow launched successfully for client {phone}")
                 return {
                     'success': True,
-                    'response': f"Great! Let's set up your fitness profile 📝\n\nThis helps {trainer_name} create the perfect program for you.",
-                    'handler': 'accept_client_invitation'
+                    'response': '',  # Empty response - no message sent
+                    'handler': 'accept_invitation_flow_launched'
                 }
             else:
                 return {
