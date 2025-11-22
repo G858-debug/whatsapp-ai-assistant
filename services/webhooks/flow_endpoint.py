@@ -294,7 +294,7 @@ class FlowEndpointHandler:
 
             relationship_data = {
                 'connection_status': 'active',
-                'custom_price': selected_price,
+                'custom_price_per_session': selected_price,
                 'invitation_token': invitation_token,
                 'updated_at': now
             }
