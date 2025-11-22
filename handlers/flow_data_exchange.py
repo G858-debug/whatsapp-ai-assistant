@@ -109,39 +109,47 @@ def handle_flow_data_exchange(decrypted_data: Dict[str, Any], flow_token: str) -
             # Initialize new flow session
             flow_sessions[flow_token] = {}
             session_timestamps[flow_token] = datetime.now()
-            logger.info(f"Initialized flow session: {flow_token}")
+            logger.info(f"=== INIT HANDLER START === token: {flow_token}")
 
-            # For client onboarding flows, retrieve trainer data from flow_tokens table
+            # For client onboarding, retrieve trainer data
             initial_data = {}
+
             if flow_token and 'client_onboarding_invitation' in flow_token:
+                logger.info("Detected client_onboarding_invitation in flow_token")
                 try:
                     from app import app
                     db = app.config['supabase']
 
-                    # Query flow_tokens table to get stored trainer data
+                    logger.info(f"Querying flow_tokens for: {flow_token}")
+
                     token_result = db.table('flow_tokens').select('data').eq(
                         'flow_token', flow_token
                     ).execute()
 
-                    if token_result.data and token_result.data[0].get('data'):
-                        token_data = token_result.data[0]['data']
+                    logger.info(f"Query returned: {len(token_result.data) if token_result.data else 0} rows")
+
+                    if token_result.data and len(token_result.data) > 0:
+                        token_data = token_result.data[0].get('data', {})
                         trainer_name = token_data.get('trainer_name', '')
                         selected_price = token_data.get('selected_price')
 
-                        logger.info(f"Retrieved client onboarding data: trainer_name={trainer_name}, selected_price={selected_price}")
+                        logger.info(f"Found: trainer_name='{trainer_name}', selected_price='{selected_price}'")
 
-                        # Add to initial data
+                        initial_data['flow_token'] = flow_token
                         initial_data['trainer_name'] = trainer_name
                         initial_data['selected_price'] = str(selected_price) if selected_price else '500'
-                        initial_data['flow_token'] = flow_token
 
-                        logger.info(f"Injected initial data for client onboarding: {initial_data}")
+                        logger.info(f"=== INIT RESPONSE DATA ===")
+                        logger.info(f"{initial_data}")
                     else:
-                        logger.warning(f"No flow_tokens data found for token: {flow_token}")
+                        logger.warning(f"No data in flow_tokens for: {flow_token}")
                 except Exception as e:
-                    logger.error(f"Error retrieving flow_tokens data: {str(e)}")
+                    logger.error(f"Error retrieving flow data: {str(e)}", exc_info=True)
+            else:
+                logger.info("Not a client_onboarding_invitation flow")
 
-            # Return screen routing information with initial data
+            logger.info(f"=== INIT HANDLER END === Returning screen: welcome, data keys: {list(initial_data.keys())}")
+
             return {
                 "version": version,
                 "screen": "welcome",
