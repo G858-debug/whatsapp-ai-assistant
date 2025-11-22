@@ -292,9 +292,17 @@ class FlowEndpointHandler:
                 'trainer_id', trainer_id
             ).eq('client_id', client_id).execute()
 
+            # Data for trainer_client_list (includes pricing)
             relationship_data = {
                 'connection_status': 'active',
                 'custom_price_per_session': selected_price,
+                'invitation_token': invitation_token,
+                'updated_at': now
+            }
+
+            # Data for client_trainer_list (excludes pricing)
+            client_relationship_data = {
+                'connection_status': 'active',
                 'invitation_token': invitation_token,
                 'updated_at': now
             }
@@ -328,7 +336,7 @@ class FlowEndpointHandler:
 
             if existing_client.data:
                 log_info(f"Updating existing client_trainer_list relationship")
-                self.db.table('client_trainer_list').update(relationship_data).eq(
+                self.db.table('client_trainer_list').update(client_relationship_data).eq(
                     'client_id', client_id
                 ).eq('trainer_id', trainer_id).execute()
                 log_info(f"Successfully updated client_trainer_list relationship")
@@ -338,7 +346,7 @@ class FlowEndpointHandler:
                     'client_id': client_id,
                     'trainer_id': trainer_id,
                     'created_at': now,
-                    **relationship_data
+                    **client_relationship_data
                 }
 
                 self.db.table('client_trainer_list').insert(client_list_data).execute()
