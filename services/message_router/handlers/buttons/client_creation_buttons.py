@@ -628,13 +628,13 @@ class ClientCreationButtonHandler:
         """
         try:
             # Get trainer's default price from database
-            trainer_result = self.db.table('trainers').select('default_price_per_session').eq(
+            trainer_result = self.db.table('trainers').select('pricing_per_session').eq(
                 'trainer_id', trainer_id
             ).execute()
 
             default_price = None
-            if trainer_result.data and trainer_result.data[0].get('default_price_per_session'):
-                default_price = trainer_result.data[0]['default_price_per_session']
+            if trainer_result.data and trainer_result.data[0].get('pricing_per_session'):
+                default_price = trainer_result.data[0]['pricing_per_session']
 
             # Build pricing message
             if default_price:
@@ -1030,7 +1030,7 @@ class ClientCreationButtonHandler:
             task_data = task.get('task_data', {})
 
             # Get trainer's default price from database
-            trainer_result = self.db.table('trainers').select('default_price_per_session').eq(
+            trainer_result = self.db.table('trainers').select('pricing_per_session').eq(
                 'trainer_id', user_id
             ).execute()
 
@@ -1039,7 +1039,7 @@ class ClientCreationButtonHandler:
                 self.whatsapp.send_message(phone, msg)
                 return {'success': False, 'response': msg, 'handler': 'use_standard_trainer_not_found'}
 
-            default_price = trainer_result.data[0].get('default_price_per_session')
+            default_price = trainer_result.data[0].get('pricing_per_session')
 
             if not default_price:
                 # No standard rate set, ask them to type their standard rate
