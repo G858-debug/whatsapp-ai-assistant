@@ -653,7 +653,7 @@ class ClientCreationButtonHandler:
 
             # Create pricing buttons
             buttons = [
-                {'id': 'use_standard', 'title': f'Use standard (R{default_price})' if default_price else 'Set standard rate'},
+                {'id': 'use_standard', 'title': f'Use standard (R{default_price})' if default_price else 'Use standard rate'},
                 {'id': 'set_custom', 'title': 'Set custom rate'},
                 {'id': 'discuss_later', 'title': 'Discuss with client'}
             ]
