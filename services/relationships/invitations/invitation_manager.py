@@ -324,7 +324,7 @@ class InvitationManager:
                 f" - Accept the invitation below\n"
                 f" - Complete your fitness profile (2 minutes)\n"
                 f" - Start your fitness journey!\n\n"
-                f"💰 *Pricing*: R{int(selected_price)} per session\n\n" if selected_price else f"💰 *Pricing*: Rate to be discussed with the trainer directly\n\n"
+                f"💰 *Pricing*: R{int(selected_price)} per session\n\n" if selected_price else f"💰 *Pricing*: To discuss with trainer directly\n\n"
                 f"Ready to get started?"
             )
 
