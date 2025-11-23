@@ -405,7 +405,7 @@ class FlowEndpointHandler:
         """Notify trainer with client's details and next steps"""
         try:
             # Get trainer's phone number
-            trainer_result = self.db.table('trainers').select('whatsapp, phone').eq(
+            trainer_result = self.db.table('trainers').select('whatsapp').eq(
                 'id', trainer_id
             ).execute()
 
@@ -414,7 +414,7 @@ class FlowEndpointHandler:
                 return
 
             trainer = trainer_result.data[0]
-            trainer_phone = trainer.get('whatsapp') or trainer.get('phone')
+            trainer_phone = trainer.get('whatsapp')
 
             if not trainer_phone:
                 log_error(f"No phone number found for trainer {trainer_id}")
