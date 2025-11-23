@@ -179,6 +179,7 @@ class FlowEndpointHandler:
                 'fitness_goals': flow_data.get('fitness_goals') or flow_data.get('goals'),
                 'experience_level': flow_data.get('experience_level') or flow_data.get('experience'),
                 'availability': flow_data.get('availability'),
+                'sessions_per_week': flow_data.get('sessions_per_week'),
                 'health_conditions': flow_data.get('health_conditions') or flow_data.get('injuries'),
                 'additional_notes': flow_data.get('additional_notes') or flow_data.get('notes')
             }
@@ -237,6 +238,7 @@ class FlowEndpointHandler:
                 'fitness_goals': profile_data.get('fitness_goals'),
                 'experience_level': profile_data.get('experience_level'),
                 'availability': profile_data.get('availability'),
+                'sessions_per_week': profile_data.get('sessions_per_week'),
                 'health_conditions': profile_data.get('health_conditions'),
                 'additional_notes': profile_data.get('additional_notes'),
                 'status': 'active',
@@ -422,7 +424,7 @@ class FlowEndpointHandler:
 
             # Build notification message
             message = (
-                f"🎉 *New Client Profile Complete!*\n\n"
+                f"🎉 *New client profile complete!*\n\n"
                 f"*{client_name}* has completed their fitness profile!\n\n"
                 f"📋 *Profile Details:*\n"
             )
@@ -435,6 +437,9 @@ class FlowEndpointHandler:
 
             if profile_data.get('availability'):
                 message += f"• *Availability:* {profile_data['availability']}\n"
+
+            if profile_data.get('sessions_per_week'):
+                message += f"• *Sessions per week:* {profile_data['sessions_per_week']}\n"
 
             if profile_data.get('health_conditions'):
                 message += f"• *Injuries/Conditions:* {profile_data['health_conditions']}\n"
