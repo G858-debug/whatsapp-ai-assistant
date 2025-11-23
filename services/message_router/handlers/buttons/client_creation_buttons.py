@@ -628,13 +628,13 @@ class ClientCreationButtonHandler:
         """
         try:
             # Get trainer's default price from database
-            trainer_result = self.db.table('trainers').select('default_price_per_session').eq(
+            trainer_result = self.db.table('trainers').select('pricing_per_session').eq(
                 'trainer_id', trainer_id
             ).execute()
 
             default_price = None
-            if trainer_result.data and trainer_result.data[0].get('default_price_per_session'):
-                default_price = trainer_result.data[0]['default_price_per_session']
+            if trainer_result.data and trainer_result.data[0].get('pricing_per_session'):
+                default_price = trainer_result.data[0]['pricing_per_session']
 
             # Build pricing message
             if default_price:
