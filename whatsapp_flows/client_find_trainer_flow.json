@@ -1,0 +1,439 @@
+{
+  "version": "6.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "WELCOME": ["PERSONAL_INFO"],
+    "PERSONAL_INFO": ["FITNESS_GOALS"],
+    "FITNESS_GOALS": ["EXPERIENCE_LEVEL"],
+    "EXPERIENCE_LEVEL": ["HEALTH_INFO"],
+    "HEALTH_INFO": ["AVAILABILITY"]
+  },
+  "screens": [
+    {
+      "id": "WELCOME",
+      "title": "Welcome to Refiloe",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Welcome to your fitness journey! 🎯"
+          },
+          {
+            "type": "TextBody",
+            "text": "Hi there! 👋\n\nI'm Refiloe, your AI fitness assistant. I'm here to help you find the perfect personal trainer and start transforming your health!\n\nLet's create your fitness profile so I can match you with the right trainer. This will only take 2 minutes."
+          },
+          {
+            "type": "Footer",
+            "label": "Get started",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "PERSONAL_INFO"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PERSONAL_INFO",
+      "title": "Personal information",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "personal_info_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Tell me about yourself 👤"
+              },
+              {
+                "type": "TextBody",
+                "text": "Let's start with some basic information:"
+              },
+              {
+                "type": "TextInput",
+                "name": "full_name",
+                "label": "Full name *",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "Enter your full name"
+              },
+              {
+                "type": "TextInput",
+                "name": "email",
+                "label": "Email address",
+                "input-type": "email",
+                "required": false,
+                "helper-text": "Optional - helps with better communication"
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "FITNESS_GOALS"
+                  },
+                  "payload": {
+                    "full_name": "${form.full_name}",
+                    "email": "${form.email}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "FITNESS_GOALS",
+      "title": "Fitness goals",
+      "terminal": false,
+      "data": {
+        "full_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "email": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "fitness_goals_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "What are your goals? 🎯"
+              },
+              {
+                "type": "TextBody",
+                "text": "Select your main fitness objectives (you can choose multiple):"
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "fitness_goals",
+                "label": "Your fitness goals",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "lose_weight",
+                    "title": "Lose weight",
+                    "description": "Reduce body weight and improve body composition"
+                  },
+                  {
+                    "id": "build_muscle",
+                    "title": "Build muscle",
+                    "description": "Increase muscle mass and strength"
+                  },
+                  {
+                    "id": "get_stronger",
+                    "title": "Get stronger",
+                    "description": "Improve overall strength and power"
+                  },
+                  {
+                    "id": "improve_fitness",
+                    "title": "Improve fitness",
+                    "description": "Enhance cardiovascular health and endurance"
+                  },
+                  {
+                    "id": "train_for_event",
+                    "title": "Train for event",
+                    "description": "Prepare for specific sports or competitions"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "EXPERIENCE_LEVEL"
+                  },
+                  "payload": {
+                    "full_name": "${data.full_name}",
+                    "email": "${data.email}",
+                    "fitness_goals": "${form.fitness_goals}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "EXPERIENCE_LEVEL",
+      "title": "Experience level",
+      "terminal": false,
+      "data": {
+        "full_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "experience_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Your fitness experience 📊"
+              },
+              {
+                "type": "TextBody",
+                "text": "What's your current fitness level?"
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "experience_level",
+                "label": "Experience level",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "beginner",
+                    "title": "Beginner",
+                    "description": "New to exercise or getting back into it"
+                  },
+                  {
+                    "id": "intermediate",
+                    "title": "Intermediate",
+                    "description": "Exercise sometimes, have some experience"
+                  },
+                  {
+                    "id": "advanced",
+                    "title": "Advanced",
+                    "description": "Exercise regularly, good fitness base"
+                  },
+                  {
+                    "id": "athlete",
+                    "title": "Athlete",
+                    "description": "Competitive sports or very experienced"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "HEALTH_INFO"
+                  },
+                  "payload": {
+                    "full_name": "${data.full_name}",
+                    "email": "${data.email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "experience_level": "${form.experience_level}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "HEALTH_INFO",
+      "title": "Health information",
+      "terminal": false,
+      "data": {
+        "full_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "experience_level": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "health_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Health & safety 🏥"
+              },
+              {
+                "type": "TextBody",
+                "text": "Help us keep you safe during training:"
+              },
+              {
+                "type": "TextArea",
+                "name": "health_conditions",
+                "label": "Health conditions",
+                "required": false,
+                "helper-text": "List any health conditions, injuries, or concerns. Type 'none' if you're all good."
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "AVAILABILITY"
+                  },
+                  "payload": {
+                    "full_name": "${data.full_name}",
+                    "email": "${data.email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "experience_level": "${data.experience_level}",
+                    "health_conditions": "${form.health_conditions}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "AVAILABILITY",
+      "title": "Training availability",
+      "terminal": true,
+      "data": {
+        "full_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "experience_level": {
+          "type": "string",
+          "__example__": ""
+        },
+        "health_conditions": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "availability_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "When can you train? ⏰"
+              },
+              {
+                "type": "TextBody",
+                "text": "Select your preferred training times (you can choose multiple):"
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "availability",
+                "label": "Preferred times",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "early_morning",
+                    "title": "Early morning",
+                    "description": "5:00 AM - 8:00 AM"
+                  },
+                  {
+                    "id": "morning",
+                    "title": "Morning",
+                    "description": "8:00 AM - 12:00 PM"
+                  },
+                  {
+                    "id": "afternoon",
+                    "title": "Afternoon",
+                    "description": "12:00 PM - 5:00 PM"
+                  },
+                  {
+                    "id": "evening",
+                    "title": "Evening",
+                    "description": "5:00 PM - 8:00 PM"
+                  },
+                  {
+                    "id": "flexible",
+                    "title": "Flexible",
+                    "description": "I can adapt to any schedule"
+                  }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "🎉 Perfect! Click below to complete your profile and I'll help you find the right trainer."
+              },
+              {
+                "type": "Footer",
+                "label": "Complete profile",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "full_name": "${data.full_name}",
+                    "email": "${data.email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "experience_level": "${data.experience_level}",
+                    "health_conditions": "${data.health_conditions}",
+                    "availability": "${form.availability}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

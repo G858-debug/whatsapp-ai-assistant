@@ -4,32 +4,37 @@
   "routing_model": {
     "welcome": ["basic_info"],
     "basic_info": ["business_details"],
-    "business_details": ["availability"],
-    "availability": ["preferences"],
+    "business_details": ["availability_summary"],
+    "availability_summary": ["availability_monday"],
+    "availability_monday": ["availability_tuesday"],
+    "availability_tuesday": ["availability_wednesday"],
+    "availability_wednesday": ["availability_thursday"],
+    "availability_thursday": ["availability_friday"],
+    "availability_friday": ["availability_saturday"],
+    "availability_saturday": ["availability_sunday"],
+    "availability_sunday": ["preferences"],
     "preferences": ["business_setup"],
-    "business_setup": ["pricing_smart"],
-    "pricing_smart": ["terms_agreement"],
-    "terms_agreement": ["registration_complete"],
-    "registration_complete": []
+    "business_setup": ["terms_agreement"],
+    "terms_agreement": ["SUCCESS"]
   },
   "screens": [
     {
       "id": "welcome",
-      "title": "Welcome to Refiloe! 🎉",
+      "title": "Welcome aboard! 🎉",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "My name is Refiloe, I'm your AI-powered personal assistant! Let's get you set up as a trainer in just a few steps. 💪"
+            "text": "My name is Refiloe Radebe, I'm your AI-powered personal assistant! Let's get you set up as a trainer in just a few steps. 💪 This will take about 2 minutes ⏱️."
           },
           {
             "type": "Image",
-            "src": "https://refiloeradebe.co.za/wp-content/uploads/2025/09/GPT_Image_1_also_two_small_dumbells_in_the_background_against_0-683x1024.png"
+            "src": "https://mqemiteirxwscxtamdtj.supabase.co/storage/v1/object/public/whatsapp-flow-images/Welcome%20v2.jpg"
           },
           {
             "type": "Footer",
-            "label": "This will take about 2 minutes ⏱️",
+            "label": "Continue",
             "on-click-action": {
               "name": "navigate",
               "next": {
@@ -43,7 +48,7 @@
     },
     {
       "id": "basic_info",
-      "title": "Basic Information",
+      "title": "Basic information",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
@@ -58,7 +63,7 @@
               {
                 "type": "TextInput",
                 "name": "first_name",
-                "label": "First Name",
+                "label": "First name",
                 "required": true
               },
               {
@@ -70,13 +75,32 @@
               {
                 "type": "TextInput",
                 "name": "email",
-                "label": "Email Address",
+                "label": "Email address",
+                "input-type": "email",
                 "required": true
               },
               {
                 "type": "TextInput",
                 "name": "city",
                 "label": "City / Location",
+                "required": true
+              },
+              {
+                "type": "Dropdown",
+                "name": "sex",
+                "label": "Gender identity",
+                "required": true,
+                "data-source": [
+                  { "id": "male", "title": "Male" },
+                  { "id": "female", "title": "Female" },
+                  { "id": "transgender", "title": "Transgender" },
+                  { "id": "other", "title": "Other" }
+                ]
+              },
+              {
+                "type": "DatePicker",
+                "name": "birthdate",
+                "label": "Date of birth",
                 "required": true
               },
               {
@@ -97,7 +121,7 @@
     },
     {
       "id": "business_details",
-      "title": "Business Details",
+      "title": "Business details",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
@@ -112,88 +136,53 @@
               {
                 "type": "TextInput",
                 "name": "business_name",
-                "label": "Business Name",
+                "label": "Business name",
                 "required": false
               },
               {
                 "type": "CheckboxGroup",
                 "name": "specializations",
-                "label": "Specializations",
+                "label": "Training specializations (select all that apply)",
                 "required": true,
+                "min-selected-items": 1,
                 "data-source": [
-                  {
-                    "id": "personal_training",
-                    "title": "Personal Training"
-                  },
-                  {
-                    "id": "group_fitness",
-                    "title": "Group Fitness"
-                  },
-                  {
-                    "id": "strength_training",
-                    "title": "Strength Training"
-                  },
-                  {
-                    "id": "cardio_fitness",
-                    "title": "Cardio Fitness"
-                  },
-                  {
-                    "id": "yoga_pilates",
-                    "title": "Yoga & Pilates"
-                  },
-                  {
-                    "id": "sports_coaching",
-                    "title": "Sports Coaching"
-                  },
-                  {
-                    "id": "nutrition_coaching",
-                    "title": "Nutrition Coaching"
-                  },
+                  { "id": "personal_training", "title": "Personal training" },
+                  { "id": "group_fitness", "title": "Group fitness" },
+                  { "id": "strength_training", "title": "Strength training" },
+                  { "id": "cardio_fitness", "title": "Cardio fitness" },
+                  { "id": "yoga_pilates", "title": "Yoga & pilates" },
+                  { "id": "sports_coaching", "title": "Sports coaching" },
+                  { "id": "nutrition_coaching", "title": "Nutrition coaching" },
                   {
                     "id": "rehabilitation",
-                    "title": "Rehabilitation & Recovery"
+                    "title": "Rehabilitation & recovery"
                   },
-                  {
-                    "id": "general_fitness",
-                    "title": "General Fitness"
-                  }
+                  { "id": "general_fitness", "title": "General fitness" }
                 ]
               },
               {
                 "type": "Dropdown",
                 "name": "experience_years",
-                "label": "Years of Experience",
+                "label": "Years of experience",
                 "required": true,
                 "data-source": [
-                  {
-                    "id": "0-1",
-                    "title": "0-1 years"
-                  },
-                  {
-                    "id": "2-3",
-                    "title": "2-3 years"
-                  },
-                  {
-                    "id": "4-5",
-                    "title": "4-5 years"
-                  },
-                  {
-                    "id": "6-10",
-                    "title": "6-10 years"
-                  },
-                  {
-                    "id": "10+",
-                    "title": "10+ years"
-                  }
+                  { "id": "0-1", "title": "0-1 years" },
+                  { "id": "2-3", "title": "2-3 years" },
+                  { "id": "4-5", "title": "4-5 years" },
+                  { "id": "6-10", "title": "6-10 years" },
+                  { "id": "10+", "title": "10+ years" }
                 ]
+              },
+              {
+                "type": "TextBody",
+                "text": "💡 You will still be able to customize pricing for each client when you're onboarding them."
               },
               {
                 "type": "TextInput",
                 "name": "pricing_per_session",
-                "label": "What's your standard price per session? (in Rands)",
-                "helper-text": "e.g., 500 for R500. Leave blank to skip.",
-                "required": false,
-                "input-type": "number"
+                "label": "Price per session (Rand)",
+                "input-type": "number",
+                "required": true
               },
               {
                 "type": "Footer",
@@ -202,7 +191,7 @@
                   "name": "navigate",
                   "next": {
                     "type": "screen",
-                    "name": "availability"
+                    "name": "availability_summary"
                   }
                 }
               }
@@ -212,86 +201,582 @@
       }
     },
     {
-      "id": "availability",
-      "title": "Availability",
+      "id": "availability_summary",
+      "title": "Set your availability 📅",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "When are you available for training sessions? 📅"
+            "text": "*Let's set your weekly availability!* ⏰\n\nYou'll go through each day of the week (Monday to Sunday).\n\nFor each day:\n✓ Choose a quick preset (Not Available, Morning, Business Hours, etc.)\n✓ OR select 'Custom' and then pick specific hours below\n\nDon't worry! You can update your availability anytime later. 📆"
           },
           {
             "type": "Form",
-            "name": "availability_form",
+            "name": "summary_form",
             "children": [
               {
-                "type": "CheckboxGroup",
-                "name": "available_days",
-                "label": "Available Days",
+                "type": "Footer",
+                "label": "Let's start with Monday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_monday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_monday",
+      "title": "Monday hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Mondays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "monday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "monday_preset",
+                "label": "⚡ Quick Presets",
                 "required": true,
                 "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
                   {
-                    "id": "monday",
-                    "title": "Monday"
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
                   },
-                  {
-                    "id": "tuesday",
-                    "title": "Tuesday"
-                  },
-                  {
-                    "id": "wednesday",
-                    "title": "Wednesday"
-                  },
-                  {
-                    "id": "thursday",
-                    "title": "Thursday"
-                  },
-                  {
-                    "id": "friday",
-                    "title": "Friday"
-                  },
-                  {
-                    "id": "saturday",
-                    "title": "Saturday"
-                  },
-                  {
-                    "id": "sunday",
-                    "title": "Sunday"
-                  }
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
                 ]
               },
               {
-                "type": "Dropdown",
-                "name": "preferred_time_slots",
-                "label": "Preferred Time Slots",
-                "required": true,
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "monday_hours",
+                "label": "Select specific hours",
+                "required": false,
                 "data-source": [
-                  {
-                    "id": "early_morning",
-                    "title": "Early Morning (5:00-8:00)"
-                  },
-                  {
-                    "id": "morning",
-                    "title": "Morning (8:00-12:00)"
-                  },
-                  {
-                    "id": "afternoon",
-                    "title": "Afternoon (12:00-17:00)"
-                  },
-                  {
-                    "id": "evening",
-                    "title": "Evening (17:00-20:00)"
-                  },
-                  {
-                    "id": "flexible",
-                    "title": "Flexible - Any Time"
-                  }
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
                 ]
               },
               {
                 "type": "Footer",
-                "label": "Continue",
+                "label": "Continue to Tuesday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_tuesday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_tuesday",
+      "title": "Tuesday hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Tuesdays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "tuesday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "tuesday_preset",
+                "label": "⚡ Quick presets",
+                "required": true,
+                "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
+                  {
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
+                  },
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "tuesday_hours",
+                "label": "Select specific hours",
+                "required": false,
+                "data-source": [
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue to Wednesday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_wednesday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_wednesday",
+      "title": "Wednesday hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Wednesdays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "wednesday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "wednesday_preset",
+                "label": "⚡ Quick presets",
+                "required": true,
+                "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
+                  {
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
+                  },
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "wednesday_hours",
+                "label": "Select specific hours",
+                "required": false,
+                "data-source": [
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue to Thursday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_thursday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_thursday",
+      "title": "Thursday hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Thursdays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "thursday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "thursday_preset",
+                "label": "⚡ Quick presets",
+                "required": true,
+                "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
+                  {
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
+                  },
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "thursday_hours",
+                "label": "Select specific hours",
+                "required": false,
+                "data-source": [
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue to Friday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_friday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_friday",
+      "title": "Friday hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Fridays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "friday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "friday_preset",
+                "label": "⚡ Quick presets",
+                "required": true,
+                "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
+                  {
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
+                  },
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "friday_hours",
+                "label": "Select specific hours",
+                "required": false,
+                "data-source": [
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue to Saturday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_saturday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_saturday",
+      "title": "Saturday hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Saturdays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "saturday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "saturday_preset",
+                "label": "⚡ Quick Presets",
+                "required": true,
+                "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
+                  {
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
+                  },
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "saturday_hours",
+                "label": "Select specific hours",
+                "required": false,
+                "data-source": [
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue to Sunday",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "availability_sunday"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "availability_sunday",
+      "title": "Sunday Hours ⏰",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "When are you available on Sundays? 📅"
+          },
+          {
+            "type": "Form",
+            "name": "sunday_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "sunday_preset",
+                "label": "⚡ Quick presets",
+                "required": true,
+                "data-source": [
+                  { "id": "not_available", "title": "🚫 Not available" },
+                  { "id": "full_day", "title": "🌅 Full day (00:00-24:00)" },
+                  {
+                    "id": "business",
+                    "title": "💼 Business hours (08:00-17:00)"
+                  },
+                  { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
+                  { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
+                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                ]
+              },
+              {
+                "type": "TextBody",
+                "text": "━━━━━━━━━━━━━━━━━━━━━"
+              },
+              {
+                "type": "TextBody",
+                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "sunday_hours",
+                "label": "Select specific hours",
+                "required": false,
+                "data-source": [
+                  { "id": "05-06", "title": "05:00-06:00" },
+                  { "id": "06-07", "title": "06:00-07:00" },
+                  { "id": "07-08", "title": "07:00-08:00" },
+                  { "id": "08-09", "title": "08:00-09:00" },
+                  { "id": "09-10", "title": "09:00-10:00" },
+                  { "id": "10-11", "title": "10:00-11:00" },
+                  { "id": "11-12", "title": "11:00-12:00" },
+                  { "id": "12-13", "title": "12:00-13:00" },
+                  { "id": "13-14", "title": "13:00-14:00" },
+                  { "id": "14-15", "title": "14:00-15:00" },
+                  { "id": "15-16", "title": "15:00-16:00" },
+                  { "id": "16-17", "title": "16:00-17:00" },
+                  { "id": "17-18", "title": "17:00-18:00" },
+                  { "id": "18-19", "title": "18:00-19:00" },
+                  { "id": "19-20", "title": "19:00-20:00" },
+                  { "id": "20-21", "title": "20:00-21:00" },
+                  { "id": "21-22", "title": "21:00-22:00" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue to plans",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -307,36 +792,27 @@
     },
     {
       "id": "preferences",
-      "title": "Subscription Plan",
+      "title": "Choose your plan 🎯",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "Choose your subscription plan 🎯"
+            "text": "Select the plan that fits your business needs 💼\n\nAll plans include:\n✓ AI-powered client management\n✓ Automated scheduling\n✓ Progress tracking\n✓ 24/7 availability"
           },
           {
             "type": "Form",
             "name": "preferences_form",
             "children": [
               {
-                "type": "Dropdown",
+                "type": "RadioButtonsGroup",
                 "name": "subscription_plan",
-                "label": "Choose Your Plan",
+                "label": "Select your plan",
                 "required": true,
                 "data-source": [
-                  {
-                    "id": "free",
-                    "title": "Free Plan - Up to 5 clients"
-                  },
-                  {
-                    "id": "premium",
-                    "title": "Premium Plan - Up to 25 clients"
-                  },
-                  {
-                    "id": "pro",
-                    "title": "Pro Plan - Unlimited clients"
-                  }
+                  { "id": "basic", "title": "🌟 Basic - R29/month" },
+                  { "id": "pro", "title": "⚡ Pro - R249/month" },
+                  { "id": "executive", "title": "👑 Executive - R349/month" }
                 ]
               },
               {
@@ -357,7 +833,7 @@
     },
     {
       "id": "business_setup",
-      "title": "Additional Services",
+      "title": "Additional services",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
@@ -372,79 +848,17 @@
               {
                 "type": "CheckboxGroup",
                 "name": "services_offered",
-                "label": "Services Offered",
+                "label": "Services you offer (select all that apply)",
                 "required": false,
                 "data-source": [
-                  {
-                    "id": "in_person_training",
-                    "title": "In-Person Training"
-                  },
-                  {
-                    "id": "online_training",
-                    "title": "Online Training"
-                  },
-                  {
-                    "id": "nutrition_planning",
-                    "title": "Nutrition Planning"
-                  },
+                  { "id": "in_person_training", "title": "In-person training" },
+                  { "id": "online_training", "title": "Online training" },
+                  { "id": "nutrition_planning", "title": "Nutrition planning" },
                   {
                     "id": "fitness_assessments",
-                    "title": "Fitness Assessments"
+                    "title": "Fitness assessments"
                   },
-                  {
-                    "id": "group_classes",
-                    "title": "Group Classes"
-                  }
-                ]
-              },
-              {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "pricing_smart"
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "pricing_smart",
-      "title": "Pricing Options",
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextBody",
-            "text": "Set up your pricing options 💰"
-          },
-          {
-            "type": "Form",
-            "name": "pricing_form",
-            "children": [
-              {
-                "type": "CheckboxGroup",
-                "name": "pricing_flexibility",
-                "label": "Pricing Options",
-                "required": false,
-                "data-source": [
-                  {
-                    "id": "package_discounts",
-                    "title": "Package Discounts"
-                  },
-                  {
-                    "id": "student_discounts",
-                    "title": "Student Discounts"
-                  },
-                  {
-                    "id": "group_rates",
-                    "title": "Group Session Rates"
-                  }
+                  { "id": "group_classes", "title": "Group classes" }
                 ]
               },
               {
@@ -465,68 +879,66 @@
     },
     {
       "id": "terms_agreement",
-      "title": "Terms & Conditions",
+      "title": "Terms & conditions",
+      "terminal": true,
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "Please agree to our terms to complete your registration."
+            "text": "Please agree to our terms to complete your onboarding.\n\n📜 *Terms of service:*\nhttps://refiloeradebe.co.za/terms-and-conditions/\n\n🔒 *Privacy policy:*\nhttps://refiloeradebe.co.za/privacy-policy-2/\n\n📝 *Short summary:*\n• Refiloe acts under your guidance but can make decisions within those guidelines\n• We will NOT sell any of your data\n• Either party has until the next billing date for notice to terminate"
           },
           {
             "type": "Form",
             "name": "terms_form",
             "children": [
               {
-                "type": "TextBody",
-                "text": "View our Terms of Service:\nhttps://refiloe.ai/terms\n\nView our Privacy Policy:\nhttps://refiloe.ai/privacy"
-              },
-              {
-                "type": "CheckboxGroup",
-                "name": "notification_preferences",
-                "label": "Notifications",
-                "required": false,
-                "data-source": [
-                  {
-                    "id": "whatsapp",
-                    "title": "WhatsApp Messages"
-                  },
-                  {
-                    "id": "email",
-                    "title": "Email Notifications"
-                  },
-                  {
-                    "id": "sms",
-                    "title": "SMS Messages"
-                  }
-                ]
-              },
-              {
-                "type": "OptIn",
-                "name": "marketing_consent",
-                "label": "Marketing emails",
-                "required": false
-              },
-              {
                 "type": "OptIn",
                 "name": "terms_accepted",
-                "label": "Accept Terms",
+                "label": "I have read and agree to the Terms of service and Privacy policy",
                 "required": true
               },
               {
                 "type": "TextArea",
                 "name": "additional_notes",
-                "label": "Additional Notes",
+                "label": "Additional notes",
                 "required": false
               },
               {
                 "type": "Footer",
-                "label": "Complete Registration",
+                "label": "Complete onboarding",
                 "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "registration_complete"
+                  "name": "complete",
+                  "payload": {
+                    "first_name": "${screen.basic_info.form.first_name}",
+                    "surname": "${screen.basic_info.form.surname}",
+                    "email": "${screen.basic_info.form.email}",
+                    "city": "${screen.basic_info.form.city}",
+                    "sex": "${screen.basic_info.form.sex}",
+                    "birthdate": "${screen.basic_info.form.birthdate}",
+                    "business_name": "${screen.business_details.form.business_name}",
+                    "specializations": "${screen.business_details.form.specializations}",
+                    "experience_years": "${screen.business_details.form.experience_years}",
+                    "pricing_per_session": "${screen.business_details.form.pricing_per_session}",
+                    "monday_preset": "${screen.availability_monday.form.monday_preset}",
+                    "monday_hours": "${screen.availability_monday.form.monday_hours}",
+                    "tuesday_preset": "${screen.availability_tuesday.form.tuesday_preset}",
+                    "tuesday_hours": "${screen.availability_tuesday.form.tuesday_hours}",
+                    "wednesday_preset": "${screen.availability_wednesday.form.wednesday_preset}",
+                    "wednesday_hours": "${screen.availability_wednesday.form.wednesday_hours}",
+                    "thursday_preset": "${screen.availability_thursday.form.thursday_preset}",
+                    "thursday_hours": "${screen.availability_thursday.form.thursday_hours}",
+                    "friday_preset": "${screen.availability_friday.form.friday_preset}",
+                    "friday_hours": "${screen.availability_friday.form.friday_hours}",
+                    "saturday_preset": "${screen.availability_saturday.form.saturday_preset}",
+                    "saturday_hours": "${screen.availability_saturday.form.saturday_hours}",
+                    "sunday_preset": "${screen.availability_sunday.form.sunday_preset}",
+                    "sunday_hours": "${screen.availability_sunday.form.sunday_hours}",
+                    "subscription_plan": "${screen.preferences.form.subscription_plan}",
+                    "services_offered": "${screen.business_setup.form.services_offered}",
+                    "terms_accepted": "${form.terms_accepted}",
+                    "additional_notes": "${form.additional_notes}",
+                    "success": true
                   }
                 }
               }
@@ -536,28 +948,31 @@
       }
     },
     {
-      "id": "registration_complete",
-      "title": "Congratulations!!",
+      "id": "SUCCESS",
+      "title": "Welcome to the family! 🎉",
       "terminal": true,
+      "success": true,
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "Congratulations! 🎊"
+          },
+          {
             "type": "TextBody",
-            "text": "Your trainer profile has been created successfully. We'll send you a link to set up your availability schedule."
+            "text": "Welcome to Refiloe's family! It's awesome to have you onboard! We look forward to serving you, taking on your admin and growing your business!\nCheck WhatsApp to get you started."
           },
           {
             "type": "Image",
-            "src": "https://refiloeradebe.co.za/wp-content/uploads/2025/09/gemini-2.5-flash-image-preview_A_cinematic_portrait_photograph_of_Give_me_more_variations_of_her_face_and_smile._I_want_her_to_loo-3-683x1024.png"
+            "src": "https://mqemiteirxwscxtamdtj.supabase.co/storage/v1/object/public/whatsapp-flow-images/Congratulations%20v3.jpg"
           },
           {
             "type": "Footer",
-            "label": "Close",
+            "label": "Done",
             "on-click-action": {
               "name": "complete",
-              "payload": {
-                "success": true
-              }
+              "payload": {}
             }
           }
         ]

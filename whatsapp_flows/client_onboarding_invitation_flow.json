@@ -1,0 +1,900 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "WELCOME": ["CLIENT_INFO"],
+    "CLIENT_INFO": ["FITNESS_PROFILE"],
+    "FITNESS_PROFILE": ["EXPERIENCE"],
+    "EXPERIENCE": ["SCHEDULE"],
+    "SCHEDULE": ["PRICING"],
+    "PRICING": ["HEALTH_NOTES"],
+    "HEALTH_NOTES": ["CONFIRMATION"]
+  },
+  "screens": [
+    {
+      "id": "WELCOME",
+      "title": "Add new client",
+      "terminal": false,
+      "data": {
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        },
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Add new client 👥"
+          },
+          {
+            "type": "TextBody",
+            "text": "Let's create a complete profile for your client! You'll populate their details, then they'll receive an invitation to accept."
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "CLIENT_INFO"
+              },
+              "payload": {
+                "trainer_default_price": "${data.trainer_default_price}",
+                "client_name": "${data.client_name}",
+                "client_phone": "${data.client_phone}",
+                "client_email": "${data.client_email}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CLIENT_INFO",
+      "title": "Client Information",
+      "terminal": false,
+      "data": {
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        },
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "client_info_form",
+            "init-values": {
+              "client_name": "${data.client_name}",
+              "client_phone": "${data.client_phone}",
+              "client_email": "${data.client_email}"
+            },
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Client details 📝"
+              },
+              {
+                "type": "TextBody",
+                "text": "Basic information about your client:"
+              },
+              {
+                "type": "TextInput",
+                "name": "client_name",
+                "label": "Full name *",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "Enter client's full name"
+              },
+              {
+                "type": "TextInput",
+                "name": "client_phone",
+                "label": "Phone number *",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "SA number (e.g., 0821234567)"
+              },
+              {
+                "type": "TextInput",
+                "name": "client_email",
+                "label": "Email Address",
+                "input-type": "email",
+                "required": false,
+                "helper-text": "Optional - for workout plans"
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "FITNESS_PROFILE"
+                  },
+                  "payload": {
+                    "client_name": "${form.client_name}",
+                    "client_phone": "${form.client_phone}",
+                    "client_email": "${form.client_email}",
+                    "trainer_default_price": "${data.trainer_default_price}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "FITNESS_PROFILE",
+      "title": "Fitness profile",
+      "terminal": false,
+      "data": {
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "fitness_profile_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Fitness goals 🎯"
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "fitness_goals",
+                "label": "Primary goals",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "weight_loss",
+                    "title": "Weight loss"
+                  },
+                  {
+                    "id": "muscle_gain",
+                    "title": "Muscle gain"
+                  },
+                  {
+                    "id": "general_fitness",
+                    "title": "General fitness"
+                  },
+                  {
+                    "id": "strength_training",
+                    "title": "Strength training"
+                  },
+                  {
+                    "id": "flexibility",
+                    "title": "Flexibility"
+                  },
+                  {
+                    "id": "athletic_performance",
+                    "title": "Athletic performance"
+                  },
+                  {
+                    "id": "rehabilitation",
+                    "title": "Rehabilitation"
+                  }
+                ]
+              },
+              {
+                "type": "TextArea",
+                "name": "specific_goals",
+                "label": "Specific goals",
+                "required": false,
+                "helper-text": "Any specific targets or details"
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "EXPERIENCE"
+                  },
+                  "payload": {
+                    "client_name": "${data.client_name}",
+                    "client_phone": "${data.client_phone}",
+                    "client_email": "${data.client_email}",
+                    "fitness_goals": "${form.fitness_goals}",
+                    "specific_goals": "${form.specific_goals}",
+                    "trainer_default_price": "${data.trainer_default_price}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "EXPERIENCE",
+      "title": "Experience level",
+      "terminal": false,
+      "data": {
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "specific_goals": {
+          "type": "string",
+          "__example__": ""
+        },
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "experience_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Experience level 💪"
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "experience_level",
+                "label": "Client's experience level",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "beginner",
+                    "title": "Beginner",
+                    "description": "New to exercise"
+                  },
+                  {
+                    "id": "intermediate",
+                    "title": "Intermediate",
+                    "description": "Some experience"
+                  },
+                  {
+                    "id": "advanced",
+                    "title": "Advanced",
+                    "description": "Regular exerciser"
+                  },
+                  {
+                    "id": "athlete",
+                    "title": "Athlete",
+                    "description": "Very experienced"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "SCHEDULE"
+                  },
+                  "payload": {
+                    "client_name": "${data.client_name}",
+                    "client_phone": "${data.client_phone}",
+                    "client_email": "${data.client_email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "specific_goals": "${data.specific_goals}",
+                    "experience_level": "${form.experience_level}",
+                    "trainer_default_price": "${data.trainer_default_price}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "SCHEDULE",
+      "title": "Training schedule",
+      "terminal": false,
+      "data": {
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "specific_goals": {
+          "type": "string",
+          "__example__": ""
+        },
+        "experience_level": {
+          "type": "string",
+          "__example__": ""
+        },
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "schedule_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Training schedule 📅"
+              },
+              {
+                "type": "TextInput",
+                "name": "sessions_per_week",
+                "label": "Sessions per week",
+                "input-type": "text",
+                "required": false,
+                "helper-text": "How many times per week?"
+              },
+              {
+                "type": "CheckboxGroup",
+                "name": "preferred_times",
+                "label": "Preferred training times",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "early_morning",
+                    "title": "Early morning (5-8am)"
+                  },
+                  {
+                    "id": "morning",
+                    "title": "Morning (8am-12pm)"
+                  },
+                  {
+                    "id": "afternoon",
+                    "title": "Afternoon (12-5pm)"
+                  },
+                  {
+                    "id": "evening",
+                    "title": "Evening (5-8pm)"
+                  },
+                  {
+                    "id": "flexible",
+                    "title": "Flexible schedule"
+                  }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "PRICING"
+                  },
+                  "payload": {
+                    "client_name": "${data.client_name}",
+                    "client_phone": "${data.client_phone}",
+                    "client_email": "${data.client_email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "specific_goals": "${data.specific_goals}",
+                    "experience_level": "${data.experience_level}",
+                    "sessions_per_week": "${form.sessions_per_week}",
+                    "preferred_times": "${form.preferred_times}",
+                    "trainer_default_price": "${data.trainer_default_price}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRICING",
+      "title": "Pricing setup",
+      "terminal": false,
+      "data": {
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "specific_goals": {
+          "type": "string",
+          "__example__": ""
+        },
+        "experience_level": {
+          "type": "string",
+          "__example__": ""
+        },
+        "sessions_per_week": {
+          "type": "string",
+          "__example__": ""
+        },
+        "preferred_times": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Session pricing 💰"
+          },
+          {
+            "type": "Form",
+            "name": "pricing_form",
+            "init-values": {
+              "standard_rate_display": "${data.trainer_default_price}"
+            },
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "standard_rate_display",
+                "label": "Standard rate (per session)",
+                "input-type": "text",
+                "required": false,
+                "enabled": true,
+                "helper-text": "This is your default rate"
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "pricing_choice",
+                "label": "Choose pricing for this client",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "use_default",
+                    "title": "Use standard rate",
+                    "description": "Apply your standard rate shown above"
+                  },
+                  {
+                    "id": "custom_price",
+                    "title": "Set custom price",
+                    "description": "Enter a different rate below"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "custom_price_amount",
+                "label": "Custom price (Rands) - Only fill if using custom pricing",
+                "input-type": "text",
+                "required": false,
+                "helper-text": "Leave blank if using standard rate"
+              },
+              {
+                "type": "OptIn",
+                "name": "has_package_deal",
+                "label": "Offer a Package Deal?",
+                "required": false
+              },
+              {
+                "type": "TextBody",
+                "text": "💡 Popular packages based on your rate:\n• 10 sessions (10% off)\n• 20 sessions (15% off)\n• Monthly unlimited\n\nNote: You'll specify exact amounts below"
+              },
+              {
+                "type": "TextArea",
+                "name": "package_deal_details",
+                "label": "Package details (if offering package)",
+                "required": false,
+                "helper-text": "e.g., '10 sessions for R4500 - valid 90 days'"
+              },
+              {
+                "type": "Footer",
+                "label": "Next",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "HEALTH_NOTES"
+                  },
+                  "payload": {
+                    "client_name": "${data.client_name}",
+                    "client_phone": "${data.client_phone}",
+                    "client_email": "${data.client_email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "specific_goals": "${data.specific_goals}",
+                    "experience_level": "${data.experience_level}",
+                    "sessions_per_week": "${data.sessions_per_week}",
+                    "preferred_times": "${data.preferred_times}",
+                    "pricing_choice": "${form.pricing_choice}",
+                    "custom_price_amount": "${form.custom_price_amount}",
+                    "has_package_deal": "${form.has_package_deal}",
+                    "package_deal_details": "${form.package_deal_details}",
+                    "trainer_default_price": "${data.trainer_default_price}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "HEALTH_NOTES",
+      "title": "Health & notes",
+      "terminal": false,
+      "data": {
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "specific_goals": {
+          "type": "string",
+          "__example__": ""
+        },
+        "experience_level": {
+          "type": "string",
+          "__example__": ""
+        },
+        "sessions_per_week": {
+          "type": "string",
+          "__example__": ""
+        },
+        "preferred_times": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "pricing_choice": {
+          "type": "string",
+          "__example__": ""
+        },
+        "custom_price_amount": {
+          "type": "string",
+          "__example__": ""
+        },
+        "has_package_deal": {
+          "type": "boolean",
+          "__example__": false
+        },
+        "package_deal_details": {
+          "type": "string",
+          "__example__": ""
+        },
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "health_notes_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Health information & notes 🏥"
+              },
+              {
+                "type": "TextArea",
+                "name": "health_conditions",
+                "label": "Health conditions or injuries",
+                "required": false,
+                "helper-text": "Any injuries, conditions, or concerns"
+              },
+              {
+                "type": "TextArea",
+                "name": "medications",
+                "label": "Current medications",
+                "required": false,
+                "helper-text": "Any medications to be aware of"
+              },
+              {
+                "type": "TextArea",
+                "name": "additional_notes",
+                "label": "Additional notes",
+                "required": false,
+                "helper-text": "Special requirements or preferences"
+              },
+              {
+                "type": "Footer",
+                "label": "Review",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "operation": "calculate_pricing",
+                    "client_name": "${data.client_name}",
+                    "client_phone": "${data.client_phone}",
+                    "client_email": "${data.client_email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "specific_goals": "${data.specific_goals}",
+                    "experience_level": "${data.experience_level}",
+                    "sessions_per_week": "${data.sessions_per_week}",
+                    "preferred_times": "${data.preferred_times}",
+                    "pricing_choice": "${data.pricing_choice}",
+                    "custom_price_amount": "${data.custom_price_amount}",
+                    "has_package_deal": "${data.has_package_deal}",
+                    "package_deal_details": "${data.package_deal_details}",
+                    "health_conditions": "${form.health_conditions}",
+                    "medications": "${form.medications}",
+                    "additional_notes": "${form.additional_notes}",
+                    "trainer_default_price": "${data.trainer_default_price}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRMATION",
+      "title": "Review & send",
+      "terminal": true,
+      "data": {
+        "client_name": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "client_email": {
+          "type": "string",
+          "__example__": ""
+        },
+        "fitness_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "specific_goals": {
+          "type": "string",
+          "__example__": ""
+        },
+        "experience_level": {
+          "type": "string",
+          "__example__": ""
+        },
+        "sessions_per_week": {
+          "type": "string",
+          "__example__": ""
+        },
+        "preferred_times": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": []
+        },
+        "pricing_choice": {
+          "type": "string",
+          "__example__": ""
+        },
+        "custom_price_amount": {
+          "type": "string",
+          "__example__": ""
+        },
+        "has_package_deal": {
+          "type": "boolean",
+          "__example__": false
+        },
+        "package_deal_details": {
+          "type": "string",
+          "__example__": ""
+        },
+        "health_conditions": {
+          "type": "string",
+          "__example__": ""
+        },
+        "medications": {
+          "type": "string",
+          "__example__": ""
+        },
+        "additional_notes": {
+          "type": "string",
+          "__example__": ""
+        },
+        "trainer_default_price": {
+          "type": "string",
+          "__example__": "R500"
+        },
+        "calculated_price": {
+          "type": "string",
+          "__example__": "R500"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Review client profile ✅"
+          },
+          {
+            "type": "Form",
+            "name": "review_form",
+            "init-values": {
+              "review_name": "${data.client_name}",
+              "review_phone": "${data.client_phone}",
+              "review_sessions": "${data.sessions_per_week}",
+              "review_price": "${data.calculated_price}"
+            },
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "review_name",
+                "label": "Client name",
+                "input-type": "text",
+                "required": false,
+                "enabled": false
+              },
+              {
+                "type": "TextInput",
+                "name": "review_phone",
+                "label": "Phone number",
+                "input-type": "text",
+                "required": false,
+                "enabled": false
+              },
+              {
+                "type": "TextInput",
+                "name": "review_sessions",
+                "label": "Sessions per week",
+                "input-type": "text",
+                "required": false,
+                "enabled": false
+              },
+              {
+                "type": "TextInput",
+                "name": "review_price",
+                "label": "Price per session",
+                "input-type": "text",
+                "required": false,
+                "enabled": false
+              },
+              {
+                "type": "TextBody",
+                "text": "✅ Profile Complete\n\nOnce you submit, your client will receive an invitation to review and accept their profile."
+              },
+              {
+                "type": "Footer",
+                "label": "Send Invitation",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "client_name": "${data.client_name}",
+                    "client_phone": "${data.client_phone}",
+                    "client_email": "${data.client_email}",
+                    "fitness_goals": "${data.fitness_goals}",
+                    "specific_goals": "${data.specific_goals}",
+                    "experience_level": "${data.experience_level}",
+                    "sessions_per_week": "${data.sessions_per_week}",
+                    "preferred_times": "${data.preferred_times}",
+                    "pricing_choice": "${data.pricing_choice}",
+                    "custom_price_amount": "${data.custom_price_amount}",
+                    "calculated_price": "${data.calculated_price}",
+                    "has_package_deal": "${data.has_package_deal}",
+                    "package_deal_details": "${data.package_deal_details}",
+                    "health_conditions": "${data.health_conditions}",
+                    "medications": "${data.medications}",
+                    "additional_notes": "${data.additional_notes}",
+                    "trainer_filled": true
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
