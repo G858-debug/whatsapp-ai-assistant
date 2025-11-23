@@ -206,7 +206,7 @@ class WhatsAppFlowTrainerOnboarding:
                 'specialization': specialization if specialization else None,
                 'experience_years': self._parse_experience_years(experience_years or '0'),
                 'years_experience': self._parse_experience_years(experience_years or '0'),  # Alias
-                'pricing_per_session': float(pricing_per_session) if pricing_per_session else None,
+                'pricing_per_session': int(float(pricing_per_session)) if pricing_per_session else None,
                 'status': 'active',
                 'onboarding_method': 'flow',
                 'terms_accepted': terms_accepted,
