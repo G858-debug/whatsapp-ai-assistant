@@ -446,20 +446,20 @@ class FlowEndpointHandler:
             if profile_data.get('availability'):
                 message += f"• *Availability:* {profile_data['availability']}\n"
 
-            if profile_data.get('sessions_per_week'):
-                message += f"• *Sessions per week:* {profile_data['sessions_per_week']}\n"
-
             if profile_data.get('health_conditions'):
                 message += f"• *Injuries/Conditions:* {profile_data['health_conditions']}\n"
 
             if profile_data.get('additional_notes'):
                 message += f"• *Notes:* {profile_data['additional_notes']}\n"
 
-            # Add price information
+            # Add sessions per week and price information together
+            if profile_data.get('sessions_per_week'):
+                message += f"\n• *Sessions per week:* {profile_data['sessions_per_week']}\n"
+
             if selected_price is not None:
-                message += f"\n💰 *Agreed Price:* R{selected_price:.2f} per session\n"
+                message += f"💰 *Agreed price:* R{selected_price:.0f} per session\n"
             else:
-                message += f"\n💰 *Pricing:* To be discussed\n"
+                message += f"💰 *Pricing:* To be discussed\n"
 
             # Add next steps
             message += (
