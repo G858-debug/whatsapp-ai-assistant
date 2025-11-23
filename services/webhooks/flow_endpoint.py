@@ -230,20 +230,28 @@ class FlowEndpointHandler:
                 'whatsapp', phone_number
             ).execute()
 
-            # Prepare client data
+            # Prepare session preferences JSONB
+            session_prefs = {}
+            if profile_data.get('sessions_per_week'):
+                session_prefs['sessions_per_week'] = profile_data.get('sessions_per_week')
+            if profile_data.get('preferred_times'):
+                session_prefs['preferred_times'] = profile_data.get('preferred_times')
+            if profile_data.get('experience_level'):
+                session_prefs['experience_level'] = profile_data.get('experience_level')
+
+            # Prepare client data - only use columns that exist in the schema
             client_data = {
                 'name': profile_data.get('name') or invitation.get('client_name'),
                 'whatsapp': phone_number,
                 'email': profile_data.get('email'),
                 'fitness_goals': profile_data.get('fitness_goals'),
-                'experience_level': profile_data.get('experience_level'),
-                'availability': profile_data.get('availability'),
-                'sessions_per_week': profile_data.get('sessions_per_week'),
-                'health_conditions': profile_data.get('health_conditions'),
-                'additional_notes': profile_data.get('additional_notes'),
+                'session_preferences': session_prefs if session_prefs else None,
                 'status': 'active',
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }
+
+            # Remove None values to avoid overwriting with nulls
+            client_data = {k: v for k, v in client_data.items() if v is not None}
 
             if existing.data:
                 # Update existing client
