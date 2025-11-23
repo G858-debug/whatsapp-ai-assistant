@@ -46,12 +46,15 @@ class ClientProfileTaskHandler:
 
             log_info(f"Handling client profile task: {task_type}, step: {step}")
 
+            # Check both 'step' and 'new_client_step' fields for compatibility
+            new_client_step = task_data.get('new_client_step', '')
+
             # Handle add_client_profile_choice task with custom price step
-            if task_type == 'add_client_profile_choice' and step == 'awaiting_custom_price':
+            if task_type == 'add_client_profile_choice' and (step == 'awaiting_custom_price' or new_client_step == 'await_custom_price'):
                 return self._handle_custom_price_input(phone, message, task_id, task_data, role)
             else:
                 # Unknown step or task type
-                log_error(f"Unknown client profile task step: {task_type}/{step}")
+                log_error(f"Unknown client profile task step: {task_type}/{step}/{new_client_step}")
                 msg = "Please select one of the buttons above to continue."
                 self.whatsapp.send_message(phone, msg)
                 return {
