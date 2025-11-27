@@ -19,6 +19,10 @@ class Config:
     PHONE_NUMBER_ID = os.environ.get('PHONE_NUMBER_ID', '671257819413918')
     WHATSAPP_BUSINESS_ACCOUNT_ID = os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '1381649546261678')  # Actual Business Account ID
     WHATSAPP_FLOW_PRIVATE_KEY = os.environ.get('WHATSAPP_FLOW_PRIVATE_KEY')  # For flow encryption
+
+    # WhatsApp Flow IDs
+    TRAINER_ADD_CLIENT_FLOW_ID = os.environ.get('TRAINER_ADD_CLIENT_FLOW_ID', '2245969039161775')  # Trainer add-client flow
+    CLIENT_ONBOARDING_FLOW_ID = os.environ.get('CLIENT_ONBOARDING_FLOW_ID', '808683325277166')  # Client completes profile flow
     
     # AI config
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')

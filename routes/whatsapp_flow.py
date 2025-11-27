@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from utils.logger import log_info, log_error
+from utils.logger import log_info, log_error, log_warning
 from datetime import datetime
 import hashlib
 import hmac
@@ -9,6 +9,7 @@ import os
 from cryptography.hazmat.primitives.asymmetric.padding import OAEP, MGF1, hashes
 from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from handlers.flow_data_exchange import handle_flow_data_exchange, get_collected_data
 
 whatsapp_flow_bp = Blueprint('whatsapp_flow', __name__)
 
@@ -252,79 +253,99 @@ def handle_whatsapp_flow():
                     data['initial_vector']
                 )
                 
-                log_info(f"Decrypted flow data: action={decrypted_data.get('action')}, screen={decrypted_data.get('screen')}")
-                
-                # Process the decrypted data
-                action = decrypted_data.get('action')
-                screen = decrypted_data.get('screen')
-                flow_token = decrypted_data.get('flow_token')
-                flow_data = decrypted_data.get('data', {})
-                version = decrypted_data.get('version', '3.0')
-                
-                # Handle different flow actions
-                if action == 'ping':
-                    # Health check request
-                    response = {"data": {"status": "active"}}
-                
-                elif action == 'INIT':
-                    # Initial flow request - return first screen
-                    response = {
-                        "screen": "welcome",
-                        "data": {
-                            "welcome_message": "Welcome to Refiloe! Let's get you set up as a trainer.",
-                            "flow_token": flow_token
-                        }
-                    }
-                
-                elif action == 'data_exchange':
-                    # Handle form submission based on current screen
-                    if screen == 'terms_agreement':
-                        # Final screen - complete registration
-                        result = process_trainer_registration(flow_data, flow_token)
-                        if result.get('success'):
-                            response = {
-                                "screen": "SUCCESS",
-                                "data": {
-                                    "extension_message_response": {
-                                        "params": {
-                                            "flow_token": flow_token,
-                                            "registration_status": "completed",
-                                            "trainer_id": str(result.get('trainer_id', ''))
-                                        }
-                                    }
-                                }
-                            }
+                # Extract key values from decrypted data
+                action = decrypted_data.get('action', '')
+                flow_token = decrypted_data.get('flow_token', '')
+                screen = decrypted_data.get('screen', '')
+
+                # Log extracted values for debugging
+                log_info(f"Flow request - action: {action}, flow_token: {flow_token}, screen: {screen}")
+                log_info(f"Decrypted flow data keys: {list(decrypted_data.keys())}")
+                log_info(f"Full decrypted data: {json.dumps(decrypted_data, indent=2)}")
+
+                # Call the flow data exchange handler
+                log_info(f"Calling handle_flow_data_exchange for action: {action}")
+                response_data = handle_flow_data_exchange(decrypted_data, flow_token)
+                log_info(f"Handler returned response: {json.dumps(response_data, indent=2)}")
+
+                # DEBUG: Log before INIT check
+                log_info(f"=== INIT ACTION DEBUG ===")
+                log_info(f"Action: {action}")
+                log_info(f"Flow token: {flow_token}")
+                log_info(f"Response data BEFORE injection: {json.dumps(response_data, indent=2)}")
+
+                # For client onboarding flows on INIT, inject trainer_name and selected_price
+                if action.lower() == 'init' and flow_token and 'client_onboarding_invitation' in flow_token:
+                    log_info(f"Client onboarding INIT detected for token: {flow_token}")
+                    try:
+                        from app import app
+                        db = app.config['supabase']
+
+                        log_info(f"Querying flow_tokens table for: {flow_token}")
+
+                        token_result = db.table('flow_tokens').select('*').eq(
+                            'flow_token', flow_token
+                        ).execute()
+
+                        log_info(f"Query result: {len(token_result.data) if token_result.data else 0} rows")
+
+                        if token_result.data and len(token_result.data) > 0:
+                            token_row = token_result.data[0]
+                            token_data = token_row.get('flow_data') or token_row.get('data', {})
+                            trainer_name = token_data.get('trainer_name', '')
+                            selected_price = token_data.get('selected_price')
+
+                            log_info(f"Retrieved data - trainer_name: '{trainer_name}', selected_price: '{selected_price}'")
+
+                            # CRITICAL: Ensure response_data has a 'data' key
+                            if 'data' not in response_data:
+                                response_data['data'] = {}
+                                log_info("Created 'data' key in response_data")
+
+                            # Inject the trainer data
+                            response_data['data']['flow_token'] = flow_token
+                            response_data['data']['trainer_name'] = trainer_name
+                            response_data['data']['selected_price'] = str(selected_price) if selected_price else '500'
+
+                            log_info(f"=== FINAL response_data ===")
+                            log_info(json.dumps(response_data, indent=2))
                         else:
-                            response = {
-                                "screen": screen,
-                                "data": {
-                                    "error_message": result.get('error', 'Registration failed. Please try again.')
-                                }
-                            }
-                    else:
-                        # Navigate to next screen
-                        next_screen = get_next_screen(screen, flow_data)
-                        response = {
-                            "screen": next_screen,
-                            "data": get_screen_data(next_screen, flow_data)
-                        }
-                
-                elif action == 'BACK':
-                    # Handle back button press
-                    prev_screen = get_previous_screen(screen)
-                    response = {
-                        "screen": prev_screen,
-                        "data": get_screen_data(prev_screen, flow_data)
+                            log_warning(f"No flow_tokens data found for token: {flow_token}")
+                    except Exception as token_error:
+                        log_error(f"Error fetching flow_tokens data: {str(token_error)}", exc_info=True)
+
+                # Handle "complete" action - extract and return all form data
+                if action.lower() == 'complete':
+                    log_info(f"Flow complete action detected for token: {flow_token}")
+
+                    # Log all keys received in decrypted_data for comprehensive debugging
+                    log_info(f"Flow completion - All fields received: {list(decrypted_data.keys())}")
+                    log_info(f"Complete decrypted data: {json.dumps(decrypted_data, indent=2)}")
+
+                    # Extract ALL form fields (exclude system fields)
+                    system_fields = {'action', 'screen', 'flow_token', 'version'}
+                    collected_data = {
+                        key: value
+                        for key, value in decrypted_data.items()
+                        if key not in system_fields
                     }
-                
-                else:
-                    # Default response for unknown actions
-                    response = {
-                        "screen": "welcome",
-                        "data": {
-                            "welcome_message": "Welcome to Refiloe! Let's get you set up as a trainer."
-                        }
+
+                    # Log what we extracted
+                    log_info(f"Extracted {len(collected_data)} form fields from flow: {list(collected_data.keys())}")
+                    log_info(f"Trainer registration data collected: {json.dumps(collected_data, indent=2)}")
+
+                    # Return all collected data in the response
+                    # This ensures WhatsApp Flow gets the data back
+                    response_data = {
+                        "version": "3.0",
+                        "screen": "SUCCESS",
+                        "data": collected_data
                     }
+                    log_info(f"Flow complete response prepared with {len(collected_data)} fields")
+                    log_info(f"Response data: {json.dumps(response_data, indent=2)}")
+
+                # Use response_data as the response to encrypt
+                response = response_data
                 
                 # Encrypt and return response as Base64 string
                 encrypted_response = encrypt_response(response, aes_key, iv)

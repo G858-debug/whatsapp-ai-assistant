@@ -54,12 +54,15 @@ def handle_view_trainees(phone: str, trainer_id: str, db, whatsapp) -> Dict:
 def handle_remove_trainee(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /remove-trainee command - Dashboard link with ID request"""
     try:
-        # Create task for removal flow
+        # Create task for removal flow - use phone for task identification
         task_id = task_service.create_task(
-            user_id=trainer_id,
+            user_id=phone,
             role='trainer',
             task_type='remove_trainee',
-            task_data={'step': 'ask_client_id'}
+            task_data={
+                'step': 'ask_client_id',
+                'trainer_id': trainer_id
+            }
         )
         
         if not task_id:

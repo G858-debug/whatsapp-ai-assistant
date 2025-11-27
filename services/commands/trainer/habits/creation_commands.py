@@ -22,14 +22,16 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             return {'success': False, 'response': msg, 'handler': 'create_habit_config_error'}
         
         # Create create_habit task (start from index 1 since first question is already asked)
+        # Use phone for task identification
         task_id = task_service.create_task(
-            user_id=trainer_id,
+            user_id=phone,
             role='trainer',
             task_type='create_habit',
             task_data={
                 'fields': fields,
                 'current_field_index': 1,
-                'collected_data': {}
+                'collected_data': {},
+                'trainer_id': trainer_id
             }
         )
         
@@ -66,12 +68,12 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
 def handle_edit_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /edit-habit command"""
     try:
-        # Create edit_habit task
+        # Create edit_habit task (use phone for task identification)
         task_id = task_service.create_task(
-            user_id=trainer_id,
+            user_id=phone,
             role='trainer',
             task_type='edit_habit',
-            task_data={'step': 'ask_habit_id'}
+            task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}
         )
         
         if not task_id:
@@ -119,12 +121,12 @@ def handle_edit_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -
 def handle_delete_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /delete-habit command"""
     try:
-        # Create delete_habit task
+        # Create delete_habit task (use phone for task identification)
         task_id = task_service.create_task(
-            user_id=trainer_id,
+            user_id=phone,
             role='trainer',
             task_type='delete_habit',
-            task_data={'step': 'ask_habit_id'}
+            task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}
         )
         
         if not task_id:
@@ -132,14 +134,28 @@ def handle_delete_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             whatsapp.send_message(phone, msg)
             return {'success': False, 'response': msg, 'handler': 'delete_habit_task_error'}
         
-        # Ask for habit ID
-        msg = (
-            "🗑️ *Delete Habit*\n\n"
-            "Please provide the habit ID you want to delete.\n\n"
-            "⚠️ *Warning:* This will remove the habit from all assigned clients.\n\n"
-            "💡 Use /view-habits to see your habits and their IDs.\n\n"
-            "Type /stop to cancel."
-        )
+        # Show habits dashboard first
+        from services.commands.dashboard import generate_trainer_habits_dashboard
+        
+        dashboard_result = generate_trainer_habits_dashboard(phone, trainer_id, db, whatsapp)
+        
+        if dashboard_result.get('success'):
+            msg = (
+                "🗑️ *Delete Habit*\n\n"
+                "💡 *View your habits above* ⬆️ to find the habit ID\n\n"
+                "📋 *Steps:* Find the habit → Copy its ID → Return here with the ID\n\n"
+                "⚠️ *Warning:* This will remove the habit from all assigned clients.\n\n"
+                "Type /stop to cancel."
+            )
+        else:
+            msg = (
+                "🗑️ *Delete Habit*\n\n"
+                "Please provide the habit ID you want to delete.\n\n"
+                "⚠️ *Warning:* This will remove the habit from all assigned clients.\n\n"
+                "💡 Use /view-habits to see your habits and their IDs.\n\n"
+                "Type /stop to cancel."
+            )
+        
         whatsapp.send_message(phone, msg)
         
         return {

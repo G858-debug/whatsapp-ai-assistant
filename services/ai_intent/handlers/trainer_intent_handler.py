@@ -105,13 +105,51 @@ class TrainerIntentHandler:
     
     def _handle_create_trainee(self, phone: str, name: str, intent: Dict, context: Dict) -> Dict:
         """Handle create trainee intent"""
-        msg = (
-            f"I can help you create a new client account, {name}!\n\n"
-            f"Click the button below or type /create-trainee"
+        # Check if task_service is available
+        if not self.task_service:
+            log_error("Task service not available in AI intent handler")
+            msg = "Sorry, I encountered an error. Please try /add-client instead."
+            self.whatsapp.send_message(phone, msg)
+            return {
+                'success': False,
+                'response': msg,
+                'handler': 'ai_intent_create_trainee_no_task_service'
+            }
+
+        # Create the add_client_choice task before sending buttons
+        task_id = self.task_service.create_task(
+            user_id=phone,
+            role='trainer',
+            task_type='add_client_choice',
+            task_data={
+                'step': 'choose_input_method',
+                'trainer_id': context.get('user_id')
+            }
         )
-        buttons = [{'id': '/create-trainee', 'title': '➕ Create Client'}]
+
+        # Check if task creation failed
+        if not task_id:
+            msg = "❌ I couldn't start the process. Please try again."
+            self.whatsapp.send_message(phone, msg)
+            return {
+                'success': False,
+                'response': msg,
+                'handler': 'ai_intent_create_trainee_task_failed'
+            }
+
+        # Send the button message
+        msg = (
+            f"Perfect! Let's add your new client, {name}! 💪\n\n"
+            f"Would you like to:\n"
+            f"1️⃣ Type in their contact details manually\n"
+            f"2️⃣ Share their contact from your phone"
+        )
+        buttons = [
+            {'id': 'add_client_type', 'title': 'Type details'},
+            {'id': 'add_client_share', 'title': 'Share contact'}
+        ]
         self.whatsapp.send_button_message(phone, msg, buttons)
-        
+
         return {
             'success': True,
             'response': msg,
@@ -155,7 +193,7 @@ class TrainerIntentHandler:
         # Check if user already has a running create_habit task (only if task_service is available)
         user_id = context.get('user_id')
         if user_id and self.task_service:
-            running_task = self.task_service.get_running_task(user_id, 'trainer')
+            running_task = self.task_service.get_running_task(phone, 'trainer')
             if running_task and running_task.get('task_type') == 'create_habit':
                 # Don't send another create habit message if already in progress
                 return {

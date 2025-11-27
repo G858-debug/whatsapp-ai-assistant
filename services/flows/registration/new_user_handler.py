@@ -17,8 +17,8 @@ class NewUserHandler:
         """Show welcome message with registration options"""
         try:
             welcome_msg = (
-                "👋 *Welcome to Refiloe!*\n\n"
-                "I'm your AI fitness assistant. I can help you:\n\n"
+                "👋 *Hi, I'm Refiloe!*\n\n"
+                "I'm your AI fitness assistant and I can help you:\n\n"
                 "🏋️ *As a Trainer:*\n"
                 "• Manage clients\n"
                 "• Track their progress\n"
@@ -27,13 +27,13 @@ class NewUserHandler:
                 "• Find trainers\n"
                 "• Track your fitness journey\n"
                 "• Log your habits\n\n"
-                "How would you like to register?"
+                "How would you like to proceed?"
             )
             
             # Send message with buttons
             buttons = [
-                {'id': 'register_trainer', 'title': 'Register as Trainer'},
-                {'id': 'register_client', 'title': 'Register as Trainee'}
+                {'id': 'register_trainer', 'title': 'I\'m a Trainer'},
+                {'id': 'register_client', 'title': 'I need a Trainer'}
             ]
             
             self.whatsapp.send_button_message(phone, welcome_msg, buttons)
@@ -51,7 +51,7 @@ class NewUserHandler:
             error_msg = (
                 "❌ *Error Occurred*\n\n"
                 "Sorry, I encountered an error.\n\n"
-                "Please try sending me a message again to start registration."
+                "Please try sending me a message again to start onboarding."
             )
             self.whatsapp.send_message(phone, error_msg)
             

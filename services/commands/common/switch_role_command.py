@@ -47,10 +47,10 @@ def handle_switch_role(phone: str, auth_service, task_service, whatsapp) -> Dict
         
         # Get current user ID to stop tasks
         current_user_id = auth_service.get_user_id_by_role(phone, current_status)
-        
+
         if current_user_id:
-            # Stop all running tasks for current role
-            task_service.stop_all_running_tasks(current_user_id, current_status)
+            # Stop all running tasks for current role (use phone for task identification)
+            task_service.stop_all_running_tasks(phone, current_status)
         
         # Switch role
         success = auth_service.set_login_status(phone, new_role)
