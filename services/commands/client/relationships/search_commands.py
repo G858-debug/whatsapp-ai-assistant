@@ -9,15 +9,12 @@ from utils.logger import log_info, log_error
 def handle_search_trainers(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /search-trainer command"""
     try:
-        # Create search_trainer task - use phone for task identification
+        # Create search_trainer task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=client_id,
             role='client',
             task_type='search_trainer',
-            task_data={
-                'step': 'ask_search_term',
-                'client_id': client_id
-            }
+            task_data={'step': 'ask_search_term'}
         )
         
         if not task_id:

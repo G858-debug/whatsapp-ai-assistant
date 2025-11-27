@@ -8,8 +8,6 @@ from utils.logger import log_info, log_error
 from .core_tasks import CoreTaskHandler
 from .relationship_tasks import RelationshipTaskHandler
 from .habit_tasks import HabitTaskHandler
-from .contact_tasks import ContactTaskHandler
-from .client_profile_tasks import ClientProfileTaskHandler
 
 
 class TaskHandler:
@@ -31,12 +29,6 @@ class TaskHandler:
         self.habit_handler = HabitTaskHandler(
             self.db, self.whatsapp, self.task_service
         )
-        self.contact_handler = ContactTaskHandler(
-            self.db, self.whatsapp, self.task_service, self.reg_service
-        )
-        self.client_profile_handler = ClientProfileTaskHandler(
-            self.db, self.whatsapp, self.reg_service, self.task_service
-        )
     
     def continue_task(self, phone: str, message: str, role: str, user_id: str, task: Dict) -> Dict:
         """Continue with a running task by delegating to appropriate handler"""
@@ -50,22 +42,15 @@ class TaskHandler:
             if task_type in ['registration', 'edit_profile', 'delete_account']:
                 return self.core_handler.handle_core_task(phone, message, role, user_id, task)
             
-            elif task_type in ['invite_trainee', 'create_trainee', 'remove_trainee',
-                              'search_trainer', 'invite_trainer', 'remove_trainer',
-                              'add_client_choice', 'decline_reason']:
+            elif task_type in ['invite_trainee', 'create_trainee', 'remove_trainee', 
+                              'search_trainer', 'invite_trainer', 'remove_trainer']:
                 return self.relationship_handler.handle_relationship_task(phone, message, user_id, task)
-
+            
             elif task_type in ['create_habit', 'edit_habit', 'delete_habit', 'assign_habit', 'unassign_habit',
-                              'view_trainee_progress', 'trainee_report', 'log_habits',
+                              'view_trainee_progress', 'trainee_report', 'log_habits', 
                               'view_progress', 'weekly_report', 'monthly_report']:
                 return self.habit_handler.handle_habit_task(phone, message, user_id, task)
-
-            elif task_type in ['confirm_shared_contact', 'vcard_edge_case_handler']:
-                return self.contact_handler.handle_contact_task(phone, message, user_id, task)
-
-            elif task_type == 'add_client_profile_choice':
-                return self.client_profile_handler.handle_client_profile_task(phone, message, task, role)
-
+            
             else:
                 log_error(f"Unknown task type: {task_type}")
                 # Stop the unknown task

@@ -27,15 +27,12 @@ def handle_trainer_main_dashboard(phone: str, trainer_id: str, db, whatsapp) -> 
 def handle_client_progress_dashboard(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /client-progress command"""
     try:
-        # Create client_progress task - use phone for task identification
+        # Create client_progress task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='client_progress',
-            task_data={
-                'step': 'ask_client_id',
-                'trainer_id': trainer_id
-            }
+            task_data={'step': 'ask_client_id'}
         )
         
         if not task_id:

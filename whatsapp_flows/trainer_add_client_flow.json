@@ -1,0 +1,210 @@
+{
+  "version": "5.0",
+  "screens": [
+    {
+      "id": "WELCOME",
+      "title": "Add New Client",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Add New Client 👥"
+          },
+          {
+            "type": "TextBody",
+            "text": "Let's add a new client to your training program! I'll guide you through the process."
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "CLIENT_INFO"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CLIENT_INFO",
+      "title": "Client Information",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Client Details 📝"
+          },
+          {
+            "type": "TextBody",
+            "text": "Please provide your client's information:"
+          },
+          {
+            "type": "TextInput",
+            "name": "client_name",
+            "label": "Full Name *",
+            "input-type": "text",
+            "required": true,
+            "helper-text": "Enter client's full name"
+          },
+          {
+            "type": "TextInput",
+            "name": "client_phone",
+            "label": "Phone Number *",
+            "input-type": "phone",
+            "required": true,
+            "helper-text": "South African number (e.g., 0821234567)"
+          },
+          {
+            "type": "TextInput",
+            "name": "client_email",
+            "label": "Email Address",
+            "input-type": "email",
+            "required": false,
+            "helper-text": "Optional - for better communication"
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "INVITATION_METHOD"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "INVITATION_METHOD",
+      "title": "Invitation Method",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "How to Add Client? 🤔"
+          },
+          {
+            "type": "TextBody",
+            "text": "Choose how you'd like to add this client:"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "invitation_method",
+            "required": true,
+            "data-source": [
+              {
+                "id": "whatsapp_invite",
+                "title": "Send WhatsApp Invitation",
+                "description": "Client receives invitation message and can accept"
+              },
+              {
+                "id": "manual_add",
+                "title": "Add Manually",
+                "description": "Add client directly (they can start messaging you)"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "CUSTOM_MESSAGE"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CUSTOM_MESSAGE",
+      "title": "Personal Message",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Personal Touch ✨"
+          },
+          {
+            "type": "TextBody",
+            "text": "Add a personal message for your client (optional):"
+          },
+          {
+            "type": "TextArea",
+            "name": "custom_message",
+            "label": "Your Message",
+            "required": false,
+            "helper-text": "e.g., 'Looking forward to helping you reach your fitness goals!'"
+          },
+          {
+            "type": "Footer",
+            "label": "Review",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "CONFIRMATION"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRMATION",
+      "title": "Confirm Details",
+      "terminal": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Ready to Add Client? ✅"
+          },
+          {
+            "type": "TextBody",
+            "text": "Please review the details:"
+          },
+          {
+            "type": "TextBody",
+            "text": "**Name:** ${form.client_name}\n**Phone:** ${form.client_phone}\n**Email:** ${form.client_email}\n**Method:** ${form.invitation_method}"
+          },
+          {
+            "type": "TextBody",
+            "text": "**Your Message:**\n${form.custom_message}"
+          },
+          {
+            "type": "Footer",
+            "label": "Add Client",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "client_name": "${form.client_name}",
+                "client_phone": "${form.client_phone}",
+                "client_email": "${form.client_email}",
+                "invitation_method": "${form.invitation_method}",
+                "custom_message": "${form.custom_message}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

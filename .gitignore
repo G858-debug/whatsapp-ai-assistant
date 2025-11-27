@@ -4,7 +4,3 @@ __pycache__/
 .env
 working
 testing
-
-# Test files
-flow_tests/test_flow_responses.json
-flow_tests/webhook_test_results.json

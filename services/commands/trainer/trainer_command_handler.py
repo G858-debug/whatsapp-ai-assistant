@@ -12,7 +12,7 @@ from .habits.reporting_commands import handle_view_habit_progress, handle_export
 from .dashboard_commands import handle_trainer_main_dashboard, handle_client_progress_dashboard
 
 # Import relationship commands
-from .relationships.invitation_commands import handle_invite_client, handle_create_client, handle_resend_invite
+from .relationships.invitation_commands import handle_invite_client, handle_create_client
 from .relationships.management_commands import handle_view_trainees, handle_remove_trainee
 
 
@@ -66,11 +66,7 @@ class TrainerCommandHandler:
     def handle_create_trainee(self, phone: str, trainer_id: str) -> Dict:
         """Handle /create-trainee command"""
         return handle_create_client(phone, trainer_id, self.db, self.whatsapp, self.reg_service, self.task_service)
-
-    def handle_resend_invite(self, phone: str, trainer_id: str, message: str) -> Dict:
-        """Handle /resend-invite [client-name] command"""
-        return handle_resend_invite(phone, trainer_id, message, self.db, self.whatsapp)
-
+    
     def handle_view_trainees(self, phone: str, trainer_id: str) -> Dict:
         """Handle /view-trainees command"""
         return handle_view_trainees(phone, trainer_id, self.db, self.whatsapp)

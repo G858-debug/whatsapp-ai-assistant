@@ -129,8 +129,6 @@ class CommandCoordinator:
             return self.trainer_handler.handle_invite_trainee(phone, trainer_id)
         elif command == '/create-trainee':
             return self.trainer_handler.handle_create_trainee(phone, trainer_id)
-        elif command.startswith('/resend-invite'):
-            return self.trainer_handler.handle_resend_invite(phone, trainer_id, command)
         elif command == '/view-trainees':
             return self.trainer_handler.handle_view_trainees(phone, trainer_id)
         elif command == '/remove-trainee':

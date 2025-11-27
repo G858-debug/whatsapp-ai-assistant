@@ -1,78 +1,29 @@
 {
-  "routing_model": {
-    "welcome": ["fitness_goals", "privacy_info"],
-    "fitness_goals": ["experience_level"],
-    "experience_level": ["health_conditions"],
-    "health_conditions": ["availability"],
-    "availability": ["additional_notes"],
-    "additional_notes": ["confirmation"],
-    "confirmation": [],
-    "privacy_info": []
-  },
-  "data_api_version": "3.0",
-  "version": "7.3",
+  "version": "5.0",
   "screens": [
     {
-      "id": "welcome",
-      "title": "Welcome!",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        }
-      },
+      "id": "WELCOME",
+      "title": "Welcome to Refiloe",
+      "terminal": false,
+      "data": {},
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "Let's get you started! 💪"
+            "text": "Welcome to Your Fitness Journey! 🏃‍♀️"
           },
           {
             "type": "TextBody",
-            "text": "Your trainer needs some information to create the perfect fitness program for you."
-          },
-          {
-            "type": "TextBody",
-            "text": "This will only take 2 minutes."
-          },
-          {
-            "type": "EmbeddedLink",
-            "text": "If you have any concerns about data privacy, tap here",
-            "on-click-action": {
-              "name": "navigate",
-              "next": {
-                "type": "screen",
-                "name": "privacy_info"
-              },
-              "payload": {
-                "flow_token": "${data.flow_token}",
-                "trainer_name": "${data.trainer_name}",
-                "selected_price": "${data.selected_price}"
-              }
-            }
+            "text": "I'm Refiloe, your AI fitness assistant! Let's get you set up to find the perfect trainer and start your transformation."
           },
           {
             "type": "Footer",
-            "label": "Start",
+            "label": "Get Started",
             "on-click-action": {
               "name": "navigate",
-              "next": {
-                "type": "screen",
-                "name": "fitness_goals"
-              },
               "payload": {
-                "flow_token": "${data.flow_token}",
-                "trainer_name": "${data.trainer_name}",
-                "selected_price": "${data.selected_price}"
+                "screen": "PERSONAL_INFO"
               }
             }
           }
@@ -80,651 +31,265 @@
       }
     },
     {
-      "id": "fitness_goals",
-      "title": "Your goals",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        }
-      },
+      "id": "PERSONAL_INFO",
+      "title": "Personal Information",
+      "terminal": false,
+      "data": {},
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "What are your fitness goals? 🎯"
+            "text": "Tell Me About Yourself 👤"
           },
           {
             "type": "TextBody",
-            "text": "Select all that apply:"
+            "text": "Let's start with some basic information:"
           },
           {
-            "type": "Form",
-            "name": "goals_form",
-            "children": [
-              {
-                "type": "CheckboxGroup",
-                "name": "fitness_goals",
-                "label": "Goals",
-                "required": true,
-                "data-source": [
-                  {
-                    "id": "lose_weight",
-                    "title": "Lose weight"
-                  },
-                  {
-                    "id": "build_muscle",
-                    "title": "Build muscle"
-                  },
-                  {
-                    "id": "get_stronger",
-                    "title": "Get stronger"
-                  },
-                  {
-                    "id": "improve_fitness",
-                    "title": "Improve fitness"
-                  },
-                  {
-                    "id": "train_for_event",
-                    "title": "Train for event"
-                  },
-                  {
-                    "id": "general_health",
-                    "title": "General health"
-                  }
-                ]
-              },
-              {
-                "type": "TextArea",
-                "name": "specific_goals",
-                "label": "Any specific goals?",
-                "helper-text": "E.g., Run 5km, lose 10kg, etc.",
-                "required": false
-              },
-              {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "experience_level"
-                  },
-                  "payload": {
-                    "flow_token": "${data.flow_token}",
-                    "trainer_name": "${data.trainer_name}",
-                    "selected_price": "${data.selected_price}",
-                    "fitness_goals": "${form.fitness_goals}",
-                    "specific_goals": "${form.specific_goals}"
-                  }
-                }
+            "type": "TextInput",
+            "name": "full_name",
+            "label": "Full Name *",
+            "input-type": "text",
+            "required": true,
+            "helper-text": "Enter your full name"
+          },
+          {
+            "type": "TextInput",
+            "name": "email",
+            "label": "Email Address",
+            "input-type": "email",
+            "required": false,
+            "helper-text": "Optional - for better communication"
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "FITNESS_GOALS"
               }
-            ]
+            }
           }
         ]
       }
     },
     {
-      "id": "experience_level",
-      "title": "Experience",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        },
-        "fitness_goals": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["lose_weight", "build_muscle"]
-        },
-        "specific_goals": {
-          "type": "string",
-          "__example__": "Run 5km"
-        }
-      },
+      "id": "FITNESS_GOALS",
+      "title": "Fitness Goals",
+      "terminal": false,
+      "data": {},
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "What's your fitness experience? 💪"
-          },
-          {
-            "type": "Form",
-            "name": "experience_form",
-            "children": [
-              {
-                "type": "RadioButtonsGroup",
-                "name": "experience_level",
-                "label": "Current level",
-                "required": true,
-                "data-source": [
-                  {
-                    "id": "beginner",
-                    "title": "Beginner",
-                    "description": "New to exercise"
-                  },
-                  {
-                    "id": "intermediate",
-                    "title": "Intermediate",
-                    "description": "Some experience"
-                  },
-                  {
-                    "id": "advanced",
-                    "title": "Advanced",
-                    "description": "Regular exerciser"
-                  },
-                  {
-                    "id": "athlete",
-                    "title": "Athlete",
-                    "description": "Competitive level"
-                  }
-                ]
-              },
-              {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "health_conditions"
-                  },
-                  "payload": {
-                    "flow_token": "${data.flow_token}",
-                    "trainer_name": "${data.trainer_name}",
-                    "selected_price": "${data.selected_price}",
-                    "fitness_goals": "${data.fitness_goals}",
-                    "specific_goals": "${data.specific_goals}",
-                    "experience_level": "${form.experience_level}"
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "health_conditions",
-      "title": "Health Info",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        },
-        "fitness_goals": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["lose_weight"]
-        },
-        "specific_goals": {
-          "type": "string",
-          "__example__": "Run 5km"
-        },
-        "experience_level": {
-          "type": "string",
-          "__example__": "beginner"
-        }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextHeading",
-            "text": "Health conditions 🏥"
+            "text": "What Are Your Goals? 🎯"
           },
           {
             "type": "TextBody",
-            "text": "This helps your trainer keep you safe during training."
+            "text": "Select your main fitness objectives:"
           },
           {
-            "type": "Form",
-            "name": "health_form",
-            "children": [
+            "type": "CheckboxGroup",
+            "name": "fitness_goals",
+            "required": true,
+            "data-source": [
               {
-                "type": "TextArea",
-                "name": "health_conditions",
-                "label": "Any injuries or health conditions?",
-                "helper-text": "Leave blank if none",
-                "required": false
+                "id": "lose_weight",
+                "title": "Lose Weight",
+                "description": "Reduce body weight and improve body composition"
               },
               {
-                "type": "TextArea",
-                "name": "medications",
-                "label": "Current medications?",
-                "helper-text": "Leave blank if none",
-                "required": false
+                "id": "build_muscle",
+                "title": "Build Muscle",
+                "description": "Increase muscle mass and strength"
               },
               {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "availability"
-                  },
-                  "payload": {
-                    "flow_token": "${data.flow_token}",
-                    "trainer_name": "${data.trainer_name}",
-                    "selected_price": "${data.selected_price}",
-                    "fitness_goals": "${data.fitness_goals}",
-                    "specific_goals": "${data.specific_goals}",
-                    "experience_level": "${data.experience_level}",
-                    "health_conditions": "${form.health_conditions}",
-                    "medications": "${form.medications}"
-                  }
-                }
+                "id": "get_stronger",
+                "title": "Get Stronger",
+                "description": "Improve overall strength and power"
+              },
+              {
+                "id": "improve_fitness",
+                "title": "Improve Fitness",
+                "description": "Enhance cardiovascular health and endurance"
+              },
+              {
+                "id": "train_for_event",
+                "title": "Train for Event",
+                "description": "Prepare for specific sports or competitions"
               }
             ]
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "EXPERIENCE_LEVEL"
+              }
+            }
           }
         ]
       }
     },
     {
-      "id": "availability",
-      "title": "Availability",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        },
-        "fitness_goals": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["lose_weight"]
-        },
-        "specific_goals": {
-          "type": "string",
-          "__example__": "Run 5km"
-        },
-        "experience_level": {
-          "type": "string",
-          "__example__": "beginner"
-        },
-        "health_conditions": {
-          "type": "string",
-          "__example__": "None"
-        },
-        "medications": {
-          "type": "string",
-          "__example__": "None"
-        }
-      },
+      "id": "EXPERIENCE_LEVEL",
+      "title": "Experience Level",
+      "terminal": false,
+      "data": {},
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "When can you train? ⏰"
-          },
-          {
-            "type": "Form",
-            "name": "availability_form",
-            "children": [
-              {
-                "type": "CheckboxGroup",
-                "name": "preferred_times",
-                "label": "Best times for you",
-                "required": true,
-                "data-source": [
-                  {
-                    "id": "early_morning",
-                    "title": "Early morning (5:00-8:00)"
-                  },
-                  {
-                    "id": "morning",
-                    "title": "Morning (8:00-12:00)"
-                  },
-                  {
-                    "id": "afternoon",
-                    "title": "Afternoon (12:00-17:00)"
-                  },
-                  {
-                    "id": "evening",
-                    "title": "Evening (17:00-20:00)"
-                  },
-                  {
-                    "id": "flexible",
-                    "title": "Flexible"
-                  }
-                ]
-              },
-              {
-                "type": "Dropdown",
-                "name": "sessions_per_week",
-                "label": "Sessions per week",
-                "required": true,
-                "data-source": [
-                  {
-                    "id": "1",
-                    "title": "1 session"
-                  },
-                  {
-                    "id": "2",
-                    "title": "2 sessions"
-                  },
-                  {
-                    "id": "3",
-                    "title": "3 sessions"
-                  },
-                  {
-                    "id": "4",
-                    "title": "4 sessions"
-                  },
-                  {
-                    "id": "5+",
-                    "title": "5+ sessions"
-                  }
-                ]
-              },
-              {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "additional_notes"
-                  },
-                  "payload": {
-                    "flow_token": "${data.flow_token}",
-                    "trainer_name": "${data.trainer_name}",
-                    "selected_price": "${data.selected_price}",
-                    "fitness_goals": "${data.fitness_goals}",
-                    "specific_goals": "${data.specific_goals}",
-                    "experience_level": "${data.experience_level}",
-                    "health_conditions": "${data.health_conditions}",
-                    "medications": "${data.medications}",
-                    "preferred_times": "${form.preferred_times}",
-                    "sessions_per_week": "${form.sessions_per_week}"
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "additional_notes",
-      "title": "Additional Notes",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        },
-        "fitness_goals": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["lose_weight"]
-        },
-        "specific_goals": {
-          "type": "string",
-          "__example__": "Run 5km"
-        },
-        "experience_level": {
-          "type": "string",
-          "__example__": "beginner"
-        },
-        "health_conditions": {
-          "type": "string",
-          "__example__": "None"
-        },
-        "medications": {
-          "type": "string",
-          "__example__": "None"
-        },
-        "preferred_times": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["morning"]
-        },
-        "sessions_per_week": {
-          "type": "string",
-          "__example__": "3"
-        }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextHeading",
-            "text": "Anything else? 💬"
+            "text": "Your Fitness Experience 📊"
           },
           {
             "type": "TextBody",
-            "text": "Share any additional information with your trainer."
+            "text": "What's your current fitness level?"
           },
           {
-            "type": "Form",
-            "name": "notes_form",
-            "children": [
+            "type": "RadioButtonsGroup",
+            "name": "experience_level",
+            "required": true,
+            "data-source": [
               {
-                "type": "TextArea",
-                "name": "additional_notes",
-                "label": "Notes for your trainer",
-                "helper-text": "E.g., Previous training experience, preferences, concerns, etc.",
-                "required": false
+                "id": "beginner",
+                "title": "Beginner",
+                "description": "New to exercise or getting back into it"
               },
               {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "confirmation"
-                  },
-                  "payload": {
-                    "flow_token": "${data.flow_token}",
-                    "trainer_name": "${data.trainer_name}",
-                    "selected_price": "${data.selected_price}",
-                    "fitness_goals": "${data.fitness_goals}",
-                    "specific_goals": "${data.specific_goals}",
-                    "experience_level": "${data.experience_level}",
-                    "health_conditions": "${data.health_conditions}",
-                    "medications": "${data.medications}",
-                    "preferred_times": "${data.preferred_times}",
-                    "sessions_per_week": "${data.sessions_per_week}",
-                    "additional_notes": "${form.additional_notes}"
-                  }
-                }
+                "id": "intermediate",
+                "title": "Intermediate",
+                "description": "Exercise sometimes, have some experience"
+              },
+              {
+                "id": "advanced",
+                "title": "Advanced",
+                "description": "Exercise regularly, good fitness base"
+              },
+              {
+                "id": "athlete",
+                "title": "Athlete",
+                "description": "Competitive sports or very experienced"
               }
             ]
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "HEALTH_INFO"
+              }
+            }
           }
         ]
       }
     },
     {
-      "id": "confirmation",
-      "title": "Confirm",
-      "terminal": true,
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        },
-        "fitness_goals": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["lose_weight"]
-        },
-        "specific_goals": {
-          "type": "string",
-          "__example__": "Run 5km"
-        },
-        "experience_level": {
-          "type": "string",
-          "__example__": "beginner"
-        },
-        "health_conditions": {
-          "type": "string",
-          "__example__": "None"
-        },
-        "medications": {
-          "type": "string",
-          "__example__": "None"
-        },
-        "preferred_times": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "__example__": ["morning"]
-        },
-        "sessions_per_week": {
-          "type": "string",
-          "__example__": "3"
-        },
-        "additional_notes": {
-          "type": "string",
-          "__example__": "I prefer outdoor training"
-        }
-      },
+      "id": "HEALTH_INFO",
+      "title": "Health Information",
+      "terminal": false,
+      "data": {},
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "All set! ✅"
+            "text": "Health & Safety 🏥"
           },
           {
             "type": "TextBody",
-            "text": "Ready to submit your profile to your trainer?"
+            "text": "Help us keep you safe during training:"
           },
           {
-            "type": "TextCaption",
-            "text": "You can update this information anytime"
+            "type": "TextArea",
+            "name": "health_conditions",
+            "label": "Health Conditions",
+            "required": false,
+            "helper-text": "List any health conditions, injuries, or concerns. Type 'none' if you're all good."
           },
           {
-            "type": "Form",
-            "name": "confirm_form",
-            "children": [
-              {
-                "type": "OptIn",
-                "name": "data_consent",
-                "label": "I agree to share this information with my trainer",
-                "required": true
-              },
-              {
-                "type": "Footer",
-                "label": "Submit profile",
-                "on-click-action": {
-                  "name": "complete",
-                  "payload": {
-                    "flow_token": "${data.flow_token}",
-                    "fitness_goals": "${data.fitness_goals}",
-                    "specific_goals": "${data.specific_goals}",
-                    "experience_level": "${data.experience_level}",
-                    "health_conditions": "${data.health_conditions}",
-                    "medications": "${data.medications}",
-                    "preferred_times": "${data.preferred_times}",
-                    "sessions_per_week": "${data.sessions_per_week}",
-                    "additional_notes": "${data.additional_notes}",
-                    "data_consent": "${form.data_consent}",
-                    "profile_completed": true
-                  }
-                }
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "payload": {
+                "screen": "AVAILABILITY"
               }
-            ]
+            }
           }
         ]
       }
     },
     {
-      "id": "privacy_info",
-      "title": "Privacy",
-      "data": {
-        "flow_token": {
-          "type": "string",
-          "__example__": "client_onboarding_invitation_uuid_phone_timestamp"
-        },
-        "trainer_name": {
-          "type": "string",
-          "__example__": "John Smith"
-        },
-        "selected_price": {
-          "type": "string",
-          "__example__": "500"
-        }
-      },
+      "id": "AVAILABILITY",
+      "title": "Training Availability",
+      "terminal": false,
+      "data": {},
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
-            "text": "Your data is safe 🔒"
+            "text": "When Can You Train? ⏰"
           },
           {
             "type": "TextBody",
-            "text": "• Only your trainer can see this information\n• You can update or delete it anytime\n• We never share your data\n• All data is encrypted"
+            "text": "Select your preferred training times:"
           },
           {
-            "type": "TextCaption",
-            "text": "Use the back arrow above to return"
+            "type": "CheckboxGroup",
+            "name": "availability",
+            "required": true,
+            "data-source": [
+              {
+                "id": "early_morning",
+                "title": "Early Morning",
+                "description": "5:00 AM - 8:00 AM"
+              },
+              {
+                "id": "morning",
+                "title": "Morning",
+                "description": "8:00 AM - 12:00 PM"
+              },
+              {
+                "id": "afternoon",
+                "title": "Afternoon",
+                "description": "12:00 PM - 5:00 PM"
+              },
+              {
+                "id": "evening",
+                "title": "Evening",
+                "description": "5:00 PM - 8:00 PM"
+              },
+              {
+                "id": "flexible",
+                "title": "Flexible",
+                "description": "I can adapt to trainer's schedule"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Complete Registration",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "full_name": "${form.full_name}",
+                "email": "${form.email}",
+                "fitness_goals": "${form.fitness_goals}",
+                "experience_level": "${form.experience_level}",
+                "health_conditions": "${form.health_conditions}",
+                "availability": "${form.availability}"
+              }
+            }
           }
         ]
       }

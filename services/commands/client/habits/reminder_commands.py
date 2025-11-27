@@ -9,15 +9,12 @@ from utils.logger import log_info, log_error
 def handle_reminder_settings(phone: str, client_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /reminder-settings command"""
     try:
-        # Create reminder_settings task - use phone for task identification
+        # Create reminder_settings task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=client_id,
             role='client',
             task_type='reminder_settings',
-            task_data={
-                'step': 'show_current_settings',
-                'client_id': client_id
-            }
+            task_data={'step': 'show_current_settings'}
         )
         
         if not task_id:

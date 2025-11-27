@@ -826,28 +826,7 @@ class RefiloeService:
                     error_msg = "❌ Sorry, there was an error. Let's try again. What's your client's name?"
                     whatsapp_service.send_message(phone, error_msg)
                     return {'success': False, 'response': error_msg}
-
-            # CHECK FOR PACKAGE DEAL CLARIFICATION
-            if conv_state.get('state') == 'PACKAGE_DEAL_CLARIFICATION':
-                log_info(f"User {phone} is providing package deal clarification")
-
-                try:
-                    result = self._handle_package_clarification(phone, text, conv_state.get('context', {}))
-
-                    if result.get('success'):
-                        whatsapp_service.send_message(phone, result['message'])
-                        self.clear_conversation_state(phone)
-                        return {'success': True, 'response': result['message']}
-                    else:
-                        whatsapp_service.send_message(phone, result['message'])
-                        return {'success': False, 'response': result['message']}
-
-                except Exception as e:
-                    log_error(f"Error processing package clarification: {str(e)}")
-                    error_msg = "❌ Sorry, there was an error processing your package details. Please try again."
-                    whatsapp_service.send_message(phone, error_msg)
-                    return {'success': False, 'response': error_msg}
-
+            
             # CHECK FOR PENDING CLIENT CONFIRMATION
             if conv_state.get('state') == 'PENDING_CLIENT_CONFIRMATION':
                 log_info(f"User {phone} is confirming client addition")
@@ -1546,31 +1525,22 @@ class RefiloeService:
             import json
             import os
             from datetime import datetime
-
-            # Get trainer data to pass pricing info
-            trainer_result = self.supabase.table('trainers').select('*').eq('whatsapp', phone).execute()
-            if not trainer_result.data:
-                log_error(f"Trainer not found for phone: {phone}")
-                return None
-
-            trainer = trainer_result.data[0]
-            trainer_price = trainer.get('pricing_per_session', 500)  # Default to 500 if not set
-
+            
             # Load the client addition flow JSON
             project_root = os.path.dirname(os.path.dirname(__file__))
             flow_path = os.path.join(project_root, 'whatsapp_flows', 'trainer_add_client_flow.json')
-
+            
             if not os.path.exists(flow_path):
                 log_error(f"Client addition flow file not found: {flow_path}")
                 return None
-
+            
             with open(flow_path, 'r', encoding='utf-8') as f:
                 flow_data = json.load(f)
-
+            
             # Generate flow token
             flow_token = f"add_client_{phone}_{int(datetime.now().timestamp())}"
-
-            # Create flow message with dynamic data
+            
+            # Create flow message
             message = {
                 "recipient_type": "individual",
                 "messaging_product": "whatsapp",
@@ -1580,7 +1550,7 @@ class RefiloeService:
                     "type": "flow",
                     "header": {
                         "type": "text",
-                        "text": "Add new client"
+                        "text": "Add New Client"
                     },
                     "body": {
                         "text": "Let's add a new client to your training program! 👥"
@@ -1597,18 +1567,15 @@ class RefiloeService:
                             "flow_cta": "Add Client",
                             "flow_action": "navigate",
                             "flow_action_payload": {
-                                "screen": "WELCOME",
-                                "data": {
-                                    "trainer_price": str(trainer_price)
-                                }
+                                "screen": "WELCOME"
                             }
                         }
                     }
                 }
             }
-
+            
             return message
-
+            
         except Exception as e:
             log_error(f"Error creating client addition flow message: {str(e)}")
             return None
@@ -1623,7 +1590,7 @@ class RefiloeService:
             })
             
             response = (
-                "➕ *Add new client* (Text Mode)\n\n"
+                "➕ *Add New Client* (Text Mode)\n\n"
                 "I'll help you add a client step by step.\n\n"
                 "📝 *Step 1 of 4*\n\n"
                 "What's your client's full name?"
@@ -1741,7 +1708,8 @@ class RefiloeService:
                             "flow_cta": "Edit Profile",
                             "flow_action": "navigate",
                             "flow_action_payload": {
-                                "screen": "welcome"
+                                "screen": "welcome",
+                                "data": {}
                             }
                         }
                     }
@@ -1795,7 +1763,7 @@ class RefiloeService:
             log_error(f"Error storing profile edit flow token: {str(e)}")
     
     def _handle_reset_command(self, phone: str) -> Dict:
-        """Handle /reset_me command to completely reset user data from all 9 core tables"""
+        """Handle /reset_me command to completely reset user data from all 7 core tables"""
         try:
             from app import app
             whatsapp_service = app.config['services']['whatsapp']
@@ -1839,18 +1807,7 @@ class RefiloeService:
                     debug_info.append("• No client records found")
             except Exception as e:
                 debug_info.append(f"✗ Client delete error: {str(e)[:50]}")
-
-            # Delete from users table
-            try:
-                result = self.db.table('users').delete().eq('phone_number', phone).execute()
-                if result.data:
-                    deleted_count += len(result.data)
-                    debug_info.append(f"✓ Deleted {len(result.data)} user record(s)")
-                else:
-                    debug_info.append("• No user records found")
-            except Exception as e:
-                debug_info.append(f"✗ User delete error: {str(e)[:50]}")
-
+            
             # Delete conversation states
             try:
                 result = self.db.table('conversation_states').delete().eq('phone_number', phone).execute()
@@ -1881,19 +1838,19 @@ class RefiloeService:
             except Exception as e:
                 debug_info.append(f"✗ Registration session error: {str(e)[:50]}")
             
-            # Delete registration states (note: plural, and use phone_number column)
+            # Delete registration state
             try:
-                result = self.db.table('registration_states').delete().eq('phone_number', phone).execute()
+                result = self.db.table('registration_state').delete().eq('phone', phone).execute()
                 if result.data:
-                    debug_info.append(f"✓ Deleted {len(result.data)} registration state(s)")
+                    debug_info.append(f"✓ Deleted registration state")
                 else:
-                    debug_info.append("• No registration states found")
+                    debug_info.append("• No registration state found")
             except Exception as e:
-                debug_info.append(f"✗ Registration states error: {str(e)[:50]}")
-
-            # Delete registration analytics (use phone_number column)
+                debug_info.append(f"✗ Registration state error: {str(e)[:50]}")
+            
+            # Delete registration analytics
             try:
-                result = self.db.table('registration_analytics').delete().eq('phone_number', phone).execute()
+                result = self.db.table('registration_analytics').delete().eq('phone', phone).execute()
                 if result.data:
                     debug_info.append(f"✓ Deleted {len(result.data)} analytics record(s)")
                 else:
@@ -1920,27 +1877,7 @@ class RefiloeService:
                     debug_info.append("• No processed messages found")
             except Exception as e:
                 debug_info.append(f"✗ Processed messages error: {str(e)[:50]}")
-
-            # Delete trainer tasks
-            try:
-                result = self.db.table('trainer_tasks').delete().eq('trainer_id', phone).execute()
-                if result.data:
-                    debug_info.append(f"✓ Deleted {len(result.data)} trainer task(s)")
-                else:
-                    debug_info.append("• No trainer tasks found")
-            except Exception as e:
-                debug_info.append(f"✗ Trainer tasks error: {str(e)[:50]}")
-
-            # Delete client tasks
-            try:
-                result = self.db.table('client_tasks').delete().eq('client_id', phone).execute()
-                if result.data:
-                    debug_info.append(f"✓ Deleted {len(result.data)} client task(s)")
-                else:
-                    debug_info.append("• No client tasks found")
-            except Exception as e:
-                debug_info.append(f"✗ Client tasks error: {str(e)[:50]}")
-
+            
             log_info(f"Reset for {phone} - Results: {debug_info}")
             
             # Count successful deletions
@@ -1951,7 +1888,7 @@ class RefiloeService:
                 "🔧 *Complete Account Reset Results:*\n\n" +
                 "\n".join(debug_info) +
                 f"\n\n📊 *Summary:*\n"
-                f"• Tables processed: 9 core tables\n"
+                f"• Tables processed: 7 core tables\n"
                 f"• Successful operations: {successful_deletions}\n"
                 f"• Total records deleted: {deleted_count}\n\n"
                 "✨ Your account has been completely reset!\n"
@@ -2356,106 +2293,7 @@ class RefiloeService:
                 'success': False,
                 'message': "❌ Sorry, there was an error adding the client. Please try again."
             }
-
-    def _handle_package_clarification(self, phone: str, message: str, context: Dict) -> Dict:
-        """Handle trainer's response to package deal clarification request"""
-        try:
-            import re
-            from services.openai_service import OpenAIService
-
-            # Use AI to extract structured package information
-            openai_service = OpenAIService()
-
-            prompt = f"""Extract package deal information from the following text. The text describes a fitness training package deal.
-
-Text: "{message}"
-
-Previous context: "{context.get('package_details_raw', 'N/A')}"
-
-Extract and return ONLY a JSON object with these fields:
-- sessions: number of sessions (integer)
-- price: total package price in Rands (integer)
-- duration: package duration (e.g., "1 month", "3 months", "8 weeks")
-
-If you cannot determine a value, use null. Return ONLY valid JSON, no other text."""
-
-            ai_response = openai_service.get_completion(prompt, model="gpt-4")
-
-            # Parse AI response
-            try:
-                import json
-                # Try to extract JSON from response
-                json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
-                if json_match:
-                    package_info = json.loads(json_match.group())
-                else:
-                    package_info = json.loads(ai_response)
-
-                # Validate extracted data
-                if not package_info.get('sessions') or not package_info.get('price'):
-                    return {
-                        'success': False,
-                        'message': "I couldn't extract all the package details. Please provide:\n\n• Number of sessions\n• Total package price\n• Duration (optional)\n\nFor example: '10 sessions for R4500 over 2 months'"
-                    }
-
-            except (json.JSONDecodeError, AttributeError) as e:
-                log_warning(f"Failed to parse AI response for package clarification: {str(e)}")
-                return {
-                    'success': False,
-                    'message': "I couldn't understand the package details. Please provide them in this format:\n\n'[Number] sessions for R[Price] over [Duration]'\n\nFor example: '10 sessions for R4500 over 2 months'"
-                }
-
-            # Update invitation or client record with structured package info
-            client_phone = context.get('client_phone')
-            trainer_id = context.get('trainer_id')
-
-            # Try to find invitation first
-            invitation_result = self.db.table('client_invitations').select('*').eq(
-                'trainer_id', trainer_id
-            ).eq('client_phone', client_phone).eq('status', 'pending').execute()
-
-            if invitation_result.data:
-                # Update invitation with structured package info
-                self.db.table('client_invitations').update({
-                    'package_info': package_info
-                }).eq('id', invitation_result.data[0]['id']).execute()
-            else:
-                # Update client record if already added
-                client_result = self.db.table('clients').select('*').eq(
-                    'trainer_id', trainer_id
-                ).eq('whatsapp', client_phone).execute()
-
-                if client_result.data:
-                    self.db.table('clients').update({
-                        'package_info': package_info,
-                        'package_type': 'package',
-                        'sessions_remaining': package_info.get('sessions', 1)
-                    }).eq('id', client_result.data[0]['id']).execute()
-
-            success_msg = f"""✅ *Package Deal Confirmed!*
-
-📦 **Package Details:**
-• Sessions: {package_info.get('sessions')} sessions
-• Total Price: R{package_info.get('price')}"""
-
-            if package_info.get('duration'):
-                success_msg += f"\n• Duration: {package_info.get('duration')}"
-
-            success_msg += f"\n• Price per session: R{package_info.get('price') // package_info.get('sessions', 1)}"
-            success_msg += f"\n\n✨ All set! Your client {context.get('client_name')} is ready to go!"
-
-            return {
-                'success': True,
-                'message': success_msg
-            }
-
-        except Exception as e:
-            log_error(f"Error handling package clarification: {str(e)}")
-            return {
-                'success': False,
-                'message': "❌ Sorry, there was an error processing your package details. Please contact support."
-            }
-
+    
     def _handle_invitation_response(self, client_phone: str, message: str) -> Dict:
         """Handle client's response to trainer invitation"""
         try:

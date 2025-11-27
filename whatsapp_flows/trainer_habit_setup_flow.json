@@ -1,0 +1,142 @@
+{
+  "version": "4.0",
+  "screens": [
+    {
+      "id": "welcome",
+      "title": "🎯 Client Habit Setup",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Setup Habit Tracking"
+          },
+          {
+            "type": "TextBody",
+            "text": "Help your client build lasting healthy habits! Choose which habits to track and set personalized goals."
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "client_selection"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "client_selection",
+      "title": "👥 Select Client",
+      "data": {
+        "clients": []
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Choose Client"
+          },
+          {
+            "type": "TextBody",
+            "text": "Which client would you like to setup habits for?"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "selected_client",
+            "data-source": "clients",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "habit_selection"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "habit_selection",
+      "title": "📋 Select Habits",
+      "data": {
+        "habits": [
+          {
+            "id": "water_intake",
+            "title": "💧 Water Intake",
+            "description": "Daily water consumption in liters"
+          },
+          {
+            "id": "sleep_hours",
+            "title": "😴 Sleep Hours",
+            "description": "Hours of sleep per night"
+          },
+          {
+            "id": "steps",
+            "title": "🚶 Daily Steps",
+            "description": "Step count per day"
+          },
+          {
+            "id": "workout_completed",
+            "title": "💪 Workout Completion",
+            "description": "Daily workout completion"
+          },
+          {
+            "id": "weight",
+            "title": "⚖️ Weight Tracking",
+            "description": "Body weight monitoring"
+          },
+          {
+            "id": "meals_logged",
+            "title": "🍽️ Meal Logging",
+            "description": "Number of meals logged"
+          }
+        ]
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Choose Habits to Track"
+          },
+          {
+            "type": "TextBody",
+            "text": "Select the habits you want your client to track daily. Start with 3-4 habits for best results."
+          },
+          {
+            "type": "CheckboxGroup",
+            "name": "selected_habits",
+            "data-source": "habits",
+            "required": true,
+            "min-selected-items": 1,
+            "max-selected-items": 6
+          },
+          {
+            "type": "Footer",
+            "label": "Complete Setup",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "action": "setup_habits",
+                "client": "${form.selected_client}",
+                "habits": "${form.selected_habits}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

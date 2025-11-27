@@ -73,61 +73,50 @@ class WhatsAppService:
             log_error(f"Error sending WhatsApp message: {str(e)}")
             return {'success': False, 'error': str(e)}
     
-    def send_template_message(self, to_phone: str, template_name: str,
-                             language_code: str, components: list) -> bool:
-        """
-        Send a WhatsApp template message
-
-        Args:
-            to_phone: Recipient phone number (with country code)
-            template_name: Name of approved template
-            language_code: Language code (e.g., 'en')
-            components: List of template components with parameters
-
-        Returns:
-            bool: Success status
-        """
+    def send_template_message(self, phone_number: str, template_name: str, 
+                             parameters: List[str] = None) -> Dict:
+        """Send WhatsApp template message"""
         try:
-            # Clean phone number
-            to_phone = self._clean_phone_number(to_phone)
-
-            # Prepare template message
-            message_data = {
+            phone = self._format_phone_number(phone_number)
+            
+            payload = {
                 "messaging_product": "whatsapp",
-                "to": to_phone,
+                "to": phone,
                 "type": "template",
                 "template": {
                     "name": template_name,
-                    "language": {
-                        "code": language_code
-                    },
-                    "components": components
+                    "language": {"code": "en"}
                 }
             }
-
-            # Send via WhatsApp API
+            
+            if parameters:
+                payload["template"]["components"] = [{
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": p} for p in parameters]
+                }]
+            
             headers = {
                 "Authorization": f"Bearer {self.api_token}",
                 "Content-Type": "application/json"
             }
-
+            
             response = requests.post(
                 self.api_url,
                 headers=headers,
-                json=message_data,
+                json=payload,
                 timeout=10
             )
-
+            
             if response.status_code == 200:
-                log_info(f"Template {template_name} sent to {to_phone}")
-                return True
+                log_info(f"Template {template_name} sent to {phone}")
+                return {'success': True}
             else:
                 log_error(f"Failed to send template: {response.text}")
-                return False
-
+                return {'success': False, 'error': response.text}
+                
         except Exception as e:
             log_error(f"Error sending template message: {str(e)}")
-            return False
+            return {'success': False, 'error': str(e)}
     
     def send_media_message(self, phone_number: str, media_url: str, 
                           media_type: str = 'image', caption: str = None) -> Dict:
@@ -201,11 +190,11 @@ class WhatsAppService:
         """Format phone number to WhatsApp format"""
         # Remove all non-digits
         digits = ''.join(filter(str.isdigit, phone))
-
+        
         # If it already looks like an international number (11+ digits), use as-is
         if len(digits) >= 11:
             return digits
-
+        
         # Handle South African numbers only (10 digits starting with 0, or 9 digits)
         if digits.startswith('0') and len(digits) == 10:
             # South African number starting with 0 (e.g., 0731234567)
@@ -213,16 +202,9 @@ class WhatsAppService:
         elif len(digits) == 9 and digits.startswith(('7', '8', '6')):
             # South African mobile number without leading 0 (e.g., 731234567)
             return '27' + digits
-
+        
         # For any other format, return as-is (assume it's already international)
         return digits
-
-    def _clean_phone_number(self, phone: str) -> str:
-        """
-        Clean and format phone number to WhatsApp format
-        Alias for _format_phone_number to ensure South African numbers start with 27
-        """
-        return self._format_phone_number(phone)
     
     def send_bulk_messages(self, recipients: List[Dict], message: str) -> Dict:
         """Send bulk messages to multiple recipients"""

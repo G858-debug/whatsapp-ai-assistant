@@ -46,17 +46,28 @@ class WhatsAppFlowHandler:
                 "type": "interactive",
                 "interactive": {
                     "type": "flow",
+                    "header": {
+                        "type": "text",
+                        "text": "🚀 Trainer Onboarding"
+                    },
                     "body": {
-                        "text": "Let's set up your trainer profile! 💪"
+                        "text": "Welcome to Refiloe! Let's get you set up as a trainer. This will take about 2 minutes."
+                    },
+                    "footer": {
+                        "text": "Complete your profile setup"
                     },
                     "action": {
                         "name": "flow",
                         "parameters": {
                             "flow_message_version": "3",
                             "flow_token": flow_token,
-                            "flow_id": "775047838492907",
-                            "flow_cta": "Get Started",
-                            "flow_action": "data_exchange"
+                            "flow_name": "trainer_onboarding_flow",
+                            "flow_cta": "Start Setup",
+                            "flow_action": "navigate",
+                            "flow_action_payload": {
+                                "screen": "welcome",
+                                "data": {}
+                            }
                         }
                     }
                 }
@@ -169,7 +180,7 @@ class WhatsAppFlowHandler:
             log_info(f"Flow name: {flow_name}, Flow token: {flow_token}")
             
             # Route to appropriate handler based on flow type
-            if flow_name in ['trainer_onboarding_flow', 'flow']:
+            if flow_name == 'trainer_onboarding_flow':
                 return self._handle_trainer_onboarding_response(flow_response, phone_number, flow_token)
             elif flow_name == 'trainer_profile_edit_flow':
                 return self._handle_trainer_profile_edit_response(flow_response, phone_number, flow_token)
@@ -542,8 +553,8 @@ class WhatsAppFlowHandler:
             pricing_per_session = form_data.get('pricing_per_session', 500)
             
             # Availability (from availability screen)
-            # Transform weekday availability data into expected format
-            available_days, preferred_time_slots, working_hours = self._transform_availability_data(form_data)
+            available_days = form_data.get('available_days', [])  # CheckboxGroup
+            preferred_time_slots = form_data.get('preferred_time_slots', '')  # Dropdown
             
             # Preferences (from preferences screen)
             subscription_plan = form_data.get('subscription_plan', 'free')
@@ -610,7 +621,6 @@ class WhatsAppFlowHandler:
                 'pricing_per_session': pricing,  # For new fields
                 'available_days': available_days,
                 'preferred_time_slots': preferred_time_slots,
-                'working_hours': working_hours,  # JSONB structure with detailed availability
                 'services_offered': processed_services,
                 'pricing_flexibility': processed_pricing_flexibility,
                 'subscription_plan': subscription_plan,
@@ -631,120 +641,7 @@ class WhatsAppFlowHandler:
         except Exception as e:
             log_error(f"Error extracting trainer data from flow response: {str(e)}")
             return {}
-
-    def _transform_availability_data(self, form_data: Dict) -> tuple:
-        """
-        Transform weekday availability data from flow format to expected format.
-
-        Flow sends: monday_preset, monday_hours, tuesday_preset, tuesday_hours, etc.
-        Expected: available_days (list), preferred_time_slots (string), and working_hours (dict)
-
-        Returns:
-            tuple: (available_days: list, preferred_time_slots: str, working_hours: dict)
-        """
-        try:
-            weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-
-            # Preset to time slot mapping
-            preset_mapping = {
-                'full_day': {'start': '00:00', 'end': '24:00'},
-                'business': {'start': '08:00', 'end': '17:00'},
-                'morning': {'start': '05:00', 'end': '12:00'},
-                'evening': {'start': '17:00', 'end': '21:00'}
-            }
-
-            # Day abbreviations for short summary
-            day_abbrev = {
-                'monday': 'M',
-                'tuesday': 'T',
-                'wednesday': 'W',
-                'thursday': 'Th',
-                'friday': 'F',
-                'saturday': 'Sa',
-                'sunday': 'Su'
-            }
-
-            available_days = []
-            short_slots = []
-            working_hours = {}
-
-            for day in weekdays:
-                preset_key = f'{day}_preset'
-                hours_key = f'{day}_hours'
-
-                preset = form_data.get(preset_key, 'not_available')
-                hours = form_data.get(hours_key, [])
-
-                # Handle not available case
-                if preset == 'not_available':
-                    working_hours[day] = {'available': False}
-                    continue
-
-                # Add day to available days (capitalize first letter for consistency)
-                available_days.append(day.capitalize())
-
-                # Build working_hours entry for this day
-                if preset == 'custom' and hours:
-                    # Custom hours - use the array of hour slots
-                    if isinstance(hours, list) and len(hours) > 0:
-                        try:
-                            # Get first hour's start and last hour's end
-                            first_hour = hours[0].split('-')[0]
-                            last_hour = hours[-1].split('-')[1]
-
-                            # Create working_hours entry with slots
-                            working_hours[day] = {
-                                'start': f'{first_hour}:00',
-                                'end': f'{last_hour}:00',
-                                'available': True,
-                                'slots': hours  # Keep the original slots array
-                            }
-
-                            # Create short summary
-                            short_slots.append(f'{day_abbrev[day]}:{first_hour}-{last_hour}')
-                        except (IndexError, AttributeError) as e:
-                            log_warning(f"Error parsing custom hours for {day}: {str(e)}")
-                            working_hours[day] = {'available': True}
-                            short_slots.append(f'{day_abbrev[day]}:Custom')
-                    else:
-                        working_hours[day] = {'available': True}
-                        short_slots.append(f'{day_abbrev[day]}:Custom')
-
-                elif preset in preset_mapping:
-                    # Use preset mapping
-                    times = preset_mapping[preset]
-                    working_hours[day] = {
-                        'start': times['start'],
-                        'end': times['end'],
-                        'available': True
-                    }
-
-                    # Create short summary
-                    if preset == 'full_day':
-                        short_slots.append(f'{day_abbrev[day]}:Full')
-                    else:
-                        # Extract just the hours without :00
-                        start_hour = times['start'].split(':')[0]
-                        end_hour = times['end'].split(':')[0]
-                        short_slots.append(f'{day_abbrev[day]}:{start_hour}-{end_hour}')
-                else:
-                    # Fallback for unknown presets
-                    working_hours[day] = {'available': True}
-                    short_slots.append(f'{day_abbrev[day]}:Avail')
-
-            # Create short summary (under 50 chars)
-            preferred_time_slots = ','.join(short_slots) if short_slots else 'Flexible'
-
-            log_info(f"Transformed availability: days={available_days}, slots={preferred_time_slots}")
-            log_info(f"Working hours: {json.dumps(working_hours)}")
-
-            return available_days, preferred_time_slots, working_hours
-
-        except Exception as e:
-            log_error(f"Error transforming availability data: {str(e)}")
-            # Return defaults on error
-            return [], 'Flexible', {}
-
+    
     def _process_specializations(self, single_spec: str, multi_specs: list) -> str:
         """Convert specialization IDs to readable text and handle multiple specializations"""
         try:
@@ -1271,36 +1168,15 @@ Welcome to the Refiloe family! 💪"""
         """Handle trainer add client flow response"""
         try:
             log_info(f"Processing trainer add client flow response for {phone_number}")
-            log_info(f"Flow token: {flow_token}")
-            log_info(f"Flow response type: {type(flow_response)}")
-            log_info(f"Flow response keys: {list(flow_response.keys())}")
-            log_info(f"Full flow response: {json.dumps(flow_response, indent=2)}")
-
-            # Extract client data - handle both direct data and nested response_json format
-            if 'client_name' in flow_response or 'client_phone' in flow_response:
-                # Data is already at the top level (from flow_response_handler)
-                client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
-            elif 'response_json' in flow_response:
-                # Data is nested in response_json (legacy format)
-                response_json = flow_response.get('response_json', '{}')
-                if isinstance(response_json, str):
-                    parsed_data = json.loads(response_json)
-                else:
-                    parsed_data = response_json
-                client_data = self._extract_client_data_from_flow_response(parsed_data, phone_number)
-            else:
-                # Try to extract from whatever structure we have
-                client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
-
+            
+            # Extract client data from flow response
+            client_data = self._extract_client_data_from_flow_response(flow_response, phone_number)
+            
             if not client_data:
-                log_error("Failed to extract client data from flow response")
-                log_error(f"Flow response was: {json.dumps(flow_response, indent=2)}")
                 return {
                     'success': False,
                     'error': 'Failed to extract client data from flow response'
                 }
-
-            log_info(f"Extracted client data: {json.dumps(client_data, indent=2)}")
             
             # Validate trainer exists
             trainer_result = self.supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
@@ -1359,54 +1235,14 @@ Welcome to the Refiloe family! 💪"""
                 result = self._add_client_directly(trainer_id, client_data)
             
             if result.get('success'):
-                # Handle package deal clarification if needed
-                if client_data.get('has_package_deal') and client_data.get('package_details'):
-                    needs_clarification = self._check_package_needs_clarification(client_data['package_details'])
-
-                    if needs_clarification:
-                        # Set conversation state for package clarification
-                        try:
-                            from services.refiloe import RefiloeService
-                            refiloe_service = RefiloeService(self.supabase)
-
-                            clarification_context = {
-                                'client_name': client_data['name'],
-                                'client_phone': client_data['phone'],
-                                'trainer_id': trainer_id,
-                                'package_details_raw': client_data['package_details'],
-                                'invitation_method': client_data['invitation_method']
-                            }
-
-                            refiloe_service.update_conversation_state(
-                                phone_number,
-                                'PACKAGE_DEAL_CLARIFICATION',
-                                clarification_context
-                            )
-
-                            # Append clarification request to result message
-                            clarification_msg = "\n\n📦 *Package Deal Details*\n\nI need a bit more information about the package deal. Please tell me:\n\n• How many sessions are included?\n• What's the total package price?\n• What's the package duration (e.g., 1 month, 3 months)?"
-
-                            result['message'] = result.get('message', '') + clarification_msg
-
-                        except Exception as e:
-                            log_warning(f"Could not set package clarification state: {str(e)}")
-                    else:
-                        # Clear conversation state if no clarification needed
-                        try:
-                            from services.refiloe import RefiloeService
-                            refiloe_service = RefiloeService(self.supabase)
-                            refiloe_service.clear_conversation_state(phone_number)
-                        except Exception as e:
-                            log_warning(f"Could not clear conversation state: {str(e)}")
-                else:
-                    # Clear any conversation state
-                    try:
-                        from services.refiloe import RefiloeService
-                        refiloe_service = RefiloeService(self.supabase)
-                        refiloe_service.clear_conversation_state(phone_number)
-                    except Exception as e:
-                        log_warning(f"Could not clear conversation state: {str(e)}")
-
+                # Clear any conversation state
+                try:
+                    from services.refiloe import RefiloeService
+                    refiloe_service = RefiloeService(self.supabase)
+                    refiloe_service.clear_conversation_state(phone_number)
+                except Exception as e:
+                    log_warning(f"Could not clear conversation state: {str(e)}")
+                
                 return result
             else:
                 return result
@@ -1421,150 +1257,52 @@ Welcome to the Refiloe family! 💪"""
     def _extract_client_data_from_flow_response(self, flow_response: Dict, trainer_phone: str) -> Optional[Dict]:
         """Extract client data from flow response"""
         try:
-            # Log what we receive for debugging
-            log_info(f"Extracting client data from response: {json.dumps(flow_response, indent=2)}")
-
-            # The data comes directly in flow_response, not nested
-            response_data = flow_response
-
-            # Extract basic client information - these fields should be at the top level
+            # Get the response data
+            response_data = flow_response.get('response', {})
+            
+            # Extract client information
             client_name = response_data.get('client_name', '').strip()
             client_phone = response_data.get('client_phone', '').strip()
             client_email = response_data.get('client_email', '').strip()
-
+            invitation_method = response_data.get('invitation_method', 'manual_add')
+            custom_message = response_data.get('custom_message', '').strip()
+            
             if not client_name or not client_phone:
-                log_error(f"Missing required client data: name={client_name}, phone={client_phone}")
-                log_error(f"Available keys in response_data: {list(response_data.keys())}")
+                log_error("Missing required client data: name or phone")
                 return None
-
-            # Extract fitness-related fields
-            fitness_goals = response_data.get('fitness_goals', [])
-            if isinstance(fitness_goals, str):
-                fitness_goals = [goal.strip() for goal in fitness_goals.split(',')]
-
-            experience_level = response_data.get('experience_level', 'beginner')
-
-            # IMPORTANT: sessions_per_week should be a small number (1-7), not a price
-            sessions_per_week = response_data.get('sessions_per_week', '2')
-            # Validate it's reasonable (if it's > 20, it's probably a data error)
-            try:
-                sessions_int = int(sessions_per_week)
-                if sessions_int > 20:
-                    log_warning(f"Sessions per week seems incorrect: {sessions_per_week}, defaulting to 2")
-                    sessions_per_week = '2'
-            except (ValueError, TypeError):
-                sessions_per_week = '2'
-
-            preferred_times = response_data.get('preferred_times', [])
-            if isinstance(preferred_times, str):
-                preferred_times = [time.strip() for time in preferred_times.split(',')]
-
-            # Extract health information
-            health_conditions = response_data.get('health_conditions', '').strip()
-            medications = response_data.get('medications', '').strip()
-            additional_notes = response_data.get('additional_notes', '').strip()
-
-            # Extract pricing information
-            pricing_choice = response_data.get('pricing_choice', 'use_default')
-            custom_price_amount = response_data.get('custom_price_amount', '').strip()
-
-            # Calculate final price
-            final_price = None
-            if pricing_choice == 'custom_price' and custom_price_amount:
-                try:
-                    final_price = float(custom_price_amount)
-                    log_info(f"Using custom price: R{final_price}")
-                except (ValueError, TypeError):
-                    log_warning(f"Invalid custom price: {custom_price_amount}")
-
-            # Handle package deal (boolean from OptIn component)
-            has_package_deal = response_data.get('has_package_deal', False)
-            if isinstance(has_package_deal, str):
-                has_package_deal = has_package_deal.lower() in ('true', 'yes', '1')
-            else:
-                has_package_deal = bool(has_package_deal)
-
-            # Build the extracted data - using keys expected by calling code
-            extracted_data = {
+            
+            return {
                 'name': client_name,
                 'phone': client_phone,
                 'email': client_email if client_email else None,
-                'fitness_goals': fitness_goals,
-                'experience_level': experience_level,
-                'sessions_per_week': sessions_per_week,
-                'preferred_times': preferred_times,
-                'health_conditions': health_conditions if health_conditions else None,
-                'medications': medications if medications else None,
-                'additional_notes': additional_notes if additional_notes else None,
-                'pricing_choice': pricing_choice,
-                'custom_price': final_price,
-                'calculated_price': final_price,  # Same as custom_price for compatibility
-                'has_package_deal': has_package_deal,
-                'package_deal_details': None,  # Not included in new flow format
-                'invitation_method': 'type_details'  # FIXED: Use allowed database value
+                'invitation_method': invitation_method,
+                'custom_message': custom_message if custom_message else None
             }
-
-            log_info(f"Successfully extracted client data: {client_name} ({client_phone})")
-            return extracted_data
-
+            
         except Exception as e:
-            log_error(f"Error extracting client data: {str(e)}")
-            log_error(f"Flow response keys: {list(flow_response.keys())}")
+            log_error(f"Error extracting client data from flow response: {str(e)}")
             return None
     
     def _create_and_send_invitation(self, trainer_id: str, client_data: Dict) -> Dict:
-        """
-        Create invitation and send WhatsApp message to client.
-        For trainer-filled profiles, stores ALL trainer-provided data in JSONB.
-        """
+        """Create invitation and send WhatsApp message to client"""
         try:
             import uuid
-
+            
             # Generate invitation token
             invitation_token = str(uuid.uuid4())
-
-            # Prepare trainer_provided_data JSONB with ALL client information
-            trainer_provided_data = {
-                'name': client_data['name'],
-                'email': client_data.get('email'),
-                'fitness_goals': client_data.get('fitness_goals', []),
-                'specific_goals': client_data.get('specific_goals'),
-                'experience_level': client_data.get('experience_level'),
-                'sessions_per_week': client_data.get('sessions_per_week'),
-                'preferred_times': client_data.get('preferred_times', []),
-                'health_conditions': client_data.get('health_conditions'),
-                'medications': client_data.get('medications'),
-                'additional_notes': client_data.get('additional_notes'),
-                'pricing_choice': client_data.get('pricing_choice'),
-                'calculated_price': client_data.get('calculated_price'),  # Store the calculated price
-                'custom_price': client_data.get('custom_price'),  # Keep for backward compatibility
-                'has_package_deal': client_data.get('has_package_deal', False),
-                'package_deal_details': client_data.get('package_deal_details')
-            }
-
-            # Create invitation record with comprehensive data
-            # Use calculated_price as the primary price field, fall back to custom_price for backward compatibility
-            client_price = client_data.get('calculated_price') or client_data.get('custom_price')
-
+            
+            # Create invitation record
             invitation_data = {
                 'trainer_id': trainer_id,
                 'client_phone': client_data['phone'],
                 'client_name': client_data['name'],
                 'client_email': client_data.get('email'),
                 'invitation_token': invitation_token,
-                'invitation_method': 'type_details',  # Use allowed value: 'type_details' for WhatsApp Flow
-                'status': 'pending_client_acceptance',  # Special status for trainer-filled profiles
-                'profile_completion_method': 'trainer_fills',  # Track that trainer filled the profile
-                'trainer_provided_data': trainer_provided_data,  # JSONB with all data (includes pricing_choice, etc.)
-                'custom_price': client_price,  # Store calculated_price or custom_price
-                'expires_at': (datetime.now() + timedelta(days=7)).isoformat(),
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
+                'invitation_method': 'whatsapp',
+                'status': 'pending',
+                'message': client_data.get('custom_message'),
+                'expires_at': (datetime.now() + timedelta(days=7)).isoformat()
             }
-
-            # If there's package deal info, store it separately in the package_deal field
-            if client_data.get('has_package_deal') and client_data.get('package_deal_details'):
-                invitation_data['package_deal'] = client_data.get('package_deal_details')
             
             invitation_result = self.supabase.table('client_invitations').insert(invitation_data).execute()
             
@@ -1575,71 +1313,34 @@ Welcome to the Refiloe family! 💪"""
                 }
             
             # Get trainer info for personalized message
-            trainer_result = self.supabase.table('trainers').select('name, business_name, default_price_per_session').eq('id', trainer_id).execute()
+            trainer_result = self.supabase.table('trainers').select('name, business_name').eq('id', trainer_id).execute()
             trainer_name = 'Your trainer'
             business_name = 'their training program'
-            trainer_default_price = None
-
+            
             if trainer_result.data:
                 trainer_info = trainer_result.data[0]
                 trainer_name = trainer_info.get('name', 'Your trainer')
                 business_name = trainer_info.get('business_name') or f"{trainer_name}'s training program"
-                trainer_default_price = trainer_info.get('default_price_per_session')
+            
+            # Create invitation message
+            invitation_message = f"""🎯 *Personal Training Invitation*
 
-            # Create trainer-filled profile invitation message (different from regular invitation)
-            invitation_message = f"""🎯 *Training Profile Created*
+Hi {client_data['name']}!
 
-Hi {client_data['name']}! 👋
+{trainer_name} from {business_name} has invited you to join their training program.
 
-{trainer_name} has created a fitness profile for you and invited you to train together!
+{client_data.get('custom_message', 'Looking forward to helping you reach your fitness goals!')}
 
-📋 *Your Pre-filled Profile:*
-• Name: {client_data['name']}"""
+💪 *Ready to start your fitness journey?*
 
-            # Add optional contact info
-            if client_data.get('email'):
-                invitation_message += f"\n• Email: {client_data['email']}"
-
-            # Add fitness information
-            if client_data.get('fitness_goals'):
-                goals_str = ', '.join(client_data['fitness_goals']) if isinstance(client_data['fitness_goals'], list) else client_data['fitness_goals']
-                invitation_message += f"\n• Goals: {goals_str}"
-
-            if client_data.get('experience_level'):
-                invitation_message += f"\n• Experience: {client_data['experience_level']}"
-
-            if client_data.get('sessions_per_week'):
-                invitation_message += f"\n• Sessions/week: {client_data['sessions_per_week']}"
-
-            # Add pricing information
-            # Use calculated_price (or custom_price for backward compatibility)
-            client_price = client_data.get('calculated_price') or client_data.get('custom_price')
-
-            if client_price:
-                invitation_message += f"\n• Price: R{client_price:.0f} per session"
-            elif trainer_default_price:
-                invitation_message += f"\n• Price: R{trainer_default_price:.0f} per session"
-
-            # Add package deal if applicable
-            if client_data.get('has_package_deal') and client_data.get('package_deal_details'):
-                invitation_message += f"\n• Package Deal: {client_data['package_deal_details']}"
-
-            invitation_message += f"""
-
-👨‍🏫 *Your Trainer:*
-• {trainer_name}
-• {business_name}
-
-✅ *Review and Accept*
-
-Please review the information above. If everything looks good, reply 'ACCEPT' to start training!
-
-You can also reply 'CHANGES' if you need to update any information.
+• Reply 'ACCEPT' to join the program
+• Complete a quick 2-minute setup  
+• Begin training with your personal coach!
 
 This invitation expires in 7 days.
 
 Reply 'ACCEPT' to get started! 🚀"""
-
+            
             # Send invitation message
             send_result = self.whatsapp_service.send_message(client_data['phone'], invitation_message)
             
@@ -1681,15 +1382,8 @@ Reply 'ACCEPT' to get started! 🚀"""
                 'connection_status': 'active',
                 'requested_by': 'trainer',
                 'approved_at': datetime.now().isoformat(),
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat()
             }
-
-            # Add custom pricing if provided
-            # Use calculated_price as primary, fall back to custom_price for backward compatibility
-            client_price = client_data.get('calculated_price') or client_data.get('custom_price')
-            if client_price:
-                new_client_data['custom_price_per_session'] = client_price
             
             client_result = self.supabase.table('clients').insert(new_client_data).execute()
             
@@ -1734,62 +1428,29 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'success': False,
                 'error': str(e)
             }
-
-    def _check_package_needs_clarification(self, package_details: str) -> bool:
-        """
-        Check if package deal details are vague and need clarification.
-        Returns True if clarification is needed.
-        """
-        import re
-
-        if not package_details or len(package_details.strip()) < 10:
-            return True
-
-        # Check if essential information is missing
-        has_session_count = bool(re.search(r'\d+\s*(session|sessions|ses)', package_details, re.IGNORECASE))
-        has_price = bool(re.search(r'R?\s*\d+', package_details))
-        has_duration = bool(re.search(r'\d+\s*(month|months|week|weeks|day|days)', package_details, re.IGNORECASE))
-
-        # If any of these is missing, we need clarification
-        if not (has_session_count and has_price):
-            return True
-
-        # Check for vague phrases that indicate incomplete information
-        vague_phrases = ['tbd', 'to be determined', 'discuss', 'flexible', 'depends', 'various', 'etc']
-        for phrase in vague_phrases:
-            if phrase in package_details.lower():
-                return True
-
-        return False
-
+    
     def _handle_client_onboarding_response(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
         """Handle client onboarding flow response"""
         try:
             log_info(f"Processing client onboarding flow response for {phone_number}")
-
-            # Check if this is an invitation flow (Scenario 1A)
-            if flow_token and flow_token.startswith('client_invitation_'):
-                log_info(f"Processing client invitation flow completion for {phone_number}")
-                return self._handle_client_invitation_flow_completion(flow_response, phone_number, flow_token)
-
-            # Regular client onboarding (not from invitation)
+            
             # Extract client data from flow response
             client_data = self._extract_client_data_from_onboarding_response(flow_response, phone_number)
-
+            
             if not client_data:
                 return {
                     'success': False,
                     'error': 'Failed to extract client data from flow response'
                 }
-
+            
             # Complete client registration using the existing handler
             from services.registration.client_registration import ClientRegistrationHandler
-
+            
             client_reg_handler = ClientRegistrationHandler(self.supabase, self.whatsapp_service)
-
+            
             # Complete registration with flow data
             result = client_reg_handler._complete_registration(phone_number, client_data)
-
+            
             if result.get('success'):
                 # Clear any conversation state
                 try:
@@ -1798,7 +1459,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     refiloe_service.clear_conversation_state(phone_number)
                 except Exception as e:
                     log_warning(f"Could not clear conversation state: {str(e)}")
-
+                
                 return {
                     'success': True,
                     'message': result['message'],
@@ -1809,249 +1470,9 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                     'success': False,
                     'error': result.get('message', 'Registration failed')
                 }
-
+                
         except Exception as e:
             log_error(f"Error handling client onboarding flow response: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
-
-    def _handle_client_invitation_flow_completion(self, flow_response: Dict, phone_number: str, flow_token: str) -> Dict:
-        """Handle client invitation flow completion (Scenario 1A)"""
-        try:
-            from datetime import datetime
-            import pytz
-
-            sa_tz = pytz.timezone('Africa/Johannesburg')
-
-            # Extract invitation token from flow_token (format: client_invitation_{token}_{timestamp})
-            token_parts = flow_token.split('_')
-            if len(token_parts) < 3:
-                log_error(f"Invalid flow_token format: {flow_token}")
-                return {'success': False, 'error': 'Invalid invitation token'}
-
-            invitation_token = token_parts[2]  # Extract the actual invitation token
-
-            # Find invitation in database
-            invitation_result = self.supabase.table('client_invitations').select('*').eq(
-                'invitation_token', invitation_token
-            ).eq('client_phone', phone_number).eq('status', 'pending_client_completion').execute()
-
-            if not invitation_result.data:
-                log_error(f"No pending invitation found for token {invitation_token} and phone {phone_number}")
-                return {'success': False, 'error': 'Invitation not found or expired'}
-
-            invitation = invitation_result.data[0]
-
-            # Extract trainer_id from invitation FIRST
-            trainer_id = invitation.get('trainer_id')
-
-            if not trainer_id:
-                log_error(f"Missing trainer_id in invitation: {invitation}")
-                return {'success': False, 'error': 'Missing trainer_id'}
-
-            log_info(f"Creating client with trainer_id: {trainer_id}")
-
-            # Extract client data from flow response
-            flow_client_data = self._extract_client_data_from_onboarding_response(flow_response, phone_number)
-
-            if not flow_client_data:
-                return {'success': False, 'error': 'Failed to extract client data from flow'}
-
-            # Merge prefilled data with flow data
-            prefilled_data = invitation.get('prefilled_data', {})
-            client_name = prefilled_data.get('name') or flow_client_data.get('name')
-            client_email = prefilled_data.get('email') or flow_client_data.get('email')
-
-            # Generate client_id
-            from services.auth.authentication_service import AuthenticationService
-            auth_service = AuthenticationService(self.supabase)
-            client_id = auth_service.generate_unique_id(client_name, 'client')
-
-            # Get trainer info for relationship (query by trainer_id, not id)
-            trainer_result = self.supabase.table('trainers').select('trainer_id, name, first_name, last_name, whatsapp').eq(
-                'trainer_id', trainer_id
-            ).execute()
-
-            if not trainer_result.data:
-                log_error(f"Trainer not found for trainer_id {trainer_id}")
-                return {'success': False, 'error': 'Trainer not found'}
-
-            trainer = trainer_result.data[0]
-            trainer_whatsapp = trainer['whatsapp']
-            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
-
-            # Extract and format data from flow response
-            flow_data = flow_response.get('response', {})
-
-            # Extract fitness goals and format as comma-separated string
-            fitness_goals = flow_data.get('fitness_goals', [])
-            if isinstance(fitness_goals, list):
-                # Map goal IDs to readable text
-                goals_map = {
-                    'lose_weight': 'Lose weight',
-                    'build_muscle': 'Build muscle',
-                    'get_stronger': 'Get stronger',
-                    'improve_fitness': 'Improve fitness',
-                    'train_for_event': 'Train for event'
-                }
-                processed_goals = [goals_map.get(goal, goal) for goal in fitness_goals]
-                fitness_goals_str = ', '.join(processed_goals)
-            else:
-                fitness_goals_str = str(fitness_goals)
-
-            # Extract preferred times and format as comma-separated string
-            preferred_times = flow_data.get('availability', [])
-            if isinstance(preferred_times, list):
-                # Map time IDs to readable text
-                availability_map = {
-                    'early_morning': 'Early morning (5-8am)',
-                    'morning': 'Morning (8-12pm)',
-                    'afternoon': 'Afternoon (12-5pm)',
-                    'evening': 'Evening (5-8pm)',
-                    'flexible': 'Flexible'
-                }
-                processed_times = [availability_map.get(time, time) for time in preferred_times]
-                preferred_times_str = ', '.join(processed_times)
-            else:
-                preferred_times_str = str(preferred_times)
-
-            # Extract other fields
-            experience_level = flow_data.get('experience_level', 'beginner')
-            health_conditions = flow_data.get('health_conditions', '').strip()
-            medications = flow_data.get('medications', '').strip()
-            additional_notes = flow_data.get('additional_notes', '').strip()
-
-            # Combine health conditions and medications if both exist
-            health_info = health_conditions
-            if medications:
-                if health_info:
-                    health_info += f"\n\nMedications: {medications}"
-                else:
-                    health_info = f"Medications: {medications}"
-
-            # Get custom pricing from invitation
-            custom_price = invitation.get('custom_price_per_session')
-
-            # Create client record with ONLY columns that exist in Supabase schema
-            # CRITICAL: trainer_id must be first and converted to string
-            client_data = {
-                'trainer_id': str(trainer_id),  # CRITICAL: Must be present and first
-                'name': client_name,
-                'whatsapp': phone_number,
-                'status': 'active',
-                'fitness_goals': fitness_goals_str,
-                'availability': preferred_times_str,
-                'experience_level': experience_level,
-                'health_conditions': health_info if health_info else None,
-                'preferred_training_times': preferred_times_str,
-                'connection_status': 'active',
-                'requested_by': 'client',
-                'additional_notes': additional_notes if additional_notes else None,
-                'client_id': client_id,
-                'created_at': datetime.now(sa_tz).isoformat(),
-                'updated_at': datetime.now(sa_tz).isoformat()
-            }
-
-            # Add optional fields only if they have values
-            if client_email and client_email.strip() and client_email.lower() not in ['skip', 'none']:
-                client_data['email'] = client_email
-
-            if custom_price:
-                client_data['custom_price_per_session'] = custom_price
-
-            # Log the data being inserted for debugging
-            log_info(f"Inserting client with data: trainer_id={trainer_id}, name={client_name}, phone={phone_number}")
-
-            # Insert into clients table
-            self.supabase.table('clients').insert(client_data).execute()
-            log_info(f"Created client record for {client_id}")
-
-            # Create user entry
-            user_data = {
-                'phone_number': phone_number,
-                'client_id': client_id,
-                'login_status': 'client',
-                'created_at': datetime.now(sa_tz).isoformat()
-            }
-            self.supabase.table('users').insert(user_data).execute()
-            log_info(f"Created user record for {client_id}")
-
-            # Create trainer-client relationship
-            from services.relationships.invitations.invitation_manager import InvitationManager
-            from services.relationships.core.relationship_manager import RelationshipManager
-
-            relationship_manager = RelationshipManager(self.supabase)
-            invitation_manager = InvitationManager(self.supabase, self.whatsapp_service, relationship_manager)
-
-            # Create relationship with pricing
-            success, error_msg = invitation_manager.create_relationship(trainer_id, client_id, 'trainer', invitation_token)
-
-            if success:
-                # Approve the relationship immediately (client accepted invitation)
-                approve_success, approve_error = relationship_manager.approve_relationship(trainer_id, client_id)
-
-                if approve_success:
-                    # Apply custom pricing if specified
-                    custom_price = invitation.get('custom_price_per_session')
-                    if custom_price:
-                        try:
-                            # Update pricing in trainer_client_list
-                            self.supabase.table('trainer_client_list').update({
-                                'pricing_per_session': custom_price,
-                                'updated_at': datetime.now(sa_tz).isoformat()
-                            }).eq('trainer_id', trainer_id).eq('client_id', client_id).execute()
-
-                            log_info(f"Applied custom pricing R{custom_price} for client {client_id}")
-                        except Exception as pricing_error:
-                            log_error(f"Failed to apply custom pricing: {str(pricing_error)}")
-                else:
-                    log_error(f"Failed to approve relationship: {approve_error}")
-            else:
-                log_error(f"Failed to create relationship: {error_msg}")
-
-            # Update invitation status
-            self.supabase.table('client_invitations').update({
-                'status': 'accepted',
-                'accepted_at': datetime.now(sa_tz).isoformat(),
-                'updated_at': datetime.now(sa_tz).isoformat()
-            }).eq('id', invitation['id']).execute()
-
-            # Notify client
-            client_message = (
-                f"✅ *Profile Complete!*\n\n"
-                f"Welcome to Refiloe, {client_name}!\n\n"
-                f"*Your Client ID:* {client_id}\n"
-                f"*Trainer:* {trainer_name}\n"
-                f"*Price per session:* R{custom_price if custom_price else 'TBD'}\n\n"
-                f"You're now connected with your trainer.\n"
-                f"Type /help to see what you can do!"
-            )
-            self.whatsapp_service.send_message(phone_number, client_message)
-
-            # Notify trainer
-            trainer_message = (
-                f"✅ *Client Accepted Invitation!*\n\n"
-                f"*{client_name}* completed their fitness profile and accepted your invitation!\n\n"
-                f"*Client ID:* {client_id}\n"
-                f"*Fitness Goals:* {flow_client_data.get('fitness_goals')}\n"
-                f"*Experience:* {flow_client_data.get('experience_level')}\n"
-                f"*Availability:* {flow_client_data.get('availability')}\n\n"
-                f"They're now in your client list. 🎉"
-            )
-            self.whatsapp_service.send_message(trainer_whatsapp, trainer_message)
-
-            log_info(f"Successfully completed client invitation flow for {client_id}")
-
-            return {
-                'success': True,
-                'message': 'Client registration and relationship created successfully',
-                'client_id': client_id
-            }
-
-        except Exception as e:
-            log_error(f"Error handling client invitation flow completion: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
@@ -2185,10 +1606,10 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
         """Send client onboarding flow with automatic fallback to text registration"""
         try:
             log_info(f"Attempting to send client onboarding flow to {phone_number}")
-
+            
             # Try to send WhatsApp Flow
             flow_result = self._attempt_client_flow_sending(phone_number)
-
+            
             if flow_result.get('success'):
                 return {
                     'success': True,
@@ -2200,7 +1621,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 log_info(f"WhatsApp Flow failed for {phone_number}, using text fallback: {flow_result.get('error')}")
                 # Automatic fallback to text-based registration
                 fallback_result = self._start_text_based_client_registration(phone_number)
-
+                
                 if fallback_result.get('success'):
                     return {
                         'success': True,
@@ -2213,166 +1634,14 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         'success': False,
                         'error': f"Both flow and fallback failed: {fallback_result.get('error')}"
                     }
-
+                    
         except Exception as e:
             log_error(f"Error sending client onboarding flow: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
             }
-
-    def send_trainer_add_client_flow(
-        self,
-        trainer_phone: str,
-        trainer_id: str = None,
-        client_name: str = None,
-        client_phone: str = None,
-        client_email: str = None
-    ) -> Dict:
-        """
-        Send trainer add client flow with dynamic pricing and optional pre-filled client data.
-        Passes trainer's default_price_per_session and client contact data as initial flow data.
-
-        Args:
-            trainer_phone: Trainer's WhatsApp number
-            trainer_id: Optional trainer ID (will lookup if not provided)
-            client_name: Optional client name to pre-populate in the flow
-            client_phone: Optional client phone to pre-populate in the flow
-            client_email: Optional client email to pre-populate in the flow
-
-        Returns:
-            Dict with success status and flow_token or error details
-        """
-        try:
-            log_info(f"Sending trainer add client flow to {trainer_phone}")
-
-            # Get trainer data if not provided
-            if not trainer_id:
-                trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, name').eq(
-                    'whatsapp', trainer_phone
-                ).execute()
-
-                if not trainer_result.data:
-                    return {
-                        'success': False,
-                        'error': 'Trainer not found'
-                    }
-
-                trainer = trainer_result.data[0]
-                trainer_id = trainer['id']
-                log_info(f"Fetched trainer data: {trainer}")
-            else:
-                # Fetch trainer data using ID
-                trainer_result = self.supabase.table('trainers').select('id, default_price_per_session, name').eq(
-                    'id', trainer_id
-                ).execute()
-
-                if not trainer_result.data:
-                    return {
-                        'success': False,
-                        'error': 'Trainer not found'
-                    }
-
-                trainer = trainer_result.data[0]
-                log_info(f"Fetched trainer data: {trainer}")
-
-            # Get trainer's default price (default to R500 if not set)
-            trainer_default_price = trainer.get('default_price_per_session', 500)
-
-            # Handle None or 0 values
-            if not trainer_default_price or trainer_default_price == 0:
-                trainer_default_price = 500
-                log_warning(f"Trainer {trainer_id} has no default price set, using R500")
-
-            log_info(f"Trainer default price: R{trainer_default_price}")
-            log_info(f"Calculated trainer_default_price: {trainer_default_price}")
-
-            # Generate flow token
-            flow_token = f"trainer_add_client_{trainer_phone}_{int(datetime.now().timestamp())}"
-
-            # CRITICAL: Pass trainer_default_price as initial flow data
-            # This data cascades through all screens in the flow
-            flow_action_payload = {
-                "screen": "WELCOME",
-                "data": {
-                    "trainer_default_price": f"R{int(trainer_default_price)}",  # Format with R prefix as per Flow JSON schema
-                    "client_name": client_name or "",
-                    "client_phone": client_phone or "",
-                    "client_email": client_email or ""
-                }
-            }
-
-            flow_message = {
-                "recipient_type": "individual",
-                "messaging_product": "whatsapp",
-                "to": trainer_phone,
-                "type": "interactive",
-                "interactive": {
-                    "type": "flow",
-                    "header": {
-                        "type": "text",
-                        "text": "Add new client"
-                    },
-                    "body": {
-                        "text": "Populate " + (client_name if client_name else "your client") + "'s details to create their profile. They'll receive an invitation to review and accept."
-                    },
-                    "action": {
-                        "name": "flow",
-                        "parameters": {
-                            "flow_message_version": "3",
-                            "flow_token": flow_token,
-                            "flow_id": Config.TRAINER_ADD_CLIENT_FLOW_ID,
-                            "flow_cta": "Start",
-                            "flow_action": "navigate",
-                            "flow_action_payload": flow_action_payload
-                        }
-                    }
-                }
-            }
-
-            # Store flow token for tracking
-            self._store_flow_token_with_data(
-                phone_number=trainer_phone,
-                flow_token=flow_token,
-                flow_type='trainer_onboarding',
-                flow_data={
-                    'type': 'trainer_add_client',
-                    'trainer_id': trainer_id,
-                    'trainer_phone': trainer_phone,
-                    'trainer_default_price': trainer_default_price,
-                    'client_name': client_name,
-                    'client_phone': client_phone,
-                    'client_email': client_email
-                }
-            )
-
-            log_info(f"Sending flow with payload: {flow_action_payload}")
-
-            # Send the flow
-            result = self.whatsapp_service.send_flow_message(flow_message)
-
-            if result.get('success'):
-                log_info(f"Trainer add client flow sent to {trainer_phone}")
-                return {
-                    'success': True,
-                    'method': 'whatsapp_flow',
-                    'flow_token': flow_token,
-                    'message': "Flow sent!"
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': 'Failed to send flow',
-                    'details': result
-                }
-
-        except Exception as e:
-            log_error(f"Error sending trainer add client flow: {str(e)}", exc_info=True)
-            return {
-                'success': False,
-                'error': str(e)
-            }
-
+    
     def _attempt_client_flow_sending(self, phone_number: str) -> Dict:
         """Attempt to send client onboarding WhatsApp Flow"""
         try:
@@ -2456,7 +1725,7 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                         "parameters": {
                             "flow_message_version": "3",
                             "flow_token": flow_token,
-                            "flow_id": Config.CLIENT_ONBOARDING_FLOW_ID,  # Actual client onboarding flow ID
+                            "flow_id": "CLIENT_ONBOARDING_FLOW",  # This should match your Facebook Console flow ID
                             "flow_cta": "Get Started",
                             "flow_action": "navigate",
                             "flow_action_payload": {
@@ -2586,21 +1855,16 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
             
             # Store flow token
-            self._store_flow_token_with_data(
-                phone_number=phone_number,
-                flow_token=flow_token,
-                flow_type='assessment_flow',
-                flow_data={
-                    'type': 'trainer_habit_setup',
-                    'trainer_id': trainer_data['id'],
-                    'phone': phone_number,
-                    'clients': clients_result.data
-                }
-            )
+            self._store_flow_token(flow_token, {
+                'type': 'trainer_habit_setup',
+                'trainer_id': trainer_data['id'],
+                'phone': phone_number,
+                'clients': clients_result.data
+            })
             
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(message)
-
+            result = self.whatsapp_service.send_flow_message(phone_number, message)
+            
             if result.get('success'):
                 log_info(f"Trainer habit setup flow sent to {phone_number}")
                 return {
@@ -2718,21 +1982,16 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
             
             # Store flow token
-            self._store_flow_token_with_data(
-                phone_number=phone_number,
-                flow_token=flow_token,
-                flow_type='assessment_flow',
-                flow_data={
-                    'type': 'client_habit_logging',
-                    'client_id': client_data['id'],
-                    'phone': phone_number,
-                    'active_habits': active_habits
-                }
-            )
+            self._store_flow_token(flow_token, {
+                'type': 'client_habit_logging',
+                'client_id': client_data['id'],
+                'phone': phone_number,
+                'active_habits': active_habits
+            })
             
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(message)
-
+            result = self.whatsapp_service.send_flow_message(phone_number, message)
+            
             if result.get('success'):
                 log_info(f"Client habit logging flow sent to {phone_number}")
                 return {
@@ -2806,20 +2065,15 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
             }
             
             # Store flow token
-            self._store_flow_token_with_data(
-                phone_number=phone_number,
-                flow_token=flow_token,
-                flow_type='assessment_flow',
-                flow_data={
-                    'type': 'habit_progress',
-                    'client_id': client_data['id'],
-                    'phone': phone_number
-                }
-            )
+            self._store_flow_token(flow_token, {
+                'type': 'habit_progress',
+                'client_id': client_data['id'],
+                'phone': phone_number
+            })
             
             # Send the flow
-            result = self.whatsapp_service.send_flow_message(message)
-
+            result = self.whatsapp_service.send_flow_message(phone_number, message)
+            
             if result.get('success'):
                 log_info(f"Habit progress flow sent to {phone_number}")
                 return {
@@ -3181,19 +2435,18 @@ Ready to get started? Just say 'Hi' anytime! 💪"""
                 'message': '❌ Error processing your request. Please try again.'
             }
     
-    def _store_flow_token_with_data(self, phone_number: str, flow_token: str, flow_type: str, flow_data: Dict) -> bool:
+    def _store_flow_token(self, token: str, data: Dict) -> bool:
         """Store flow token data for later retrieval"""
         try:
             result = self.supabase.table('flow_tokens').insert({
-                'phone_number': phone_number,
-                'flow_token': flow_token,
-                'flow_type': flow_type,
-                'flow_data': flow_data,
-                'created_at': datetime.now().isoformat()
+                'token': token,
+                'data': data,
+                'created_at': datetime.now().isoformat(),
+                'expires_at': (datetime.now() + timedelta(hours=1)).isoformat()
             }).execute()
-
+            
             return bool(result.data)
-
+            
         except Exception as e:
             log_error(f"Error storing flow token: {str(e)}")
             return False

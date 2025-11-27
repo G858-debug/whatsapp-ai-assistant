@@ -28,7 +28,7 @@ class AIIntentHandler:
             
             # Use AI to determine intent
             from services.ai_intent import AIIntentHandler as AIIntentHandlerPhase1
-            ai_handler = AIIntentHandlerPhase1(self.db, self.whatsapp, self.task_service)
+            ai_handler = AIIntentHandlerPhase1(self.db, self.whatsapp)
             
             result = ai_handler.handle_intent(
                 phone, message, role, user_id,

@@ -19,8 +19,8 @@ def handle_stop(phone: str, auth_service, task_service, whatsapp) -> Dict:
         if login_status:
             user_id = auth_service.get_user_id_by_role(phone, login_status)
             if user_id:
-                # Check for task with phone (task operations use phone as identifier)
-                running_task = task_service.get_running_task(phone, login_status)
+                # Check for task with user_id
+                running_task = task_service.get_running_task(user_id, login_status)
                 if running_task:
                     task_type = running_task.get('task_type', 'unknown')
                     # Use complete_task instead of stop_task for cleaner closure
@@ -42,8 +42,8 @@ def handle_stop(phone: str, auth_service, task_service, whatsapp) -> Dict:
             if login_status:
                 user_id = auth_service.get_user_id_by_role(phone, login_status)
                 if user_id:
-                    # Force stop all running tasks for this user (use phone for task identification)
-                    cleanup_result = task_service.stop_all_running_tasks(phone, login_status)
+                    # Force stop all running tasks for this user
+                    cleanup_result = task_service.stop_all_running_tasks(user_id, login_status)
                     if cleanup_result:
                         log_info(f"Force cleanup completed for {phone}")
         except Exception as cleanup_error:

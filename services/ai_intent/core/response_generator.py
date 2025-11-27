@@ -15,10 +15,9 @@ class ResponseGenerator:
     def __init__(self, supabase_client, whatsapp_service, task_service=None):
         self.db = supabase_client
         self.whatsapp = whatsapp_service
-        self.task_service = task_service
-
+        
         # Initialize intent handlers
-        self.trainer_handler = TrainerIntentHandler(self.db, self.whatsapp, self.task_service)
+        self.trainer_handler = TrainerIntentHandler(self.db, self.whatsapp, task_service)
         self.client_handler = ClientIntentHandler(self.db, self.whatsapp)
         self.common_handler = CommonIntentHandler(self.db, self.whatsapp)
     

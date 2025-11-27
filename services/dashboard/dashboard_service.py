@@ -54,7 +54,7 @@ class DashboardService:
             return None
     
     def get_relationships(self, user_id: str, role: str, status: str = 'active') -> List[Dict]:
-        """Get relationships for dashboard display with privacy-aware data"""
+        """Get relationships for dashboard display"""
         try:
             if role == 'trainer':
                 relationships = self.relationship_service.get_trainer_clients(user_id, status)
@@ -62,26 +62,12 @@ class DashboardService:
                 formatted = []
                 for client in relationships:
                     rel = client.get('relationship', {})
-                    client_id = client.get('client_id')
-
-                    # Get trainer-specific data (pricing, private notes)
-                    trainer_specific = self.relationship_service.get_trainer_specific_data(user_id, client_id)
-
+                    
                     # Format JSON arrays to comma-separated text
                     training_times_text = self._format_array_field(client.get('preferred_training_times', []))
-
-                    # Get trainer's custom pricing for this client
-                    custom_price = None
-                    private_notes = ''
-                    session_count = 0
-
-                    if trainer_specific:
-                        custom_price = trainer_specific.get('custom_price_per_session')
-                        private_notes = trainer_specific.get('private_notes', '')
-                        session_count = trainer_specific.get('sessions_count', 0)
-
+                    
                     formatted.append({
-                        'id': client_id or 'N/A',
+                        'id': client.get('client_id', 'N/A'),
                         'name': client.get('name', 'N/A'),
                         'status': client.get('status', 'N/A'),
                         'additional_info': {
@@ -91,76 +77,48 @@ class DashboardService:
                             'availability': self._format_array_field(client.get('availability', '')),
                             'preferred_training_times': training_times_text
                         },
-                        # Trainer-specific data (privacy isolated)
-                        'custom_pricing': f"R{custom_price}" if custom_price else None,
-                        'private_notes': private_notes,
-                        'session_count': session_count,
                         'connected_date': rel.get('created_at', '')[:10] if rel.get('created_at') else 'N/A',
                         'connection_status': rel.get('connection_status', status)
                     })
                 return formatted
-
-            else:  # client - multi-trainer view
-                # Use multi-trainer view for clients
-                multi_trainer_data = self.relationship_service.get_client_multi_trainer_view(user_id)
-
-                if not multi_trainer_data or not multi_trainer_data.get('trainers'):
-                    return []
-
+            
+            else:  # client
+                relationships = self.relationship_service.get_client_trainers(user_id, status)
                 # Format for dashboard
                 formatted = []
-                for trainer in multi_trainer_data['trainers']:
-                    # Get full trainer details
-                    trainer_details = self.db.table('trainers').select('*').eq(
-                        'trainer_id', trainer.get('trainer_id')
-                    ).execute()
-
-                    if not trainer_details.data:
-                        continue
-
-                    trainer_full = trainer_details.data[0]
-
+                for trainer in relationships:
+                    rel = trainer.get('relationship', {})
+                    
                     # Format JSON arrays to comma-separated text
-                    services_text = self._format_array_field(trainer_full.get('services_offered', []))
-                    pricing_flex_text = self._format_array_field(trainer_full.get('pricing_flexibility', []))
-                    available_days_text = self._format_array_field(trainer_full.get('available_days', []))
-
-                    # For clients, show the custom pricing THIS trainer set for them
-                    # This is visible to the client (they see what each trainer charges them)
-                    pricing_display = ''
-                    if trainer.get('custom_pricing'):
-                        pricing_display = f"R{trainer['custom_pricing']}"
-                    elif trainer_full.get('pricing_per_session'):
-                        pricing_display = f"R{trainer_full.get('pricing_per_session', 0)}"
-
+                    services_text = self._format_array_field(trainer.get('services_offered', []))
+                    pricing_flex_text = self._format_array_field(trainer.get('pricing_flexibility', []))
+                    available_days_text = self._format_array_field(trainer.get('available_days', []))
+                    
                     formatted.append({
                         'id': trainer.get('trainer_id', 'N/A'),
-                        'name': trainer.get('trainer_name', 'N/A'),
-                        'first_name': trainer_full.get('first_name', ''),
-                        'last_name': trainer_full.get('last_name', ''),
-                        'business_name': trainer_full.get('business_name', ''),
-                        'status': trainer_full.get('status', 'N/A'),
+                        'name': trainer.get('name', 'N/A'),
+                        'first_name': trainer.get('first_name', ''),
+                        'last_name': trainer.get('last_name', ''),
+                        'business_name': trainer.get('business_name', ''),
+                        'status': trainer.get('status', 'N/A'),
                         'additional_info': {
-                            'pricing_per_session': pricing_display,
-                            'city': trainer_full.get('city', ''),
-                            'location': trainer_full.get('location', ''),
-                            'experience_years': trainer_full.get('experience_years', ''),
-                            'years_experience': trainer_full.get('years_experience', ''),
+                            'pricing_per_session': f"R{trainer.get('pricing_per_session', 0)}" if trainer.get('pricing_per_session') else '',
+                            'city': trainer.get('city', ''),
+                            'location': trainer.get('location', ''),
+                            'experience_years': trainer.get('experience_years', ''),
+                            'years_experience': trainer.get('years_experience', ''),
                             'available_days': available_days_text,
-                            'preferred_time_slots': self._format_array_field(trainer_full.get('preferred_time_slots', '')),
-                            'specialization': self._format_array_field(trainer_full.get('specialization', '')),
+                            'preferred_time_slots': self._format_array_field(trainer.get('preferred_time_slots', '')),
+                            'specialization': self._format_array_field(trainer.get('specialization', '')),
                             'services_offered': services_text,
                             'pricing_flexibility': pricing_flex_text,
-                            'additional_notes': trainer_full.get('additional_notes', '')
+                            'additional_notes': trainer.get('additional_notes', '')
                         },
-                        # Client-specific stats with this trainer
-                        'session_count': trainer.get('session_count', 0),
-                        'last_session': trainer.get('last_session', 'N/A'),
-                        'connected_date': trainer.get('connected_date', '')[:10] if trainer.get('connected_date') else 'N/A',
-                        'connection_status': 'active'
+                        'connected_date': rel.get('created_at', '')[:10] if rel.get('created_at') else 'N/A',
+                        'connection_status': rel.get('connection_status', status)
                     })
                 return formatted
-
+            
         except Exception as e:
             log_error(f"Error getting relationships: {str(e)}")
             return []

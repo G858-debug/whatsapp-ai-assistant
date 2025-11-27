@@ -16,30 +16,30 @@ class RelationshipManager:
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
     
     def get_trainer_clients(self, trainer_id: str, status: str = 'active') -> List[Dict]:
-        """Get all clients for a trainer using relationship table"""
+        """Get all clients for a trainer"""
         try:
-            # Get client IDs from trainer_client_list relationship table
-            relationships = self.db.table('trainer_client_list')\
-                .select('client_id')\
-                .eq('trainer_id', trainer_id)\
-                .eq('connection_status', status)\
-                .execute()
-
+            # Get relationship records
+            relationships = self.db.table('trainer_client_list').select('*').eq(
+                'trainer_id', trainer_id
+            ).eq('connection_status', status).execute()
+            
             if not relationships.data:
                 return []
-
-            # Extract client_ids
-            client_ids = [rel['client_id'] for rel in relationships.data]
-
-            # Fetch full client data
-            clients = self.db.table('clients')\
-                .select('*')\
-                .in_('client_id', client_ids)\
-                .order('name')\
-                .execute()
-
-            return clients.data if clients.data else []
-
+            
+            # Get client details for each relationship
+            clients = []
+            for rel in relationships.data:
+                client_result = self.db.table('clients').select('*').eq(
+                    'client_id', rel['client_id']
+                ).execute()
+                
+                if client_result.data:
+                    client_data = client_result.data[0]
+                    client_data['relationship'] = rel  # Include relationship info
+                    clients.append(client_data)
+            
+            return clients
+            
         except Exception as e:
             log_error(f"Error getting trainer clients: {str(e)}")
             return []

@@ -9,12 +9,12 @@ from utils.logger import log_info, log_error
 def handle_unassign_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /unassign-habit command"""
     try:
-        # Create unassign_habit task (use phone for task identification)
+        # Create unassign_habit task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='unassign_habit',
-            task_data={'step': 'ask_client_id', 'trainer_id': trainer_id}
+            task_data={'step': 'ask_client_id'}
         )
         
         if not task_id:

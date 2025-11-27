@@ -22,16 +22,14 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
             return {'success': False, 'response': msg, 'handler': 'create_habit_config_error'}
         
         # Create create_habit task (start from index 1 since first question is already asked)
-        # Use phone for task identification
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='create_habit',
             task_data={
                 'fields': fields,
                 'current_field_index': 1,
-                'collected_data': {},
-                'trainer_id': trainer_id
+                'collected_data': {}
             }
         )
         
@@ -68,12 +66,12 @@ def handle_create_habit(phone: str, trainer_id: str, db, whatsapp, task_service)
 def handle_edit_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /edit-habit command"""
     try:
-        # Create edit_habit task (use phone for task identification)
+        # Create edit_habit task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='edit_habit',
-            task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}
+            task_data={'step': 'ask_habit_id'}
         )
         
         if not task_id:
@@ -121,12 +119,12 @@ def handle_edit_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -
 def handle_delete_habit(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /delete-habit command"""
     try:
-        # Create delete_habit task (use phone for task identification)
+        # Create delete_habit task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='delete_habit',
-            task_data={'step': 'ask_habit_id', 'trainer_id': trainer_id}
+            task_data={'step': 'ask_habit_id'}
         )
         
         if not task_id:

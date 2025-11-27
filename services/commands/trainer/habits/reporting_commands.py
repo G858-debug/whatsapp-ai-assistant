@@ -9,15 +9,12 @@ from utils.logger import log_info, log_error
 def handle_view_habit_progress(phone: str, trainer_id: str, db, whatsapp, task_service) -> Dict:
     """Handle /view-trainee-progress command"""
     try:
-        # Create view_trainee_progress task - use phone for task identification
+        # Create view_trainee_progress task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='view_trainee_progress',
-            task_data={
-                'step': 'ask_client_id',
-                'trainer_id': trainer_id
-            }
+            task_data={'step': 'ask_client_id'}
         )
         
         if not task_id:
@@ -69,15 +66,14 @@ def handle_export_habit_data(phone: str, trainer_id: str, db, whatsapp, task_ser
         if not report_type:
             report_type = 'weekly'  # default
         
-        # Create trainee_report task - use phone for task identification
+        # Create trainee_report task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=trainer_id,
             role='trainer',
             task_type='trainee_report',
             task_data={
                 'step': 'ask_client_id',
-                'report_type': report_type,
-                'trainer_id': trainer_id
+                'report_type': report_type
             }
         )
         

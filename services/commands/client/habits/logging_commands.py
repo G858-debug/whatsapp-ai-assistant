@@ -86,18 +86,17 @@ def handle_log_habits(phone: str, client_id: str, db, whatsapp, task_service, ha
         if habit_id:
             return handle_single_habit_logging(phone, client_id, habit_id, habits, db, whatsapp, task_service)
 
-        # Create log_habits task waiting for habit ID selection - use phone for task identification
+        # Create log_habits task waiting for habit ID selection
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=client_id,
             role='client',
             task_type='log_habits',
             task_data={
-                'habits': [{'habit_id': h.get('habit_id'), 'habit_name': h.get('habit_name'),
-                           'target_value': h.get('target_value'), 'unit': h.get('unit')}
+                'habits': [{'habit_id': h.get('habit_id'), 'habit_name': h.get('habit_name'), 
+                           'target_value': h.get('target_value'), 'unit': h.get('unit')} 
                           for h in habits],
                 'waiting_for_habit_id': True,
-                'logged_values': {},
-                'client_id': client_id
+                'logged_values': {}
             }
         )
         
@@ -161,20 +160,19 @@ def handle_single_habit_logging(phone: str, client_id: str, habit_id: str, habit
             whatsapp.send_message(phone, error_msg)
             return {'success': False, 'response': error_msg, 'handler': 'log_habits_invalid_id'}
         
-        # Create task for single habit logging - use phone for task identification
+        # Create task for single habit logging
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=client_id,
             role='client',
             task_type='log_habits',
             task_data={
-                'habits': [{'habit_id': selected_habit.get('habit_id'), 'habit_name': selected_habit.get('habit_name'),
+                'habits': [{'habit_id': selected_habit.get('habit_id'), 'habit_name': selected_habit.get('habit_name'), 
                            'target_value': selected_habit.get('target_value'), 'unit': selected_habit.get('unit')}],
                 'waiting_for_habit_id': False,
                 'waiting_for_value': True,
                 'current_habit_id': selected_habit.get('habit_id'),
                 'selected_habit': selected_habit,
-                'logged_values': {},
-                'client_id': client_id
+                'logged_values': {}
             }
         )
         

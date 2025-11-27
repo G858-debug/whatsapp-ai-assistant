@@ -102,30 +102,18 @@ class ClientModel:
             }
     
     def get_trainer_clients(self, trainer_id: str, status: str = 'active') -> List[Dict]:
-        """Get all clients for a trainer using relationship table"""
+        """Get all clients for a trainer"""
         try:
-            # Get client IDs from trainer_client_list relationship table
-            relationships = self.db.table('trainer_client_list')\
-                .select('client_id')\
-                .eq('trainer_id', trainer_id)\
-                .eq('connection_status', status)\
-                .execute()
-
-            if not relationships.data:
-                return []
-
-            # Extract client_ids
-            client_ids = [rel['client_id'] for rel in relationships.data]
-
-            # Fetch full client data
-            clients = self.db.table('clients')\
-                .select('*')\
-                .in_('client_id', client_ids)\
-                .order('name')\
-                .execute()
-
-            return clients.data if clients.data else []
-
+            query = self.db.table('clients').select('*').eq(
+                'trainer_id', trainer_id
+            )
+            
+            if status:
+                query = query.eq('status', status)
+            
+            result = query.order('name').execute()
+            return result.data
+            
         except Exception as e:
             log_error(f"Error getting trainer clients: {str(e)}")
             return []

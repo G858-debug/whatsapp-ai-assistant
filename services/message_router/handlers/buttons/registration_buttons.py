@@ -4,7 +4,6 @@ Handles registration and login button interactions
 """
 from typing import Dict
 from utils.logger import log_info, log_error
-from services.flows.whatsapp_flow_trainer_onboarding import WhatsAppFlowTrainerOnboarding
 
 
 class RegistrationButtonHandler:
@@ -38,31 +37,7 @@ class RegistrationButtonHandler:
     def _handle_register_trainer(self, phone: str) -> Dict:
         """Handle trainer registration button"""
         try:
-            log_info(f"Registration button clicked: register_trainer for phone: {phone}")
-
-            # Try WhatsApp Flow first
-            log_info(f"Attempting WhatsApp Flow for trainer onboarding: {phone}")
-            try:
-                flow_handler = WhatsAppFlowTrainerOnboarding(self.db, self.whatsapp)
-                flow_result = flow_handler.send_flow(phone)
-
-                if flow_result.get('success') == True:
-                    log_info(f"WhatsApp Flow sent successfully to {phone}")
-                    return {
-                        'success': True,
-                        'response': 'WhatsApp Flow sent successfully',
-                        'handler': 'register_trainer_flow',
-                        'method': 'whatsapp_flow'
-                    }
-                else:
-                    # Flow failed, log and fall back to text-based registration
-                    log_info(f"WhatsApp Flow failed for {phone}, using text-based registration fallback. Reason: {flow_result.get('error', 'Unknown error')}")
-            except Exception as flow_error:
-                # Flow exception, log and fall back to text-based registration
-                log_error(f"WhatsApp Flow exception for {phone}, using text-based registration fallback: {str(flow_error)}")
-
-            # Fallback to text-based registration
-            log_info(f"Starting text-based registration for trainer: {phone}")
+            log_info(f"Registration button clicked: register_trainer")
             from services.flows import RegistrationFlowHandler
             handler = RegistrationFlowHandler(
                 self.db, self.whatsapp, self.auth_service,

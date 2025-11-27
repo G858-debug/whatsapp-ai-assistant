@@ -6,8 +6,7 @@ from typing import Dict, Optional, Tuple
 from datetime import datetime
 import pytz
 import secrets
-from utils.logger import log_info, log_error, log_warning
-from config import Config
+from utils.logger import log_info, log_error
 
 
 class InvitationManager:
@@ -136,18 +135,18 @@ class InvitationManager:
         try:
             # Get trainer info
             trainer_result = self.db.table('trainers').select('*').eq(
-                'id', trainer_id
+                'trainer_id', trainer_id
             ).execute()
-
+            
             if not trainer_result.data:
                 return False, "Trainer not found"
-
+            
             trainer = trainer_result.data[0]
             trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
-
+            
             # Generate invitation token
             invitation_token = self.generate_invitation_token()
-
+            
             # Store invitation in database with complete prefilled data
             invitation_data = {
                 'trainer_id': trainer['id'],  # Use UUID from trainer record
@@ -159,12 +158,12 @@ class InvitationManager:
                 'status': 'pending',
                 'created_at': datetime.now(self.sa_tz).isoformat()
             }
-
+            
             # Insert or update invitation
             existing = self.db.table('client_invitations').select('id').eq(
                 'client_phone', client_phone
             ).eq('trainer_id', trainer['id']).eq('status', 'pending').execute()
-
+            
             if existing.data:
                 # Update existing invitation
                 self.db.table('client_invitations').update(invitation_data).eq(
@@ -173,10 +172,10 @@ class InvitationManager:
             else:
                 # Create new invitation
                 self.db.table('client_invitations').insert(invitation_data).execute()
-
+            
             # Create invitation message with prefilled data
             client_name = client_data.get('name') or client_data.get('full_name', 'there')
-
+            
             message = (
                 f"🎯 *Training Invitation*\n\n"
                 f"Hi {client_name}! 👋\n\n"
@@ -184,168 +183,39 @@ class InvitationManager:
                 f"📋 *Your Profile:*\n"
                 f"• Name: {client_name}\n"
             )
-
+            
             if client_data.get('email') and client_data['email'].lower() not in ['skip', 'none']:
                 message += f"• Email: {client_data['email']}\n"
             if client_data.get('fitness_goals'):
                 message += f"• Goals: {client_data['fitness_goals']}\n"
             if client_data.get('experience_level'):
                 message += f"• Experience: {client_data['experience_level']}\n"
-
+            
             message += (
                 f"\n👨‍🏫 *Your Trainer:*\n"
                 f"• Name: {trainer_name}\n"
                 f"• ID: {trainer_id}\n"
             )
-
+            
             if trainer.get('specialization'):
                 message += f"• Specialization: {trainer['specialization']}\n"
-
+            
             message += f"\n✅ Do you accept this invitation and want to train with {trainer_name}?"
-
+            
             # Send with buttons (use trainer_id string, not UUID)
             trainer_string_id = trainer.get('trainer_id')
             buttons = [
                 {'id': f'approve_new_client_{trainer_string_id}', 'title': '✅ Accept'},
                 {'id': f'reject_new_client_{trainer_string_id}', 'title': '❌ Decline'}
             ]
-
+            
             self.whatsapp.send_button_message(client_phone, message, buttons)
-
+            
             log_info(f"Sent new client invitation from trainer {trainer_id} to {client_phone}")
             return True, "Invitation sent"
-
+            
         except Exception as e:
             log_error(f"Error sending new client invitation: {str(e)}")
-            return False, str(e)
-
-    def send_client_fills_invitation(self, trainer_id: str, client_phone: str,
-                                     client_name: str, selected_price: Optional[int] = None) -> Tuple[bool, str]:
-        """Send invitation to client who will fill their own profile
-
-        Args:
-            trainer_id: UUID of the trainer
-            client_phone: Client's phone number
-            client_name: Client's name
-            selected_price: Price per session as integer (None if "discuss later")
-
-        Returns:
-            Tuple of (success: bool, message: str)
-        """
-        try:
-            # Get trainer info
-            trainer_result = self.db.table('trainers').select('*').eq(
-                'id', trainer_id
-            ).execute()
-
-            if not trainer_result.data:
-                return False, "Trainer not found"
-
-            trainer = trainer_result.data[0]
-            trainer_name = trainer.get('name') or f"{trainer.get('first_name', '')} {trainer.get('last_name', '')}".strip()
-
-            # Generate invitation token
-            invitation_token = self.generate_invitation_token()
-
-            # Store invitation in database
-            invitation_data = {
-                'trainer_id': trainer['id'],  # Use UUID from trainer record
-                'client_phone': client_phone,
-                'client_name': client_name,
-                'invitation_token': invitation_token,
-                'status': 'pending_client_completion',
-                'profile_completion_method': 'client_fills',
-                'custom_price': selected_price,  # Can be None
-                'created_at': datetime.now(self.sa_tz).isoformat(),
-                'updated_at': datetime.now(self.sa_tz).isoformat()
-            }
-
-            # Check for ANY existing invitation for this trainer-client pair (regardless of status)
-            existing = self.db.table('client_invitations').select('id').eq(
-                'client_phone', client_phone
-            ).eq('trainer_id', trainer['id']).execute()
-
-            if existing.data and len(existing.data) > 0:
-                # Update existing invitation
-                invitation_id = existing.data[0]['id']
-                self.db.table('client_invitations').update(invitation_data).eq(
-                    'id', invitation_id
-                ).execute()
-                log_info(f"Updated existing invitation {invitation_id} for client {client_phone}")
-            else:
-                # Create new invitation
-                invitation_result = self.db.table('client_invitations').insert(invitation_data).execute()
-                invitation_id = invitation_result.data[0]['id']
-                log_info(f"Created new invitation {invitation_id} for client {client_phone}")
-
-            # Get invitation ID for button payloads
-            invitation_query = self.db.table('client_invitations').select('id').eq(
-                'client_phone', client_phone
-            ).eq('trainer_id', trainer['id']).eq('status', 'pending_client_completion').execute()
-
-            if not invitation_query.data:
-                log_error(f"Could not find invitation for buttons: {client_phone}")
-                return False, "Invitation created but missing ID"
-
-            invitation_id = invitation_query.data[0]['id']
-
-            # Generate flow token
-            flow_token = f"client_onboarding_invitation_{invitation_id}_{client_phone}_{int(datetime.now().timestamp())}"
-
-            # Store flow token with trainer data
-            try:
-                from datetime import timedelta
-                self.db.table('flow_tokens').insert({
-                    'flow_token': flow_token,
-                    'phone_number': client_phone,
-                    'flow_type': 'client_onboarding',
-                    'flow_data': {
-                        'invitation_id': str(invitation_id),
-                        'trainer_id': str(trainer_id),
-                        'trainer_name': trainer_name,
-                        'selected_price': str(selected_price) if selected_price else None
-                    },
-                    'created_at': datetime.now(self.sa_tz).isoformat(),
-                    'expires_at': (datetime.now(self.sa_tz) + timedelta(days=7)).isoformat()
-                }).execute()
-                log_info(f"Stored flow token: {flow_token}")
-            except Exception as e:
-                log_warning(f"Could not store flow token: {str(e)}")
-
-            # Use configured client onboarding flow ID
-            flow_id = Config.CLIENT_ONBOARDING_FLOW_ID
-
-            # Create invitation message
-            message = (
-                f"🎯 *Training Invitation*\n\n"
-                f"Hi {client_name or 'there'}! 👋\n\n"
-                f"*{trainer_name}* has invited you to start training together!\n\n"
-                f"📋 *Next steps:*\n"
-                f" - Accept the invitation below\n"
-                f" - Complete your fitness profile (2 minutes)\n"
-                f" - Start your fitness journey!\n\n"
-                f"💰 *Pricing*: R{int(selected_price)} per session\n\n" if selected_price else f"💰 *Pricing*: To discuss with trainer directly\n\n"
-                f"Ready to get started?"
-            )
-
-            # Send button message with accept/decline options
-            buttons = [
-                {'id': f'accept_invitation_{invitation_id}', 'title': '✅ Accept invitation'},
-                {'id': f'decline_invitation_{invitation_id}', 'title': '❌ Decline invitation'}
-            ]
-
-            self.whatsapp.send_button_message(client_phone, message, buttons)
-            success = True  # Button message sent successfully
-
-            if not success:
-                log_error(f"Failed to send button message to {client_phone}")
-                return False, "Failed to send button message"
-
-            log_info(f"Sent client_fills invitation from trainer {trainer_id} to {client_phone}")
-            return True, "Invitation sent successfully"
-
-        except Exception as e:
-            log_error(f"Error sending client_fills invitation: {str(e)}")
             return False, str(e) 
    
     def create_relationship(self, trainer_id: str, client_id: str, 

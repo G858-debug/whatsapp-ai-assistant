@@ -6,30 +6,25 @@
     "basic_info": ["business_details"],
     "business_details": ["availability"],
     "availability": ["preferences"],
-    "preferences": ["business_setup"],
-    "business_setup": ["pricing_smart"],
-    "pricing_smart": ["terms_agreement"],
-    "terms_agreement": ["registration_complete"],
-    "registration_complete": []
+    "preferences": ["services"],
+    "services": ["pricing"],
+    "pricing": ["confirmation"],
+    "confirmation": []
   },
   "screens": [
     {
       "id": "welcome",
-      "title": "Welcome to Refiloe! 🎉",
+      "title": "Edit Your Profile ✏️",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "My name is Refiloe, I'm your AI-powered personal assistant! Let's get you set up as a trainer in just a few steps. 💪"
-          },
-          {
-            "type": "Image",
-            "src": "https://refiloeradebe.co.za/wp-content/uploads/2025/09/GPT_Image_1_also_two_small_dumbells_in_the_background_against_0-683x1024.png"
+            "text": "Let's update your trainer profile! 📝\n\nNote: Current values are not pre-filled. Only update the fields you want to change. Leave fields blank to keep current values."
           },
           {
             "type": "Footer",
-            "label": "This will take about 2 minutes ⏱️",
+            "label": "Continue",
             "on-click-action": {
               "name": "navigate",
               "next": {
@@ -49,7 +44,7 @@
         "children": [
           {
             "type": "TextBody",
-            "text": "First, let's get your basic information 📝"
+            "text": "Update your basic information (leave blank to keep current values) 📝"
           },
           {
             "type": "Form",
@@ -59,25 +54,25 @@
                 "type": "TextInput",
                 "name": "first_name",
                 "label": "First Name",
-                "required": true
+                "required": false
               },
               {
                 "type": "TextInput",
                 "name": "surname",
-                "label": "Surname",
-                "required": true
+                "label": "Surname (optional)",
+                "required": false
               },
               {
                 "type": "TextInput",
                 "name": "email",
                 "label": "Email Address",
-                "required": true
+                "required": false
               },
               {
                 "type": "TextInput",
                 "name": "city",
                 "label": "City / Location",
-                "required": true
+                "required": false
               },
               {
                 "type": "Footer",
@@ -103,7 +98,7 @@
         "children": [
           {
             "type": "TextBody",
-            "text": "Tell us about your training business 💼"
+            "text": "Update your business information (optional updates) 💼"
           },
           {
             "type": "Form",
@@ -119,7 +114,7 @@
                 "type": "CheckboxGroup",
                 "name": "specializations",
                 "label": "Specializations",
-                "required": true,
+                "required": false,
                 "data-source": [
                   {
                     "id": "personal_training",
@@ -162,9 +157,13 @@
               {
                 "type": "Dropdown",
                 "name": "experience_years",
-                "label": "Years of Experience",
-                "required": true,
+                "label": "Years Experience",
+                "required": false,
                 "data-source": [
+                  {
+                    "id": "",
+                    "title": "Keep current value"
+                  },
                   {
                     "id": "0-1",
                     "title": "0-1 years"
@@ -191,7 +190,7 @@
                 "type": "TextInput",
                 "name": "pricing_per_session",
                 "label": "Price per session",
-                "required": true
+                "required": false
               },
               {
                 "type": "Footer",
@@ -217,7 +216,7 @@
         "children": [
           {
             "type": "TextBody",
-            "text": "When are you available for training sessions? 📅"
+            "text": "Update your availability (optional) 📅"
           },
           {
             "type": "Form",
@@ -227,7 +226,7 @@
                 "type": "CheckboxGroup",
                 "name": "available_days",
                 "label": "Available Days",
-                "required": true,
+                "required": false,
                 "data-source": [
                   {
                     "id": "monday",
@@ -262,9 +261,13 @@
               {
                 "type": "Dropdown",
                 "name": "preferred_time_slots",
-                "label": "Preferred Time Slots",
-                "required": true,
+                "label": "Time Slots",
+                "required": false,
                 "data-source": [
+                  {
+                    "id": "",
+                    "title": "Keep current value"
+                  },
                   {
                     "id": "early_morning",
                     "title": "Early Morning (5:00-8:00)"
@@ -305,13 +308,13 @@
     },
     {
       "id": "preferences",
-      "title": "Subscription Plan",
+      "title": "Preferences",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "Choose your subscription plan 🎯"
+            "text": "Update your preferences (optional) 🎯"
           },
           {
             "type": "Form",
@@ -320,9 +323,13 @@
               {
                 "type": "Dropdown",
                 "name": "subscription_plan",
-                "label": "Choose Your Plan",
-                "required": true,
+                "label": "Subscription Plan",
+                "required": false,
                 "data-source": [
+                  {
+                    "id": "",
+                    "title": "Keep current plan"
+                  },
                   {
                     "id": "free",
                     "title": "Free Plan - Up to 5 clients"
@@ -338,13 +345,39 @@
                 ]
               },
               {
+                "type": "CheckboxGroup",
+                "name": "notification_preferences",
+                "label": "Notifications",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "whatsapp",
+                    "title": "WhatsApp Messages"
+                  },
+                  {
+                    "id": "email",
+                    "title": "Email Notifications"
+                  },
+                  {
+                    "id": "sms",
+                    "title": "SMS Messages"
+                  }
+                ]
+              },
+              {
+                "type": "OptIn",
+                "name": "marketing_consent",
+                "label": "Marketing emails",
+                "required": false
+              },
+              {
                 "type": "Footer",
                 "label": "Continue",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
                     "type": "screen",
-                    "name": "business_setup"
+                    "name": "services"
                   }
                 }
               }
@@ -354,18 +387,18 @@
       }
     },
     {
-      "id": "business_setup",
-      "title": "Additional Services",
+      "id": "services",
+      "title": "Services Offered",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "What additional services do you offer? 🏢"
+            "text": "Update services you offer (optional) 🏢"
           },
           {
             "type": "Form",
-            "name": "business_setup_form",
+            "name": "services_form",
             "children": [
               {
                 "type": "CheckboxGroup",
@@ -402,7 +435,7 @@
                   "name": "navigate",
                   "next": {
                     "type": "screen",
-                    "name": "pricing_smart"
+                    "name": "pricing"
                   }
                 }
               }
@@ -412,14 +445,14 @@
       }
     },
     {
-      "id": "pricing_smart",
+      "id": "pricing",
       "title": "Pricing Options",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "Set up your pricing options 💰"
+            "text": "Update your pricing options (optional) 💰"
           },
           {
             "type": "Form",
@@ -446,72 +479,6 @@
                 ]
               },
               {
-                "type": "Footer",
-                "label": "Continue",
-                "on-click-action": {
-                  "name": "navigate",
-                  "next": {
-                    "type": "screen",
-                    "name": "terms_agreement"
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": "terms_agreement",
-      "title": "Terms & Conditions",
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextBody",
-            "text": "Please agree to our terms to complete your registration."
-          },
-          {
-            "type": "Form",
-            "name": "terms_form",
-            "children": [
-              {
-                "type": "TextBody",
-                "text": "View our Terms of Service:\nhttps://refiloe.ai/terms\n\nView our Privacy Policy:\nhttps://refiloe.ai/privacy"
-              },
-              {
-                "type": "CheckboxGroup",
-                "name": "notification_preferences",
-                "label": "Notifications",
-                "required": false,
-                "data-source": [
-                  {
-                    "id": "whatsapp",
-                    "title": "WhatsApp Messages"
-                  },
-                  {
-                    "id": "email",
-                    "title": "Email Notifications"
-                  },
-                  {
-                    "id": "sms",
-                    "title": "SMS Messages"
-                  }
-                ]
-              },
-              {
-                "type": "OptIn",
-                "name": "marketing_consent",
-                "label": "Marketing emails",
-                "required": false
-              },
-              {
-                "type": "OptIn",
-                "name": "terms_accepted",
-                "label": "Accept Terms",
-                "required": true
-              },
-              {
                 "type": "TextArea",
                 "name": "additional_notes",
                 "label": "Additional Notes",
@@ -519,12 +486,12 @@
               },
               {
                 "type": "Footer",
-                "label": "Complete Registration",
+                "label": "Continue",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
                     "type": "screen",
-                    "name": "registration_complete"
+                    "name": "confirmation"
                   }
                 }
               }
@@ -534,15 +501,15 @@
       }
     },
     {
-      "id": "registration_complete",
-      "title": "Congratulations!!",
+      "id": "confirmation",
+      "title": "Profile Updated! ✅",
       "terminal": true,
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextBody",
-            "text": "Your trainer profile has been created successfully. We'll send you a link to set up your availability schedule."
+            "text": "Your trainer profile has been successfully updated! 🎉\n\nOnly the fields you changed have been updated. Your existing information remains unchanged."
           },
           {
             "type": "Image",

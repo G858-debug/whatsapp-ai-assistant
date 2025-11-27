@@ -1,0 +1,103 @@
+{
+  "version": "4.0",
+  "screens": [
+    {
+      "id": "overview",
+      "title": "📊 Progress Overview",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Your Habit Progress"
+          },
+          {
+            "type": "TextBody",
+            "text": "Here's how you're doing with your daily habits:"
+          },
+          {
+            "type": "TextBody",
+            "text": "🔥 Current Streaks:\n💧 Water: ${streaks.water} days\n😴 Sleep: ${streaks.sleep} days\n🚶 Steps: ${streaks.steps} days\n💪 Workouts: ${streaks.workout} days"
+          },
+          {
+            "type": "Footer",
+            "label": "View Weekly Chart",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "weekly_summary"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "weekly_summary",
+      "title": "📅 This Week",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "7-Day Progress"
+          },
+          {
+            "type": "TextBody",
+            "text": "Your habit completion this week:"
+          },
+          {
+            "type": "TextBody",
+            "text": "💧 Water: ✅✅✅⭕✅✅✅\n😴 Sleep: ✅✅⭕✅✅✅✅\n🚶 Steps: ✅⭕✅✅✅⭕✅\n💪 Workout: ✅⭕⭕✅✅✅⭕"
+          },
+          {
+            "type": "Footer",
+            "label": "Get Insights",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "insights"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "insights",
+      "title": "💡 Insights",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Personal Insights"
+          },
+          {
+            "type": "TextBody",
+            "text": "Based on your habit data:"
+          },
+          {
+            "type": "TextBody",
+            "text": "🌟 You're most consistent with water intake - keep it up!\n\n💪 Try to improve workout consistency - aim for 4 days this week.\n\n😴 Your sleep pattern is good, maintain 7-8 hours nightly."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "action": "view_progress"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

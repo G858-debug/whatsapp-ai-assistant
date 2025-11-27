@@ -219,9 +219,9 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
             "Type /stop to cancel"
         )
         
-        # Create edit_profile task with field selection step - use phone for task identification
+        # Create edit_profile task with field selection step
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=user_id,
             role=role,
             task_type='edit_profile',
             task_data={
@@ -229,9 +229,7 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
                 'selected_fields': [],
                 'current_field_index': 0,
                 'updates': {},
-                'role': role,
-                'trainer_id': user_id if role == 'trainer' else None,
-                'client_id': user_id if role == 'client' else None
+                'role': role
             }
         )
         
@@ -260,16 +258,14 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
 def handle_delete_account(phone: str, role: str, user_id: str, db, whatsapp, auth_service, task_service) -> Dict:
     """Handle delete account command"""
     try:
-        # Create delete_account task - use phone for task identification
+        # Create delete_account task
         task_id = task_service.create_task(
-            user_id=phone,
+            user_id=user_id,
             role=role,
             task_type='delete_account',
             task_data={
                 'confirmed': False,
-                'role': role,
-                'trainer_id': user_id if role == 'trainer' else None,
-                'client_id': user_id if role == 'client' else None
+                'role': role
             }
         )
         
