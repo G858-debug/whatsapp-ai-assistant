@@ -76,7 +76,7 @@ class WhatsAppFlowHandler:
 
 
     def send_trainer_onboarding_flow(self, phone_number: str) -> Dict:
-        """Send the trainer onboarding flow to a phone number with automatic fallback"""
+        """Send the trainer onboarding flow to a phone number"""
         try:
             # Check if user is already a trainer
             existing_trainer = self.supabase.table('trainers').select('*').eq('whatsapp', phone_number).execute()
@@ -87,51 +87,34 @@ class WhatsAppFlowHandler:
                     'message': 'You are already registered as a trainer! If you need help, please contact support.'
                 }
             
-            # Try WhatsApp Flow first
+            # Send WhatsApp Flow
             flow_result = self._attempt_flow_sending(phone_number)
             
             if flow_result.get('success'):
                 log_info(f"WhatsApp Flow sent successfully to {phone_number}")
                 return flow_result
             
-            # AUTOMATIC FALLBACK: Start text-based registration
-            log_info(f"WhatsApp Flow failed for {phone_number}, automatically falling back to text registration")
-            log_info(f"Flow failure reason: {flow_result.get('error', 'Unknown error')}")
+            # NO FALLBACK - Just return error with helpful message
+            log_error(f"WhatsApp Flow failed for {phone_number}: {flow_result.get('error')}")
             
-            fallback_result = self._start_text_based_registration(phone_number)
+            # Send helpful error message to user
+            try:
+                self.whatsapp_service.send_message(
+                    phone_number,
+                    "😔 Sorry, I couldn't start the registration form. "
+                    "Please try again in a few minutes or contact support."
+                )
+            except Exception as msg_error:
+                log_error(f"Failed to send error message: {str(msg_error)}")
             
-            if fallback_result.get('success'):
-                return {
-                    'success': True,
-                    'method': 'text_fallback',
-                    'message': 'Started text-based registration (WhatsApp Flow not available)',
-                    'fallback_reason': flow_result.get('error', 'Flow unavailable')
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': 'Both flow and text registration failed',
-                    'details': {
-                        'flow_error': flow_result.get('error'),
-                        'fallback_error': fallback_result.get('error')
-                    }
-                }
+            return {
+                'success': False,
+                'error': flow_result.get('error', 'Flow sending failed'),
+                'message': 'Registration flow unavailable'
+            }
                 
         except Exception as e:
-            log_error(f"Error in trainer onboarding flow with fallback: {str(e)}")
-            
-            # Last resort fallback
-            try:
-                fallback_result = self._start_text_based_registration(phone_number)
-                if fallback_result.get('success'):
-                    return {
-                        'success': True,
-                        'method': 'emergency_fallback',
-                        'message': 'Started text-based registration (emergency fallback)'
-                    }
-            except Exception as fallback_error:
-                log_error(f"Emergency fallback also failed: {str(fallback_error)}")
-            
+            log_error(f"Error in trainer onboarding flow: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
@@ -1111,76 +1094,7 @@ Welcome to the Refiloe family! 💪"""
                 'fallback_required': True
             }
     
-    def _start_text_based_registration(self, phone_number: str) -> Dict:
-        """Start text-based registration as fallback"""
-        try:
-            from services.registration.trainer_registration import TrainerRegistrationHandler
-            from services.registration.registration_state import RegistrationStateManager
-            
-            # Initialize handlers
-            trainer_reg = TrainerRegistrationHandler(self.supabase, self.whatsapp_service)
-            state_manager = RegistrationStateManager(self.supabase)
-            
-            # Check for existing registration state
-            existing_state = state_manager.get_registration_state(phone_number)
-            
-            if existing_state and existing_state.get('user_type') == 'trainer':
-                # Resume existing registration
-                current_step = existing_state.get('current_step', 0)
-                
-                if current_step == 0:
-                    welcome_message = trainer_reg.start_registration(phone_number)
-                else:
-                    # Create resume message
-                    step_info = trainer_reg.STEPS.get(current_step)
-                    if step_info:
-                        welcome_message = (
-                            f"Welcome back! Let's continue your trainer registration.\n\n"
-                            f"📝 *Step {current_step + 1} of 7*\n\n"
-                            f"{step_info['prompt'](current_step + 1)}"
-                        )
-                    else:
-                        # Fallback to restart if step is invalid
-                        welcome_message = trainer_reg.start_registration(phone_number)
-                        current_step = 0
-                
-                log_info(f"Resuming trainer registration for {phone_number} at step {current_step}")
-            else:
-                # Start new registration
-                welcome_message = trainer_reg.start_registration(phone_number)
-                state_manager.create_registration_state(phone_number, 'trainer')
-                current_step = 0
-                log_info(f"Starting new trainer registration for {phone_number}")
-            
-            # Send welcome message
-            send_result = self.whatsapp_service.send_message(phone_number, welcome_message)
-            
-            if send_result.get('success', True):  # Assume success if no explicit failure
-                return {
-                    'success': True,
-                    'message': welcome_message,
-                    'registration_step': current_step,
-                    'method': 'text_based'
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f'Failed to send welcome message: {send_result.get("error")}'
-                }
-                
-        except ImportError as e:
-            log_error(f"Import error in text-based registration fallback: {str(e)}")
-            return {
-                'success': False,
-                'error': f'Registration modules not available: {str(e)}'
-            }
-        except Exception as e:
-            log_error(f"Error starting text-based registration: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
-    
+
     def handle_trainer_registration_request(self, phone_number: str) -> Dict:
         """Main entry point for trainer registration - tries flow first, falls back to text"""
         try:
