@@ -125,22 +125,33 @@ class WhatsAppFlowTrainerOnboarding:
             log_info(f"Flow data received: {flow_data}")
 
             # Extract all fields from flow_data
+            # Basic info
             first_name = flow_data.get('first_name', '').strip()
             surname = flow_data.get('surname', '').strip()
             email = flow_data.get('email', '').strip().lower()
             city = flow_data.get('city', '').strip()
-            specialization = flow_data.get('specialization', '').strip()
+            sex = flow_data.get('sex', '')
+            birthdate = flow_data.get('birthdate', '')
+            
+            # Business details
+            business_name = flow_data.get('business_name', '')
+            specializations = flow_data.get('specializations', [])  # Array from CheckboxGroup
             experience_years = flow_data.get('experience_years', '')
             pricing_per_session = flow_data.get('pricing_per_session', '')
-            available_days = flow_data.get('available_days', [])
-            preferred_time_slots = flow_data.get('preferred_time_slots', '')
-            subscription_plan = flow_data.get('subscription_plan', 'free')
+            
+            # Preferences
+            subscription_plan = flow_data.get('subscription_plan', 'basic')
+            
+            # Business setup
+            services_offered = flow_data.get('services_offered', [])  # Array from CheckboxGroup
+            
+            # Terms
+            terms_accepted = flow_data.get('terms_accepted', False)
+            additional_notes = flow_data.get('additional_notes', '')
+            
+            # Legacy fields (for backward compatibility)
             notification_preferences = flow_data.get('notification_preferences', [])
             marketing_consent = flow_data.get('marketing_consent', False)
-            terms_accepted = flow_data.get('terms_accepted', False)
-
-            # Additional fields that might come from the flow
-            business_name = flow_data.get('business_name', '')
 
             # Validate required fields
             validation_errors = []
@@ -195,92 +206,95 @@ class WhatsAppFlowTrainerOnboarding:
             # Prepare trainer data for database
             full_name = f"{first_name} {surname}"
 
+            # Generate VARCHAR trainer_id (e.g., "TR_JOHN_123")
+            varchar_trainer_id = self._generate_trainer_id(first_name, surname)
+            
+            # Process specializations - save both array and comma-separated text
+            specializations_arr = specializations if isinstance(specializations, list) else []
+            specialization_text = ', '.join(specializations_arr) if specializations_arr else None
+            
+            # Build working_hours JSONB from weekly availability
+            working_hours = self._build_working_hours(flow_data)
+            
+            # Extract available_days and preferred_time_slots for backward compatibility
+            available_days_list = self._extract_available_days(working_hours)
+            preferred_time_slots_text = self._extract_preferred_time_slots(working_hours)
+
             trainer_data = {
+                # IDs and contact
+                'trainer_id': varchar_trainer_id,  # VARCHAR ID for queries
                 'whatsapp': phone_number,
+                'email': email,
+                
+                # Personal info
                 'name': full_name,
                 'first_name': first_name,
                 'last_name': surname,
-                'email': email,
+                'sex': sex if sex else None,
+                'birthdate': birthdate if birthdate else None,
+                
+                # Location
                 'city': city if city else None,
-                'location': city if city else None,  # Alias for backward compatibility
-                'specialization': specialization if specialization else None,
-                'experience_years': self._parse_experience_years(experience_years or '0'),
-                'years_experience': self._parse_experience_years(experience_years or '0'),  # Alias
+                'location': city if city else None,  # Backward compatibility
+                
+                # Business info
+                'business_name': business_name if business_name else None,
+                
+                # Specializations - both formats
+                'specializations_arr': specializations_arr,  # JSONB array
+                'specialization': specialization_text,  # TEXT comma-separated (backward compatibility)
+                
+                # Experience
+                'experience_years': experience_years if experience_years else None,
+                'years_experience': self._parse_experience_years(experience_years or '0'),  # INT (backward compatibility)
+                
+                # Pricing
                 'pricing_per_session': int(float(pricing_per_session)) if pricing_per_session else None,
-                'status': 'active',
-                'onboarding_method': 'flow',
+                
+                # Availability - new detailed format
+                'working_hours': working_hours,  # JSONB with full weekly schedule
+                
+                # Availability - legacy format (backward compatibility)
+                'available_days': available_days_list,  # JSONB array of day names
+                'preferred_time_slots': preferred_time_slots_text,  # TEXT description
+                
+                # Services
+                'services_offered': services_offered if isinstance(services_offered, list) else [],  # JSONB array
+                
+                # Subscription
+                'subscription_status': subscription_plan if subscription_plan else 'basic',
+                
+                # Preferences
+                'notification_preferences': notification_preferences if isinstance(notification_preferences, list) else [],
+                
+                # Consent
                 'terms_accepted': terms_accepted,
                 'marketing_consent': marketing_consent,
+                
+                # Notes
+                'additional_notes': additional_notes if additional_notes else None,
+                
+                # Status and metadata
+                'status': 'active',
+                'onboarding_method': 'flow',
+                'registration_method': 'flow',
                 'created_at': datetime.now(self.sa_tz).isoformat(),
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }
-
-            # Add optional fields
-            if business_name:
-                trainer_data['business_name'] = business_name
-
-            # Handle JSONB fields
-            if available_days:
-                # Convert to list if it's a string or ensure it's a proper list
-                if isinstance(available_days, str):
-                    trainer_data['available_days'] = [day.strip() for day in available_days.split(',')]
-                else:
-                    trainer_data['available_days'] = available_days
-
-            if preferred_time_slots:
-                trainer_data['preferred_time_slots'] = preferred_time_slots
-
-            if notification_preferences:
-                # Ensure it's a list
-                if isinstance(notification_preferences, str):
-                    trainer_data['notification_preferences'] = [pref.strip() for pref in notification_preferences.split(',')]
-                else:
-                    trainer_data['notification_preferences'] = notification_preferences
-
-            # Set default empty working_hours JSONB
-            trainer_data['working_hours'] = {}
 
             # Save trainer to database
             log_info(f"Saving trainer to database: {full_name} ({email})")
             result = self.db.table('trainers').insert(trainer_data).execute()
 
             if result.data and len(result.data) > 0:
-                # Get the UUID 'id' field (not 'trainer_id' VARCHAR) from insert result
-                # Database triggers ensure trainers.trainer_id VARCHAR stays synced with trainers.id UUID
-                trainer_id = result.data[0]['id']
+                # Get the VARCHAR trainer_id we just created
+                trainer_id = varchar_trainer_id
                 trainer_whatsapp = result.data[0]['whatsapp']
 
                 log_info(f"✅ Trainer created successfully: {full_name} (ID: {trainer_id})")
 
-                # Create or update users table entry to link phone number to trainer
-                try:
-                    # Check if user entry exists
-                    existing_user = self.db.table('users').select('*').eq(
-                        'phone_number', trainer_whatsapp
-                    ).execute()
-
-                    if existing_user.data:
-                        # Update existing user entry
-                        # Use UUID from trainers.id (not trainers.trainer_id VARCHAR)
-                        self.db.table('users').update({
-                            'trainer_id': trainer_id,
-                            'updated_at': datetime.now(self.sa_tz).isoformat()
-                        }).eq('phone_number', trainer_whatsapp).execute()
-                        log_info(f"Updated users table for trainer: {trainer_whatsapp}")
-                    else:
-                        # Create new user entry
-                        # Use UUID from trainers.id (not trainers.trainer_id VARCHAR)
-                        self.db.table('users').insert({
-                            'phone_number': trainer_whatsapp,
-                            'trainer_id': trainer_id,
-                            'created_at': datetime.now(self.sa_tz).isoformat(),
-                            'updated_at': datetime.now(self.sa_tz).isoformat()
-                        }).execute()
-                        log_info(f"Created users table entry for trainer: {trainer_whatsapp}")
-
-                except Exception as user_error:
-                    log_error(f"Error creating/updating users table: {str(user_error)}")
-                    # Don't fail the whole registration if users table update fails
+                # Update users table to link phone number to trainer_id
+                self._update_users_table(trainer_whatsapp, trainer_id)
 
                 # Send confirmation message
                 confirmation_msg = (
@@ -293,8 +307,8 @@ class WhatsAppFlowTrainerOnboarding:
                 if city:
                     confirmation_msg += f"📍 Location: {city}\n"
 
-                if specialization:
-                    confirmation_msg += f"💪 Specialization: {specialization}\n"
+                if specialization_text:
+                    confirmation_msg += f"💪 Specialization: {specialization_text}\n"
 
                 # Display pricing in R[amount] format if provided
                 if pricing_per_session:
@@ -451,3 +465,181 @@ class WhatsAppFlowTrainerOnboarding:
         except (ValueError, AttributeError):
             log_warning(f"Could not parse experience years: {experience_str}, defaulting to 0")
             return 0
+
+    def _update_users_table(self, phone_number: str, trainer_id: str) -> bool:
+        """
+        Create or update users table entry to link phone number to trainer_id
+
+        Args:
+            phone_number: Trainer's WhatsApp phone number
+            trainer_id: VARCHAR trainer_id (e.g., "TR_JOHN_123")
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Clean phone number for users table (remove +, -, spaces)
+            clean_phone = phone_number.replace('+', '').replace('-', '').replace(' ', '')
+
+            # Check if user entry exists
+            existing_user = self.db.table('users').select('*').eq(
+                'phone_number', clean_phone
+            ).execute()
+
+            if existing_user.data:
+                # Update existing user entry with VARCHAR trainer_id
+                self.db.table('users').update({
+                    'trainer_id': trainer_id,  # VARCHAR ID like "TR_JOHN_123"
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).eq('phone_number', clean_phone).execute()
+                log_info(f"Updated users table for trainer: {clean_phone} with trainer_id: {trainer_id}")
+            else:
+                # Create new user entry with VARCHAR trainer_id
+                self.db.table('users').insert({
+                    'phone_number': clean_phone,
+                    'trainer_id': trainer_id,  # VARCHAR ID like "TR_JOHN_123"
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }).execute()
+                log_info(f"Created users table entry for trainer: {clean_phone} with trainer_id: {trainer_id}")
+
+            return True
+
+        except Exception as e:
+            log_error(f"Error creating/updating users table: {str(e)}")
+            # Don't fail the whole registration if users table update fails
+            return False
+
+    def _generate_trainer_id(self, first_name: str, surname: str) -> str:
+        """
+        Generate unique VARCHAR trainer_id like "TR_JOHN_123"
+
+        Args:
+            first_name: Trainer's first name
+            surname: Trainer's surname
+
+        Returns:
+            Unique trainer_id string (e.g., "TR_JOHN_123")
+        """
+        import random
+        import string
+
+        try:
+            # Clean and format name part (use first 4 chars of first name)
+            name_part = (first_name[:4] if first_name else 'USER').upper()
+            # Remove non-alphanumeric characters
+            name_part = ''.join(c for c in name_part if c.isalnum())
+
+            # Generate random 3-digit suffix
+            suffix = ''.join(random.choices(string.digits, k=3))
+
+            # Construct trainer_id
+            trainer_id = f"TR_{name_part}_{suffix}"
+
+            # Check uniqueness in database
+            existing = self.db.table('trainers').select('id').eq('trainer_id', trainer_id).execute()
+
+            if existing.data:
+                # If exists, regenerate with different suffix
+                log_info(f"Trainer ID {trainer_id} already exists, regenerating...")
+                return self._generate_trainer_id(first_name, surname)
+
+            log_info(f"Generated unique trainer_id: {trainer_id}")
+            return trainer_id
+
+        except Exception as e:
+            log_error(f"Error generating trainer_id: {str(e)}")
+            # Fallback to timestamp-based ID
+            timestamp = datetime.now(self.sa_tz).strftime('%H%M%S')
+            fallback_id = f"TR_USER_{timestamp}"
+            log_warning(f"Using fallback trainer_id: {fallback_id}")
+            return fallback_id
+
+    def _build_working_hours(self, flow_data: Dict) -> Dict:
+        """
+        Build working_hours JSONB structure from flow availability data
+        
+        Args:
+            flow_data: Complete flow data with availability fields
+        
+        Returns:
+            Dict with structure:
+            {
+                "monday": {"preset": "business", "hours": ["08-09", "09-10", ...]},
+                "tuesday": {"preset": "morning", "hours": []},
+                ...
+            }
+        """
+        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        working_hours = {}
+        
+        for day in days:
+            preset_key = f"{day}_preset"
+            hours_key = f"{day}_hours"
+            
+            preset = flow_data.get(preset_key, 'not_available')
+            hours = flow_data.get(hours_key, [])
+            
+            # Ensure hours is a list
+            if isinstance(hours, str):
+                hours = [h.strip() for h in hours.split(',') if h.strip()]
+            elif not isinstance(hours, list):
+                hours = []
+            
+            working_hours[day] = {
+                "preset": preset,
+                "hours": hours
+            }
+        
+        log_info(f"Built working_hours structure with {len(working_hours)} days")
+        return working_hours
+
+    def _extract_available_days(self, working_hours: Dict) -> list:
+        """
+        Extract list of available days from working_hours for backward compatibility
+        
+        Args:
+            working_hours: JSONB working hours structure
+        
+        Returns:
+            List of day names where trainer is available (e.g., ["Monday", "Wednesday", "Friday"])
+        """
+        available_days = []
+        
+        for day, schedule in working_hours.items():
+            preset = schedule.get('preset', 'not_available')
+            
+            # Consider available if preset is not "not_available"
+            if preset and preset != 'not_available':
+                # Capitalize day name
+                available_days.append(day.capitalize())
+        
+        return available_days
+
+    def _extract_preferred_time_slots(self, working_hours: Dict) -> str:
+        """
+        Extract preferred time slots description from working_hours for backward compatibility
+        
+        Args:
+            working_hours: JSONB working hours structure
+        
+        Returns:
+            Text description of preferred times (e.g., "Morning, Evening")
+        """
+        time_preferences = set()
+        
+        for day, schedule in working_hours.items():
+            preset = schedule.get('preset', 'not_available')
+            
+            # Map presets to time slot descriptions
+            if preset == 'morning':
+                time_preferences.add('Morning')
+            elif preset == 'evening':
+                time_preferences.add('Evening')
+            elif preset == 'business':
+                time_preferences.add('Business Hours')
+            elif preset == 'full_day':
+                time_preferences.add('Full Day')
+        
+        # Return comma-separated unique preferences
+        return ', '.join(sorted(time_preferences)) if time_preferences else None
