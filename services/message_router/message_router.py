@@ -48,7 +48,7 @@ class MessageRouter:
         try:
             log_info(f"Routing message from {phone}: {message[:50]}")
 
-            # Step 0: Check for button responses (Phase 2 invitations)
+            # Step 0: Check for button responses (includes registration buttons)
             if button_id:
                 log_info(f"Button message received - phone: {phone}, button_id: {button_id}")
                 log_info(f"Routing to button_handler.handle_button_response")
@@ -85,14 +85,6 @@ class MessageRouter:
             # This handles the case where registration is in progress but user not created yet
             trainer_task = self.task_service.get_running_task(phone, 'trainer')
             client_task = self.task_service.get_running_task(phone, 'client')
-            
-            if trainer_task and trainer_task.get('task_type') == 'registration':
-                from services.flows import RegistrationFlowHandler
-                handler = RegistrationFlowHandler(
-                    self.db, self.whatsapp, self.auth_service,
-                    self.reg_service, self.task_service
-                )
-                return handler.continue_registration(phone, message, 'trainer', trainer_task)
             
             if client_task and client_task.get('task_type') == 'registration':
                 from services.flows import RegistrationFlowHandler

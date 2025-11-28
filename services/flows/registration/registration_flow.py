@@ -10,10 +10,7 @@ from ..core.field_validator import FieldValidator
 from ..core.message_builder import MessageBuilder
 from ..core.task_manager import FlowTaskManager
 
-from .new_user_handler import NewUserHandler
-from .trainer_registration import TrainerRegistrationHandler
 from .client_registration import ClientRegistrationHandler
-from .completion_handler import RegistrationCompletionHandler
 
 
 class RegistrationFlowHandler(FlowCoordinator):
@@ -30,31 +27,33 @@ class RegistrationFlowHandler(FlowCoordinator):
         self.task_manager = FlowTaskManager(task_service)
         
         # Initialize handlers
-        self.new_user_handler = NewUserHandler(whatsapp, self.message_builder)
-        self.trainer_handler = TrainerRegistrationHandler(
-            db, whatsapp, reg_service, self.validator, self.message_builder, self.task_manager
-        )
         self.client_handler = ClientRegistrationHandler(
             db, whatsapp, reg_service, self.validator, self.message_builder, self.task_manager
         )
-        self.completion_handler = RegistrationCompletionHandler(
-            db, whatsapp, auth_service, reg_service, self.message_builder, self.task_manager
-        )
     
     def handle_new_user(self, phone: str, message: str) -> Dict:
-        """Handle first message from new user"""
+        """
+        Handle first message from new user
+        
+        NOTE: This method is deprecated and should not be called for new users.
+        New users should be handled by message_router/handlers/new_user_handler.py
+        This is kept only for backward compatibility with in-progress registrations.
+        """
         try:
             # Check if this is a direct role selection
             msg_lower = message.lower().strip()
             
-            if msg_lower in ['register_trainer', 'register as trainer', 'trainer', '💪 register as trainer']:
-                return self.start_registration(phone, 'trainer')
             
-            elif msg_lower in ['register_client', 'Register as Trainee', 'client', '🏃 Register as Trainee']:
+            if msg_lower in ['register_client', 'Register as Trainee', 'client', '🏃 Register as Trainee']:
                 return self.start_registration(phone, 'client')
             
-            # First time user - show welcome and options
-            return self.new_user_handler.show_welcome_message(phone)
+            # This should not be reached for new users
+            log_error(f"RegistrationFlowHandler.handle_new_user() called unexpectedly for {phone}")
+            return {
+                'success': False,
+                'response': "Please start registration by typing 'trainer' or 'client'",
+                'handler': 'deprecated_new_user_handler'
+            }
             
         except Exception as e:
             return self.handle_flow_error(phone, None, e, 'new_user', 'new user handling')
@@ -68,9 +67,7 @@ class RegistrationFlowHandler(FlowCoordinator):
             if role == 'client' and created_by_trainer:
                 # Use trainer-add-client fields (includes phone number)
                 fields = self.reg.get_trainer_add_client_fields()
-            else:
-                # Use regular registration fields
-                fields = self.reg.get_registration_fields(role)
+            
             
             if not fields:
                 error_msg = "Sorry, registration is not available right now. Please try again later."
@@ -106,9 +103,7 @@ class RegistrationFlowHandler(FlowCoordinator):
                 }
             
             # Send intro message and first field
-            if role == 'trainer':
-                return self.trainer_handler.start_trainer_registration(phone, fields, task_id)
-            else:
+            
                 return self.client_handler.start_client_registration(phone, fields, task_id)
                 
         except Exception as e:
@@ -121,10 +116,8 @@ class RegistrationFlowHandler(FlowCoordinator):
             reg_role = task_data.get('role', role)
             
             # Route to appropriate handler
-            if reg_role == 'trainer':
-                return self.trainer_handler.continue_trainer_registration(phone, message, task)
-            else:
-                return self.client_handler.continue_client_registration(phone, message, task)
+            
+            return self.client_handler.continue_client_registration(phone, message, task)
                 
         except Exception as e:
             return self.handle_flow_error(phone, task, e, role, 'registration continuation')

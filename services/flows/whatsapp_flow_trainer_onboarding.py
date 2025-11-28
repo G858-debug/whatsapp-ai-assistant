@@ -41,6 +41,9 @@ class WhatsAppFlowTrainerOnboarding:
             Dict with success status, flow_token, or error message
         """
         try:
+            # Check for existing active flow tokens and mark as abandoned
+            self._mark_abandoned_flows(phone_number)
+            
             # Generate unique flow token for this onboarding session
             timestamp = datetime.now(self.sa_tz).strftime('%Y%m%d%H%M%S')
             flow_token = f"trainer_onboarding_{phone_number}_{timestamp}"
@@ -123,6 +126,9 @@ class WhatsAppFlowTrainerOnboarding:
         try:
             log_info(f"Processing flow completion for {phone_number}")
             log_info(f"Flow data received: {flow_data}")
+            
+            # Extract flow_token from flow_data
+            flow_token = flow_data.get('flow_token', '')
 
             # Extract all fields from flow_data
             # Basic info
@@ -177,6 +183,18 @@ class WhatsAppFlowTrainerOnboarding:
             if validation_errors:
                 error_msg = "Validation errors: " + ", ".join(validation_errors)
                 log_warning(f"Flow validation failed for {phone_number}: {error_msg}")
+                
+                # Mark flow token as failed
+                if flow_token:
+                    try:
+                        self.db.table('flow_tokens').update({
+                            'status': 'failed',
+                            'error': error_msg,
+                            'completed_at': datetime.now(self.sa_tz).isoformat()
+                        }).eq('flow_token', flow_token).execute()
+                    except Exception as e:
+                        log_warning(f"Failed to update flow token status: {str(e)}")
+                
                 return {
                     'success': False,
                     'error': error_msg,
@@ -187,6 +205,18 @@ class WhatsAppFlowTrainerOnboarding:
             existing_trainer = self._get_trainer_by_phone(phone_number)
             if existing_trainer:
                 log_warning(f"Trainer already exists with phone {phone_number}")
+                
+                # Mark flow token as failed
+                if flow_token:
+                    try:
+                        self.db.table('flow_tokens').update({
+                            'status': 'failed',
+                            'error': 'Trainer already registered',
+                            'completed_at': datetime.now(self.sa_tz).isoformat()
+                        }).eq('flow_token', flow_token).execute()
+                    except Exception as e:
+                        log_warning(f"Failed to update flow token status: {str(e)}")
+                
                 return {
                     'success': False,
                     'error': 'Trainer already registered with this phone number',
@@ -197,6 +227,18 @@ class WhatsAppFlowTrainerOnboarding:
             existing_email = self._get_trainer_by_email(email)
             if existing_email:
                 log_warning(f"Trainer already exists with email {email}")
+                
+                # Mark flow token as failed
+                if flow_token:
+                    try:
+                        self.db.table('flow_tokens').update({
+                            'status': 'failed',
+                            'error': 'Email already registered',
+                            'completed_at': datetime.now(self.sa_tz).isoformat()
+                        }).eq('flow_token', flow_token).execute()
+                    except Exception as e:
+                        log_warning(f"Failed to update flow token status: {str(e)}")
+                
                 return {
                     'success': False,
                     'error': 'This email is already registered',
@@ -330,6 +372,26 @@ class WhatsAppFlowTrainerOnboarding:
 
                 # Send confirmation via WhatsApp
                 self.whatsapp.send_message(phone_number, confirmation_msg)
+                
+                # Mark flow token as completed and clean up old tokens
+                if flow_token:
+                    try:
+                        # Mark current token as completed
+                        self.db.table('flow_tokens').update({
+                            'status': 'completed',
+                            'completed_at': datetime.now(self.sa_tz).isoformat()
+                        }).eq('flow_token', flow_token).execute()
+                        log_info(f"Flow token marked as completed: {flow_token}")
+                        
+                        # Delete any old failed/abandoned/active tokens (but not this completed one)
+                        self.db.table('flow_tokens').delete().eq(
+                            'phone_number', phone_number
+                        ).eq('flow_type', 'trainer_onboarding').neq(
+                            'flow_token', flow_token
+                        ).in_('status', ['failed', 'abandoned', 'active']).execute()
+                        log_info(f"Cleaned up old flow tokens for {phone_number}")
+                    except Exception as e:
+                        log_warning(f"Failed to update flow token status: {str(e)}")
 
                 return {
                     'success': True,
@@ -340,6 +402,18 @@ class WhatsAppFlowTrainerOnboarding:
                 }
             else:
                 log_error(f"Failed to insert trainer into database: {result}")
+                
+                # Mark flow token as failed
+                if flow_token:
+                    try:
+                        self.db.table('flow_tokens').update({
+                            'status': 'failed',
+                            'error': 'Database insert failed',
+                            'completed_at': datetime.now(self.sa_tz).isoformat()
+                        }).eq('flow_token', flow_token).execute()
+                    except Exception as e:
+                        log_warning(f"Failed to update flow token status: {str(e)}")
+                
                 return {
                     'success': False,
                     'error': 'Failed to save trainer to database',
@@ -348,6 +422,19 @@ class WhatsAppFlowTrainerOnboarding:
 
         except Exception as e:
             log_error(f"Error processing flow completion: {str(e)}", exc_info=True)
+            
+            # Mark flow token as failed
+            flow_token = flow_data.get('flow_token', '')
+            if flow_token:
+                try:
+                    self.db.table('flow_tokens').update({
+                        'status': 'failed',
+                        'error': str(e),
+                        'completed_at': datetime.now(self.sa_tz).isoformat()
+                    }).eq('flow_token', flow_token).execute()
+                except Exception as update_error:
+                    log_warning(f"Failed to update flow token status: {str(update_error)}")
+            
             return {
                 'success': False,
                 'error': f"Error processing registration: {str(e)}"
@@ -643,3 +730,25 @@ class WhatsAppFlowTrainerOnboarding:
         
         # Return comma-separated unique preferences
         return ', '.join(sorted(time_preferences)) if time_preferences else None
+
+    def _mark_abandoned_flows(self, phone_number: str) -> None:
+        """
+        Delete any existing flow tokens for this phone (active, failed, or abandoned)
+        Keeps database clean by removing old tokens when user requests new flow
+        
+        Args:
+            phone_number: Trainer's phone number
+        """
+        try:
+            # Delete all non-completed flow tokens for this phone
+            # Keep 'completed' tokens for reference, delete everything else
+            result = self.db.table('flow_tokens').delete().eq(
+                'phone_number', phone_number
+            ).eq('flow_type', 'trainer_onboarding').neq('status', 'completed').execute()
+            
+            if result.data:
+                log_info(f"Deleted {len(result.data)} old flow token(s) for {phone_number}")
+        
+        except Exception as e:
+            log_warning(f"Error cleaning up old flows: {str(e)}")
+            # Don't fail the flow send if this fails
