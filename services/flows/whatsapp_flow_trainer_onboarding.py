@@ -574,21 +574,23 @@ class WhatsAppFlowTrainerOnboarding:
             ).execute()
 
             if existing_user.data:
-                # Update existing user entry with VARCHAR trainer_id
+                # Update existing user entry with trainer_id and login_status
                 self.db.table('users').update({
                     'trainer_id': trainer_id,  # VARCHAR ID like "TR_JOHN_123"
+                    'login_status': 'trainer',  # Auto-login after registration
                     'updated_at': datetime.now(self.sa_tz).isoformat()
                 }).eq('phone_number', clean_phone).execute()
-                log_info(f"Updated users table for trainer: {clean_phone} with trainer_id: {trainer_id}")
+                log_info(f"Updated users table for trainer: {clean_phone} with trainer_id: {trainer_id}, login_status: trainer")
             else:
-                # Create new user entry with VARCHAR trainer_id
+                # Create new user entry with trainer_id and login_status
                 self.db.table('users').insert({
                     'phone_number': clean_phone,
                     'trainer_id': trainer_id,  # VARCHAR ID like "TR_JOHN_123"
+                    'login_status': 'trainer',  # Auto-login after registration
                     'created_at': datetime.now(self.sa_tz).isoformat(),
                     'updated_at': datetime.now(self.sa_tz).isoformat()
                 }).execute()
-                log_info(f"Created users table entry for trainer: {clean_phone} with trainer_id: {trainer_id}")
+                log_info(f"Created users table entry for trainer: {clean_phone} with trainer_id: {trainer_id}, login_status: trainer")
 
             return True
 
