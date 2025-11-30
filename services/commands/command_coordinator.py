@@ -51,18 +51,9 @@ class CommandCoordinator:
             # Route common commands (available to all users)
             if command in ['/help']:
                 return handle_help(phone, self.auth_service, self.whatsapp)
-            
-            elif command in ['/register']:
-                return handle_register(phone, self.auth_service, self.whatsapp)
-            
-            elif command in ['/logout']:
-                return handle_logout(phone, self.auth_service, self.task_service, self.whatsapp)
-            
+                                    
             elif command in ['/stop']:
                 return handle_stop(phone, self.auth_service, self.task_service, self.whatsapp)
-            
-            elif command in ['/switch-role']:
-                return handle_switch_role(phone, self.auth_service, self.task_service, self.whatsapp)
             
             # Commands that require login
             if not login_status or not user_id:

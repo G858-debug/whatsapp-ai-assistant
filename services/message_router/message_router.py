@@ -3,6 +3,7 @@ Main Message Router - Phase 1 Integration
 Routes incoming messages based on authentication status and user role
 """
 from typing import Dict, Optional
+from datetime import datetime
 from utils.logger import log_info, log_error
 from services.auth import AuthenticationService, RegistrationService, TaskService
 
@@ -83,7 +84,7 @@ class MessageRouter:
             
             # Step 2: Check for running registration tasks (before checking user exists)
             # This handles the case where registration is in progress but user not created yet
-            trainer_task = self.task_service.get_running_task(phone, 'trainer')
+            # todo : will be deleted after the client onbording and client add work
             client_task = self.task_service.get_running_task(phone, 'client')
             
             if client_task and client_task.get('task_type') == 'registration':
@@ -101,12 +102,22 @@ class MessageRouter:
                 # New user - start registration flow
                 return self.new_user_handler.handle_new_user(phone, message)
             
-            # Step 4: Check login status
-            login_status = self.auth_service.get_login_status(phone)
+            # Step 4: Check login status (direct access to avoid extra layer)
+            login_status = user.get('login_status')  # Direct from user dict
             
             if not login_status:
                 # User exists but not logged in
-                return self.login_handler.handle_login_flow(phone, message)
+                # Try auto-login if user has only one role
+                auto_login_result = self._try_auto_login(phone, user)
+                
+                if auto_login_result:
+                    log_info(f"Auto-logged in {phone} as {auto_login_result}")
+                    return self.logged_in_user_handler.handle_logged_in_user(phone, message, auto_login_result)
+                
+                # No auto-login possible, show login options (direct call)
+                from services.flows.authentication.login_flow import LoginFlowHandler
+                login_flow = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, self.task_service)
+                return login_flow.handle_login(phone, message)
             
             # Step 5: User is logged in - route to role handler
             return self.logged_in_user_handler.handle_logged_in_user(phone, message, login_status)
@@ -272,4 +283,54 @@ class MessageRouter:
             return None
         except Exception as e:
             log_error(f"Error getting trainer phone: {str(e)}")
+            return None
+    
+    def _try_auto_login(self, phone: str, user: Dict) -> Optional[str]:
+        """
+        Try to auto-login user if they have only one role
+        
+        Args:
+            phone: User's phone number
+            user: User data from users table
+        
+        Returns:
+            'trainer' or 'client' if auto-login successful, None otherwise
+        """
+        try:
+            trainer_id = user.get('trainer_id')
+            client_id = user.get('client_id')
+            
+            # If user has both roles, can't auto-login (need to choose)
+            if trainer_id and client_id:
+                log_info(f"User {phone} has both roles, cannot auto-login")
+                return None
+            
+            # If user has only trainer role, auto-login as trainer
+            if trainer_id and not client_id:
+                log_info(f"Auto-logging in {phone} as trainer (trainer_id: {trainer_id})")
+                # Direct update to avoid extra layer
+                clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+                self.db.table('users').update({
+                    'login_status': 'trainer',
+                    'updated_at': datetime.now().isoformat()
+                }).eq('phone_number', clean_phone).execute()
+                return 'trainer'
+            
+            # If user has only client role, auto-login as client
+            if client_id and not trainer_id:
+                log_info(f"Auto-logging in {phone} as client (client_id: {client_id})")
+                # Direct update to avoid extra layer
+                clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+                self.db.table('users').update({
+                    'login_status': 'client',
+                    'updated_at': datetime.now().isoformat()
+                }).eq('phone_number', clean_phone).execute()
+                return 'client'
+            
+            # User has no roles (shouldn't happen, but handle it)
+            log_error(f"User {phone} exists but has no trainer_id or client_id")
+            return None
+            
+        except Exception as e:
+            log_error(f"Error in auto-login: {str(e)}")
             return None

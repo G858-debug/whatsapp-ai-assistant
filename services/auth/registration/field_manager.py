@@ -13,7 +13,6 @@ class FieldManager:
     
     def __init__(self):
         # Load registration input configurations
-        self.trainer_fields = self._load_registration_config('trainer')
         self.client_fields = self._load_registration_config('client')
     
     def _load_registration_config(self, role: str) -> Dict:
@@ -47,9 +46,7 @@ class FieldManager:
     
     def get_registration_fields(self, role: str) -> List[Dict]:
         """Get list of fields for registration"""
-        if role == 'trainer':
-            return self.trainer_fields.get('fields', [])
-        elif role == 'client':
+        if role == 'client':
             return self.client_fields.get('fields', [])
         return []
     
@@ -107,12 +104,12 @@ class FieldManager:
             return field_mapping.get(field_name, field_name)
         
         # Trainer field mappings
-        elif role == 'trainer':
-            field_mapping = {
-                # Handle potential reverse mappings for compatibility
-                'location': 'city',  # If someone somehow edits location, map to city
-                'years_experience': 'experience_years'  # If someone edits years_experience, map to experience_years
-            }
-            return field_mapping.get(field_name, field_name)
+        # elif role == 'trainer':
+        #     field_mapping = {
+        #         # Handle potential reverse mappings for compatibility
+        #         'location': 'city',  # If someone somehow edits location, map to city
+        #         'years_experience': 'experience_years'  # If someone edits years_experience, map to experience_years
+        #     }
+        #     return field_mapping.get(field_name, field_name)
         
         return field_name

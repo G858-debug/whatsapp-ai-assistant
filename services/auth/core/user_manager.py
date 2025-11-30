@@ -18,18 +18,80 @@ class UserManager:
     def check_user_exists(self, phone: str) -> Optional[Dict]:
         """
         Check if user exists in users table
+        
+        Fallback strategy:
+        1. Check users table
+        2. If not found, check trainers table by whatsapp
+        3. If not found, check clients table by whatsapp
+        4. If found in trainer/client, create users entry and return it
+        
         Returns user data if found, None otherwise
         """
         try:
             # Clean phone number (remove + and other formatting)
             clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
             
+            # Step 1: Check users table
             result = self.db.table('users').select('*').eq(
                 'phone_number', clean_phone
             ).execute()
             
             if result.data and len(result.data) > 0:
                 return result.data[0]
+            
+            # Step 2: Fallback - Check trainers table
+            # trainers.whatsapp stores phone WITH + (e.g., +27123456789)
+            log_info(f"User not found in users table, checking trainers table for {phone}")
+            trainer_result = self.db.table('trainers').select('*').eq(
+                'whatsapp', phone  # Use original phone format (with +)
+            ).execute()
+            
+            if trainer_result.data and len(trainer_result.data) > 0:
+                trainer = trainer_result.data[0]
+                trainer_id = trainer.get('trainer_id')
+                log_info(f"Found trainer {trainer_id} in trainers table, creating users entry")
+                
+                # Create users entry with cleaned phone number
+                user_data = {
+                    'phone_number': clean_phone,  # users table uses cleaned format
+                    'trainer_id': trainer_id,
+                    'login_status': None,  # Will be set on login
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }
+                
+                user_result = self.db.table('users').insert(user_data).execute()
+                if user_result.data:
+                    log_info(f"Created users entry for trainer {trainer_id}")
+                    return user_result.data[0]
+            
+            # Step 3: Fallback - Check clients table
+            # clients.whatsapp stores phone WITH + (e.g., +27123456789)
+            log_info(f"User not found in trainers table, checking clients table for {phone}")
+            client_result = self.db.table('clients').select('*').eq(
+                'whatsapp', phone  # Use original phone format (with +)
+            ).execute()
+            
+            if client_result.data and len(client_result.data) > 0:
+                client = client_result.data[0]
+                client_id = client.get('client_id')
+                log_info(f"Found client {client_id} in clients table, creating users entry")
+                
+                # Create users entry with cleaned phone number
+                user_data = {
+                    'phone_number': clean_phone,  # users table uses cleaned format
+                    'client_id': client_id,
+                    'login_status': None,  # Will be set on login
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }
+                
+                user_result = self.db.table('users').insert(user_data).execute()
+                if user_result.data:
+                    log_info(f"Created users entry for client {client_id}")
+                    return user_result.data[0]
+            
+            # Not found anywhere
             return None
             
         except Exception as e:

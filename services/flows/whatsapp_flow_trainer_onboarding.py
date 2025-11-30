@@ -9,6 +9,8 @@ from datetime import datetime
 import pytz
 
 from utils.logger import log_info, log_error, log_warning
+from services.auth import AuthenticationService
+from services.auth.registration.data_saver import DataSaver
 
 
 class WhatsAppFlowTrainerOnboarding:
@@ -27,6 +29,10 @@ class WhatsAppFlowTrainerOnboarding:
         self.flow_id = "775047838492907"
         self.flow_name = "trainer_onboarding_flow"
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
+        
+        # Initialize services
+        self.auth_service = AuthenticationService(supabase)
+        self.data_saver = DataSaver(supabase, self.auth_service)
 
         log_info("WhatsAppFlowTrainerOnboarding initialized")
 
@@ -245,100 +251,45 @@ class WhatsAppFlowTrainerOnboarding:
                     'trainer_id': existing_email.get('id')  # UUID from trainers.id
                 }
 
-            # Prepare trainer data for database
-            full_name = f"{first_name} {surname}"
-
-            # Generate VARCHAR trainer_id (e.g., "TR_JOHN_123")
-            varchar_trainer_id = self._generate_trainer_id(first_name, surname)
-            
-            # Process specializations - save both array and comma-separated text
-            specializations_arr = specializations if isinstance(specializations, list) else []
-            specialization_text = ', '.join(specializations_arr) if specializations_arr else None
-            
+            # Prepare data for data_saver
             # Build working_hours JSONB from weekly availability
             working_hours = self._build_working_hours(flow_data)
             
-            # Extract available_days and preferred_time_slots for backward compatibility
-            available_days_list = self._extract_available_days(working_hours)
-            preferred_time_slots_text = self._extract_preferred_time_slots(working_hours)
-
-            trainer_data = {
-                # IDs and contact
-                'trainer_id': varchar_trainer_id,  # VARCHAR ID for queries
-                'whatsapp': phone_number,
-                'email': email,
-                
-                # Personal info
-                'name': full_name,
+            # Prepare registration data dict
+            registration_data = {
                 'first_name': first_name,
-                'last_name': surname,
-                'sex': sex if sex else None,
-                'birthdate': birthdate if birthdate else None,
-                
-                # Location
-                'city': city if city else None,
-                'location': city if city else None,  # Backward compatibility
-                
-                # Business info
-                'business_name': business_name if business_name else None,
-                
-                # Specializations - both formats
-                'specializations_arr': specializations_arr,  # JSONB array
-                'specialization': specialization_text,  # TEXT comma-separated (backward compatibility)
-                
-                # Experience
-                'experience_years': experience_years if experience_years else None,
-                'years_experience': self._parse_experience_years(experience_years or '0'),  # INT (backward compatibility)
-                
-                # Pricing
-                'pricing_per_session': int(float(pricing_per_session)) if pricing_per_session else None,
-                
-                # Availability - new detailed format
-                'working_hours': working_hours,  # JSONB with full weekly schedule
-                
-                # Availability - legacy format (backward compatibility)
-                'available_days': available_days_list,  # JSONB array of day names
-                'preferred_time_slots': preferred_time_slots_text,  # TEXT description
-                
-                # Services
-                'services_offered': services_offered if isinstance(services_offered, list) else [],  # JSONB array
-                
-                # Subscription
-                'subscription_status': subscription_plan if subscription_plan else 'basic',
-                
-                # Preferences
-                'notification_preferences': notification_preferences if isinstance(notification_preferences, list) else [],
-                
-                # Consent
+                'surname': surname,
+                'email': email,
+                'city': city,
+                'sex': sex,
+                'birthdate': birthdate,
+                'business_name': business_name,
+                'specializations': specializations,  # Array
+                'experience_years': experience_years,
+                'pricing_per_session': pricing_per_session,
+                'working_hours': working_hours,  # JSONB
+                'services_offered': services_offered,
+                'subscription_plan': subscription_plan,
+                'notification_preferences': notification_preferences,
                 'terms_accepted': terms_accepted,
                 'marketing_consent': marketing_consent,
-                
-                # Notes
-                'additional_notes': additional_notes if additional_notes else None,
-                
-                # Status and metadata
-                'status': 'active',
-                'onboarding_method': 'flow',
-                'registration_method': 'flow',
-                'created_at': datetime.now(self.sa_tz).isoformat(),
-                'updated_at': datetime.now(self.sa_tz).isoformat()
+                'additional_notes': additional_notes
             }
-
-            # Save trainer to database
-            log_info(f"Saving trainer to database: {full_name} ({email})")
-            result = self.db.table('trainers').insert(trainer_data).execute()
-
-            if result.data and len(result.data) > 0:
-                # Get the VARCHAR trainer_id we just created
-                trainer_id = varchar_trainer_id
-                trainer_whatsapp = result.data[0]['whatsapp']
-
-                log_info(f"✅ Trainer created successfully: {full_name} (ID: {trainer_id})")
-
-                # Update users table to link phone number to trainer_id
-                self._update_users_table(trainer_whatsapp, trainer_id)
-
-                # Send confirmation message
+            
+            # Use data_saver to save trainer registration
+            log_info(f"Saving trainer via data_saver: {first_name} {surname} ({email})")
+            success, message, trainer_id = self.data_saver.save_trainer_registration(
+                phone_number, 
+                registration_data,
+                method='flow'
+            )
+            
+            if success:
+                log_info(f"✅ Trainer created successfully via data_saver: {trainer_id}")
+                
+                # Build custom confirmation message
+                specialization_text = ', '.join(specializations) if specializations else None
+                
                 confirmation_msg = (
                     f"🎊 *Welcome aboard, {first_name}!*\n\n"
                     f"Your trainer profile is now active. 🚀\n\n"
@@ -352,7 +303,6 @@ class WhatsAppFlowTrainerOnboarding:
                 if specialization_text:
                     confirmation_msg += f"💪 Specialization: {specialization_text}\n"
 
-                # Display pricing in R[amount] format if provided
                 if pricing_per_session:
                     try:
                         price_value = float(pricing_per_session)
@@ -396,19 +346,19 @@ class WhatsAppFlowTrainerOnboarding:
                 return {
                     'success': True,
                     'trainer_id': trainer_id,
-                    'trainer_name': full_name,
+                    'trainer_name': f"{first_name} {surname}",
                     'email': email,
                     'method': 'flow_registration_complete'
                 }
             else:
-                log_error(f"Failed to insert trainer into database: {result}")
+                log_error(f"Failed to save trainer: {message}")
                 
                 # Mark flow token as failed
                 if flow_token:
                     try:
                         self.db.table('flow_tokens').update({
                             'status': 'failed',
-                            'error': 'Database insert failed',
+                            'error': message,
                             'completed_at': datetime.now(self.sa_tz).isoformat()
                         }).eq('flow_token', flow_token).execute()
                     except Exception as e:
@@ -416,8 +366,7 @@ class WhatsAppFlowTrainerOnboarding:
                 
                 return {
                     'success': False,
-                    'error': 'Failed to save trainer to database',
-                    'details': str(result)
+                    'error': message
                 }
 
         except Exception as e:

@@ -18,57 +18,89 @@ class DataSaver:
     
     def save_trainer_registration(self, phone: str, data: Dict) -> Tuple[bool, str, Optional[str]]:
         """
-        Save trainer registration data
+        Save trainer registration data (supports both chat and flow methods)
+        
+        Args:
+            phone: Trainer's phone number
+            data: Registration data dict
+        
         Returns: (success, message, trainer_id)
         """
         try:
-            # Clean phone number (remove + and other formatting)
-            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            # Use original phone format for trainers table (with +)
+            # Clean phone only for users table
             
             # Generate unique trainer ID
-            name = f"{data.get('first_name', '')} {data.get('last_name', '')}"
+            first_name = data.get('first_name', '')
+            last_name = data.get('last_name', '') or data.get('surname', '')
+            name = f"{first_name} {last_name}".strip()
             trainer_id = self.auth_service.generate_unique_id(name, 'trainer')
             
             # Prepare trainer data - map all fields from config to database schema
             trainer_data = {
                 'trainer_id': trainer_id,
-                'whatsapp': clean_phone,  # Use cleaned phone number
+                'whatsapp': phone,  # Use original phone format (with +)
                 'name': name,
-                'first_name': data.get('first_name'),
-                'last_name': data.get('last_name'),
+                'first_name': first_name,
+                'last_name': last_name,
                 'email': data.get('email'),
                 'city': data.get('city'),
                 'location': data.get('city'),  # Keep both for compatibility
                 'business_name': data.get('business_name'),
-                'specialization': data.get('specialization', []) if data.get('specialization') else [],  # Store as list
                 'experience_years': data.get('experience_years'),
-                'years_experience': self._parse_experience_to_number(data.get('experience_years')),  # Keep both for compatibility
+                'years_experience': self._parse_experience_to_number(data.get('experience_years')),
                 'pricing_per_session': float(data.get('pricing_per_session', 500)) if data.get('pricing_per_session') else 500.0,
-                'available_days': data.get('available_days', []) if data.get('available_days') else [],  # Store as list
-                'preferred_time_slots': data.get('preferred_time_slots'),
-                'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],  # Store as list
-                'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],  # Store as list
+                'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],
+                'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],
                 'additional_notes': data.get('additional_notes'),
                 'status': 'active',
-                'registration_method': 'chat',
-                'onboarding_method': 'chat',
-                'terms_accepted': True,  # Assume accepted during registration
-                'marketing_consent': False,  # Default to false
+                'registration_method': method,
+                'onboarding_method': method,
+                'terms_accepted': data.get('terms_accepted', True),
+                'marketing_consent': data.get('marketing_consent', False),
+                'notification_preferences': data.get('notification_preferences', []) if data.get('notification_preferences') else [],
+                'subscription_status': data.get('subscription_plan', 'free') or 'free',
                 'created_at': datetime.now(self.sa_tz).isoformat(),
                 'updated_at': datetime.now(self.sa_tz).isoformat()
             }
+            
+            # Sex and birthdate
+            if data.get('sex'):
+                trainer_data['sex'] = data.get('sex')
+            if data.get('birthdate'):
+                trainer_data['birthdate'] = data.get('birthdate')
+            
+            # Specializations array (new field from migration)
+            specializations_arr = data.get('specializations', [])
+            if isinstance(specializations_arr, list) and specializations_arr:
+                trainer_data['specializations_arr'] = specializations_arr
+                # Also set legacy specialization field as comma-separated text
+                trainer_data['specialization'] = ', '.join(specializations_arr)
+            
+            # Working hours (new field from migration)
+            working_hours = data.get('working_hours', {})
+            if working_hours:
+                trainer_data['working_hours'] = working_hours
+                # Extract available_days and preferred_time_slots for legacy fields
+                trainer_data['available_days'] = self._extract_available_days(working_hours)
+                trainer_data['preferred_time_slots'] = self._extract_preferred_time_slots(working_hours)
             
             # Insert into trainers table
             result = self.db.table('trainers').insert(trainer_data).execute()
             
             if result.data:
-                # Create user entry
-                self.auth_service.create_user_entry(phone, 'trainer', trainer_id)
+                # Create user entry with cleaned phone
+                clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+                user_data = {
+                    'phone_number': clean_phone,
+                    'trainer_id': trainer_id,
+                    'login_status': 'trainer',  # Auto-login
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }
+                self.db.table('users').insert(user_data).execute()
                 
-                # Set login status
-                self.auth_service.set_login_status(phone, 'trainer')
-                
-                log_info(f"Trainer registered successfully: {trainer_id}")
+                log_info(f"Trainer registered successfully: {trainer_id} via {method}")
                 
                 message = (f"🎉 *Registration Successful!*\n\n"
                           f"Your trainer ID: *{trainer_id}*\n\n"
@@ -189,10 +221,25 @@ class DataSaver:
             return False
     
     def _parse_experience_to_number(self, experience_text: str) -> int:
-        """Convert experience text to number for years_experience field"""
+        """
+        Convert experience text to number for years_experience field
+        
+        Handles both formats:
+        - "0-1 years" (chat-based)
+        - "0-1" or "10+" (flow-based)
+        """
         if not experience_text:
             return 0
         
+        # Handle flow format (e.g., "0-1", "2-3", "10+")
+        if '+' in experience_text:
+            return int(experience_text.replace('+', '').strip())
+        
+        if '-' in experience_text and 'years' not in experience_text:
+            # Flow format: "2-3" -> take lower bound
+            return int(experience_text.split('-')[0].strip())
+        
+        # Handle chat format (e.g., "0-1 years", "2-3 years")
         experience_map = {
             '0-1 years': 1,
             '2-3 years': 3,
@@ -202,3 +249,28 @@ class DataSaver:
         }
         
         return experience_map.get(experience_text, 0)
+        
+
+    def _extract_available_days(self, working_hours: Dict) -> list:
+        """Extract list of available days from working_hours for legacy field"""
+        available_days = []
+        for day, schedule in working_hours.items():
+            preset = schedule.get('preset', 'not_available')
+            if preset and preset != 'not_available':
+                available_days.append(day.capitalize())
+        return available_days
+    
+    def _extract_preferred_time_slots(self, working_hours: Dict) -> str:
+        """Extract preferred time slots description from working_hours for legacy field"""
+        time_preferences = set()
+        for day, schedule in working_hours.items():
+            preset = schedule.get('preset', 'not_available')
+            if preset == 'morning':
+                time_preferences.add('Morning')
+            elif preset == 'evening':
+                time_preferences.add('Evening')
+            elif preset == 'business':
+                time_preferences.add('Business Hours')
+            elif preset == 'full_day':
+                time_preferences.add('Full Day')
+        return ', '.join(sorted(time_preferences)) if time_preferences else None    
