@@ -68,12 +68,6 @@ class WhatsAppFlowHandler:
         except Exception as e:
             log_error(f"Error creating flow message: {str(e)}")
             return {}
-    
-
-    
-
-    
-
 
     def send_trainer_onboarding_flow(self, phone_number: str) -> Dict:
         """Send the trainer onboarding flow to a phone number"""
@@ -1152,11 +1146,7 @@ Welcome to the Refiloe family! 💪"""
                 'error': str(e),
                 'message': 'Something went wrong with registration. Please try again later.'
             }
-    
 
-    
-
-    
     def get_flow_status(self, phone_number: str) -> Dict:
         """Get the status of a flow for a phone number"""
         try:
