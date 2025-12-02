@@ -12,6 +12,7 @@ class TaskHandler:
     """Main task handler that delegates to the implementation"""
     
     def __init__(self, supabase_client, whatsapp_service, task_service, reg_service=None):
+        # todo: reg_service will be deleted after client onboarding clean
         self.handler = TaskHandlerImpl(supabase_client, whatsapp_service, task_service, reg_service)
     
     def continue_task(self, phone: str, message: str, role: str, user_id: str, task: Dict) -> Dict:

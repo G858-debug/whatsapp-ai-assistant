@@ -275,3 +275,154 @@ class UserManager:
         except Exception as e:
             log_error(f"Error deleting related data for {role} {role_id}: {str(e)}")
             # Continue with deletion even if some related data fails
+    
+    def auto_login_single_role(self, phone: str, role: str) -> bool:
+        """
+        Auto-login user with specified role after registration
+        
+        Args:
+            phone: User's phone number
+            role: 'trainer' or 'client'
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Clean phone number
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            
+            # Update login_status in users table
+            result = self.db.table('users').update({
+                'login_status': role,
+                'updated_at': datetime.now(self.sa_tz).isoformat()
+            }).eq('phone_number', clean_phone).execute()
+            
+            if result.data:
+                log_info(f"Auto-logged in {clean_phone} as {role}")
+                return True
+            else:
+                log_error(f"Failed to auto-login {clean_phone} as {role}")
+                return False
+                
+        except Exception as e:
+            log_error(f"Error in auto-login: {str(e)}")
+            return False
+    
+    def generate_unique_id(self, name: str, role: str) -> str:
+        """
+        Generate unique ID with role prefix
+        Format: "TR_JOHN_123" for trainer, "CL_JANE_456" for client
+        
+        Args:
+            name: Full name (first + last)
+            role: 'trainer' or 'client'
+        
+        Returns:
+            Unique ID string (e.g., "TR_JOHN_123" or "CL_JANE_456")
+        """
+        import random
+        import string
+        
+        try:
+            # Determine prefix and table
+            prefix = 'TR' if role == 'trainer' else 'CL'
+            table = 'trainers' if role == 'trainer' else 'clients'
+            id_column = 'trainer_id' if role == 'trainer' else 'client_id'
+            
+            # Extract first name (first word of name)
+            first_name = name.split()[0] if name else 'USER'
+            
+            # Clean and format name part (use first 4 chars, uppercase)
+            name_part = (first_name[:4] if first_name else 'USER').upper()
+            # Remove non-alphanumeric characters
+            name_part = ''.join(c for c in name_part if c.isalnum())
+            
+            # Try to generate unique ID (max 10 attempts)
+            for attempt in range(10):
+                # Generate random 3-digit suffix
+                suffix = ''.join(random.choices(string.digits, k=3))
+                
+                # Construct ID: "TR_JOHN_123"
+                generated_id = f"{prefix}_{name_part}_{suffix}"
+                
+                # Check uniqueness in database
+                result = self.db.table(table).select('id').eq(
+                    id_column, generated_id
+                ).execute()
+                
+                if not result.data or len(result.data) == 0:
+                    log_info(f"Generated unique {role} ID: {generated_id}")
+                    return generated_id
+            
+            # If all attempts failed, use timestamp
+            timestamp = datetime.now(self.sa_tz).strftime('%H%M%S')
+            fallback_id = f"{prefix}_{name_part}_{timestamp}"
+            log_info(f"Generated fallback {role} ID: {fallback_id}")
+            return fallback_id
+            
+        except Exception as e:
+            log_error(f"Error generating {role} ID: {str(e)}")
+            # Fallback to timestamp-based ID
+            timestamp = datetime.now(self.sa_tz).strftime('%H%M%S')
+            prefix = 'TR' if role == 'trainer' else 'CL'
+            fallback_id = f"{prefix}_USER_{timestamp}"
+            log_warning(f"Using fallback {role} ID: {fallback_id}")
+            return fallback_id
+    
+    def create_or_update_user_with_role(self, phone: str, role: str, role_id: str) -> bool:
+        """
+        Create or update users table entry to link phone number to role_id
+        
+        Args:
+            phone: User's phone number (with + format)
+            role: 'trainer' or 'client'
+            role_id: VARCHAR role_id (e.g., "TR_JOHN_123" or "CL_JANE_456")
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Clean phone number for users table (remove +, -, spaces)
+            clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+            
+            # Check if user entry exists
+            existing_user = self.db.table('users').select('*').eq(
+                'phone_number', clean_phone
+            ).execute()
+            
+            # Prepare update/insert data
+            role_field = f'{role}_id'  # 'trainer_id' or 'client_id'
+            
+            if existing_user.data:
+                # Update existing user entry with role_id and login_status
+                update_data = {
+                    role_field: role_id,
+                    'login_status': role,  # Auto-login after registration
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }
+                
+                self.db.table('users').update(update_data).eq(
+                    'phone_number', clean_phone
+                ).execute()
+                
+                log_info(f"Updated users table for {role}: {clean_phone} with {role_field}: {role_id}, login_status: {role}")
+            else:
+                # Create new user entry with role_id and login_status
+                insert_data = {
+                    'phone_number': clean_phone,
+                    role_field: role_id,
+                    'login_status': role,  # Auto-login after registration
+                    'created_at': datetime.now(self.sa_tz).isoformat(),
+                    'updated_at': datetime.now(self.sa_tz).isoformat()
+                }
+                
+                self.db.table('users').insert(insert_data).execute()
+                
+                log_info(f"Created users table entry for {role}: {clean_phone} with {role_field}: {role_id}, login_status: {role}")
+            
+            return True
+            
+        except Exception as e:
+            log_error(f"Error creating/updating users table: {str(e)}")
+            # Don't fail the whole registration if users table update fails
+            return False

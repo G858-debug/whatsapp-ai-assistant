@@ -21,9 +21,11 @@ class LoggedInUserHandler:
         self.reg_service = reg_service
         
         # Initialize sub-handlers
+        # todo: reg_service will be deleted after client onboarding clean
         self.role_command_handler = RoleCommandHandler(
             self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )
+        # todo: reg_service will be deleted after client onboarding clean
         self.task_handler = TaskHandler(
             self.db, self.whatsapp, self.task_service, self.reg_service
         )

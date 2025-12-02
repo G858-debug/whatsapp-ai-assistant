@@ -22,20 +22,24 @@ class TaskHandler:
         self.reg_service = reg_service
         
         # Initialize sub-handlers
+        # todo: reg_service will be deleted after client onboarding clean
         self.core_handler = CoreTaskHandler(
             self.db, self.whatsapp, self.task_service, self.reg_service
         )
+        # todo: reg_service will be deleted after client onboarding clean
         self.relationship_handler = RelationshipTaskHandler(
             self.db, self.whatsapp, self.task_service, self.reg_service
         )
         self.habit_handler = HabitTaskHandler(
             self.db, self.whatsapp, self.task_service
         )
+        # todo: reg_service will be deleted after client onboarding clean
         self.contact_handler = ContactTaskHandler(
             self.db, self.whatsapp, self.task_service, self.reg_service
         )
+        # todo: reg_service will be deleted after client onboarding clean
         self.client_profile_handler = ClientProfileTaskHandler(
-            self.db, self.whatsapp, self.reg_service, self.task_service
+            self.db, self.whatsapp, self.task_service
         )
     
     def continue_task(self, phone: str, message: str, role: str, user_id: str, task: Dict) -> Dict:

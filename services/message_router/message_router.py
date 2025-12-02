@@ -6,13 +6,14 @@ from typing import Dict, Optional
 from datetime import datetime
 from utils.logger import log_info, log_error
 from services.auth import AuthenticationService, RegistrationService, TaskService
+from services.auth.core.user_manager import UserManager
 
-from .handlers.button_handler import ButtonHandler
+from .handlers.buttons.button_handler import ButtonHandler
 from .handlers.universal_command_handler import UniversalCommandHandler
 from .handlers.new_user_handler import NewUserHandler
-from .handlers.login_handler import LoginHandler
+# from .handlers.login_handler import LoginHandler
 from .handlers.logged_in_user_handler import LoggedInUserHandler
-from .utils.message_history import MessageHistoryManager
+# from .utils.message_history import MessageHistoryManager
 
 
 class MessageRouter:
@@ -22,24 +23,29 @@ class MessageRouter:
         self.db = supabase_client
         self.whatsapp = whatsapp_service
         self.auth_service = AuthenticationService(supabase_client)
+        self.user_manager = UserManager(supabase_client)
+        # todo: will be deleted after client onboarding clean
         self.reg_service = RegistrationService(supabase_client)
         self.task_service = TaskService(supabase_client)
         
         # Initialize handlers
+        # todo: reg_service will be deleted after client onboarding clean
         self.button_handler = ButtonHandler(self.db, self.whatsapp, self.auth_service, self.reg_service, self.task_service)
         self.universal_command_handler = UniversalCommandHandler(
             self.auth_service, self.task_service, self.whatsapp
         )
+        # todo: reg_service will be deleted after client onboarding clean
         self.new_user_handler = NewUserHandler(
             self.db, self.whatsapp, self.auth_service, self.reg_service, self.task_service
         )
-        self.login_handler = LoginHandler(
-            self.db, self.whatsapp, self.auth_service, self.task_service
-        )
+        # self.login_handler = LoginHandler(
+        #     self.db, self.whatsapp, self.auth_service, self.task_service
+        # )
+        # todo: reg_service will be deleted after client onboarding clean
         self.logged_in_user_handler = LoggedInUserHandler(
             self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )
-        self.message_history = MessageHistoryManager(self.db)
+        # self.message_history = MessageHistoryManager(self.db)
     
     def route_message(self, phone: str, message: str, button_id: str = None) -> Dict:
         """
@@ -57,6 +63,7 @@ class MessageRouter:
 
             # Step 0.1: Check for WhatsApp template quick reply buttons
             # These come as regular messages with specific text patterns
+            # todo: added for custom whatsapp message template, should be in separate files and should be in more clean and full proof way if possible
             if message.strip() in ['✅ Accept invitation', '❌ Decline']:
                 log_info(f"Template button message received - phone: {phone}, button_text: '{message.strip()}'")
                 log_info(f"Routing to _handle_template_response")
@@ -95,8 +102,8 @@ class MessageRouter:
                 )
                 return handler.continue_registration(phone, message, 'client', client_task)
             
-            # Step 3: Check if user exists
-            user = self.auth_service.check_user_exists(phone)
+            # Step 3: Check if user exists (direct call to user_manager)
+            user = self.user_manager.check_user_exists(phone)
             
             if not user:
                 # New user - start registration flow
@@ -300,10 +307,28 @@ class MessageRouter:
             trainer_id = user.get('trainer_id')
             client_id = user.get('client_id')
             
-            # If user has both roles, can't auto-login (need to choose)
+            # If user has both roles, auto-login as trainer (priority role)
             if trainer_id and client_id:
-                log_info(f"User {phone} has both roles, cannot auto-login")
-                return None
+                log_info(f"User {phone} has both roles, auto-logging in as trainer (priority)")
+                # Direct update to avoid extra layer
+                clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+                self.db.table('users').update({
+                    'login_status': 'trainer',
+                    'updated_at': datetime.now().isoformat()
+                }).eq('phone_number', clean_phone).execute()
+                
+                # Send informational message about switching roles
+                switch_msg = (
+                    "👋 Welcome back!\n\n"
+                    "You're logged in as a *Trainer*.\n\n"
+                    "💡 *Want to interact as a Client?*\n"
+                    "Delete your trainer account by typing:\n"
+                    "`/delete_account`\n\n"
+                    "After deletion, your next message will automatically identify you as a client."
+                )
+                self.whatsapp.send_message(phone, switch_msg)
+                
+                return 'trainer'
             
             # If user has only trainer role, auto-login as trainer
             if trainer_id and not client_id:

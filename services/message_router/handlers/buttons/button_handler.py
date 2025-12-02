@@ -28,6 +28,7 @@ class ButtonHandler:
         self.relationship_handler = RelationshipButtonHandler(
             self.db, self.whatsapp, self.auth_service
         )
+        # todo: will be deleted after client onboarding clean
         self.registration_handler = RegistrationButtonHandler(
             self.db, self.whatsapp, self.auth_service, self.reg_service, self.task_service
         )

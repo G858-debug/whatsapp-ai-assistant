@@ -1,3 +1,9 @@
+from dotenv import load_dotenv
+import os
+
+# Load environment variables FIRST before any other imports
+load_dotenv()
+
 from flask import Flask
 from config import Config
 from app_core import setup_app_core

@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from utils.logger import log_info, log_error, log_warning
 from datetime import datetime, timedelta
 import json
-from handlers.flow_response_handler import process_flow_webhook
+from flow_handlers.flow_response_handler import process_flow_webhook
 
 webhooks_bp = Blueprint('webhooks', __name__)
 

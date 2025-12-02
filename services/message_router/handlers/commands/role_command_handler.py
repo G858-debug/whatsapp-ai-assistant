@@ -21,6 +21,7 @@ class RoleCommandHandler:
         self.reg_service = reg_service
         
         # Initialize sub-handlers
+        # todo: reg_service will be deleted after client onboarding clean
         self.common_handler = CommonCommandHandler(
             self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
         )

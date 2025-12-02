@@ -12,6 +12,7 @@ class ButtonHandler:
     """Main button handler that delegates to the implementation"""
     
     def __init__(self, supabase_client, whatsapp_service, auth_service, reg_service=None, task_service=None):
+        # todo: reg_service will be deleted after client onboarding clean
         self.handler = ButtonHandlerImpl(supabase_client, whatsapp_service, auth_service, reg_service, task_service)
     
     def handle_button_response(self, phone: str, button_id: str) -> Dict:

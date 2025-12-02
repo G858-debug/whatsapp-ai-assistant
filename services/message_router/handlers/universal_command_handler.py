@@ -23,18 +23,6 @@ class UniversalCommandHandler:
                 from services.commands import handle_help
                 return handle_help(phone, self.auth_service, self.whatsapp)
             
-            elif cmd == '/logout':
-                from services.commands import handle_logout
-                return handle_logout(phone, self.auth_service, self.task_service, self.whatsapp)
-            
-            elif cmd == '/switch-role':
-                from services.commands import handle_switch_role
-                return handle_switch_role(phone, self.auth_service, self.task_service, self.whatsapp)
-            
-            elif cmd == '/register':
-                from services.commands import handle_register
-                return handle_register(phone, self.auth_service, self.whatsapp)
-            
             elif cmd == '/stop':
                 from services.commands import handle_stop
                 return handle_stop(phone, self.auth_service, self.task_service, self.whatsapp)

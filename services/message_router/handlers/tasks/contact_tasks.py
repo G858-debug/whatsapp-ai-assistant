@@ -118,6 +118,7 @@ class ContactTaskHandler:
                 # Clean and validate the phone number
                 phone_input = message.strip()
 
+                # todo: reg_service will be deleted after client onboarding clean
                 # Clean phone number
                 if self.reg_service:
                     cleaned_phone = self.reg_service.clean_phone_number(phone_input)

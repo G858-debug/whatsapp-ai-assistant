@@ -12,6 +12,7 @@ class RoleCommandHandler:
     """Main role command handler that delegates to the implementation"""
     
     def __init__(self, supabase_client, whatsapp_service, auth_service, task_service, reg_service=None):
+        # todo: reg_service will be deleted after client onboarding clean
         self.handler = RoleCommandHandlerImpl(supabase_client, whatsapp_service, auth_service, task_service, reg_service)
     
     def handle_role_command(self, phone: str, command: str, role: str, user_id: str) -> Dict:

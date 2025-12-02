@@ -54,10 +54,6 @@ def setup_app_core(app):
     refiloe_service = RefiloeService(supabase)
     flow_handler = WhatsAppFlowHandler(supabase, whatsapp_service)
     
-    # Initialize trainer registration handler
-    from services.registration.trainer_registration import TrainerRegistrationHandler
-    trainer_registration_handler = TrainerRegistrationHandler(supabase, whatsapp_service)
-    
     # Create services dictionary for AI intent handler
     services_dict = {
         'whatsapp': whatsapp_service,
@@ -74,8 +70,7 @@ def setup_app_core(app):
         'input_sanitizer': input_sanitizer,
         'calendar': calendar_service,
         'refiloe': refiloe_service,
-        'flow_handler': flow_handler,
-        'trainer_registration': trainer_registration_handler
+        'flow_handler': flow_handler
     }
     
     # Initialize AI handler with access to all services
@@ -124,8 +119,7 @@ def setup_app_core(app):
         'calendar': calendar_service,
         'refiloe': refiloe_service,
         'reminder_scheduler': reminder_scheduler,
-        'flow_handler': flow_handler,
-        'trainer_registration': trainer_registration_handler
+        'flow_handler': flow_handler
     }
     
     app.config['models'] = {

@@ -9,7 +9,7 @@ import os
 from cryptography.hazmat.primitives.asymmetric.padding import OAEP, MGF1, hashes
 from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from handlers.flow_data_exchange import handle_flow_data_exchange, get_collected_data
+from flow_handlers.flow_data_exchange import handle_flow_data_exchange, get_collected_data
 
 whatsapp_flow_bp = Blueprint('whatsapp_flow', __name__)
 

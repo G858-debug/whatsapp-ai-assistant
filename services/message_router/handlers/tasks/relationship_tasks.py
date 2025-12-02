@@ -46,6 +46,7 @@ class RelationshipTaskHandler:
     def _handle_trainer_relationship_task(self, phone: str, message: str, user_id: str, task: Dict) -> Dict:
         """Handle trainer relationship tasks"""
         try:
+            # todo: reg_service will be deleted after client onboarding clean
             from services.flows import TrainerRelationshipFlows
             handler = TrainerRelationshipFlows(self.db, self.whatsapp, self.task_service, self.reg_service)
             
@@ -167,6 +168,7 @@ class RelationshipTaskHandler:
 
             # Clean phone number
             if self.reg_service:
+                # todo: reg_service will be deleted after client onboarding clean
                 cleaned_phone = self.reg_service.clean_phone_number(phone_input)
             else:
                 # Basic cleaning

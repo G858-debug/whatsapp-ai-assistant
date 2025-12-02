@@ -4,7 +4,7 @@ Handles registration and login button interactions
 """
 from typing import Dict
 from utils.logger import log_info, log_error
-from services.flows.whatsapp_flow_trainer_onboarding import WhatsAppFlowTrainerOnboarding
+from services.flows.registration.whatsapp_flow_trainer_onboarding import WhatsAppFlowTrainerOnboarding
 
 
 class RegistrationButtonHandler:
@@ -100,25 +100,3 @@ class RegistrationButtonHandler:
         except Exception as e:
             log_error(f"Error handling client registration: {str(e)}")
             return {'success': False, 'response': 'Error starting registration', 'handler': 'register_client_error'}
-    
-    def _handle_login_trainer(self, phone: str) -> Dict:
-        """Handle trainer login button"""
-        try:
-            log_info(f"Login button clicked: login_trainer")
-            from services.flows import LoginFlowHandler
-            handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, self.task_service)
-            return handler.handle_role_selection(phone, 'trainer')
-        except Exception as e:
-            log_error(f"Error handling trainer login: {str(e)}")
-            return {'success': False, 'response': 'Error processing login', 'handler': 'login_trainer_error'}
-    
-    def _handle_login_client(self, phone: str) -> Dict:
-        """Handle client login button"""
-        try:
-            log_info(f"Login button clicked: login_client")
-            from services.flows import LoginFlowHandler
-            handler = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, self.task_service)
-            return handler.handle_role_selection(phone, 'client')
-        except Exception as e:
-            log_error(f"Error handling client login: {str(e)}")
-            return {'success': False, 'response': 'Error processing login', 'handler': 'login_client_error'}

@@ -16,13 +16,14 @@ class DataSaver:
         self.auth_service = auth_service
         self.sa_tz = pytz.timezone('Africa/Johannesburg')
     
-    def save_trainer_registration(self, phone: str, data: Dict) -> Tuple[bool, str, Optional[str]]:
+    def save_trainer_registration(self, phone: str, data: Dict, method: str = 'flow') -> Tuple[bool, str, Optional[str]]:
         """
         Save trainer registration data (supports both chat and flow methods)
         
         Args:
             phone: Trainer's phone number
             data: Registration data dict
+            method: Registration method ('chat' or 'flow')
         
         Returns: (success, message, trainer_id)
         """
@@ -30,11 +31,17 @@ class DataSaver:
             # Use original phone format for trainers table (with +)
             # Clean phone only for users table
             
-            # Generate unique trainer ID
+            # Generate unique trainer ID using user_manager
             first_name = data.get('first_name', '')
             last_name = data.get('last_name', '') or data.get('surname', '')
             name = f"{first_name} {last_name}".strip()
-            trainer_id = self.auth_service.generate_unique_id(name, 'trainer')
+            
+            from services.auth.core.user_manager import UserManager
+            user_manager = UserManager(self.db)
+            trainer_id = user_manager.generate_unique_id(name, 'trainer')
+            
+            # Get years_experience - should already be parsed by flow handler
+            years_experience = data.get('years_experience', 0)
             
             # Prepare trainer data - map all fields from config to database schema
             trainer_data = {
@@ -48,7 +55,7 @@ class DataSaver:
                 'location': data.get('city'),  # Keep both for compatibility
                 'business_name': data.get('business_name'),
                 'experience_years': data.get('experience_years'),
-                'years_experience': self._parse_experience_to_number(data.get('experience_years')),
+                'years_experience': years_experience,
                 'pricing_per_session': float(data.get('pricing_per_session', 500)) if data.get('pricing_per_session') else 500.0,
                 'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],
                 'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],
@@ -78,27 +85,25 @@ class DataSaver:
                 trainer_data['specialization'] = ', '.join(specializations_arr)
             
             # Working hours (new field from migration)
+            # Should already be prepared by flow handler with available_days and preferred_time_slots
             working_hours = data.get('working_hours', {})
             if working_hours:
                 trainer_data['working_hours'] = working_hours
-                # Extract available_days and preferred_time_slots for legacy fields
-                trainer_data['available_days'] = self._extract_available_days(working_hours)
-                trainer_data['preferred_time_slots'] = self._extract_preferred_time_slots(working_hours)
+            
+            # Use pre-extracted values (already processed by flow handler)
+            if data.get('available_days') is not None:
+                trainer_data['available_days'] = data.get('available_days')
+            
+            if data.get('preferred_time_slots') is not None:
+                trainer_data['preferred_time_slots'] = data.get('preferred_time_slots')
             
             # Insert into trainers table
             result = self.db.table('trainers').insert(trainer_data).execute()
             
             if result.data:
-                # Create user entry with cleaned phone
-                clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
-                user_data = {
-                    'phone_number': clean_phone,
-                    'trainer_id': trainer_id,
-                    'login_status': 'trainer',  # Auto-login
-                    'created_at': datetime.now(self.sa_tz).isoformat(),
-                    'updated_at': datetime.now(self.sa_tz).isoformat()
-                }
-                self.db.table('users').insert(user_data).execute()
+                # Create or update users table entry with auto-login
+                # user_manager already initialized above
+                user_manager.create_or_update_user_with_role(phone, 'trainer', trainer_id)
                 
                 log_info(f"Trainer registered successfully: {trainer_id} via {method}")
                 
@@ -122,9 +127,12 @@ class DataSaver:
         Returns: (success, message, client_id)
         """
         try:
-            # Generate unique client ID
+            # Generate unique client ID using user_manager
             name = data.get('full_name', '')
-            client_id = self.auth_service.generate_unique_id(name, 'client')
+            
+            from services.auth.core.user_manager import UserManager
+            user_manager = UserManager(self.db)
+            client_id = user_manager.generate_unique_id(name, 'client')
             
             # Determine client phone number
             # If created by trainer, use phone from data (trainer provided it)
@@ -154,16 +162,20 @@ class DataSaver:
             result = self.db.table('clients').insert(client_data).execute()
             
             if result.data:
-                # Create user entry with correct phone number
-                self.auth_service.create_user_entry(clean_phone, 'client', client_id)
+                # Create or update users table entry
+                # user_manager already initialized above
+                
+                # For self-registration, auto-login; for trainer-created, don't auto-login
+                if not created_by_trainer:
+                    # Self-registration: create user entry with auto-login
+                    user_manager.create_or_update_user_with_role(client_phone, 'client', client_id)
+                else:
+                    # Trainer-created: create user entry without auto-login
+                    self.auth_service.create_user_entry(clean_phone, 'client', client_id)
                 
                 # If created by trainer, establish relationship
                 if created_by_trainer and trainer_id:
                     self._create_trainer_client_relationship(trainer_id, client_id, 'trainer')
-                
-                # Set login status (only for self-registration, not trainer-created)
-                if not created_by_trainer:
-                    self.auth_service.set_login_status(clean_phone, 'client')
                 
                 log_info(f"Client registered successfully: {client_id}")
                 
@@ -220,57 +232,4 @@ class DataSaver:
             log_error(f"Error creating relationship: {str(e)}")
             return False
     
-    def _parse_experience_to_number(self, experience_text: str) -> int:
-        """
-        Convert experience text to number for years_experience field
-        
-        Handles both formats:
-        - "0-1 years" (chat-based)
-        - "0-1" or "10+" (flow-based)
-        """
-        if not experience_text:
-            return 0
-        
-        # Handle flow format (e.g., "0-1", "2-3", "10+")
-        if '+' in experience_text:
-            return int(experience_text.replace('+', '').strip())
-        
-        if '-' in experience_text and 'years' not in experience_text:
-            # Flow format: "2-3" -> take lower bound
-            return int(experience_text.split('-')[0].strip())
-        
-        # Handle chat format (e.g., "0-1 years", "2-3 years")
-        experience_map = {
-            '0-1 years': 1,
-            '2-3 years': 3,
-            '4-5 years': 5,
-            '6-10 years': 8,
-            '10+ years': 12
-        }
-        
-        return experience_map.get(experience_text, 0)
-        
-
-    def _extract_available_days(self, working_hours: Dict) -> list:
-        """Extract list of available days from working_hours for legacy field"""
-        available_days = []
-        for day, schedule in working_hours.items():
-            preset = schedule.get('preset', 'not_available')
-            if preset and preset != 'not_available':
-                available_days.append(day.capitalize())
-        return available_days
     
-    def _extract_preferred_time_slots(self, working_hours: Dict) -> str:
-        """Extract preferred time slots description from working_hours for legacy field"""
-        time_preferences = set()
-        for day, schedule in working_hours.items():
-            preset = schedule.get('preset', 'not_available')
-            if preset == 'morning':
-                time_preferences.add('Morning')
-            elif preset == 'evening':
-                time_preferences.add('Evening')
-            elif preset == 'business':
-                time_preferences.add('Business Hours')
-            elif preset == 'full_day':
-                time_preferences.add('Full Day')
-        return ', '.join(sorted(time_preferences)) if time_preferences else None    

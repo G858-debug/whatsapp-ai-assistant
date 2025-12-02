@@ -20,6 +20,7 @@ class TrainerRelationshipFlows:
         
         # Initialize specialized flow handlers
         self.invitation_flow = InvitationFlow(db, whatsapp, task_service)
+        # todo: reg_service will be deleted after client onboarding clean
         self.creation_flow = CreationFlow(db, whatsapp, task_service, reg_service)
         self.removal_flow = RemovalFlow(db, whatsapp, task_service)
     

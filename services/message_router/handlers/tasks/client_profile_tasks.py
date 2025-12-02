@@ -10,7 +10,7 @@ from services.validation import get_validator
 class ClientProfileTaskHandler:
     """Handles client profile-related tasks"""
 
-    def __init__(self, db, whatsapp, auth_service, task_service):
+    def __init__(self, db, whatsapp, task_service):
         """
         Initialize the client profile task handler
 
@@ -22,7 +22,6 @@ class ClientProfileTaskHandler:
         """
         self.db = db
         self.whatsapp = whatsapp
-        self.auth_service = auth_service
         self.task_service = task_service
 
     def handle_client_profile_task(self, phone: str, message: str, task: Dict, role: str) -> Dict:
