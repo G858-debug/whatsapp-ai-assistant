@@ -178,28 +178,10 @@ def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
         }
 
 
-def handle_delete_account(phone: str, role: str, user_id: str, db, whatsapp, auth_service, task_service) -> Dict:
-    """Handle delete account command"""
+def handle_delete_account(phone: str, role: str, user_id: str, db, whatsapp, auth_service, task_service=None) -> Dict:
+    """Handle delete account command - sends button confirmation"""
     try:
-        # Create delete_account task - use phone for task identification
-        task_id = task_service.create_task(
-            user_id=phone,
-            role=role,
-            task_type='delete_account',
-            task_data={
-                'confirmed': False,
-                'role': role,
-                'trainer_id': user_id if role == 'trainer' else None,
-                'client_id': user_id if role == 'client' else None
-            }
-        )
-        
-        if not task_id:
-            msg = "❌ I couldn't start the account deletion. Please try again."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'delete_account_task_error'}
-        
-        # Send confirmation request
+        # Build warning message
         warning_msg = (
             "⚠️ *Delete Account*\n\n"
             f"Are you sure you want to delete your *{role.title()}* account?\n\n"
@@ -229,20 +211,56 @@ def handle_delete_account(phone: str, role: str, user_id: str, db, whatsapp, aut
         else:
             warning_msg += "\n⚠️ Your entire account will be deleted.\n"
         
-        warning_msg += (
-            "\n*This action cannot be undone!*\n\n"
-            "Reply with:\n"
-            "• 'YES DELETE' to confirm\n"
-            "• 'CANCEL' or /stop to cancel"
-        )
+        warning_msg += "\n*This action cannot be undone!*"
         
-        whatsapp.send_message(phone, warning_msg)
-        
-        return {
-            'success': True,
-            'response': warning_msg,
-            'handler': 'delete_account_confirmation'
+        # Send message with confirmation buttons
+        button_message = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {
+                    "text": warning_msg
+                },
+                "action": {
+                    "buttons": [
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": f"confirm_delete_{role}",
+                                "title": "✅ Confirm Delete"
+                            }
+                        },
+                        {
+                            "type": "reply",
+                            "reply": {
+                                "id": "cancel_delete",
+                                "title": "❌ Cancel"
+                            }
+                        }
+                    ]
+                }
+            }
         }
+        
+        result = whatsapp.send_button_message(button_message)
+        
+        if result.get('success'):
+            return {
+                'success': True,
+                'response': warning_msg,
+                'handler': 'delete_account_confirmation_sent'
+            }
+        else:
+            # Fallback to text message if button fails
+            whatsapp.send_message(phone, warning_msg + "\n\nReply 'YES DELETE' to confirm or 'CANCEL' to cancel.")
+            return {
+                'success': True,
+                'response': warning_msg,
+                'handler': 'delete_account_confirmation_fallback'
+            }
         
     except Exception as e:
         log_error(f"Error starting account deletion: {str(e)}")

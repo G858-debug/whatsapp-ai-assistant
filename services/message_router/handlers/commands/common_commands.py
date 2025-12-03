@@ -73,8 +73,9 @@ class CommonCommandHandler:
         """Handle delete account command"""
         try:
             from services.commands import handle_delete_account
+            # Updated to use button-based confirmation (no task_service needed)
             return handle_delete_account(phone, role, user_id, self.db, self.whatsapp,
-                                        self.auth_service, self.task_service)
+                                        self.auth_service)
         except Exception as e:
             log_error(f"Error handling delete account: {str(e)}")
             return {'success': False, 'response': 'Error starting account deletion', 'handler': 'delete_account_error'}

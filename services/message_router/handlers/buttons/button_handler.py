@@ -11,6 +11,7 @@ from .client_creation_buttons import ClientCreationButtonHandler
 from .contact_confirmation_buttons import ContactConfirmationButtonHandler
 from .timeout_buttons import TimeoutButtonHandler
 from .invitation_buttons import InvitationButtonHandler
+from services.auth.core.user_manager import UserManager
 
 
 class ButtonHandler:
@@ -111,6 +112,16 @@ class ButtonHandler:
                 # Profile section view buttons (view_basic_info, view_fitness_goals, etc.)
                 log_info(f"Routing {button_id} to ProfileViewer")
                 return self._handle_profile_view_button(phone, button_id)
+
+            elif button_id.startswith('confirm_delete_') or button_id == 'cancel_delete':
+                # Delete account confirmation buttons
+                log_info(f"Routing {button_id} to delete account handler")
+                return self._handle_delete_account_button(phone, button_id)
+            
+            elif button_id.startswith('final_confirm_delete_') or button_id == 'final_cancel_delete':
+                # Final delete account confirmation buttons (second confirmation)
+                log_info(f"Routing {button_id} to final delete account handler")
+                return self._handle_final_delete_confirmation(phone, button_id)
 
             elif button_id.startswith('help_'):
                 # Help category buttons (help_account, help_clients, etc.)
@@ -393,3 +404,238 @@ class ButtonHandler:
             log_error(f"Traceback: {traceback.format_exc()}")
             self.whatsapp.send_message(phone, "Sorry, there was an error viewing your profile. Please try again.")
             return {'success': False, 'response': 'Error viewing profile', 'handler': 'profile_view_error'}
+    
+    def _handle_delete_account_button(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle first delete account confirmation button
+        Shows second confirmation with final warning
+        """
+        try:
+            # Check if cancelled
+            if button_id == 'cancel_delete':
+                msg = (
+                    "✅ *Account Deletion Cancelled*\n\n"
+                    "Your account is safe. No changes were made.\n\n"
+                    "Type /help to see what you can do."
+                )
+                self.whatsapp.send_message(phone, msg)
+                return {
+                    'success': True,
+                    'response': msg,
+                    'handler': 'delete_account_cancelled'
+                }
+            
+            # Extract role from button_id (confirm_delete_trainer or confirm_delete_client)
+            role = button_id.replace('confirm_delete_', '')
+            
+            # Get user info
+            login_status = self.auth_service.get_login_status(phone)
+            if not login_status or login_status != role:
+                msg = "❌ Invalid session. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'delete_invalid_session'}
+            
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+            if not user_id:
+                msg = "❌ User ID not found. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'delete_user_id_not_found'}
+            
+            # Check if user has other role
+            roles = self.auth_service.get_user_roles(phone)
+            other_role = 'client' if role == 'trainer' else 'trainer'
+            has_other_role = bool(roles[other_role])
+            
+            # Build final confirmation message
+            final_warning = (
+                "⚠️ *FINAL CONFIRMATION*\n\n"
+                f"This is your last chance to cancel!\n\n"
+                f"Deleting your *{role.title()}* account will:\n"
+            )
+            
+            if role == 'trainer':
+                final_warning += (
+                    "• Permanently remove all your trainer data\n"
+                    "• Remove you from all client lists\n"
+                    "• Delete all habits you created\n"
+                    "• Remove all habit assignments\n"
+                )
+            else:
+                final_warning += (
+                    "• Permanently remove all your client data\n"
+                    "• Remove you from all trainer lists\n"
+                    "• Delete all your habit logs\n"
+                )
+            
+            if has_other_role:
+                final_warning += f"\n✅ Your {other_role} account will remain active."
+            else:
+                final_warning += "\n⚠️ Your entire account will be deleted."
+            
+            final_warning += "\n\n*THIS CANNOT BE UNDONE!*"
+            
+            # Send final confirmation with buttons
+            button_message = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {
+                        "text": final_warning
+                    },
+                    "action": {
+                        "buttons": [
+                            {
+                                "type": "reply",
+                                "reply": {
+                                    "id": f"final_confirm_delete_{role}_{user_id}",
+                                    "title": "⚠️ DELETE NOW"
+                                }
+                            },
+                            {
+                                "type": "reply",
+                                "reply": {
+                                    "id": "final_cancel_delete",
+                                    "title": "❌ Cancel"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            
+            result = self.whatsapp.send_button_message(button_message)
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'response': final_warning,
+                    'handler': 'delete_final_confirmation_sent'
+                }
+            else:
+                msg = "❌ Error sending confirmation. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'delete_button_send_error'}
+        
+        except Exception as e:
+            log_error(f"Error handling delete account button: {str(e)}")
+            import traceback
+            log_error(f"Traceback: {traceback.format_exc()}")
+            msg = "❌ Error processing deletion. Your account is safe."
+            self.whatsapp.send_message(phone, msg)
+            return {'success': False, 'response': msg, 'handler': 'delete_button_error'}
+    
+    def _handle_final_delete_confirmation(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle final delete account confirmation button
+        Actually executes the deletion
+        """
+        try:
+            # Check if cancelled
+            if button_id == 'final_cancel_delete':
+                msg = (
+                    "✅ *Account Deletion Cancelled*\n\n"
+                    "Your account is safe. No changes were made.\n\n"
+                    "Type /help to see what you can do."
+                )
+                self.whatsapp.send_message(phone, msg)
+                return {
+                    'success': True,
+                    'response': msg,
+                    'handler': 'delete_account_cancelled_final'
+                }
+            
+            # Extract role and user_id from button_id (final_confirm_delete_trainer_TR_ASRA_111)
+            parts = button_id.replace('final_confirm_delete_', '').split('_', 1)
+            if len(parts) != 2:
+                msg = "❌ Invalid confirmation. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'delete_invalid_button_format'}
+            
+            role, user_id = parts
+            
+            # Verify user session
+            login_status = self.auth_service.get_login_status(phone)
+            if not login_status or login_status != role:
+                msg = "❌ Invalid session. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'delete_invalid_session_final'}
+            
+            # Verify user_id matches
+            current_user_id = self.auth_service.get_user_id_by_role(phone, role)
+            if current_user_id != user_id:
+                msg = "❌ User ID mismatch. Please try again."
+                self.whatsapp.send_message(phone, msg)
+                return {'success': False, 'response': msg, 'handler': 'delete_user_id_mismatch'}
+            
+            log_info(f"Executing account deletion for {phone} ({role})")
+            
+            # Execute deletion using UserManager directly
+            user_manager = UserManager(self.db)
+            success = user_manager.delete_user_role(phone, role)
+            
+            if success:
+                # Check if user has other role
+                roles = self.auth_service.get_user_roles(phone)
+                other_role = 'client' if role == 'trainer' else 'trainer'
+                
+                if roles[other_role]:
+                    # User still has other role
+                    msg = (
+                        f"✅ *{role.title()} Account Deleted*\n\n"
+                        f"Your {role} account has been permanently deleted.\n\n"
+                        f"Your {other_role} account is still active.\n\n"
+                        f"Type /help to see what you can do as a {other_role}."
+                    )
+                else:
+                    # User completely deleted
+                    msg = (
+                        "✅ *Account Deleted*\n\n"
+                        "Your account has been permanently deleted.\n\n"
+                        "Thank you for using Refiloe. You're welcome back anytime!\n\n"
+                        "To register again, just send me a message."
+                    )
+                
+                self.whatsapp.send_message(phone, msg)
+                
+                log_info(f"Account deletion completed for {phone}")
+                
+                return {
+                    'success': True,
+                    'response': msg,
+                    'handler': 'delete_account_success'
+                }
+            else:
+                # Deletion failed
+                msg = (
+                    "❌ *Deletion Failed*\n\n"
+                    "Sorry, I encountered an error deleting your account.\n\n"
+                    "Your account is still active. Please try again or contact support."
+                )
+                self.whatsapp.send_message(phone, msg)
+                
+                return {
+                    'success': False,
+                    'response': msg,
+                    'handler': 'delete_account_failed'
+                }
+        
+        except Exception as e:
+            log_error(f"Error executing account deletion: {str(e)}")
+            import traceback
+            log_error(f"Traceback: {traceback.format_exc()}")
+            
+            msg = (
+                "❌ *Deletion Failed*\n\n"
+                "Sorry, I encountered an error deleting your account.\n\n"
+                "Your account is still active. Please try again or contact support."
+            )
+            self.whatsapp.send_message(phone, msg)
+            
+            return {
+                'success': False,
+                'response': msg,
+                'handler': 'delete_execution_error'
+            }
