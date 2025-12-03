@@ -197,7 +197,14 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-profile', 'title': '👤 View Profile'},
                         {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
+                    ]
+                },
+                'help_account2': {
+                    'title': '👤 *Account Management*\n\nMore commands:',
+                    'buttons': [
                         {'id': '/delete-account', 'title': '🗑️ Delete Account'},
+                        {'id': '/stop', 'title': '⛔ Stop Task'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
@@ -206,7 +213,14 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/invite-trainee', 'title': '📧 Invite Client'},
                         {'id': '/view-trainees', 'title': '📋 View Clients'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
+                    ]
+                },
+                'help_clients2': {
+                    'title': '👥 *Client Management*\n\nMore commands:',
+                    'buttons': [
                         {'id': '/remove-trainee', 'title': '❌ Remove Client'},
+                        {'id': '/create-trainee', 'title': '➕ Create Client'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
@@ -214,8 +228,15 @@ class ButtonHandler:
                     'title': '🎯 *Habit Management*\n\nSelect a command:',
                     'buttons': [
                         {'id': '/create-habit', 'title': '➕ Create Habit'},
-                        {'id': '/edit-habit', 'title': '✏️ Edit Habit'},
                         {'id': '/view-habits', 'title': '📋 View Habits'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
+                    ]
+                },
+                'help_habits2': {
+                    'title': '🎯 *Habit Management*\n\nMore commands:',
+                    'buttons': [
+                        {'id': '/edit-habit', 'title': '✏️ Edit Habit'},
+                        {'id': '/delete-habit', 'title': '🗑️ Delete Habit'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
@@ -239,15 +260,7 @@ class ButtonHandler:
                     'title': '📈 *Dashboard & Reports*\n\nSelect a command:',
                     'buttons': [
                         {'id': '/trainer-dashboard', 'title': '📊 Dashboard'},
-                        {'id': '/view-habits', 'title': '📋 View Habits'},
-                        {'id': '/help', 'title': '📚 Back to Help'}
-                    ]
-                },
-                'help_system': {
-                    'title': '⚙️ *System Commands*\n\nSelect a command:',
-                    'buttons': [
-                        {'id': '/help', 'title': '📚 Show Help'},
-                        {'id': '/stop', 'title': '⛔ Stop Task'},
+                        {'id': '/view-trainees', 'title': '📋 View Clients'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 }
@@ -259,7 +272,14 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-profile', 'title': '👤 View Profile'},
                         {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
+                    ]
+                },
+                'help_account2': {
+                    'title': '👤 *Account Management*\n\nMore commands:',
+                    'buttons': [
                         {'id': '/delete-account', 'title': '🗑️ Delete Account'},
+                        {'id': '/stop', 'title': '⛔ Stop Task'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
@@ -268,7 +288,14 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/search-trainer', 'title': '🔍 Search Trainers'},
                         {'id': '/view-trainers', 'title': '📋 View Trainers'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
+                    ]
+                },
+                'help_trainers2': {
+                    'title': '👨‍🏫 *Trainer Management*\n\nMore commands:',
+                    'buttons': [
                         {'id': '/remove-trainer', 'title': '❌ Remove Trainer'},
+                        {'id': '/invite-trainer', 'title': '📧 Invite Trainer'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
@@ -277,7 +304,14 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-my-habits', 'title': '📋 My Habits'},
                         {'id': '/log-habits', 'title': '✅ Log Habits'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
+                    ]
+                },
+                'help_habits2': {
+                    'title': '🎯 *Habit Tracking*\n\nMore commands:',
+                    'buttons': [
                         {'id': '/view-progress', 'title': '📈 View Progress'},
+                        {'id': '/weekly-report', 'title': '📅 Weekly Report'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
@@ -286,22 +320,6 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/weekly-report', 'title': '📅 Weekly Report'},
                         {'id': '/monthly-report', 'title': '📆 Monthly Report'},
-                        {'id': '/help', 'title': '📚 Back to Help'}
-                    ]
-                },
-                'help_reminders': {
-                    'title': '⏰ *Reminders*\n\nSelect a command:',
-                    'buttons': [
-                        {'id': '/reminder-settings', 'title': '⏰ Settings'},
-                        {'id': '/test-reminder', 'title': '🔔 Test Reminder'},
-                        {'id': '/help', 'title': '📚 Back to Help'}
-                    ]
-                },
-                'help_system': {
-                    'title': '⚙️ *System Commands*\n\nSelect a command:',
-                    'buttons': [
-                        {'id': '/help', 'title': '📚 Show Help'},
-                        {'id': '/stop', 'title': '⛔ Stop Task'},
                         {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 }

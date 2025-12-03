@@ -25,7 +25,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
             whatsapp.send_message(phone, help_msg)
             
         elif login_status == 'trainer':
-            # Trainer - show all commands grouped by category
+            # Trainer - show all commands grouped by category (9 categories to fit in 10 row limit)
             help_msg = (
                 "📚 *Refiloe Help - Trainer*\n\n"
                 "Browse command categories below, then just tell me what you want to do!\n\n"
@@ -39,37 +39,47 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         {
                             "id": "help_account",
                             "title": "Account Management",
-                            "description": "view profile, edit profile, delete account"
+                            "description": "view profile, edit profile"
+                        },
+                        {
+                            "id": "help_account2",
+                            "title": "Account Management (More)",
+                            "description": "delete account, stop task"
                         },
                         {
                             "id": "help_clients",
                             "title": "Client Management",
-                            "description": "invite client, create client, view clients, remove client"
+                            "description": "invite client, view clients"
+                        },
+                        {
+                            "id": "help_clients2",
+                            "title": "Client Management (More)",
+                            "description": "remove client, create client"
                         },
                         {
                             "id": "help_habits",
                             "title": "Habit Management",
-                            "description": "create habit, edit habit, delete habit, view habits"
+                            "description": "create habit, view habits"
+                        },
+                        {
+                            "id": "help_habits2",
+                            "title": "Habit Management (More)",
+                            "description": "edit habit, delete habit"
                         },
                         {
                             "id": "help_assign",
                             "title": "Habit Assignment",
-                            "description": "assign habit, unassign habit, view client habits"
+                            "description": "assign habit, unassign habit"
                         },
                         {
                             "id": "help_progress",
                             "title": "Progress Tracking",
-                            "description": "view client progress, weekly report, monthly report"
+                            "description": "client progress, weekly report"
                         },
                         {
                             "id": "help_dashboard",
                             "title": "Dashboard & Reports",
-                            "description": "trainer dashboard, export habit data"
-                        },
-                        {
-                            "id": "help_system",
-                            "title": "System Commands",
-                            "description": "help, stop task"
+                            "description": "trainer dashboard, view clients"
                         }
                     ]
                 }
@@ -83,7 +93,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
             )
             
         else:  # client
-            # Client - show all commands grouped by category
+            # Client - show all commands grouped by category (7 categories to fit in 10 row limit)
             help_msg = (
                 "📚 *Refiloe Help - Client*\n\n"
                 "Browse command categories below, then just tell me what you want to do!\n\n"
@@ -97,32 +107,37 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         {
                             "id": "help_account",
                             "title": "Account Management",
-                            "description": "view profile, edit profile, delete account"
+                            "description": "view profile, edit profile"
+                        },
+                        {
+                            "id": "help_account2",
+                            "title": "Account Management (More)",
+                            "description": "delete account, stop task"
                         },
                         {
                             "id": "help_trainers",
                             "title": "Trainer Management",
-                            "description": "search trainers, invite trainer, view trainers, remove trainer"
+                            "description": "search trainers, view trainers"
+                        },
+                        {
+                            "id": "help_trainers2",
+                            "title": "Trainer Management (More)",
+                            "description": "remove trainer, invite trainer"
                         },
                         {
                             "id": "help_habits",
                             "title": "Habit Tracking",
-                            "description": "view my habits, log habits, view progress"
+                            "description": "my habits, log habits"
+                        },
+                        {
+                            "id": "help_habits2",
+                            "title": "Habit Tracking (More)",
+                            "description": "view progress, weekly report"
                         },
                         {
                             "id": "help_reports",
                             "title": "Progress Reports",
                             "description": "weekly report, monthly report"
-                        },
-                        {
-                            "id": "help_reminders",
-                            "title": "Reminders",
-                            "description": "reminder settings, test reminder"
-                        },
-                        {
-                            "id": "help_system",
-                            "title": "System Commands",
-                            "description": "help, stop task"
                         }
                     ]
                 }
