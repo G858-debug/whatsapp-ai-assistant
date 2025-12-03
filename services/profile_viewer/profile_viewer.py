@@ -29,8 +29,8 @@ class ProfileViewer:
         try:
             log_info(f"Showing profile menu for {phone} ({role})")
             
-            # Get profile data
-            profile_data = self._get_profile_data(role, user_id)
+            # Get profile data (pass phone for fallback)
+            profile_data = self._get_profile_data(role, user_id, phone)
             
             if not profile_data:
                 return {
@@ -85,8 +85,8 @@ class ProfileViewer:
         try:
             log_info(f"Showing profile section '{section_id}' for {phone} ({role})")
             
-            # Get profile data
-            profile_data = self._get_profile_data(role, user_id)
+            # Get profile data (pass phone for fallback)
+            profile_data = self._get_profile_data(role, user_id, phone)
             
             if not profile_data:
                 return {
@@ -130,27 +130,51 @@ class ProfileViewer:
                 'handler': 'profile_viewer_section_error'
             }
     
-    def _get_profile_data(self, role: str, user_id: str) -> Optional[Dict]:
-        """Get profile data from database"""
+    def _get_profile_data(self, role: str, user_id: str, phone: str = None) -> Optional[Dict]:
+        """
+        Get profile data from database
+        
+        Args:
+            role: 'trainer' or 'client'
+            user_id: Custom ID from users.trainer_id or users.client_id (e.g., TR_ASRA_111)
+        
+        Returns:
+            Profile data dict or None
+        """
         try:
             from utils.logger import log_info
-            log_info(f"[ProfileViewer._get_profile_data] Getting profile for role: {role}, user_id: {user_id}")
             
             table = 'trainers' if role == 'trainer' else 'clients'
-            # The user_id is the custom ID (e.g., TR_ASRA_111 for trainers, CL_xxx for clients)
-            # These are stored in trainer_id and client_id columns, not the UUID 'id' column
+            # Both users and trainers/clients tables have trainer_id/client_id as custom IDs
+            # users.trainer_id (e.g., TR_ASRA_111) should match trainers.trainer_id
             id_column = 'trainer_id' if role == 'trainer' else 'client_id'
             
-            log_info(f"[ProfileViewer._get_profile_data] Querying {table} table where {id_column}={user_id}")
             result = self.db.table(table).select('*').eq(id_column, user_id).execute()
             
-            log_info(f"[ProfileViewer._get_profile_data] Query result: {len(result.data) if result.data else 0} rows")
-            
             if result.data:
-                log_info(f"[ProfileViewer._get_profile_data] Profile found")
                 return result.data[0]
             
-            log_error(f"[ProfileViewer._get_profile_data] No profile found for {role} with {id_column}={user_id}")
+            
+            # Fallback: Try to find by phone number (for legacy data or mismatched IDs)
+            if phone:
+                phone_column = 'whatsapp'  # Both trainers and clients use 'whatsapp' column
+                
+                # Try with original phone format (with +)
+                fallback_result = self.db.table(table).select('*').eq(phone_column, phone).execute()
+                
+                if fallback_result.data:
+                    return fallback_result.data[0]
+                
+                # Try without + prefix
+                clean_phone = phone.replace('+', '')
+                fallback_result2 = self.db.table(table).select('*').eq(phone_column, clean_phone).execute()
+                
+                if fallback_result2.data:
+                    return fallback_result2.data[0]
+            
+            log_error(f"[ProfileViewer._get_profile_data] DATA INTEGRITY ISSUE: users.{id_column}={user_id} doesn't exist in {table}.{id_column}")
+            log_error(f"[ProfileViewer._get_profile_data] Phone fallback also failed. Profile not found.")
+            
             return None
             
         except Exception as e:
