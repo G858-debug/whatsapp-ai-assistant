@@ -63,8 +63,8 @@ class CommonCommandHandler:
         """Handle edit profile command"""
         try:
             from services.commands import handle_edit_profile
-            # todo: reg_service will be deleted after client onboarding clean
-            return handle_edit_profile(phone, role, user_id, self.db, self.whatsapp, self.reg_service, self.task_service)
+            # Updated to use WhatsApp Flow-based editing (no task_service needed)
+            return handle_edit_profile(phone, role, user_id, self.db, self.whatsapp, self.reg_service)
         except Exception as e:
             log_error(f"Error handling edit profile: {str(e)}")
             return {'success': False, 'response': 'Error starting profile edit', 'handler': 'edit_profile_error'}

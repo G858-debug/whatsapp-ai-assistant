@@ -146,89 +146,28 @@ def _format_list_value(value) -> str:
 #     return profile
 
 
-def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_service, task_service) -> Dict:
-    """Handle edit profile command"""
+def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_service) -> Dict:
+    """Handle edit profile command - sends WhatsApp Flow with pre-filled data"""
     try:
-        # Get all fields
-        fields = reg_service.get_registration_fields(role)
-        if not fields:
-            msg = "❌ I couldn't load the profile fields."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'edit_profile_no_fields'}
+        from services.profile_editor import ProfileEditor
         
-        # Get current data
-        table = 'trainers' if role == 'trainer' else 'clients'
-        id_column = 'trainer_id' if role == 'trainer' else 'client_id'
+        editor = ProfileEditor(db, whatsapp)
+        result = editor.send_edit_flow(phone, role, user_id)
         
-        current_data = db.table(table).select('*').eq(id_column, user_id).execute()
-        
-        if not current_data.data:
-            msg = "❌ I couldn't find your profile data."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'edit_profile_no_data'}
-        
-        profile_data = current_data.data[0]
-        
-        # Build numbered field list with current values
-        field_list = "✏️ *Edit Your Profile*\n\n*Select fields to edit:*\n\n"
-        
-        for i, field in enumerate(fields, 1):
-            # Map config field name to database column name
-            db_column = reg_service.map_field_to_db_column(field['name'], role)
-            field_value = profile_data.get(db_column)
-            
-            # Format current value
-            if field_value:
-                current_value = _format_list_value(field_value)
-                if not current_value:
-                    current_value = str(field_value)
-            else:
-                current_value = "Not set"
-            
-            # Truncate long values
-            if len(current_value) > 40:
-                current_value = current_value[:37] + "..."
-            
-            field_list += f"{i}. *{field['label']}*\n   Current: {current_value}\n\n"
-        
-        field_list += (
-            "📝 *How to edit:*\n"
-            "Reply with the numbers of fields you want to edit, separated by commas.\n\n"
-            "*Examples:*\n"
-            "• `1` - Edit only field 1\n"
-            "• `1,3,5` - Edit fields 1, 3, and 5\n"
-            "• `all` - Edit all fields\n\n"
-            "Type /stop to cancel"
-        )
-        
-        # Create edit_profile task with field selection step - use phone for task identification
-        task_id = task_service.create_task(
-            user_id=phone,
-            role=role,
-            task_type='edit_profile',
-            task_data={
-                'step': 'selecting_fields',  # New step
-                'selected_fields': [],
-                'current_field_index': 0,
-                'updates': {},
-                'role': role,
-                'trainer_id': user_id if role == 'trainer' else None,
-                'client_id': user_id if role == 'client' else None
+        if result.get('success'):
+            return {
+                'success': True,
+                'response': "Opening your profile editor...",
+                'handler': 'edit_profile_flow_sent'
             }
-        )
-        
-        if not task_id:
-            msg = "❌ I couldn't start the profile edit. Please try again."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'edit_profile_task_error'}
-        
-        whatsapp.send_message(phone, field_list)
-        
-        return {
-            'success': True,
-            'response': field_list,
-            'handler': 'edit_profile_started'
-        }
+        else:
+            error_msg = result.get('error', 'Could not open profile editor')
+            whatsapp.send_message(phone, f"❌ {error_msg}")
+            return {
+                'success': False,
+                'response': f"Sorry, I couldn't open the profile editor. {error_msg}",
+                'handler': 'edit_profile_flow_error'
+            }
         
     except Exception as e:
         log_error(f"Error starting profile edit: {str(e)}")

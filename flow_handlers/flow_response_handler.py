@@ -270,6 +270,28 @@ def process_flow_webhook(webhook_data: dict, supabase, whatsapp_service) -> dict
                     'message': result.get('error', 'Flow processing failed')
                 }
 
+        elif flow_token and ('edit_profile_trainer' in flow_token or 'edit_profile_client' in flow_token):
+            log_info(f"Routing to profile editor handler based on token: {flow_token}")
+            
+            # Handle edit profile flow
+            from services.profile_editor import ProfileEditor
+            profile_editor = ProfileEditor(supabase, whatsapp_service)
+            result = profile_editor.process_edit_completion(flow_data, phone_number)
+            
+            if result.get('success'):
+                log_info(f"✅ Profile edit completed successfully")
+                return {
+                    'success': True,
+                    'message': result.get('message', 'Profile updated successfully'),
+                    'changes': result.get('changes')
+                }
+            else:
+                log_error(f"❌ Profile edit failed: {result.get('error')}")
+                return {
+                    'success': False,
+                    'message': result.get('error', 'Profile update failed')
+                }
+
         elif flow_token and 'trainer_onboarding' in flow_token or flow_name == 'trainer_onboarding_flow':
             log_info(f"Routing to trainer onboarding handler")
             trainer_onboarding_service = WhatsAppFlowTrainerOnboarding(supabase, whatsapp_service)
