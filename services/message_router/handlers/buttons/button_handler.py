@@ -197,7 +197,7 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-profile', 'title': '👤 View Profile'},
                         {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
-                        {'id': '/logout', 'title': '🚪 Logout'}
+                        {'id': '/delete-account', 'title': '🗑️ Delete Account'}
                     ]
                 },
                 'help_clients': {
@@ -245,7 +245,7 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/help', 'title': '📚 Show Help'},
                         {'id': '/stop', 'title': '⛔ Stop Task'},
-                        {'id': '/logout', 'title': '🚪 Logout'}
+                        {'id': '/view-profile', 'title': '👤 View Profile'}
                     ]
                 }
             }

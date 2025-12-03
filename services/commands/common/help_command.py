@@ -39,7 +39,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         {
                             "id": "help_account",
                             "title": "Account Management",
-                            "description": "view profile, edit profile, delete account, logout, switch role"
+                            "description": "view profile, edit profile, delete account"
                         },
                         {
                             "id": "help_clients",
@@ -69,7 +69,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         {
                             "id": "help_system",
                             "title": "System Commands",
-                            "description": "help, stop task, register"
+                            "description": "help, stop task"
                         }
                     ]
                 }
