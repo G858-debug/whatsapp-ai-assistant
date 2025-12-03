@@ -144,7 +144,18 @@ class ButtonHandler:
         This avoids creating a new MessageRouter instance and circular imports.
         """
         try:
-            # Get user's login status to determine role (returns role string or None)
+            # First check if it's a universal command (works in any state)
+            from ..universal_command_handler import UniversalCommandHandler
+            universal_handler = UniversalCommandHandler(
+                self.auth_service, self.task_service, self.whatsapp
+            )
+            universal_result = universal_handler.handle_universal_command(phone, button_id)
+            
+            if universal_result is not None:
+                # It was a universal command, return the result
+                return universal_result
+            
+            # Not a universal command, check login status
             role = self.auth_service.get_login_status(phone)
             
             if not role:
