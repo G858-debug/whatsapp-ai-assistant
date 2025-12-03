@@ -12,7 +12,7 @@ from .handlers.buttons.button_handler import ButtonHandler
 from .handlers.universal_command_handler import UniversalCommandHandler
 from .handlers.new_user_handler import NewUserHandler
 # from .handlers.login_handler import LoginHandler
-from .handlers.logged_in_user_handler import LoggedInUserHandler
+# from .handlers.logged_in_user_handler import LoggedInUserHandler  # Now accessed through button_handler
 # from .utils.message_history import MessageHistoryManager
 
 
@@ -41,10 +41,7 @@ class MessageRouter:
         # self.login_handler = LoginHandler(
         #     self.db, self.whatsapp, self.auth_service, self.task_service
         # )
-        # todo: reg_service will be deleted after client onboarding clean
-        self.logged_in_user_handler = LoggedInUserHandler(
-            self.db, self.whatsapp, self.auth_service, self.task_service, self.reg_service
-        )
+        # Logged-in user handling is now done through button_handler
         # self.message_history = MessageHistoryManager(self.db)
     
     def route_message(self, phone: str, message: str, button_id: str = None) -> Dict:
@@ -119,15 +116,12 @@ class MessageRouter:
                 
                 if auto_login_result:
                     log_info(f"Auto-logged in {phone} as {auto_login_result}")
-                    return self.logged_in_user_handler.handle_logged_in_user(phone, message, auto_login_result)
-                
-                # No auto-login possible, show login options (direct call)
-                from services.flows.authentication.login_flow import LoginFlowHandler
-                login_flow = LoginFlowHandler(self.db, self.whatsapp, self.auth_service, self.task_service)
-                return login_flow.handle_login(phone, message)
+                    login_status = auto_login_result
+               
             
-            # Step 5: User is logged in - route to role handler
-            return self.logged_in_user_handler.handle_logged_in_user(phone, message, login_status)
+            # Step 5: User is logged in - route through button_handler
+            # Button handler delegates to logged_in_user_handler for unified message/button handling
+            return self.button_handler.handle_logged_in_message(phone, message, login_status)
             
         except Exception as e:
             log_error(f"Error routing message: {str(e)}")

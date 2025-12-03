@@ -7,45 +7,13 @@ from utils.logger import log_info, log_error
 
 
 def handle_view_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_service) -> Dict:
-    """Handle view profile command"""
+    """Handle view profile command - shows interactive menu with sections"""
     try:
-        # Clean phone number (remove + and other formatting)
-        clean_phone = phone.replace('+', '').replace('-', '').replace(' ', '')
+        # Use ProfileViewer for interactive section-based viewing
+        from services.profile_viewer import ProfileViewer
         
-        # Get user data from users table
-        user_result = db.table('users').select('*').eq('phone_number', clean_phone).execute()
-        
-        if not user_result.data:
-            msg = "❌ I couldn't find your profile information."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'view_profile_not_found'}
-        
-        # Get role-specific data
-        table = 'trainers' if role == 'trainer' else 'clients'
-        id_column = 'trainer_id' if role == 'trainer' else 'client_id'
-        
-        role_result = db.table(table).select('*').eq(id_column, user_id).execute()
-        
-        if not role_result.data:
-            msg = "❌ I couldn't find your profile information."
-            whatsapp.send_message(phone, msg)
-            return {'success': False, 'response': msg, 'handler': 'view_profile_role_not_found'}
-        
-        role_data = role_result.data[0]
-        
-        # Build profile message
-        if role == 'trainer':
-            profile_msg = _format_trainer_profile(role_data, user_id)
-        else:
-            profile_msg = _format_client_profile(role_data, user_id)
-        
-        whatsapp.send_message(phone, profile_msg)
-        
-        return {
-            'success': True,
-            'response': profile_msg,
-            'handler': 'view_profile_success'
-        }
+        viewer = ProfileViewer(db, whatsapp)
+        return viewer.show_profile_menu(phone, role, user_id)
         
     except Exception as e:
         log_error(f"Error viewing profile: {str(e)}")
@@ -72,96 +40,96 @@ def _format_list_value(value) -> str:
     return str(value) if value else ""
 
 
-def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
-    """Format trainer profile for display"""
-    name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or data.get('name', 'N/A')
+# def _format_trainer_profile(data: Dict, trainer_id: str) -> str:
+#     """Format trainer profile for display"""
+#     name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or data.get('name', 'N/A')
     
-    profile = (
-        f"👤 *Your Trainer Profile*\n\n"
-        f"*ID:* {trainer_id}\n"
-        f"*Name:* {name}\n"
-        f"*Email:* {data.get('email', 'N/A')}\n"
-        f"*Phone:* {data.get('whatsapp', 'N/A')}\n"
-        f"*Location:* {data.get('city', 'N/A')}\n"  # Use city (primary field)
-    )
+#     profile = (
+#         f"👤 *Your Trainer Profile*\n\n"
+#         f"*ID:* {trainer_id}\n"
+#         f"*Name:* {name}\n"
+#         f"*Email:* {data.get('email', 'N/A')}\n"
+#         f"*Phone:* {data.get('whatsapp', 'N/A')}\n"
+#         f"*Location:* {data.get('city', 'N/A')}\n"  # Use city (primary field)
+#     )
     
-    if data.get('business_name'):
-        profile += f"*Business:* {data['business_name']}\n"
+#     if data.get('business_name'):
+#         profile += f"*Business:* {data['business_name']}\n"
     
-    if data.get('specialization'):
-        spec = _format_list_value(data['specialization'])
-        if spec:
-            profile += f"*Specialization:* {spec}\n"
+#     if data.get('specialization'):
+#         spec = _format_list_value(data['specialization'])
+#         if spec:
+#             profile += f"*Specialization:* {spec}\n"
     
-    # Use experience_years (primary field) instead of years_experience
-    if data.get('experience_years'):
-        profile += f"*Experience:* {data['experience_years']}\n"
+#     # Use experience_years (primary field) instead of years_experience
+#     if data.get('experience_years'):
+#         profile += f"*Experience:* {data['experience_years']}\n"
     
-    if data.get('pricing_per_session'):
-        profile += f"*Price per Session:* R{data['pricing_per_session']}\n"
+#     if data.get('pricing_per_session'):
+#         profile += f"*Price per Session:* R{data['pricing_per_session']}\n"
     
-    # Show available days as list
-    if data.get('available_days'):
-        days = _format_list_value(data['available_days'])
-        if days:
-            profile += f"*Available Days:* {days}\n"
+#     # Show available days as list
+#     if data.get('available_days'):
+#         days = _format_list_value(data['available_days'])
+#         if days:
+#             profile += f"*Available Days:* {days}\n"
     
-    if data.get('preferred_time_slots'):
-        profile += f"*Preferred Time:* {data['preferred_time_slots']}\n"
+#     if data.get('preferred_time_slots'):
+#         profile += f"*Preferred Time:* {data['preferred_time_slots']}\n"
     
-    # Show services offered as list
-    if data.get('services_offered'):
-        services = _format_list_value(data['services_offered'])
-        if services:
-            profile += f"*Services:* {services}\n"
+#     # Show services offered as list
+#     if data.get('services_offered'):
+#         services = _format_list_value(data['services_offered'])
+#         if services:
+#             profile += f"*Services:* {services}\n"
     
-    # Show pricing flexibility as list
-    if data.get('pricing_flexibility'):
-        pricing = _format_list_value(data['pricing_flexibility'])
-        if pricing:
-            profile += f"*Pricing Options:* {pricing}\n"
+#     # Show pricing flexibility as list
+#     if data.get('pricing_flexibility'):
+#         pricing = _format_list_value(data['pricing_flexibility'])
+#         if pricing:
+#             profile += f"*Pricing Options:* {pricing}\n"
     
-    profile += f"\n💡 Type /edit-profile to update your information"
+#     profile += f"\n💡 Type /edit-profile to update your information"
     
-    return profile
+#     return profile
 
 
-def _format_client_profile(data: Dict, client_id: str) -> str:
-    """Format client profile for display"""
-    name = data.get('name', 'N/A')
+# def _format_client_profile(data: Dict, client_id: str) -> str:
+#     """Format client profile for display"""
+#     name = data.get('name', 'N/A')
     
-    profile = (
-        f"👤 *Your Client Profile*\n\n"
-        f"*ID:* {client_id}\n"
-        f"*Name:* {name}\n"
-        f"*Email:* {data.get('email', 'N/A')}\n"
-        f"*Phone:* {data.get('whatsapp', 'N/A')}\n"
-    )
+#     profile = (
+#         f"👤 *Your Client Profile*\n\n"
+#         f"*ID:* {client_id}\n"
+#         f"*Name:* {name}\n"
+#         f"*Email:* {data.get('email', 'N/A')}\n"
+#         f"*Phone:* {data.get('whatsapp', 'N/A')}\n"
+#     )
     
-    if data.get('fitness_goals'):
-        goals = _format_list_value(data['fitness_goals'])
-        if goals:
-            profile += f"*Fitness Goals:* {goals}\n"
+#     if data.get('fitness_goals'):
+#         goals = _format_list_value(data['fitness_goals'])
+#         if goals:
+#             profile += f"*Fitness Goals:* {goals}\n"
     
-    if data.get('experience_level'):
-        profile += f"*Experience Level:* {data['experience_level']}\n"
+#     if data.get('experience_level'):
+#         profile += f"*Experience Level:* {data['experience_level']}\n"
     
-    if data.get('health_conditions'):
-        profile += f"*Health Conditions:* {data['health_conditions']}\n"
+#     if data.get('health_conditions'):
+#         profile += f"*Health Conditions:* {data['health_conditions']}\n"
     
-    if data.get('availability'):
-        avail = _format_list_value(data['availability'])
-        if avail:
-            profile += f"*Availability:* {avail}\n"
+#     if data.get('availability'):
+#         avail = _format_list_value(data['availability'])
+#         if avail:
+#             profile += f"*Availability:* {avail}\n"
     
-    if data.get('preferred_training_times'):
-        training_types = _format_list_value(data['preferred_training_times'])
-        if training_types:
-            profile += f"*Preferred Training:* {training_types}\n"
+#     if data.get('preferred_training_times'):
+#         training_types = _format_list_value(data['preferred_training_times'])
+#         if training_types:
+#             profile += f"*Preferred Training:* {training_types}\n"
     
-    profile += f"\n💡 Type /edit-profile to update your information"
+#     profile += f"\n💡 Type /edit-profile to update your information"
     
-    return profile
+#     return profile
 
 
 def handle_edit_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_service, task_service) -> Dict:

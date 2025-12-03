@@ -58,13 +58,8 @@ class ButtonHandler:
 
             # Check if button_id is a command (starts with /)
             if button_id.startswith('/'):
-                log_info(f"Button is a command: {button_id} - routing through command processing")
-                # Route command buttons through the normal message processing flow
-                # Import here to avoid circular imports
-                from services.message_router.message_router import MessageRouter
-                router = MessageRouter(self.db, self.whatsapp)
-                # Process as a regular message (no button_id to avoid infinite loop)
-                return router.route_message(phone, button_id, button_id=None)
+                log_info(f"Button is a command: {button_id} - routing to logged_in_user_handler")
+                return self._handle_command_button(phone, button_id)
 
             # CRITICAL: Check for accept_invitation_/decline_invitation_ FIRST
             # These must be checked before accept_client_/decline_client_ to avoid conflicts
@@ -93,7 +88,7 @@ class ButtonHandler:
             elif button_id.startswith(('approve_new_client_', 'reject_new_client_')) or button_id == 'share_contact_instructions':
                 return self.client_creation_handler.handle_client_creation_button(phone, button_id)
 
-            elif button_id in ['register_trainer', 'register_client', 'login_trainer', 'login_client']:
+            elif button_id in ['register_client', 'login_trainer', 'login_client']:
                 return self.registration_handler.handle_registration_button(phone, button_id)
 
             elif button_id.startswith('confirm_contact_') or button_id in ['edit_contact_name', 'edit_contact_phone', 'edit_contact_again', 'confirm_edited_contact']:
@@ -119,3 +114,48 @@ class ButtonHandler:
         except Exception as e:
             log_error(f"Error handling button response: {str(e)}")
             return {'success': False, 'response': 'Error processing button', 'handler': 'button_error'}
+    
+    def handle_logged_in_message(self, phone: str, message: str, role: str) -> Dict:
+        """
+        Handle messages from logged-in users.
+        Called by MessageRouter for logged-in users.
+        """
+        try:
+            # Use logged_in_user_handler for message processing
+            from ..logged_in_user_handler import LoggedInUserHandler
+            logged_in_handler = LoggedInUserHandler(
+                self.db, self.whatsapp, self.auth_service, self.task_service, 
+                getattr(self, 'reg_service', None)
+            )
+            return logged_in_handler.handle_logged_in_user(phone, message, role)
+            
+        except Exception as e:
+            log_error(f"Error handling logged-in message: {str(e)}")
+            return {'success': False, 'response': 'Error processing message', 'handler': 'logged_in_message_error'}
+    
+    def _handle_command_button(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle command buttons (starting with /) by routing through logged_in_user_handler.
+        This avoids creating a new MessageRouter instance and circular imports.
+        """
+        try:
+            # Get user's login status to determine role
+            login_status = self.auth_service.get_login_status(phone)
+            
+            if not login_status:
+                # User not logged in - route through message router for proper handling
+                from services.message_router.message_router import MessageRouter
+                router = MessageRouter(self.db, self.whatsapp)
+                return router.route_message(phone, button_id, button_id=None)
+            
+            # User is logged in - use logged_in_user_handler directly
+            from ..logged_in_user_handler import LoggedInUserHandler
+            logged_in_handler = LoggedInUserHandler(
+                self.db, self.whatsapp, self.auth_service, self.task_service, 
+                getattr(self, 'reg_service', None)
+            )
+            return logged_in_handler.handle_logged_in_button(phone, button_id, login_status)
+            
+        except Exception as e:
+            log_error(f"Error handling command button: {str(e)}")
+            return {'success': False, 'response': 'Error processing command', 'handler': 'command_button_error'}
