@@ -107,6 +107,11 @@ class ButtonHandler:
                     log_error("Timeout handler not initialized")
                     return {'success': False, 'response': 'Service unavailable', 'handler': 'timeout_handler_unavailable'}
 
+            elif button_id.startswith('view_') or button_id == 'back_to_profile':
+                # Profile section view buttons (view_basic_info, view_fitness_goals, etc.)
+                log_info(f"Routing {button_id} to ProfileViewer")
+                return self._handle_profile_view_button(phone, button_id)
+
             else:
                 log_error(f"Unknown button ID: {button_id}")
                 return {'success': False, 'response': 'Unknown button action', 'handler': 'button_unknown'}
@@ -159,3 +164,44 @@ class ButtonHandler:
         except Exception as e:
             log_error(f"Error handling command button: {str(e)}")
             return {'success': False, 'response': 'Error processing command', 'handler': 'command_button_error'}
+    
+    def _handle_profile_view_button(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle profile section view buttons (view_basic_info, view_fitness_goals, etc.)
+        """
+        try:
+            from services.profile_viewer.profile_viewer import ProfileViewer
+            
+            # Get user's login status
+            login_status = self.auth_service.get_login_status(phone)
+            
+            if not login_status:
+                self.whatsapp.send_message(phone, "Please log in first to view your profile.")
+                return {'success': False, 'response': 'Not logged in', 'handler': 'profile_view_not_logged_in'}
+            
+            # Extract role and user_id from login_status
+            role = login_status.get('role')
+            user_id = login_status.get('trainer_id') if role == 'trainer' else login_status.get('client_id')
+            
+            log_info(f"Profile view button - role: {role}, user_id: {user_id}, button_id: {button_id}")
+            
+            # Initialize ProfileViewer
+            profile_viewer = ProfileViewer(self.db, self.whatsapp)
+            
+            # Handle back_to_profile button or /view-profile command
+            if button_id in ['back_to_profile', '/view-profile']:
+                return profile_viewer.show_profile_menu(phone, role, user_id)
+            
+            # Handle view_* buttons (e.g., view_basic_info)
+            if button_id.startswith('view_'):
+                # Extract section_id (e.g., 'view_basic_info' -> 'view_basic_info')
+                return profile_viewer.show_profile_section(phone, role, user_id, button_id)
+            
+            return {'success': False, 'response': 'Unknown profile button', 'handler': 'profile_view_unknown'}
+            
+        except Exception as e:
+            log_error(f"Error handling profile view button: {str(e)}")
+            import traceback
+            log_error(f"Traceback: {traceback.format_exc()}")
+            self.whatsapp.send_message(phone, "Sorry, there was an error viewing your profile. Please try again.")
+            return {'success': False, 'response': 'Error viewing profile', 'handler': 'profile_view_error'}

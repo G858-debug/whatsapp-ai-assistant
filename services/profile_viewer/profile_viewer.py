@@ -275,13 +275,14 @@ class ProfileViewer:
     
     def _build_trainer_section(self, section_id: str, data: Dict) -> Optional[str]:
         """Build trainer section content"""
-        if section_id == 'view_basic_info':
+        # Handle both 'view_basic_info' and 'basic_info' formats
+        if section_id in ['view_basic_info', 'basic_info']:
             return self._build_trainer_basic_info(data)
-        elif section_id == 'view_business_details':
+        elif section_id in ['view_business_details', 'business_details']:
             return self._build_trainer_business_details(data)
-        elif section_id == 'view_availability':
+        elif section_id in ['view_availability', 'availability']:
             return self._build_trainer_availability(data)
-        elif section_id == 'view_services':
+        elif section_id in ['view_services', 'services']:
             return self._build_trainer_services(data)
         return None
     
@@ -406,13 +407,14 @@ class ProfileViewer:
     
     def _build_client_section(self, section_id: str, data: Dict) -> Optional[str]:
         """Build client section content"""
-        if section_id == 'view_basic_info':
+        # Handle both 'view_basic_info' and 'basic_info' formats
+        if section_id in ['view_basic_info', 'basic_info']:
             return self._build_client_basic_info(data)
-        elif section_id == 'view_fitness_goals':
+        elif section_id in ['view_fitness_goals', 'fitness_goals']:
             return self._build_client_fitness_goals(data)
-        elif section_id == 'view_health_info':
+        elif section_id in ['view_health_info', 'health_info']:
             return self._build_client_health_info(data)
-        elif section_id == 'view_preferences':
+        elif section_id in ['view_preferences', 'preferences']:
             return self._build_client_preferences(data)
         return None
     
