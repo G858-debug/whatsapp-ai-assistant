@@ -23,7 +23,9 @@ create table public.flow_tokens (
             'trainer_onboarding'::character varying,
             'client_onboarding'::character varying,
             'assessment_flow'::character varying,
-            'booking_flow'::character varying
+            'booking_flow'::character varying,
+            'edit_profile_trainer'::character varying,
+            'edit_profile_client'::character varying
           ]
         )::text[]
       )
