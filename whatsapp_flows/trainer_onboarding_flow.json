@@ -849,9 +849,12 @@
                 "label": "Select your plan",
                 "required": true,
                 "data-source": [
-                  { "id": "basic", "title": "🌟 Basic - R29/month" },
-                  { "id": "pro", "title": "⚡ Pro - R249/month" },
-                  { "id": "executive", "title": "👑 Executive - R349/month" }
+                  { "id": "free", "title": "🌟 Free - R0/month" },
+                  { "id": "premium", "title": "⚡ Premium - R249/month" },
+                  {
+                    "id": "professional",
+                    "title": "👑 Professional - R349/month"
+                  }
                 ]
               },
               {

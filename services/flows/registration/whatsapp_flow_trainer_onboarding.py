@@ -535,11 +535,15 @@ class WhatsAppFlowTrainerOnboarding:
             preset = flow_data.get(preset_key, 'not_available')
             hours = flow_data.get(hours_key, [])
             
-            # Ensure hours is a list
-            if isinstance(hours, str):
-                hours = [h.strip() for h in hours.split(',') if h.strip()]
-            elif not isinstance(hours, list):
-                hours = []
+            # Only use custom hours if preset is "custom"
+            if preset != 'custom':
+                hours = []  # Ignore custom hours if not using custom preset
+            else:
+                # Ensure hours is a list
+                if isinstance(hours, str):
+                    hours = [h.strip() for h in hours.split(',') if h.strip()]
+                elif not isinstance(hours, list):
+                    hours = []
             
             working_hours[day] = {
                 "preset": preset,
