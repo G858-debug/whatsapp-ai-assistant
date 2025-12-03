@@ -25,16 +25,28 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "💪 Let's Get Started!"
+          },
+          {
             "type": "TextBody",
-            "text": "My name is Refiloe Radebe, I'm your AI-powered personal assistant! Let's get you set up as a trainer in just a few steps. 💪 This will take about 2 minutes ⏱️."
+            "text": "👋 Hi, I'm Refiloe Radebe\n\n🤖 Your AI-powered personal assistant ready to help grow your training business!"
+          },
+          {
+            "type": "TextBody",
+            "text": "📋 Step 1: Basic Information\nYour name, email, location & birthday\n\n💼 Step 2: Business Details\nSpecializations, experience & pricing\n\n📅 Step 3: Weekly Availability\nSet your schedule for each day\n\n🎯 Step 4: Choose Your Plan\nSelect the best fit for your business\n\n✅ Step 5: Additional Services\nOptional extras you may offer"
+          },
+          {
+            "type": "TextBody",
+            "text": "⏱️ Takes just 2 minutes | 💾 Save anytime\n✨ Let's build your training empire!"
           },
           {
             "type": "Image",
-            "src": "https://mqemiteirxwscxtamdtj.supabase.co/storage/v1/object/public/whatsapp-flow-images/Welcome%20v2.jpg"
+            "src": "https://mqemiteirxwscxtamdtj.supabase.co/storage/v1/object/public/whatsapp-flow-images/trainer_onboarding_imge.jpg"
           },
           {
             "type": "Footer",
-            "label": "Continue",
+            "label": "Start Onboarding →",
             "on-click-action": {
               "name": "navigate",
               "next": {
@@ -53,8 +65,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📝 Step 1 of 5: Basic Information"
+          },
+          {
             "type": "TextBody",
-            "text": "First, let's get your basic information 📝"
+            "text": "Let's start with your personal details. This helps clients know who you are."
           },
           {
             "type": "Form",
@@ -105,7 +121,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue",
+                "label": "Next: Business Details →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -126,8 +142,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "💼 Step 2 of 5: Business Details"
+          },
+          {
             "type": "TextBody",
-            "text": "Tell us about your training business 💼"
+            "text": "Tell us about your training expertise and pricing."
           },
           {
             "type": "Form",
@@ -137,7 +157,21 @@
                 "type": "TextInput",
                 "name": "business_name",
                 "label": "Business name",
-                "required": false
+                "required": false,
+                "helper-text": "Your personal or company brand name"
+              },
+              {
+                "type": "Dropdown",
+                "name": "experience_years",
+                "label": "Years of experience",
+                "required": true,
+                "data-source": [
+                  { "id": "0-1", "title": "0-1 years - Just getting started" },
+                  { "id": "2-3", "title": "2-3 years - Building momentum" },
+                  { "id": "4-5", "title": "4-5 years - Experienced" },
+                  { "id": "6-10", "title": "6-10 years - Seasoned pro" },
+                  { "id": "10+", "title": "10+ years - Industry veteran" }
+                ]
               },
               {
                 "type": "CheckboxGroup",
@@ -146,47 +180,44 @@
                 "required": true,
                 "min-selected-items": 1,
                 "data-source": [
-                  { "id": "personal_training", "title": "Personal training" },
-                  { "id": "group_fitness", "title": "Group fitness" },
-                  { "id": "strength_training", "title": "Strength training" },
-                  { "id": "cardio_fitness", "title": "Cardio fitness" },
-                  { "id": "yoga_pilates", "title": "Yoga & pilates" },
-                  { "id": "sports_coaching", "title": "Sports coaching" },
-                  { "id": "nutrition_coaching", "title": "Nutrition coaching" },
+                  {
+                    "id": "personal_training",
+                    "title": "💪 Personal training"
+                  },
+                  { "id": "group_fitness", "title": "👥 Group fitness" },
+                  {
+                    "id": "strength_training",
+                    "title": "🏋️ Strength training"
+                  },
+                  { "id": "cardio_fitness", "title": "🏃 Cardio fitness" },
+                  { "id": "yoga_pilates", "title": "🧘 Yoga & pilates" },
+                  { "id": "sports_coaching", "title": "⚽ Sports coaching" },
+                  {
+                    "id": "nutrition_coaching",
+                    "title": "🥗 Nutrition coaching"
+                  },
                   {
                     "id": "rehabilitation",
-                    "title": "Rehabilitation & recovery"
+                    "title": "🩺 Rehabilitation & recovery"
                   },
-                  { "id": "general_fitness", "title": "General fitness" }
+                  { "id": "general_fitness", "title": "✨ General fitness" }
                 ]
-              },
-              {
-                "type": "Dropdown",
-                "name": "experience_years",
-                "label": "Years of experience",
-                "required": true,
-                "data-source": [
-                  { "id": "0-1", "title": "0-1 years" },
-                  { "id": "2-3", "title": "2-3 years" },
-                  { "id": "4-5", "title": "4-5 years" },
-                  { "id": "6-10", "title": "6-10 years" },
-                  { "id": "10+", "title": "10+ years" }
-                ]
-              },
-              {
-                "type": "TextBody",
-                "text": "💡 You will still be able to customize pricing for each client when you're onboarding them."
               },
               {
                 "type": "TextInput",
                 "name": "pricing_per_session",
-                "label": "Price per session (Rand)",
+                "label": "Default price per session (Rand)",
                 "input-type": "number",
-                "required": true
+                "required": true,
+                "helper-text": "Your standard rate - customize per client later"
+              },
+              {
+                "type": "TextBody",
+                "text": "💡 Flexible pricing: You can adjust rates for each client during their onboarding based on session packages, goals, or special arrangements."
               },
               {
                 "type": "Footer",
-                "label": "Continue",
+                "label": "Continue to Availability →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -207,8 +238,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Step 3 of 5: Weekly Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "*Let's set your weekly availability!* ⏰\n\nYou'll go through each day of the week (Monday to Sunday).\n\nFor each day:\n✓ Choose a quick preset (Not Available, Morning, Business Hours, etc.)\n✓ OR select 'Custom' and then pick specific hours below\n\nDon't worry! You can update your availability anytime later. 📆"
+            "text": "Let's set your weekly availability! ⏰\n\nYou'll go through each day of the week (Monday to Sunday).\n\nFor each day:\n✓ Choose a quick preset (Not Available, Morning, Business Hours, etc.)\n✓ OR select 'Custom' and pick specific hours\n\nDon't worry! You can update your availability anytime later. 📆"
           },
           {
             "type": "Form",
@@ -216,7 +251,7 @@
             "children": [
               {
                 "type": "Footer",
-                "label": "Let's start with Monday",
+                "label": "Start with Monday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -237,8 +272,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Monday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Mondays? 📅"
+            "text": "When are you available to train clients on Mondays?"
           },
           {
             "type": "Form",
@@ -247,7 +286,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "monday_preset",
-                "label": "⚡ Quick Presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -258,21 +297,17 @@
                   },
                   { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
                   { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
-                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                  { "id": "custom", "title": "✏️ Custom hours (select below)" }
                 ]
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "monday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -296,7 +331,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to Tuesday",
+                "label": "Continue to Tuesday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -317,8 +352,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Tuesday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Tuesdays? 📅"
+            "text": "When are you available to train clients on Tuesdays?"
           },
           {
             "type": "Form",
@@ -327,7 +366,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "tuesday_preset",
-                "label": "⚡ Quick presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -343,16 +382,12 @@
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "tuesday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -376,7 +411,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to Wednesday",
+                "label": "Continue to Wednesday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -397,8 +432,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Wednesday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Wednesdays? 📅"
+            "text": "When are you available to train clients on Wednesdays?"
           },
           {
             "type": "Form",
@@ -407,7 +446,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "wednesday_preset",
-                "label": "⚡ Quick presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -418,21 +457,17 @@
                   },
                   { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
                   { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
-                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                  { "id": "custom", "title": "✏️ Custom hours (select below)" }
                 ]
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "wednesday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -456,7 +491,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to Thursday",
+                "label": "Continue to Thursday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -477,8 +512,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Thursday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Thursdays? 📅"
+            "text": "When are you available to train clients on Thursdays?"
           },
           {
             "type": "Form",
@@ -487,7 +526,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "thursday_preset",
-                "label": "⚡ Quick presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -498,21 +537,17 @@
                   },
                   { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
                   { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
-                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                  { "id": "custom", "title": "✏️ Custom hours (select below)" }
                 ]
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "thursday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -536,7 +571,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to Friday",
+                "label": "Continue to Friday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -557,8 +592,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Friday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Fridays? 📅"
+            "text": "When are you available to train clients on Fridays?"
           },
           {
             "type": "Form",
@@ -567,7 +606,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "friday_preset",
-                "label": "⚡ Quick presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -578,21 +617,17 @@
                   },
                   { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
                   { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
-                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                  { "id": "custom", "title": "✏️ Custom hours (select below)" }
                 ]
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "friday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -616,7 +651,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to Saturday",
+                "label": "Continue to Saturday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -637,8 +672,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Saturday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Saturdays? 📅"
+            "text": "When are you available to train clients on Saturdays?"
           },
           {
             "type": "Form",
@@ -647,7 +686,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "saturday_preset",
-                "label": "⚡ Quick Presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -658,21 +697,17 @@
                   },
                   { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
                   { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
-                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                  { "id": "custom", "title": "✏️ Custom hours (select below)" }
                 ]
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "saturday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -696,7 +731,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to Sunday",
+                "label": "Continue to Sunday →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -712,13 +747,17 @@
     },
     {
       "id": "availability_sunday",
-      "title": "Sunday Hours ⏰",
+      "title": "Sunday hours ⏰",
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📅 Sunday Availability"
+          },
+          {
             "type": "TextBody",
-            "text": "When are you available on Sundays? 📅"
+            "text": "When are you available to train clients on Sundays?"
           },
           {
             "type": "Form",
@@ -727,7 +766,7 @@
               {
                 "type": "RadioButtonsGroup",
                 "name": "sunday_preset",
-                "label": "⚡ Quick presets",
+                "label": "Choose your schedule",
                 "required": true,
                 "data-source": [
                   { "id": "not_available", "title": "🚫 Not available" },
@@ -738,21 +777,17 @@
                   },
                   { "id": "morning", "title": "🌄 Morning (05:00-12:00)" },
                   { "id": "evening", "title": "🌆 Evening (17:00-21:00)" },
-                  { "id": "custom", "title": "✏️ Custom (select hours below)" }
+                  { "id": "custom", "title": "✏️ Custom hours (select below)" }
                 ]
               },
               {
                 "type": "TextBody",
-                "text": "━━━━━━━━━━━━━━━━━━━━━"
-              },
-              {
-                "type": "TextBody",
-                "text": "⬇️ *Custom hours section*\nOnly select hours below if you chose 'Custom' above.\nIf you selected a preset, skip this section and click Continue."
+                "text": "\nCUSTOM HOURS (Optional)\n\nOnly fill this if you selected 'Custom hours' above. Otherwise, skip to Continue."
               },
               {
                 "type": "CheckboxGroup",
                 "name": "sunday_hours",
-                "label": "Select specific hours",
+                "label": "Select your available hours",
                 "required": false,
                 "data-source": [
                   { "id": "05-06", "title": "05:00-06:00" },
@@ -776,7 +811,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue to plans",
+                "label": "Continue to Plans →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -797,8 +832,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "🎯 Step 4 of 5: Choose Your Plan"
+          },
+          {
             "type": "TextBody",
-            "text": "Select the plan that fits your business needs 💼\n\nAll plans include:\n✓ AI-powered client management\n✓ Automated scheduling\n✓ Progress tracking\n✓ 24/7 availability"
+            "text": "Select the plan that fits your business needs \n\nAll plans include:\n✓ AI-powered client management\n✓ Automated scheduling\n✓ Progress tracking\n✓ 24/7 availability"
           },
           {
             "type": "Form",
@@ -817,7 +856,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue",
+                "label": "Next: Additional Services →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -838,8 +877,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "🏢 Additional Services"
+          },
+          {
             "type": "TextBody",
-            "text": "What additional services do you offer? 🏢"
+            "text": "What additional services do you offer? This helps clients understand your full range of expertise."
           },
           {
             "type": "Form",
@@ -863,7 +906,7 @@
               },
               {
                 "type": "Footer",
-                "label": "Continue",
+                "label": "Next: Terms & Conditions →",
                 "on-click-action": {
                   "name": "navigate",
                   "next": {
@@ -885,8 +928,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "TextHeading",
+            "text": "📜 Step 5 of 5: Terms & Conditions"
+          },
+          {
             "type": "TextBody",
-            "text": "Please agree to our terms to complete your onboarding.\n\n📜 *Terms of service:*\nhttps://refiloeradebe.co.za/terms-and-conditions/\n\n🔒 *Privacy policy:*\nhttps://refiloeradebe.co.za/privacy-policy-2/\n\n📝 *Short summary:*\n• Refiloe acts under your guidance but can make decisions within those guidelines\n• We will NOT sell any of your data\n• Either party has until the next billing date for notice to terminate"
+            "text": "Please agree to our terms to complete your onboarding.\n\n📜 Terms of service:\nhttps://refiloeradebe.co.za/terms-and-conditions/\n\n🔒 Privacy policy:\nhttps://refiloeradebe.co.za/privacy-policy-2/\n\n📝 Short summary:\n• Refiloe acts under your guidance but can make decisions within those guidelines\n• We will NOT sell any of your data\n• Either party has until the next billing date for notice to terminate"
           },
           {
             "type": "Form",
@@ -901,12 +948,12 @@
               {
                 "type": "TextArea",
                 "name": "additional_notes",
-                "label": "Additional notes",
+                "label": "Additional notes (optional)",
                 "required": false
               },
               {
                 "type": "Footer",
-                "label": "Complete onboarding",
+                "label": "Complete onboarding 🎉",
                 "on-click-action": {
                   "name": "complete",
                   "payload": {
@@ -957,11 +1004,11 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Congratulations! 🎊"
+            "text": "🎊 Congratulations!"
           },
           {
             "type": "TextBody",
-            "text": "Welcome to Refiloe's family! It's awesome to have you onboard! We look forward to serving you, taking on your admin and growing your business!\nCheck WhatsApp to get you started."
+            "text": "Welcome to Refiloe's family! 🎉\n\nYou're all set! We're excited to help you:\n✓ Manage your clients\n✓ Automate your admin\n✓ Grow your business\n\nCheck WhatsApp for your welcome message and next steps!"
           },
           {
             "type": "Image",
@@ -969,7 +1016,7 @@
           },
           {
             "type": "Footer",
-            "label": "Done",
+            "label": "Get Started! →",
             "on-click-action": {
               "name": "complete",
               "payload": {}
