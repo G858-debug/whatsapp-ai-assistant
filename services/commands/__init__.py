@@ -3,8 +3,6 @@ Command Handlers - Organized Structure
 Universal and role-specific command handlers with delegation pattern
 """
 
-from .command_coordinator import CommandCoordinator
-
 # Backward compatibility imports - re-export all command functions
 # Common commands (available to all users)
 from .common.profile_commands import handle_view_profile, handle_edit_profile, handle_delete_account
@@ -40,9 +38,8 @@ handle_trainee_report = handle_export_habit_data # trainee reports -> handle_exp
 # Client aliases
 handle_search_trainer = handle_search_trainers # /search-trainer -> handle_search_trainers
 
-# Main coordinator
+# Exported functions
 __all__ = [
-    'CommandCoordinator',
     # Common commands
     'handle_view_profile',
     'handle_edit_profile', 
