@@ -56,7 +56,7 @@ class DataSaver:
                 'business_name': data.get('business_name'),
                 'experience_years': data.get('experience_years'),
                 'years_experience': years_experience,
-                'pricing_per_session': int(float(data.get('pricing_per_session', 500))) if data.get('pricing_per_session') else 500,
+                'default_price_per_session': int(float(data.get('pricing_per_session', 500))) if data.get('pricing_per_session') else 500,
                 'services_offered': data.get('services_offered', []) if data.get('services_offered') else [],
                 'pricing_flexibility': data.get('pricing_flexibility', []) if data.get('pricing_flexibility') else [],
                 'additional_notes': data.get('additional_notes'),
