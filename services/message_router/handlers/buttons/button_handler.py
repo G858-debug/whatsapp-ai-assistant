@@ -172,16 +172,20 @@ class ButtonHandler:
         try:
             from services.profile_viewer.profile_viewer import ProfileViewer
             
-            # Get user's login status
-            login_status = self.auth_service.get_login_status(phone)
+            # Get user's login status (returns role string or None)
+            role = self.auth_service.get_login_status(phone)
             
-            if not login_status:
+            if not role:
                 self.whatsapp.send_message(phone, "Please log in first to view your profile.")
                 return {'success': False, 'response': 'Not logged in', 'handler': 'profile_view_not_logged_in'}
             
-            # Extract role and user_id from login_status
-            role = login_status.get('role')
-            user_id = login_status.get('trainer_id') if role == 'trainer' else login_status.get('client_id')
+            # Get user_id by role
+            user_id = self.auth_service.get_user_id_by_role(phone, role)
+            
+            if not user_id:
+                log_error(f"User ID not found for {phone} with role {role}")
+                self.whatsapp.send_message(phone, "Sorry, there was an error with your account. Please try logging in again.")
+                return {'success': False, 'response': 'User ID not found', 'handler': 'profile_view_user_id_error'}
             
             log_info(f"Profile view button - role: {role}, user_id: {user_id}, button_id: {button_id}")
             
