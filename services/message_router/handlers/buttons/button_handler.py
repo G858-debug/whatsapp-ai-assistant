@@ -144,10 +144,10 @@ class ButtonHandler:
         This avoids creating a new MessageRouter instance and circular imports.
         """
         try:
-            # Get user's login status to determine role
-            login_status = self.auth_service.get_login_status(phone)
+            # Get user's login status to determine role (returns role string or None)
+            role = self.auth_service.get_login_status(phone)
             
-            if not login_status:
+            if not role:
                 # User not logged in - route through message router for proper handling
                 from services.message_router.message_router import MessageRouter
                 router = MessageRouter(self.db, self.whatsapp)
@@ -159,7 +159,7 @@ class ButtonHandler:
                 self.db, self.whatsapp, self.auth_service, self.task_service, 
                 getattr(self, 'reg_service', None)
             )
-            return logged_in_handler.handle_logged_in_button(phone, button_id, login_status)
+            return logged_in_handler.handle_logged_in_button(phone, button_id, role)
             
         except Exception as e:
             log_error(f"Error handling command button: {str(e)}")
