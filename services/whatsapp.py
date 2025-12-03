@@ -318,6 +318,76 @@ class WhatsAppService:
             log_error(f"Error sending WhatsApp button message: {str(e)}")
             return {'success': False, 'error': str(e)}
     
+    def send_list_message(self, phone: str, body: str, button_text: str, sections: List[Dict]) -> Dict:
+        """
+        Send WhatsApp list message
+        
+        Args:
+            phone: Recipient phone number
+            body: Message body text
+            button_text: Text for the button that opens the list (e.g., "View Sections")
+            sections: List of sections with rows
+                [
+                    {
+                        "title": "Section Title",
+                        "rows": [
+                            {"id": "row_id", "title": "Row Title", "description": "Row Description"}
+                        ]
+                    }
+                ]
+        
+        Returns:
+            Dict with success status
+        """
+        try:
+            # Format phone number
+            formatted_phone = self._format_phone_number(phone)
+            
+            # Test mode: write to file instead of sending
+            if self.test_mode:
+                return self._write_test_message(formatted_phone, body, sections, 'list')
+            
+            # Build interactive list message payload
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": formatted_phone,
+                "type": "interactive",
+                "interactive": {
+                    "type": "list",
+                    "body": {
+                        "text": body
+                    },
+                    "action": {
+                        "button": button_text,
+                        "sections": sections
+                    }
+                }
+            }
+            
+            # Send request
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                log_info(f"List message sent to {formatted_phone}")
+                return {'success': True, 'message_id': response.json().get('messages', [{}])[0].get('id')}
+            else:
+                log_error(f"Failed to send list message: {response.text}")
+                return {'success': False, 'error': response.text}
+                
+        except Exception as e:
+            log_error(f"Error sending WhatsApp list message: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
     def send_document(self, phone_number: str, document_url: str, 
                      filename: str = None, caption: str = None) -> Dict:
         """Send document (PDF, CSV, etc) via WhatsApp"""
