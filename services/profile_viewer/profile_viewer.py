@@ -137,10 +137,9 @@ class ProfileViewer:
             log_info(f"[ProfileViewer._get_profile_data] Getting profile for role: {role}, user_id: {user_id}")
             
             table = 'trainers' if role == 'trainer' else 'clients'
-            # The user_id passed in is already the trainer_id or client_id (UUID)
-            # The primary key in trainers table is 'id', not 'trainer_id'
-            # The primary key in clients table is 'id', not 'client_id'
-            id_column = 'id'
+            # The user_id is the custom ID (e.g., TR_ASRA_111 for trainers, CL_xxx for clients)
+            # These are stored in trainer_id and client_id columns, not the UUID 'id' column
+            id_column = 'trainer_id' if role == 'trainer' else 'client_id'
             
             log_info(f"[ProfileViewer._get_profile_data] Querying {table} table where {id_column}={user_id}")
             result = self.db.table(table).select('*').eq(id_column, user_id).execute()
@@ -151,7 +150,7 @@ class ProfileViewer:
                 log_info(f"[ProfileViewer._get_profile_data] Profile found")
                 return result.data[0]
             
-            log_error(f"[ProfileViewer._get_profile_data] No profile found for {role} with id {user_id}")
+            log_error(f"[ProfileViewer._get_profile_data] No profile found for {role} with {id_column}={user_id}")
             return None
             
         except Exception as e:
