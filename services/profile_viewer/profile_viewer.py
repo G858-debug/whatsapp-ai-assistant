@@ -133,17 +133,31 @@ class ProfileViewer:
     def _get_profile_data(self, role: str, user_id: str) -> Optional[Dict]:
         """Get profile data from database"""
         try:
-            table = 'trainers' if role == 'trainer' else 'clients'
-            id_column = 'trainer_id' if role == 'trainer' else 'client_id'
+            from utils.logger import log_info
+            log_info(f"[ProfileViewer._get_profile_data] Getting profile for role: {role}, user_id: {user_id}")
             
+            table = 'trainers' if role == 'trainer' else 'clients'
+            # The user_id passed in is already the trainer_id or client_id (UUID)
+            # The primary key in trainers table is 'id', not 'trainer_id'
+            # The primary key in clients table is 'id', not 'client_id'
+            id_column = 'id'
+            
+            log_info(f"[ProfileViewer._get_profile_data] Querying {table} table where {id_column}={user_id}")
             result = self.db.table(table).select('*').eq(id_column, user_id).execute()
             
+            log_info(f"[ProfileViewer._get_profile_data] Query result: {len(result.data) if result.data else 0} rows")
+            
             if result.data:
+                log_info(f"[ProfileViewer._get_profile_data] Profile found")
                 return result.data[0]
+            
+            log_error(f"[ProfileViewer._get_profile_data] No profile found for {role} with id {user_id}")
             return None
             
         except Exception as e:
-            log_error(f"Error getting profile data: {str(e)}")
+            log_error(f"[ProfileViewer._get_profile_data] Error: {str(e)}")
+            import traceback
+            log_error(f"[ProfileViewer._get_profile_data] Traceback: {traceback.format_exc()}")
             return None
     
     # ==================== TRAINER MENU ====================
