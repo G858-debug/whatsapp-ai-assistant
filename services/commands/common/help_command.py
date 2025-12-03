@@ -25,106 +25,51 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
             whatsapp.send_message(phone, help_msg)
             
         elif login_status == 'trainer':
-            # Trainer - interactive list
+            # Trainer - show all commands grouped by category
             help_msg = (
                 "📚 *Refiloe Help - Trainer*\n\n"
-                "Select a category below to see available commands:\n\n"
-                "💡 *Tip:* You can also just tell me what you want to do!"
+                "Browse command categories below, then just tell me what you want to do!\n\n"
+                "💡 *Example:* Say \"view my profile\" or \"invite a client\""
             )
             
             sections = [
                 {
-                    "title": "🔧 System & Profile",
+                    "title": "Available Commands",
                     "rows": [
                         {
-                            "id": "/view-profile",
-                            "title": "👤 View Profile",
-                            "description": "View your trainer profile"
+                            "id": "help_account",
+                            "title": "Account Management",
+                            "description": "view profile, edit profile, delete account, logout, switch role"
                         },
                         {
-                            "id": "/edit-profile",
-                            "title": "✏️ Edit Profile",
-                            "description": "Update your information"
+                            "id": "help_clients",
+                            "title": "Client Management",
+                            "description": "invite client, create client, view clients, remove client"
                         },
                         {
-                            "id": "/logout",
-                            "title": "🚪 Logout",
-                            "description": "Logout from your account"
+                            "id": "help_habits",
+                            "title": "Habit Management",
+                            "description": "create habit, edit habit, delete habit, view habits"
                         },
                         {
-                            "id": "/stop",
-                            "title": "⛔ Stop Task",
-                            "description": "Cancel any stuck tasks"
-                        }
-                    ]
-                },
-                {
-                    "title": "👥 Client Management",
-                    "rows": [
-                        {
-                            "id": "/invite-trainee",
-                            "title": "📧 Invite Client",
-                            "description": "Invite a new client"
+                            "id": "help_assign",
+                            "title": "Habit Assignment",
+                            "description": "assign habit, unassign habit, view client habits"
                         },
                         {
-                            "id": "/create-trainee",
-                            "title": "➕ Create Client",
-                            "description": "Create & invite client"
+                            "id": "help_progress",
+                            "title": "Progress Tracking",
+                            "description": "view client progress, weekly report, monthly report"
                         },
                         {
-                            "id": "/view-trainees",
-                            "title": "📋 View Clients",
-                            "description": "See all your clients"
+                            "id": "help_dashboard",
+                            "title": "Dashboard & Reports",
+                            "description": "trainer dashboard, export habit data"
                         },
                         {
-                            "id": "/remove-trainee",
-                            "title": "❌ Remove Client",
-                            "description": "Remove a client"
-                        }
-                    ]
-                },
-                {
-                    "title": "🎯 Habit Management",
-                    "rows": [
-                        {
-                            "id": "/create-habit",
-                            "title": "➕ Create Habit",
-                            "description": "Create new fitness habit"
-                        },
-                        {
-                            "id": "/assign-habit",
-                            "title": "📌 Assign Habit",
-                            "description": "Assign habit to clients"
-                        },
-                        {
-                            "id": "/view-habits",
-                            "title": "📋 View Habits",
-                            "description": "See all created habits"
-                        },
-                        {
-                            "id": "/edit-habit",
-                            "title": "✏️ Edit Habit",
-                            "description": "Modify habit details"
-                        }
-                    ]
-                },
-                {
-                    "title": "📊 Progress & Reports",
-                    "rows": [
-                        {
-                            "id": "/view-trainee-progress",
-                            "title": "📈 Client Progress",
-                            "description": "View client's progress"
-                        },
-                        {
-                            "id": "/trainee-weekly-report",
-                            "title": "📅 Weekly Report",
-                            "description": "Get weekly report"
-                        },
-                        {
-                            "id": "/trainer-dashboard",
-                            "title": "📊 Dashboard",
-                            "description": "Main trainer dashboard"
+                            "id": "help_system",
+                            "title": "System Commands",
+                            "description": "help, stop task, register"
                         }
                     ]
                 }
@@ -133,101 +78,51 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
             whatsapp.send_list_message(
                 phone=phone,
                 body=help_msg,
-                button_text="View Commands",
+                button_text="Browse Commands",
                 sections=sections
             )
             
         else:  # client
-            # Client - interactive list
+            # Client - show all commands grouped by category
             help_msg = (
                 "📚 *Refiloe Help - Client*\n\n"
-                "Select a category below to see available commands:\n\n"
-                "💡 *Tip:* You can also just tell me what you want to do!"
+                "Browse command categories below, then just tell me what you want to do!\n\n"
+                "💡 *Example:* Say \"log my habits\" or \"view progress\""
             )
             
             sections = [
                 {
-                    "title": "🔧 System & Profile",
+                    "title": "Available Commands",
                     "rows": [
                         {
-                            "id": "/view-profile",
-                            "title": "👤 View Profile",
-                            "description": "View your client profile"
+                            "id": "help_account",
+                            "title": "Account Management",
+                            "description": "view profile, edit profile, delete account"
                         },
                         {
-                            "id": "/edit-profile",
-                            "title": "✏️ Edit Profile",
-                            "description": "Update your information"
+                            "id": "help_trainers",
+                            "title": "Trainer Management",
+                            "description": "search trainers, invite trainer, view trainers, remove trainer"
                         },
                         {
-                            "id": "/stop",
-                            "title": "⛔ Stop Task",
-                            "description": "Cancel any stuck tasks"
-                        }
-                    ]
-                },
-                {
-                    "title": "👨‍🏫 Trainer Management",
-                    "rows": [
-                        {
-                            "id": "/search-trainer",
-                            "title": "🔍 Search Trainers",
-                            "description": "Find trainers near you"
+                            "id": "help_habits",
+                            "title": "Habit Tracking",
+                            "description": "view my habits, log habits, view progress"
                         },
                         {
-                            "id": "/invite-trainer",
-                            "title": "📧 Invite Trainer",
-                            "description": "Invite a trainer"
+                            "id": "help_reports",
+                            "title": "Progress Reports",
+                            "description": "weekly report, monthly report"
                         },
                         {
-                            "id": "/view-trainers",
-                            "title": "📋 View Trainers",
-                            "description": "See your trainers"
+                            "id": "help_reminders",
+                            "title": "Reminders",
+                            "description": "reminder settings, test reminder"
                         },
                         {
-                            "id": "/remove-trainer",
-                            "title": "❌ Remove Trainer",
-                            "description": "Remove a trainer"
-                        }
-                    ]
-                },
-                {
-                    "title": "🎯 Habit Tracking",
-                    "rows": [
-                        {
-                            "id": "/view-my-habits",
-                            "title": "📋 My Habits",
-                            "description": "View assigned habits"
-                        },
-                        {
-                            "id": "/log-habits",
-                            "title": "✅ Log Habits",
-                            "description": "Log today's habits"
-                        },
-                        {
-                            "id": "/view-progress",
-                            "title": "📈 View Progress",
-                            "description": "See your progress"
-                        }
-                    ]
-                },
-                {
-                    "title": "📊 Reports & Reminders",
-                    "rows": [
-                        {
-                            "id": "/weekly-report",
-                            "title": "📅 Weekly Report",
-                            "description": "Get weekly report"
-                        },
-                        {
-                            "id": "/monthly-report",
-                            "title": "📆 Monthly Report",
-                            "description": "Get monthly report"
-                        },
-                        {
-                            "id": "/reminder-settings",
-                            "title": "⏰ Reminder Settings",
-                            "description": "Configure reminders"
+                            "id": "help_system",
+                            "title": "System Commands",
+                            "description": "help, stop task"
                         }
                     ]
                 }
@@ -236,7 +131,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
             whatsapp.send_list_message(
                 phone=phone,
                 body=help_msg,
-                button_text="View Commands",
+                button_text="Browse Commands",
                 sections=sections
             )
         
