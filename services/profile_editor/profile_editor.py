@@ -71,7 +71,8 @@ class ProfileEditor:
             # 4. Select appropriate flow ID
             flow_id = self.trainer_flow_id if role == 'trainer' else self.client_flow_id
             
-            # 5. Build flow message with pre-filled data
+            # 5. Build flow message (WhatsApp doesn't support pre-filling via API)
+            # Note: Pre-filling must be done in the Flow JSON itself, not via API
             flow_message = {
                 "messaging_product": "whatsapp",
                 "recipient_type": "individual",
@@ -84,10 +85,10 @@ class ProfileEditor:
                         "text": "✏️ Edit Your Profile"
                     },
                     "body": {
-                        "text": "Update your profile information below. Your current details are pre-filled for you."
+                        "text": "Update your profile information. Please re-enter your details to update them."
                     },
                     "footer": {
-                        "text": "Only change what you need to update"
+                        "text": "Only fill in fields you want to change"
                     },
                     "action": {
                         "name": "flow",
@@ -96,9 +97,7 @@ class ProfileEditor:
                             "flow_token": flow_token,
                             "flow_id": flow_id,
                             "flow_cta": "Update Profile",
-                            "flow_action": "data_exchange",
-                            "mode": "draft",  # Allows pre-filling
-                            "screen_data": current_data  # Pre-filled values
+                            "flow_action": "data_exchange"
                         }
                     }
                 }
@@ -425,7 +424,10 @@ class ProfileEditor:
 
     def _build_update_data(self, flow_data: Dict, current_data: Dict, role: str) -> Dict:
         """
-        Build update data dict with only changed fields
+        Build update data dict with only changed/provided fields
+        
+        Since WhatsApp doesn't support pre-filling, users will only fill in fields they want to change.
+        We update only the fields that are provided and different from current values.
 
         Args:
             flow_data: New data from flow submission
@@ -459,10 +461,15 @@ class ProfileEditor:
                 new_value = flow_data.get(flow_field)
                 current_value = current_data.get(flow_field)
                 
-                # Normalize for comparison
-                if new_value != current_value:
+                # Only update if value is provided and different
+                # Empty strings and empty arrays are considered "not provided"
+                if new_value and new_value != current_value:
+                    # Skip empty arrays
+                    if isinstance(new_value, list) and len(new_value) == 0:
+                        continue
+                    
                     # Special handling for pricing_per_session
-                    if flow_field == 'pricing_per_session' and new_value:
+                    if flow_field == 'pricing_per_session':
                         try:
                             updates[db_column] = int(float(new_value))
                         except (ValueError, TypeError):
@@ -471,22 +478,35 @@ class ProfileEditor:
                         updates[db_column] = new_value
             
             # Handle working_hours separately (complex JSONB)
+            # Only update if at least one day has a preset other than 'not_available'
             new_working_hours = self._build_working_hours_from_flow(flow_data)
-            current_working_hours_flow = {k: v for k, v in current_data.items() 
-                                         if k.endswith('_preset') or k.endswith('_hours')}
-            new_working_hours_flow = self._extract_working_hours_for_flow(new_working_hours)
+            has_availability = any(
+                day_data.get('preset') != 'not_available' 
+                for day_data in new_working_hours.values()
+            )
             
-            if new_working_hours_flow != current_working_hours_flow:
-                updates['working_hours'] = new_working_hours
-                # Also update derived fields
-                updates['available_days'] = self._extract_available_days(new_working_hours)
-                updates['preferred_time_slots'] = self._extract_preferred_time_slots(new_working_hours)
+            if has_availability:
+                current_working_hours_flow = {k: v for k, v in current_data.items() 
+                                             if k.endswith('_preset') or k.endswith('_hours')}
+                new_working_hours_flow = self._extract_working_hours_for_flow(new_working_hours)
+                
+                if new_working_hours_flow != current_working_hours_flow:
+                    updates['working_hours'] = new_working_hours
+                    # Also update derived fields
+                    updates['available_days'] = self._extract_available_days(new_working_hours)
+                    updates['preferred_time_slots'] = self._extract_preferred_time_slots(new_working_hours)
             
-            # Update name field (concatenated)
-            if 'first_name' in updates or 'last_name' in updates:
-                first_name = flow_data.get('first_name', '')
-                surname = flow_data.get('surname', '')
-                updates['name'] = f"{first_name} {surname}".strip()
+            # Update name field (concatenated) if either first or last name provided
+            if flow_data.get('first_name') or flow_data.get('surname'):
+                first_name = flow_data.get('first_name', current_data.get('first_name', ''))
+                surname = flow_data.get('surname', current_data.get('surname', ''))
+                if first_name or surname:
+                    updates['name'] = f"{first_name} {surname}".strip()
+                    # Also update individual fields if not already in updates
+                    if first_name and 'first_name' not in updates:
+                        updates['first_name'] = first_name
+                    if surname and 'last_name' not in updates:
+                        updates['last_name'] = surname
             
             # Update legacy specialization field
             if 'specializations_arr' in updates:
@@ -509,10 +529,14 @@ class ProfileEditor:
                 new_value = flow_data.get(flow_field)
                 current_value = current_data.get(flow_field)
                 
-                if new_value != current_value:
+                # Only update if value is provided and different
+                if new_value and new_value != current_value:
+                    # Skip empty arrays
+                    if isinstance(new_value, list) and len(new_value) == 0:
+                        continue
                     updates[db_column] = new_value
         
-        # Always update updated_at timestamp
+        # Always update updated_at timestamp if there are changes
         if updates:
             updates['updated_at'] = datetime.now(self.sa_tz).isoformat()
         
@@ -578,6 +602,9 @@ class ProfileEditor:
     def _validate_updates(self, flow_data: Dict, role: str, user_id: str) -> list:
         """
         Validate update data
+        
+        Since users only fill in fields they want to change, we only validate
+        fields that are actually provided (not empty).
 
         Args:
             flow_data: Data from flow submission
@@ -590,15 +617,10 @@ class ProfileEditor:
         errors = []
         
         if role == 'trainer':
-            # Validate required fields
-            if not flow_data.get('first_name', '').strip():
-                errors.append("First name is required")
-            if not flow_data.get('surname', '').strip():
-                errors.append("Surname is required")
-            if not flow_data.get('email', '').strip():
-                errors.append("Email is required")
+            # Only validate fields that are provided (not empty)
+            # Note: At least one field should be provided for an edit to make sense
             
-            # Validate email uniqueness (excluding current user)
+            # Validate email uniqueness if email is provided
             email = flow_data.get('email', '').strip().lower()
             if email:
                 existing = self._check_email_exists(email, role, user_id)
@@ -614,19 +636,45 @@ class ProfileEditor:
                         errors.append("Price per session must be a positive number")
                 except (ValueError, TypeError):
                     errors.append("Price per session must be a valid number")
+            
+            # Check if at least one field is provided
+            has_any_field = any([
+                flow_data.get('first_name'),
+                flow_data.get('surname'),
+                flow_data.get('email'),
+                flow_data.get('city'),
+                flow_data.get('business_name'),
+                flow_data.get('specializations'),
+                flow_data.get('experience_years'),
+                flow_data.get('pricing_per_session'),
+                flow_data.get('services_offered'),
+                flow_data.get('additional_notes')
+            ])
+            
+            if not has_any_field:
+                errors.append("Please provide at least one field to update")
         
         else:  # client
-            if not flow_data.get('full_name', '').strip():
-                errors.append("Name is required")
-            if not flow_data.get('email', '').strip():
-                errors.append("Email is required")
-            
-            # Validate email uniqueness (excluding current user)
+            # Validate email uniqueness if email is provided
             email = flow_data.get('email', '').strip().lower()
             if email:
                 existing = self._check_email_exists(email, role, user_id)
                 if existing:
                     errors.append("This email is already registered to another client")
+            
+            # Check if at least one field is provided
+            has_any_field = any([
+                flow_data.get('full_name'),
+                flow_data.get('email'),
+                flow_data.get('fitness_goals'),
+                flow_data.get('experience_level'),
+                flow_data.get('health_conditions'),
+                flow_data.get('availability'),
+                flow_data.get('preferred_training_type')
+            ])
+            
+            if not has_any_field:
+                errors.append("Please provide at least one field to update")
         
         return errors
 
