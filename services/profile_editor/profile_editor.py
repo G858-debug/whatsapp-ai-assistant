@@ -68,10 +68,14 @@ class ProfileEditor:
             
             log_info(f"Sending edit profile flow to {phone} ({role}), token: {flow_token}")
             
-            # 4. Select appropriate flow ID
+            # 4. Send current profile summary first (since WhatsApp doesn't support pre-filling)
+            summary = self._format_profile_summary(current_data, role)
+            self.whatsapp.send_message(phone, summary)
+            
+            # 5. Select appropriate flow ID
             flow_id = self.trainer_flow_id if role == 'trainer' else self.client_flow_id
             
-            # 5. Build flow message (WhatsApp doesn't support pre-filling via API)
+            # 6. Build flow message (WhatsApp doesn't support pre-filling via API)
             # Note: Pre-filling must be done in the Flow JSON itself, not via API
             flow_message = {
                 "messaging_product": "whatsapp",
@@ -103,13 +107,13 @@ class ProfileEditor:
                 }
             }
             
-            # 6. Send flow via WhatsApp service
+            # 7. Send flow via WhatsApp service
             result = self.whatsapp.send_flow_message(flow_message)
             
             if result.get('success'):
                 log_info(f"✅ Edit flow sent successfully to {phone}")
                 
-                # 7. Save flow token to database for tracking
+                # 8. Save flow token to database for tracking
                 self._save_flow_token(phone, flow_token, role, user_id)
                 
                 return {
@@ -825,3 +829,76 @@ class ProfileEditor:
         
         except Exception as e:
             log_warning(f"Failed to mark flow as failed: {str(e)}")
+
+    def _format_profile_summary(self, profile_data: Dict, role: str) -> str:
+        """
+        Format current profile data as a summary message
+        
+        This helps users see their current data before editing,
+        since WhatsApp doesn't support pre-filling forms.
+        
+        Args:
+            profile_data: Current profile data (in flow format)
+            role: 'trainer' or 'client'
+        
+        Returns:
+            Formatted summary string
+        """
+        if role == 'trainer':
+            summary = "📋 *Your Current Profile*\n\n"
+            
+            if profile_data.get('first_name') or profile_data.get('surname'):
+                name = f"{profile_data.get('first_name', '')} {profile_data.get('surname', '')}".strip()
+                summary += f"*Name:* {name}\n"
+            
+            if profile_data.get('email'):
+                summary += f"*Email:* {profile_data['email']}\n"
+            
+            if profile_data.get('city'):
+                summary += f"*City:* {profile_data['city']}\n"
+            
+            if profile_data.get('business_name'):
+                summary += f"*Business:* {profile_data['business_name']}\n"
+            
+            if profile_data.get('specializations'):
+                specs = ', '.join(profile_data['specializations'])
+                summary += f"*Specializations:* {specs}\n"
+            
+            if profile_data.get('experience_years'):
+                summary += f"*Experience:* {profile_data['experience_years']}\n"
+            
+            if profile_data.get('pricing_per_session'):
+                summary += f"*Pricing:* R{profile_data['pricing_per_session']}/session\n"
+            
+            if profile_data.get('services_offered'):
+                services = ', '.join(profile_data['services_offered'])
+                summary += f"*Services:* {services}\n"
+            
+            summary += "\n💡 *Opening editor...*\nFill in only the fields you want to update."
+        
+        else:  # client
+            summary = "📋 *Your Current Profile*\n\n"
+            
+            if profile_data.get('full_name'):
+                summary += f"*Name:* {profile_data['full_name']}\n"
+            
+            if profile_data.get('email'):
+                summary += f"*Email:* {profile_data['email']}\n"
+            
+            if profile_data.get('fitness_goals'):
+                goals = ', '.join(profile_data['fitness_goals'])
+                summary += f"*Fitness Goals:* {goals}\n"
+            
+            if profile_data.get('experience_level'):
+                summary += f"*Experience:* {profile_data['experience_level']}\n"
+            
+            if profile_data.get('health_conditions'):
+                summary += f"*Health:* {profile_data['health_conditions']}\n"
+            
+            if profile_data.get('availability'):
+                avail = ', '.join(profile_data['availability'])
+                summary += f"*Availability:* {avail}\n"
+            
+            summary += "\n💡 *Opening editor...*\nFill in only the fields you want to update."
+        
+        return summary
