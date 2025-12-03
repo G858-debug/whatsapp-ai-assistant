@@ -214,38 +214,18 @@ def handle_delete_account(phone: str, role: str, user_id: str, db, whatsapp, aut
         warning_msg += "\n*This action cannot be undone!*"
         
         # Send message with confirmation buttons
-        button_message = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": phone,
-            "type": "interactive",
-            "interactive": {
-                "type": "button",
-                "body": {
-                    "text": warning_msg
-                },
-                "action": {
-                    "buttons": [
-                        {
-                            "type": "reply",
-                            "reply": {
-                                "id": f"confirm_delete_{role}",
-                                "title": "✅ Confirm Delete"
-                            }
-                        },
-                        {
-                            "type": "reply",
-                            "reply": {
-                                "id": "cancel_delete",
-                                "title": "❌ Cancel"
-                            }
-                        }
-                    ]
-                }
+        buttons = [
+            {
+                "id": f"confirm_delete_{role}",
+                "title": "✅ Confirm Delete"
+            },
+            {
+                "id": "cancel_delete",
+                "title": "❌ Cancel"
             }
-        }
+        ]
         
-        result = whatsapp.send_button_message(button_message)
+        result = whatsapp.send_button_message(phone, warning_msg, buttons)
         
         if result.get('success'):
             return {

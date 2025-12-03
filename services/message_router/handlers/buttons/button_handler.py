@@ -475,38 +475,18 @@ class ButtonHandler:
             final_warning += "\n\n*THIS CANNOT BE UNDONE!*"
             
             # Send final confirmation with buttons
-            button_message = {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": phone,
-                "type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {
-                        "text": final_warning
-                    },
-                    "action": {
-                        "buttons": [
-                            {
-                                "type": "reply",
-                                "reply": {
-                                    "id": f"final_confirm_delete_{role}_{user_id}",
-                                    "title": "⚠️ DELETE NOW"
-                                }
-                            },
-                            {
-                                "type": "reply",
-                                "reply": {
-                                    "id": "final_cancel_delete",
-                                    "title": "❌ Cancel"
-                                }
-                            }
-                        ]
-                    }
+            buttons = [
+                {
+                    "id": f"final_confirm_delete_{role}_{user_id}",
+                    "title": "⚠️ DELETE NOW"
+                },
+                {
+                    "id": "final_cancel_delete",
+                    "title": "❌ Cancel"
                 }
-            }
+            ]
             
-            result = self.whatsapp.send_button_message(button_message)
+            result = self.whatsapp.send_button_message(phone, final_warning, buttons)
             
             if result.get('success'):
                 return {
