@@ -13,10 +13,24 @@ def handle_view_profile(phone: str, role: str, user_id: str, db, whatsapp, reg_s
         from services.profile_viewer import ProfileViewer
         
         viewer = ProfileViewer(db, whatsapp)
-        return viewer.show_profile_menu(phone, role, user_id)
+
+        result = viewer.show_profile_menu(phone, role, user_id)
         
+        return result
+        
+    except ImportError as e:
+        log_error(f"[handle_view_profile] ImportError: {str(e)}")
+        import traceback
+        log_error(f"[handle_view_profile] Traceback: {traceback.format_exc()}")
+        return {
+            'success': False,
+            'response': "Sorry, I couldn't load the profile viewer module.",
+            'handler': 'view_profile_import_error'
+        }
     except Exception as e:
-        log_error(f"Error viewing profile: {str(e)}")
+        log_error(f"[handle_view_profile] Exception: {str(e)}")
+        import traceback
+        log_error(f"[handle_view_profile] Traceback: {traceback.format_exc()}")
         return {
             'success': False,
             'response': "Sorry, I couldn't load your profile.",

@@ -5,9 +5,22 @@ Universal and role-specific command handlers with delegation pattern
 
 # Backward compatibility imports - re-export all command functions
 # Common commands (available to all users)
-from .common.profile_commands import handle_view_profile, handle_edit_profile, handle_delete_account
-from .common.help_command import handle_help
-from .common.stop_command import handle_stop
+try:
+    from .common.profile_commands import handle_view_profile, handle_edit_profile, handle_delete_account
+    from .common.help_command import handle_help
+    from .common.stop_command import handle_stop
+    _common_commands_loaded = True
+except ImportError as e:
+    from utils.logger import log_error
+    log_error(f"[services.commands.__init__] Failed to import common commands: {str(e)}")
+    import traceback
+    log_error(f"[services.commands.__init__] Traceback: {traceback.format_exc()}")
+    _common_commands_loaded = False
+    # Provide dummy functions
+    def _not_available(*args, **kwargs):
+        return {'success': False, 'response': 'Command not available', 'handler': 'command_not_available'}
+    handle_view_profile = handle_edit_profile = handle_delete_account = _not_available
+    handle_help = handle_stop = _not_available
 
 # Trainer commands - import only if needed
 try:

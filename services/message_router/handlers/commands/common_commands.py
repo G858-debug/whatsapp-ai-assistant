@@ -3,7 +3,7 @@ Common Command Handler
 Handles commands that are available to both trainers and clients
 """
 from typing import Dict, Optional
-from utils.logger import log_error
+from utils.logger import log_info, log_error
 
 
 class CommonCommandHandler:
@@ -44,9 +44,19 @@ class CommonCommandHandler:
         """Handle view profile command"""
         try:
             from services.commands import handle_view_profile
-            return handle_view_profile(phone, role, user_id, self.db, self.whatsapp, None)
+
+            result = handle_view_profile(phone, role, user_id, self.db, self.whatsapp, None)
+            
+            return result
+        except ImportError as e:
+            log_error(f"[CommonCommandHandler._handle_view_profile] ImportError: {str(e)}")
+            import traceback
+            log_error(f"[CommonCommandHandler._handle_view_profile] Traceback: {traceback.format_exc()}")
+            return {'success': False, 'response': f'Import error: {str(e)}', 'handler': 'view_profile_import_error'}
         except Exception as e:
-            log_error(f"Error handling view profile: {str(e)}")
+            log_error(f"[CommonCommandHandler._handle_view_profile] Exception: {str(e)}")
+            import traceback
+            log_error(f"[CommonCommandHandler._handle_view_profile] Traceback: {traceback.format_exc()}")
             return {'success': False, 'response': 'Error viewing profile', 'handler': 'view_profile_error'}
     
     def _handle_edit_profile(self, phone: str, role: str, user_id: str) -> Dict:
