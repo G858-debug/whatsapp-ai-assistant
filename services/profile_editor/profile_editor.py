@@ -114,7 +114,9 @@ class ProfileEditor:
                 log_info(f"✅ Edit flow sent successfully to {phone}")
                 
                 # 8. Save flow token to database for tracking
-                self._save_flow_token(phone, flow_token, role, user_id)
+                log_info(f"Attempting to save flow token: {flow_token} for user_id: {user_id}")
+                save_result = self._save_flow_token(phone, flow_token, role, user_id)
+                log_info(f"Flow token save result: {save_result}")
                 
                 return {
                     'success': True,
@@ -414,13 +416,22 @@ class ProfileEditor:
     def _get_flow_token_record(self, flow_token: str) -> Optional[Dict]:
         """Get flow token record from database"""
         try:
+            log_info(f"Looking up flow token: {flow_token}")
             result = self.db.table('flow_tokens').select('*').eq(
                 'flow_token', flow_token
             ).execute()
             
+            log_info(f"Flow token query result: {result.data}")
+            
             if result.data and len(result.data) > 0:
+                log_info(f"Found flow token record: {result.data[0]}")
                 return result.data[0]
-            return None
+            else:
+                log_warning(f"No flow token record found for: {flow_token}")
+                # Try to find any recent tokens for debugging
+                recent = self.db.table('flow_tokens').select('*').order('created_at', desc=True).limit(5).execute()
+                log_info(f"Recent flow tokens: {recent.data}")
+                return None
         
         except Exception as e:
             log_error(f"Error getting flow token record: {str(e)}")
