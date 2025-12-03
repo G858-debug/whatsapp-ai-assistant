@@ -112,6 +112,11 @@ class ButtonHandler:
                 log_info(f"Routing {button_id} to ProfileViewer")
                 return self._handle_profile_view_button(phone, button_id)
 
+            elif button_id.startswith('help_'):
+                # Help category buttons (help_account, help_clients, etc.)
+                log_info(f"Routing {button_id} to help category handler")
+                return self._handle_help_category(phone, button_id)
+
             else:
                 log_error(f"Unknown button ID: {button_id}")
                 return {'success': False, 'response': 'Unknown button action', 'handler': 'button_unknown'}
@@ -175,6 +180,160 @@ class ButtonHandler:
         except Exception as e:
             log_error(f"Error handling command button: {str(e)}")
             return {'success': False, 'response': 'Error processing command', 'handler': 'command_button_error'}
+    
+    def _handle_help_category(self, phone: str, button_id: str) -> Dict:
+        """
+        Handle help category buttons (help_account, help_clients, etc.)
+        Shows detailed command list for the selected category
+        """
+        try:
+            # Get user's role
+            role = self.auth_service.get_login_status(phone)
+            
+            # Define command details for each category
+            trainer_categories = {
+                'help_account': {
+                    'title': '👤 Account Management',
+                    'commands': [
+                        '• *view profile* - View your trainer profile',
+                        '• *edit profile* - Update your information',
+                        '• *delete account* - Delete your account',
+                        '• *logout* - Logout from your account',
+                        '• *switch role* - Switch to client (if registered)'
+                    ]
+                },
+                'help_clients': {
+                    'title': '👥 Client Management',
+                    'commands': [
+                        '• *invite client* - Invite a new client',
+                        '• *create client* - Create and invite client',
+                        '• *view clients* - See all your clients',
+                        '• *remove client* - Remove a client'
+                    ]
+                },
+                'help_habits': {
+                    'title': '🎯 Habit Management',
+                    'commands': [
+                        '• *create habit* - Create new fitness habit',
+                        '• *edit habit* - Modify habit details',
+                        '• *delete habit* - Delete a habit',
+                        '• *view habits* - See all created habits'
+                    ]
+                },
+                'help_assign': {
+                    'title': '📌 Habit Assignment',
+                    'commands': [
+                        '• *assign habit* - Assign habit to clients',
+                        '• *unassign habit* - Unassign habit from client',
+                        '• *view client habits* - See habits assigned to a client'
+                    ]
+                },
+                'help_progress': {
+                    'title': '📊 Progress Tracking',
+                    'commands': [
+                        '• *view client progress* - View client\'s progress',
+                        '• *weekly report* - Get weekly report',
+                        '• *monthly report* - Get monthly report'
+                    ]
+                },
+                'help_dashboard': {
+                    'title': '📈 Dashboard & Reports',
+                    'commands': [
+                        '• *trainer dashboard* - Main trainer dashboard',
+                        '• *export habit data* - Export habit data'
+                    ]
+                },
+                'help_system': {
+                    'title': '⚙️ System Commands',
+                    'commands': [
+                        '• *help* - Show this help',
+                        '• *stop task* - Cancel any stuck tasks',
+                        '• *register* - Start registration'
+                    ]
+                }
+            }
+            
+            client_categories = {
+                'help_account': {
+                    'title': '👤 Account Management',
+                    'commands': [
+                        '• *view profile* - View your client profile',
+                        '• *edit profile* - Update your information',
+                        '• *delete account* - Delete your account'
+                    ]
+                },
+                'help_trainers': {
+                    'title': '👨‍🏫 Trainer Management',
+                    'commands': [
+                        '• *search trainers* - Find trainers near you',
+                        '• *invite trainer* - Invite a trainer',
+                        '• *view trainers* - See your trainers',
+                        '• *remove trainer* - Remove a trainer'
+                    ]
+                },
+                'help_habits': {
+                    'title': '🎯 Habit Tracking',
+                    'commands': [
+                        '• *view my habits* - View assigned habits',
+                        '• *log habits* - Log today\'s habits',
+                        '• *view progress* - See your progress'
+                    ]
+                },
+                'help_reports': {
+                    'title': '📊 Progress Reports',
+                    'commands': [
+                        '• *weekly report* - Get weekly report',
+                        '• *monthly report* - Get monthly report'
+                    ]
+                },
+                'help_reminders': {
+                    'title': '⏰ Reminders',
+                    'commands': [
+                        '• *reminder settings* - Configure reminders',
+                        '• *test reminder* - Test reminder message'
+                    ]
+                },
+                'help_system': {
+                    'title': '⚙️ System Commands',
+                    'commands': [
+                        '• *help* - Show this help',
+                        '• *stop task* - Cancel any stuck tasks'
+                    ]
+                }
+            }
+            
+            # Get the appropriate category
+            categories = trainer_categories if role == 'trainer' else client_categories
+            category = categories.get(button_id)
+            
+            if not category:
+                self.whatsapp.send_message(phone, "Sorry, I couldn't find that help category.")
+                return {'success': False, 'response': 'Category not found', 'handler': 'help_category_not_found'}
+            
+            # Build message
+            msg = f"{category['title']}\n\n"
+            msg += '\n'.join(category['commands'])
+            msg += "\n\n💡 *Tip:* Just say what you want to do (e.g., \"view my profile\")"
+            
+            # Send with back button
+            buttons = [
+                {'id': '/help', 'title': '📚 Back to Help'}
+            ]
+            
+            self.whatsapp.send_button_message(phone, msg, buttons)
+            
+            return {
+                'success': True,
+                'response': msg,
+                'handler': 'help_category'
+            }
+            
+        except Exception as e:
+            log_error(f"Error handling help category: {str(e)}")
+            import traceback
+            log_error(f"Traceback: {traceback.format_exc()}")
+            self.whatsapp.send_message(phone, "Sorry, there was an error showing that help category.")
+            return {'success': False, 'response': 'Error showing help category', 'handler': 'help_category_error'}
     
     def _handle_profile_view_button(self, phone: str, button_id: str) -> Dict:
         """
