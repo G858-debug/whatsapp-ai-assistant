@@ -378,7 +378,7 @@ class ProfileEditor:
                 confirmation_msg = (
                     f"✅ *Profile Updated Successfully!*\n\n"
                     f"{changes_summary}\n\n"
-                    f"Type /view-profile to see your updated profile."
+                    f"Type view-profile to see your updated profile."
                 )
                 self.whatsapp.send_message(phone_number, confirmation_msg)
                 
