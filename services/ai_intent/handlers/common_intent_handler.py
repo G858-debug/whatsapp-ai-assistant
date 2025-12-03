@@ -19,8 +19,6 @@ class CommonIntentHandler:
             'view_profile',
             'edit_profile',
             'delete_account',
-            'logout',
-            'switch_role',
             'help',
             'stop'
         ]
@@ -36,10 +34,6 @@ class CommonIntentHandler:
                 return self._handle_edit_profile(phone, name, intent, context)
             elif intent_type == 'delete_account':
                 return self._handle_delete_account(phone, name, intent, context)
-            elif intent_type == 'logout':
-                return self._handle_logout(phone, name, intent, context)
-            elif intent_type == 'switch_role':
-                return self._handle_switch_role(phone, name, intent, context)
             elif intent_type == 'help':
                 return self._handle_help(phone, name, intent, context)
             elif intent_type == 'stop':

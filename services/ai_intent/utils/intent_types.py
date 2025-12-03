@@ -13,8 +13,6 @@ class IntentTypes:
             'view_profile',
             'edit_profile', 
             'delete_account',
-            'logout',
-            'switch_role',
             'help',
             'stop'
         ]

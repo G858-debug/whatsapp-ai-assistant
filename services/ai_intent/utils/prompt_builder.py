@@ -91,8 +91,6 @@ Available Features (Phase 1):
 - View profile (/view-profile)
 - Edit profile (/edit-profile)
 - Delete account (/delete-account)
-- Logout (/logout)
-- Switch role (/switch-role if has both roles)
 - Help (/help)
 - Stop current task (/stop)
 
@@ -123,8 +121,6 @@ Available Features (Phase 1):
 - View profile (/view-profile)
 - Edit profile (/edit-profile)
 - Delete account (/delete-account)
-- Logout (/logout)
-- Switch role (/switch-role if has both roles)
 - Help (/help)
 - Stop current task (/stop)
 

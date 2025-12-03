@@ -61,8 +61,6 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                 "📚 *Refiloe Help - Client*\n\n"
                 "*Universal Commands:*\n"
                 "• /help - Show this help\n"
-                "• /logout - Logout\n"
-                "• /switch-role - Switch to trainer (if registered)\n"
                 "• /stop - Cancel any stuck tasks (enhanced)\n\n"
                 "*Profile Management:*\n"
                 "• /view-profile - View your profile\n"
