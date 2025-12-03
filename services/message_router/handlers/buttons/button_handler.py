@@ -197,7 +197,8 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-profile', 'title': '👤 View Profile'},
                         {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
-                        {'id': '/delete-account', 'title': '🗑️ Delete Account'}
+                        {'id': '/delete-account', 'title': '🗑️ Delete Account'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_clients': {
@@ -205,7 +206,8 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/invite-trainee', 'title': '📧 Invite Client'},
                         {'id': '/view-trainees', 'title': '📋 View Clients'},
-                        {'id': '/remove-trainee', 'title': '❌ Remove Client'}
+                        {'id': '/remove-trainee', 'title': '❌ Remove Client'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_habits': {
@@ -213,7 +215,8 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/create-habit', 'title': '➕ Create Habit'},
                         {'id': '/edit-habit', 'title': '✏️ Edit Habit'},
-                        {'id': '/view-habits', 'title': '📋 View Habits'}
+                        {'id': '/view-habits', 'title': '📋 View Habits'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_assign': {
@@ -245,7 +248,7 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/help', 'title': '📚 Show Help'},
                         {'id': '/stop', 'title': '⛔ Stop Task'},
-                        {'id': '/view-profile', 'title': '👤 View Profile'}
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 }
             }
@@ -256,7 +259,8 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-profile', 'title': '👤 View Profile'},
                         {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
-                        {'id': '/delete-account', 'title': '🗑️ Delete Account'}
+                        {'id': '/delete-account', 'title': '🗑️ Delete Account'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_trainers': {
@@ -264,7 +268,8 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/search-trainer', 'title': '🔍 Search Trainers'},
                         {'id': '/view-trainers', 'title': '📋 View Trainers'},
-                        {'id': '/remove-trainer', 'title': '❌ Remove Trainer'}
+                        {'id': '/remove-trainer', 'title': '❌ Remove Trainer'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_habits': {
@@ -272,7 +277,8 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/view-my-habits', 'title': '📋 My Habits'},
                         {'id': '/log-habits', 'title': '✅ Log Habits'},
-                        {'id': '/view-progress', 'title': '📈 View Progress'}
+                        {'id': '/view-progress', 'title': '📈 View Progress'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_reports': {
@@ -296,7 +302,7 @@ class ButtonHandler:
                     'buttons': [
                         {'id': '/help', 'title': '📚 Show Help'},
                         {'id': '/stop', 'title': '⛔ Stop Task'},
-                        {'id': '/view-profile', 'title': '👤 View Profile'}
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 }
             }
