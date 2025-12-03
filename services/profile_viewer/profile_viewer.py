@@ -110,8 +110,7 @@ class ProfileViewer:
             
             # Add navigation buttons
             buttons = [
-                {'id': '/view-profile', 'title': '📋 Back to Menu'},
-                {'id': '/edit-profile', 'title': '✏️ Edit Profile'}
+                {'id': '/view-profile', 'title': '📋 Back to Menu'}
             ]
             
             self.whatsapp.send_button_message(phone, section_msg, buttons)
@@ -194,7 +193,6 @@ class ProfileViewer:
             f"*Name:* {name}\n"
             f"*Email:* {data.get('email', 'N/A')}\n\n"
             f"📋 Select a section below to view details:\n\n"
-            f"💡 Tip: You can edit any section by typing /edit-profile"
         )
     
     def _build_trainer_menu_sections(self) -> list:
@@ -238,7 +236,6 @@ class ProfileViewer:
             f"*Name:* {name}\n"
             f"*Email:* {data.get('email', 'N/A')}\n\n"
             f"📋 Select a section below to view details:\n\n"
-            f"💡 Tip: You can edit any section by typing /edit-profile"
         )
     
     def _build_client_menu_sections(self) -> list:

@@ -184,120 +184,119 @@ class ButtonHandler:
     def _handle_help_category(self, phone: str, button_id: str) -> Dict:
         """
         Handle help category buttons (help_account, help_clients, etc.)
-        Shows detailed command list for the selected category
+        Shows clickable command buttons for the selected category
         """
         try:
             # Get user's role
             role = self.auth_service.get_login_status(phone)
             
-            # Define command details for each category
+            # Define command buttons for each category (max 3 buttons per message)
             trainer_categories = {
                 'help_account': {
-                    'title': '👤 Account Management',
-                    'commands': [
-                        '• *view profile* - View your trainer profile',
-                        '• *edit profile* - Update your information',
-                        '• *delete account* - Delete your account',
-                        '• *logout* - Logout from your account',
-                        '• *switch role* - Switch to client (if registered)'
+                    'title': '👤 *Account Management*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/view-profile', 'title': '👤 View Profile'},
+                        {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
+                        {'id': '/logout', 'title': '🚪 Logout'}
                     ]
                 },
                 'help_clients': {
-                    'title': '👥 Client Management',
-                    'commands': [
-                        '• *invite client* - Invite a new client',
-                        '• *create client* - Create and invite client',
-                        '• *view clients* - See all your clients',
-                        '• *remove client* - Remove a client'
+                    'title': '👥 *Client Management*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/invite-trainee', 'title': '📧 Invite Client'},
+                        {'id': '/view-trainees', 'title': '📋 View Clients'},
+                        {'id': '/remove-trainee', 'title': '❌ Remove Client'}
                     ]
                 },
                 'help_habits': {
-                    'title': '🎯 Habit Management',
-                    'commands': [
-                        '• *create habit* - Create new fitness habit',
-                        '• *edit habit* - Modify habit details',
-                        '• *delete habit* - Delete a habit',
-                        '• *view habits* - See all created habits'
+                    'title': '🎯 *Habit Management*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/create-habit', 'title': '➕ Create Habit'},
+                        {'id': '/edit-habit', 'title': '✏️ Edit Habit'},
+                        {'id': '/view-habits', 'title': '📋 View Habits'}
                     ]
                 },
                 'help_assign': {
-                    'title': '📌 Habit Assignment',
-                    'commands': [
-                        '• *assign habit* - Assign habit to clients',
-                        '• *unassign habit* - Unassign habit from client',
-                        '• *view client habits* - See habits assigned to a client'
+                    'title': '📌 *Habit Assignment*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/assign-habit', 'title': '📌 Assign Habit'},
+                        {'id': '/unassign-habit', 'title': '❌ Unassign Habit'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_progress': {
-                    'title': '📊 Progress Tracking',
-                    'commands': [
-                        '• *view client progress* - View client\'s progress',
-                        '• *weekly report* - Get weekly report',
-                        '• *monthly report* - Get monthly report'
+                    'title': '📊 *Progress Tracking*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/view-trainee-progress', 'title': '📈 Client Progress'},
+                        {'id': '/trainee-weekly-report', 'title': '📅 Weekly Report'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_dashboard': {
-                    'title': '📈 Dashboard & Reports',
-                    'commands': [
-                        '• *trainer dashboard* - Main trainer dashboard',
-                        '• *export habit data* - Export habit data'
+                    'title': '📈 *Dashboard & Reports*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/trainer-dashboard', 'title': '📊 Dashboard'},
+                        {'id': '/view-habits', 'title': '📋 View Habits'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_system': {
-                    'title': '⚙️ System Commands',
-                    'commands': [
-                        '• *help* - Show this help',
-                        '• *stop task* - Cancel any stuck tasks',
-                        '• *register* - Start registration'
+                    'title': '⚙️ *System Commands*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/help', 'title': '📚 Show Help'},
+                        {'id': '/stop', 'title': '⛔ Stop Task'},
+                        {'id': '/logout', 'title': '🚪 Logout'}
                     ]
                 }
             }
             
             client_categories = {
                 'help_account': {
-                    'title': '👤 Account Management',
-                    'commands': [
-                        '• *view profile* - View your client profile',
-                        '• *edit profile* - Update your information',
-                        '• *delete account* - Delete your account'
+                    'title': '👤 *Account Management*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/view-profile', 'title': '👤 View Profile'},
+                        {'id': '/edit-profile', 'title': '✏️ Edit Profile'},
+                        {'id': '/delete-account', 'title': '🗑️ Delete Account'}
                     ]
                 },
                 'help_trainers': {
-                    'title': '👨‍🏫 Trainer Management',
-                    'commands': [
-                        '• *search trainers* - Find trainers near you',
-                        '• *invite trainer* - Invite a trainer',
-                        '• *view trainers* - See your trainers',
-                        '• *remove trainer* - Remove a trainer'
+                    'title': '👨‍🏫 *Trainer Management*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/search-trainer', 'title': '🔍 Search Trainers'},
+                        {'id': '/view-trainers', 'title': '📋 View Trainers'},
+                        {'id': '/remove-trainer', 'title': '❌ Remove Trainer'}
                     ]
                 },
                 'help_habits': {
-                    'title': '🎯 Habit Tracking',
-                    'commands': [
-                        '• *view my habits* - View assigned habits',
-                        '• *log habits* - Log today\'s habits',
-                        '• *view progress* - See your progress'
+                    'title': '🎯 *Habit Tracking*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/view-my-habits', 'title': '📋 My Habits'},
+                        {'id': '/log-habits', 'title': '✅ Log Habits'},
+                        {'id': '/view-progress', 'title': '📈 View Progress'}
                     ]
                 },
                 'help_reports': {
-                    'title': '📊 Progress Reports',
-                    'commands': [
-                        '• *weekly report* - Get weekly report',
-                        '• *monthly report* - Get monthly report'
+                    'title': '📊 *Progress Reports*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/weekly-report', 'title': '📅 Weekly Report'},
+                        {'id': '/monthly-report', 'title': '📆 Monthly Report'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_reminders': {
-                    'title': '⏰ Reminders',
-                    'commands': [
-                        '• *reminder settings* - Configure reminders',
-                        '• *test reminder* - Test reminder message'
+                    'title': '⏰ *Reminders*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/reminder-settings', 'title': '⏰ Settings'},
+                        {'id': '/test-reminder', 'title': '🔔 Test Reminder'},
+                        {'id': '/help', 'title': '📚 Back to Help'}
                     ]
                 },
                 'help_system': {
-                    'title': '⚙️ System Commands',
-                    'commands': [
-                        '• *help* - Show this help',
-                        '• *stop task* - Cancel any stuck tasks'
+                    'title': '⚙️ *System Commands*\n\nSelect a command:',
+                    'buttons': [
+                        {'id': '/help', 'title': '📚 Show Help'},
+                        {'id': '/stop', 'title': '⛔ Stop Task'},
+                        {'id': '/view-profile', 'title': '👤 View Profile'}
                     ]
                 }
             }
@@ -310,21 +309,12 @@ class ButtonHandler:
                 self.whatsapp.send_message(phone, "Sorry, I couldn't find that help category.")
                 return {'success': False, 'response': 'Category not found', 'handler': 'help_category_not_found'}
             
-            # Build message
-            msg = f"{category['title']}\n\n"
-            msg += '\n'.join(category['commands'])
-            msg += "\n\n💡 *Tip:* Just say what you want to do (e.g., \"view my profile\")"
-            
-            # Send with back button
-            buttons = [
-                {'id': '/help', 'title': '📚 Back to Help'}
-            ]
-            
-            self.whatsapp.send_button_message(phone, msg, buttons)
+            # Send with command buttons
+            self.whatsapp.send_button_message(phone, category['title'], category['buttons'])
             
             return {
                 'success': True,
-                'response': msg,
+                'response': category['title'],
                 'handler': 'help_category'
             }
             
