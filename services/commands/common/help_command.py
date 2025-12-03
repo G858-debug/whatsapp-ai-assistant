@@ -38,12 +38,12 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                     "rows": [
                         {
                             "id": "help_account",
-                            "title": "Account Management",
+                            "title": "Account",
                             "description": "view profile, edit profile"
                         },
                         {
                             "id": "help_account2",
-                            "title": "Account Management (More)",
+                            "title": "Account (More)",
                             "description": "delete account, stop task"
                         },
                         {
@@ -53,7 +53,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         },
                         {
                             "id": "help_clients2",
-                            "title": "Client Management (More)",
+                            "title": "Clients (More)",
                             "description": "remove client, create client"
                         },
                         {
@@ -63,7 +63,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         },
                         {
                             "id": "help_habits2",
-                            "title": "Habit Management (More)",
+                            "title": "Habits (More)",
                             "description": "edit habit, delete habit"
                         },
                         {
@@ -106,12 +106,12 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                     "rows": [
                         {
                             "id": "help_account",
-                            "title": "Account Management",
+                            "title": "Account",
                             "description": "view profile, edit profile"
                         },
                         {
                             "id": "help_account2",
-                            "title": "Account Management (More)",
+                            "title": "Account (More)",
                             "description": "delete account, stop task"
                         },
                         {
@@ -121,7 +121,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         },
                         {
                             "id": "help_trainers2",
-                            "title": "Trainer Management (More)",
+                            "title": "Trainers (More)",
                             "description": "remove trainer, invite trainer"
                         },
                         {
@@ -131,7 +131,7 @@ def handle_help(phone: str, auth_service, whatsapp) -> Dict:
                         },
                         {
                             "id": "help_habits2",
-                            "title": "Habit Tracking (More)",
+                            "title": "Habits (More)",
                             "description": "view progress, weekly report"
                         },
                         {
